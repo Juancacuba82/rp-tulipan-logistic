@@ -59,7 +59,7 @@
                         </div>
                     </div>
                     <div class="sidebar-form">
-                        <div class="form-group"><label>ID</label><input type="text" id="in-id" placeholder="ID"></div>
+                        <div class="form-group"><label>ID</label><input type="text" id="in-id" placeholder="TRIP-0000" readonly style="background: #f1f5f9; cursor: not-allowed;"></div>
                         <div class="form-group"><label>2. DATE</label><input type="date" id="in-date"></div>
                         <div class="form-group">
                             <label>3. SIZE</label>
@@ -85,7 +85,10 @@
                             </select>
                         </div>
                         <div class="form-group"><label>4. N. CONT</label><input type="text" id="in-ncont" placeholder="N. Cont"></div>
-                        <div class="form-group"><label>5. RELEASE #</label><input type="text" id="in-release" placeholder="Release"></div>
+                        <div class="form-group"><label>5. RELEASE #</label>
+                            <input type="text" id="in-release" placeholder="Release" list="release-list">
+                            <datalist id="release-list"></datalist>
+                        </div>
                         <div class="form-group"><label>6. ORDER - BOL CONT #</label><input type="text" id="in-order" placeholder="Order/BOL"></div>
                         <div class="form-group">
                             <label>7. CITY</label>
@@ -107,54 +110,54 @@
                         </div>
                         <div class="form-group">
                             <label>8. PICK UP ADDRESS</label>
-                            <select id="in-pickup" required>
-                                <option value="" disabled selected>Select Pick Up Address</option>
-                                <option value="10110 NW 95 AVE">10110 NW 95 AVE</option>
-                                <option value="10110 NW 105 AVE MEDLEY FL 33178">10110 NW 105 AVE MEDLEY FL 33178</option>
-                                <option value="10400 NW 95 AVE MEDLEY FL 33178">10400 NW 95 AVE MEDLEY FL 33178</option>
-                                <option value="10458 ALTA DR JACKSONVILLE FL 32226">10458 ALTA DR JACKSONVILLE FL 32226</option>
-                                <option value="14300 SW 194 AVE MIAMI FL 33196">14300 SW 194 AVE MIAMI FL 33196</option>
-                                <option value="18300 SW 158 ST MIAMI FL">18300 SW 158 ST MIAMI FL</option>
-                                <option value="19-3 HYATT AVE NEWARK NJ 07105">19-3 HYATT AVE NEWARK NJ 07105</option>
-                                <option value="219 SQUANKUM RD FAMINGDALE NJ 07727">219 SQUANKUM RD FAMINGDALE NJ 07727</option>
-                                <option value="230 GUN CLUB RD JACKSONVILLE FL 32218">230 GUN CLUB RD JACKSONVILLE FL 32218</option>
-                                <option value="2545 NW 35TH ST MIAMI FL 33142">2545 NW 35TH ST MIAMI FL 33142</option>
-                                <option value="2640 S 12 AVE TAMPA FL 33619">2640 S 12 AVE TAMPA FL 33619</option>
-                                <option value="295 DOREMUS AVE NEWARK 07105">295 DOREMUS AVE NEWARK 07105</option>
-                                <option value="32 SPIRIT LAKE RD WINTER HAVEN FL">32 SPIRIT LAKE RD WINTER HAVEN FL</option>
-                                <option value="321 GRANGE RD SAVANNAG GA 31407">321 GRANGE RD SAVANNAG GA 31407</option>
-                                <option value="3220 N COCOA BLVD COCOA FL 32926">3220 N COCOA BLVD COCOA FL 32926</option>
-                                <option value="3237CHEESEQUAKE RD OLD BRIDGE NJ 08857">3237CHEESEQUAKE RD OLD BRIDGE NJ 08857</option>
-                                <option value="340 COMMERCE DR RINCON GA 31326">340 COMMERCE DR RINCON GA 31326</option>
-                                <option value="3500 KING ST SUITE a, COCOA FL 32926">3500 KING ST SUITE a, COCOA FL 32926</option>
-                                <option value="4050 MARITIME BLVD TAMPA FL 33605">4050 MARITIME BLVD TAMPA FL 33605</option>
-                                <option value="4135 OLD MCDOUNGH RD GA">4135 OLD MCDOUNGH RD GA</option>
-                                <option value="5107 RAWLS RD TAMPA FL 33624">5107 RAWLS RD TAMPA FL 33624</option>
-                                <option value="6508 EAST LOMBARD ST BALTIMORE MD 21224">6508 EAST LOMBARD ST BALTIMORE MD 21224</option>
-                                <option value="6601 TICO RD TITUSVILLE FL 32780">6601 TICO RD TITUSVILLE FL 32780</option>
-                                <option value="6890 NW 25 ST MIAMI FL 33122">6890 NW 25 ST MIAMI FL 33122</option>
-                                <option value="8211 FISCHER RD BALTIMORE MD 21222">8211 FISCHER RD BALTIMORE MD 21222</option>
-                                <option value="8300 NW 87 AVE MEDLEY FL 33166">8300 NW 87 AVE MEDLEY FL 33166</option>
-                                <option value="8421 NW 70 ST MIAMI FL 33166">8421 NW 70 ST MIAMI FL 33166</option>
-                                <option value="8831 MONCRIEF-DISMORE RD JACKSONVILLE FL 32219">8831 MONCRIEF-DISMORE RD JACKSONVILLE FL 32219</option>
-                                <option value="9801 NW 106 ST MEDLEY FL 33178">9801 NW 106 ST MEDLEY FL 33178</option>
-                                <option value="9804 NW 80 AVE HIALEAH FL 33106">9804 NW 80 AVE HIALEAH FL 33106</option>
-                                <option value="ACE STEVEDORING">ACE STEVEDORING</option>
-                                <option value="BRADENTON">BRADENTON</option>
-                                <option value="CONGLOBAL JAX">CONGLOBAL JAX</option>
-                                <option value="CONT MAINTENANCE">CONT MAINTENANCE</option>
-                                <option value="DORAL">DORAL</option>
-                                <option value="FIT TERMINAL">FIT TERMINAL</option>
-                                <option value="FLCHR YARD">FLCHR YARD</option>
-                                <option value="GENERAL TRANS DEPO">GENERAL TRANS DEPO</option>
-                                <option value="MARITIME CONT">MARITIME CONT</option>
-                                <option value="MIAMI CONT">MIAMI CONT</option>
-                                <option value="OKECHOBEE">OKECHOBEE</option>
-                                <option value="QUALITY CONT">QUALITY CONT</option>
-                                <option value="SOLO DEPOT">SOLO DEPOT</option>
-                                <option value="ST CLOUD">ST CLOUD</option>
-                                <option value="TRUCK YARD">TRUCK YARD</option>
-                            </select>
+                            <input type="text" id="in-pickup" placeholder="Pick Up Address" list="address-list">
+                            <datalist id="address-list">
+                                <option value="10110 NW 95 AVE">
+                                <option value="10110 NW 105 AVE MEDLEY FL 33178">
+                                <option value="10400 NW 95 AVE MEDLEY FL 33178">
+                                <option value="10458 ALTA DR JACKSONVILLE FL 32226">
+                                <option value="14300 SW 194 AVE MIAMI FL 33196">
+                                <option value="18300 SW 158 ST MIAMI FL">
+                                <option value="19-3 HYATT AVE NEWARK NJ 07105">
+                                <option value="219 SQUANKUM RD FAMINGDALE NJ 07727">
+                                <option value="230 GUN CLUB RD JACKSONVILLE FL 32218">
+                                <option value="2545 NW 35TH ST MIAMI FL 33142">
+                                <option value="2640 S 12 AVE TAMPA FL 33619">
+                                <option value="295 DOREMUS AVE NEWARK 07105">
+                                <option value="32 SPIRIT LAKE RD WINTER HAVEN FL">
+                                <option value="321 GRANGE RD SAVANNAG GA 31407">
+                                <option value="3220 N COCOA BLVD COCOA FL 32926">
+                                <option value="3237CHEESEQUAKE RD OLD BRIDGE NJ 08857">
+                                <option value="340 COMMERCE DR RINCON GA 31326">
+                                <option value="3500 KING ST SUITE a, COCOA FL 32926">
+                                <option value="4050 MARITIME BLVD TAMPA FL 33605">
+                                <option value="4135 OLD MCDOUNGH RD GA">
+                                <option value="5107 RAWLS RD TAMPA FL 33624">
+                                <option value="6508 EAST LOMBARD ST BALTIMORE MD 21224">
+                                <option value="6601 TICO RD TITUSVILLE FL 32780">
+                                <option value="6890 NW 25 ST MIAMI FL 33122">
+                                <option value="8211 FISCHER RD BALTIMORE MD 21222">
+                                <option value="8300 NW 87 AVE MEDLEY FL 33166">
+                                <option value="8421 NW 70 ST MIAMI FL 33166">
+                                <option value="8831 MONCRIEF-DISMORE RD JACKSONVILLE FL 32219">
+                                <option value="9801 NW 106 ST MEDLEY FL 33178">
+                                <option value="9804 NW 80 AVE HIALEAH FL 33106">
+                                <option value="ACE STEVEDORING">
+                                <option value="BRADENTON">
+                                <option value="CONGLOBAL JAX">
+                                <option value="CONT MAINTENANCE">
+                                <option value="DORAL">
+                                <option value="FIT TERMINAL">
+                                <option value="FLCHR YARD">
+                                <option value="GENERAL TRANS DEPO">
+                                <option value="MARITIME CONT">
+                                <option value="MIAMI CONT">
+                                <option value="OKECHOBEE">
+                                <option value="QUALITY CONT">
+                                <option value="SOLO DEPOT">
+                                <option value="ST CLOUD">
+                                <option value="TRUCK YARD">
+                            </datalist>
                         </div>
                         <div class="form-group"><label>9. DELIVERY PLACE</label><input type="text" id="in-delivery" placeholder="Delivery"></div>
                         <div class="form-group">
@@ -860,12 +863,89 @@
             }
         }
 
+        // --- NEW: TRIP HISTORY LOGIC ---
+        function addRow() {
+            // Auto-generate ID if empty or always generate a new one
+            const nextId = 'TRIP-' + Date.now().toString().slice(-6);
+            document.getElementById('in-id').value = nextId;
+
+            const fields = [
+                'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup', 
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paystatus', 'in-paydate', 
+                'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver', 
+                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone', 
+                'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income', 
+                'in-invoice', 'in-note', 'in-storage', 'in-inout'
+            ];
+            
+            const tr = document.createElement('tr');
+            fields.forEach(id => {
+                const td = document.createElement('td');
+                const el = document.getElementById(id);
+                td.textContent = el ? el.value || '---' : '---';
+                tr.appendChild(td);
+            });
+
+            tableBody.appendChild(tr);
+            saveTableData();
+            if(window.updateReleaseDatalist) window.updateReleaseDatalist();
+            if(window.updateAddressDatalist) window.updateAddressDatalist();
+
+            // Clear some fields and prep next ID
+            ['in-ncont', 'in-release', 'in-order', 'in-delivery', 'in-miles'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.value = '';
+            });
+            document.getElementById('in-id').value = 'TRIP-' + (Date.now() + 1).toString().slice(-6);
+        }
+
+        function updateReleaseDatalist() {
+            const saved = localStorage.getItem('logisticsTableData');
+            const releaseList = document.getElementById('release-list');
+            if(saved && releaseList) {
+                const rows = JSON.parse(saved);
+                // Release index is 4 in the logistics table
+                const uniqueReleases = [...new Set(rows.map(r => r[4]).filter(val => val && val !== '---'))];
+                releaseList.innerHTML = '';
+                uniqueReleases.sort().forEach(rel => {
+                    const opt = document.createElement('option');
+                    opt.value = rel;
+                    releaseList.appendChild(opt);
+                });
+            }
+        }
+        
+        function updateAddressDatalist() {
+            const saved = localStorage.getItem('logisticsTableData');
+            const addressList = document.getElementById('address-list');
+            if(saved && addressList) {
+                const rows = JSON.parse(saved);
+                // Address index is 7 in the logistics table
+                const storedValues = rows.map(r => r[7]).filter(val => val && val !== '---');
+                
+                // Keep initial hardcoded options
+                const existingOptions = Array.from(addressList.options).map(opt => opt.value);
+                const uniqueNewOnes = [...new Set(storedValues)].filter(val => !existingOptions.includes(val));
+                
+                uniqueNewOnes.forEach(addr => {
+                    const opt = document.createElement('option');
+                    opt.value = addr;
+                    addressList.appendChild(opt);
+                });
+            }
+        }
+
         // Initialize state on load
         window.addEventListener('DOMContentLoaded', () => {
             const savedView = localStorage.getItem('activeView') || 'hero';
             showView(savedView);
             loadTableData();
             loadReleasesData();
+            updateReleaseDatalist();
+            updateAddressDatalist();
+            
+            // Set initial ID
+            document.getElementById('in-id').value = 'TRIP-' + Date.now().toString().slice(-6);
 
             // New logic for Release Row addition
             window.addReleaseRow = () => {
