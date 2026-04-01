@@ -291,9 +291,9 @@ body {
     overflow: hidden;
 }
 
-/* Left Panel: Form (40%) */
+/* Left Panel: Form (Fixed width for better side-by-side) */
 .entry-sidebar.primary-entry {
-    flex: 0 0 40%;
+    flex: 0 0 650px;
     background: white;
     border-right: 1px solid #d1d5db;
     display: flex;
@@ -302,13 +302,13 @@ body {
     z-index: 5;
 }
 
-/* Right Panel: Table (60%) */
+/* Right Panel: Area (Flexible) */
 .table-area {
-    flex: 0 0 60%;
+    flex: 1;
     display: flex;
     flex-direction: column;
     padding: 20px;
-    overflow: hidden;
+    overflow: auto;
 }
 
 .table-toolbar {
@@ -421,8 +421,8 @@ body {
 }
 
 .form-group label {
-    flex: 0 0 140px; /* Fixed width for labels to align inputs */
-    font-size: 0.75rem;
+    flex: 0 0 150px; /* Fully visible labels now */
+    font-size: 0.85rem;
     font-weight: 700;
     color: #64748b;
     text-transform: uppercase;
@@ -434,7 +434,7 @@ body {
     padding: 6px 10px;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-family: inherit;
     outline: none;
     background-color: #fff;
@@ -483,9 +483,9 @@ body {
 .receipt-paper {
     background: white;
     width: 100%;
-    max-width: 850px;
-    margin: 0 auto;
-    padding: 40px;
+    max-width: 650px; /* Reduced further to ensure sidebar space */
+    margin: 0 auto 50px;
+    padding: 20px; /* More compact preview */
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     font-family: 'Outfit', sans-serif;
     color: #333;
@@ -616,12 +616,48 @@ body {
 .sig-col { width: 300px; text-align: center; font-size: 0.65rem; }
 .sig-line { border-bottom: 1.5px solid #000; margin: 20px 0 5px; }
 
+/* Unified Docs Center Specifics */
+.doc-selector-group {
+    background: #f1f5f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+
+.preview-template {
+    display: none; /* Controlled by JS */
+    transform: scale(0.7); /* Compact for wide sidebar filling */
+    transform-origin: top center;
+    margin-top: -50px; /* Offset scale space */
+}
+
+/* Specific highlight for Sales Receipt */
+#tpl-sales .fees-box {
+    border: 3px solid #0f172a;
+    background: #f8fafc;
+}
+
+.form-divider {
+    margin: 20px 0;
+    border: 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+.p-amount, .p-total-receipt, .p-total-sales {
+    color: #b91c1c;
+    font-weight: 900;
+}
+
 /* Print Specific Styles */
 @media print {
     body * { visibility: hidden !important; }
-    #printable-receipt, #printable-receipt *,
-    #printable-format, #printable-format * { visibility: visible !important; }
-    #printable-receipt, #printable-format {
+    
+    /* Only visible the active template */
+    #tpl-delivery:not(.hidden-preview), 
+    #tpl-yard:not(.hidden-preview), 
+    #tpl-sales:not(.hidden-preview) {
+        visibility: visible !important;
+        display: block !important;
         position: absolute !important;
         left: 0 !important;
         top: 0 !important;
@@ -631,5 +667,12 @@ body {
         box-shadow: none !important;
         background: white !important;
     }
+
+    #tpl-delivery:not(.hidden-preview) *, 
+    #tpl-yard:not(.hidden-preview) *, 
+    #tpl-sales:not(.hidden-preview) * {
+        visibility: visible !important;
+    }
+
     .navbar, .entry-sidebar, .header-actions, .view-section.hidden, .hero, .nav-actions, #header-nav { display: none !important; }
 }

@@ -27,9 +27,8 @@
             </button>
 
             <div class="nav-actions" id="nav-actions-container">
-                <a href="javascript:void(0)" onclick="closeMenu(); showView('delivery-format')" class="btn-calendar">DELIVERY FORMAT</a>
-                <a href="javascript:void(0)" onclick="closeMenu(); showView('yard')" class="btn-calendar">YARD SERV RECEIPT</a>
-                <a href="javascript:void(0)" onclick="closeMenu(); showView('calendar')" class="btn-calendar">From Delivery Calendar</a>
+                <a href="javascript:void(0)" onclick="closeMenu(); showView('docs')" class="btn-calendar">DOCS & RECEIPTS</a>
+                <a href="javascript:void(0)" onclick="closeMenu(); showView('calendar')" class="btn-calendar">FROM DELIVERY CALENDAR</a>
             </div>
         </div>
     </header>
@@ -381,65 +380,70 @@
             </div>
         </section>
 
-        <!-- Yard Service Receipt View -->
-        <!-- Yard Service Receipt View -->
-        <section id="yard-view" class="view-section hidden">
+        <!-- Unified Docs Center View -->
+        <section id="docs-view" class="view-section hidden">
             <div class="dashboard-split-container">
-                <!-- Left: Receipt Form -->
-                <aside class="entry-sidebar primary-entry" style="flex: 0 0 35%;">
+                <!-- Left: Unified Document Form -->
+                <aside class="entry-sidebar primary-entry" style="width: 650px;">
                     <div class="sidebar-header">
-                        <h3>Create Receipt</h3>
+                        <h3>Document Generator</h3>
                         <div class="header-actions">
-                            <button onclick="window.print()" class="btn-add-sidebar">Print Receipt</button>
+                            <button onclick="window.print()" class="btn-add-sidebar">Print Document</button>
                             <button onclick="showView('hero')" class="btn-cancel">Exit</button>
                         </div>
                     </div>
                     <div class="sidebar-form">
-                        <div class="form-group"><label>INITIAL DATE</label><input type="date" id="r-init-date"></div>
-                        <div class="form-group"><label>STATUS MOVEMENT</label>
-                            <select id="r-move">
-                                <option value="">None</option>
-                                <option value="IN">IN</option>
-                                <option value="OUT">OUT</option>
+                        <!-- TYPE SELECTOR -->
+                        <div class="form-group doc-selector-group" style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                            <label style="font-weight: 900; color: #1e293b; display: block; margin-bottom: 8px;">SELECT DOCUMENT TYPE</label>
+                            <select id="doc-type-selector" class="doc-type-select" style="width: 100%; padding: 12px; border-radius: 6px; border: 2px solid #3b82f6; font-weight: 700;">
+                                <option value="delivery">DELIVERY FORMAT</option>
+                                <option value="yard">YARD SERV RECEIPT</option>
+                                <option value="sales">SALES RECEIPT</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>LOAD STATUS</label>
-                            <select id="r-load">
-                                <option value="">None</option>
-                                <option value="EMPTY">EMPTY</option>
-                                <option value="FULL">FULL</option>
-                            </select>
+
+                        <!-- COMMON FIELDS -->
+                        <div class="form-group"><label>INITIAL DATE</label><input type="date" id="u-init-date"></div>
+                        <div class="form-group field-delivery field-sales"><label>FINAL DATE</label><input type="date" id="u-final-date"></div>
+                        
+                        <div class="form-row-2" style="display: flex; gap: 10px;">
+                            <div class="form-group" style="flex: 1;"><label>MOVEMENT</label>
+                                <select id="u-move">
+                                    <option value="">None</option>
+                                    <option value="IN">IN</option>
+                                    <option value="OUT">OUT</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1;"><label>LOAD</label>
+                                <select id="u-load">
+                                    <option value="">None</option>
+                                    <option value="EMPTY">EMPTY</option>
+                                    <option value="FULL">FULL</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group"><label>CONTAINER TYPE</label>
-                            <select id="r-type" required>
-                                <option value="DRY">DRY</option>
-                                <option value="REEFER">REEFER</option>
-                            </select>
+
+                        <div class="form-row-2" style="display: flex; gap: 10px;">
+                            <div class="form-group" style="flex: 1;"><label>TYPE</label>
+                                <select id="u-type">
+                                    <option value="DRY">DRY</option>
+                                    <option value="REEFER">REEFER</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1;"><label>SIZE</label>
+                                <select id="u-size">
+                                    <option value="40' HC">40' HC</option>
+                                    <option value="40' STD">40' STD</option>
+                                    <option value="20' STD">20' STD</option>
+                                    <option value="45' HC">45' HC</option>
+                                    <option value="20' HC">20' HC</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group"><label>CONTAINER SIZE</label>
-                            <select id="r-size" required>
-                                <option value="" disabled selected>Select Size</option>
-                                <option value="40' HC">40' HC</option>
-                                <option value="40' STD">40' STD</option>
-                                <option value="20' STD">20' STD</option>
-                                <option value="45' HC">45' HC</option>
-                                <option value="40' OS">40' OS</option>
-                                <option value="40' DD">40' DD</option>
-                                <option value="20' DD">20' DD</option>
-                                <option value="20' OS">20' OS</option>
-                                <option value="20' HC">20' HC</option>
-                                <option value="2X20' STD">2X20' STD</option>
-                                <option value="2X20' DD">2X20' DD</option>
-                                <option value="HOST SHOT">HOST SHOT</option>
-                                <option value="20' FT">20' FT</option>
-                                <option value="2X20' FT">2X20' FT</option>
-                                <option value="40' FT">40' FT</option>
-                                <option value="45' FT">45' FT</option>
-                                <option value="TRAILER RENT">TRAILER RENT</option>
-                            </select>
-                        </div>
+
                         <div class="form-group"><label>EQUIPMENT CONDITION</label>
-                            <select id="r-cond">
+                            <select id="u-cond">
                                 <option value="">None</option>
                                 <option value="AS IS">AS IS</option>
                                 <option value="WWT">WWT</option>
@@ -447,196 +451,57 @@
                                 <option value="NEW">NEW</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>BOOKING #</label><input type="text" id="r-booking"></div>
-                        <div class="form-group"><label>ORDER #</label><input type="text" id="r-order"></div>
-                        <div class="form-group"><label>CUSTOMER</label><input type="text" id="r-customer"></div>
-                        <div class="form-group"><label>PHONE</label><input type="text" id="r-phone"></div>
-                        <div class="form-group"><label>CONTAINER #</label><input type="text" id="r-cont-num"></div>
-                        <div class="form-group"><label>YARD FEE</label><input type="number" id="r-yard-fee" value="0"></div>
-                        <div class="form-group"><label>STORAGE FEE</label><input type="number" id="r-storage-fee" value="0"></div>
-                        <div class="form-group"><label>TRANS. FEE</label><input type="number" id="r-trans-fee" value="0"></div>
-                        <div class="form-group"><label>PICK UP ADDRESS</label><input type="text" id="r-pickup"></div>
-                        <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="r-delivery"></div>
-                        <div class="form-group"><label>NOTES</label><textarea id="r-notes" rows="3" style="width: 100%; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">* SEND PICS TO THE CUSTOMER AND CALL FOR CONFIRMATION BEFORE DELIVERY</textarea></div>
-                    </div>
-                </aside>
 
-                <!-- Right: Receipt Preview (Professional Document Style) -->
-                <div class="table-area" style="flex: 0 0 65%; background: #e2e8f0; padding: 40px; overflow-y: auto;">
-                    <div class="receipt-paper" id="printable-receipt">
-                        <div class="receipt-header">
-                            <div class="header-left">
-                                <img src="assets/logo.jpg" alt="Logo" class="receipt-logo">
-                                <div class="company-info">
-                                    <h1>RP TULIPAN TRANSPORT, INC</h1>
-                                    <p>8421 NW 70th ST</p>
-                                    <p>MIAMI FLORIDA 33166</p>
-                                    <p>786 - 768 4409</p>
-                                </div>
-                            </div>
-                            <div class="header-right">
-                                <div class="status-box">STATUS: <span class="status-val">PENDING</span></div>
-                                <div class="id-box">ID: <span class="id-val">#6428</span></div>
-                            </div>
+                        <div class="form-group"><label>CUSTOMER NAME</label><input type="text" id="u-customer" placeholder="Client Name"></div>
+                        <div class="form-group"><label>PHONE #</label><input type="text" id="u-phone" placeholder="Phone"></div>
+                        <div class="form-group"><label>CONTAINER #</label><input type="text" id="u-cont-num" placeholder="XXXX 000000-0"></div>
+                        
+                        <div class="form-row-2" style="display: flex; gap: 10px;">
+                            <div class="form-group" style="flex: 1;"><label>RELEASE #</label><input type="text" id="u-release" placeholder="Rel #"></div>
+                            <div class="form-group" style="flex: 1;"><label>ORDER #</label><input type="text" id="u-order" placeholder="Ord #"></div>
                         </div>
 
-                        <div class="receipt-row-check">
-                            <div class="check-item"><span class="box" id="p-in-box"></span> IN</div>
-                            <div class="check-item"><span class="box" id="p-out-box"></span> OUT</div>
-                            <div class="check-item"><span class="box" id="p-empty-box"></span> EMPTY</div>
-                            <div class="check-item"><span class="box" id="p-full-box"></span> FULL</div>
-                            <div class="info-item">TYPE: <strong id="p-type">DRY</strong></div>
-                            <div class="info-item">SIZE: <strong id="p-size">40' HC</strong></div>
+                        <!-- DELIVERY SPECIFIC -->
+                        <div class="field-delivery">
+                            <div class="form-group"><label>DRIVER NAME</label><input type="text" id="u-driver"></div>
+                            <div class="form-group"><label>DELIVERY DATE</label><input type="date" id="u-del-date"></div>
+                            <div class="form-group"><label>CITY</label><input type="text" id="u-city"></div>
+                            <div class="form-group"><label>PICK UP ADDRESS</label><input type="text" id="u-pickup"></div>
+                            <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="u-delivery"></div>
+                            <div class="form-group"><label>MILES</label><input type="number" id="u-miles"></div>
+                            <div class="form-group"><label>DOORS ORIENTATION</label><input type="text" id="u-doors" placeholder="Facing Cab / Back"></div>
                         </div>
 
-                        <div class="booking-order-container">
-                            <div class="bo-box">BOOKING#: <span id="p-booking">---</span></div>
-                            <div class="bo-box">ORDER #: <span id="p-order">---</span></div>
+                        <!-- YARD SPECIFIC -->
+                        <div class="field-yard" style="display: none;">
+                            <div class="form-group"><label>YARD FEE</label><input type="number" id="u-yard-fee" value="0"></div>
+                            <div class="form-group"><label>STORAGE FEE</label><input type="number" id="u-storage-fee" value="0"></div>
+                            <div class="form-group"><label>TRANS. FEE</label><input type="number" id="u-trans-fee" value="0"></div>
                         </div>
 
-                        <div class="customer-data">
-                            <div class="data-row">
-                                <div class="data-cell">CUSTOMER: <span id="prev-customer">---</span></div>
-                                <div class="data-cell">CONTAINER NUMBER: <span id="prev-cont">---</span></div>
-                            </div>
-                            <div class="data-row">
-                                <div class="data-cell">CUSTOMER PHONE: <span id="prev-phone">---</span></div>
-                                <div class="data-cell">DAYS: <span id="prev-days">0</span></div>
-                            </div>
-                            <div class="data-row">
-                                <div class="data-cell">DATE IN: <span id="prev-datein">---</span></div>
-                                <div class="data-cell">DATE OUT: <span>---</span></div>
-                            </div>
+                        <!-- SALES SPECIFIC -->
+                        <div class="field-sales" style="display: none;">
+                            <div class="form-group"><label>SALES PRICE</label><input type="number" id="u-sales-price" value="0"></div>
+                            <div class="form-group"><label>DELIVERY PRICE</label><input type="number" id="u-delivery-price" value="0"></div>
                         </div>
 
-                        <div class="condition-section">
-                            EQUIPMENT CONDITION: 
-                            <span class="cond-item"><span class="box" id="p-asis-box"></span> AS IS</span>
-                            <span class="cond-item"><span class="box" id="p-wwt-box"></span> WWT</span>
-                            <span class="cond-item"><span class="box" id="p-cw-box"></span> CW</span>
-                            <span class="cond-item"><span class="box" id="p-new-box"></span> NEW</span>
-                        </div>
-
-                        <div class="footer-split">
-                            <div class="footer-left">
-                                <div class="loc-item">PICK UP ADDRESS: <span id="prev-pickup">---</span></div>
-                                <div class="loc-item">DELIVERY: <span id="prev-delivery">---</span></div>
-                                
-                                <div class="inspection-list">
-                                    <p>DELIVERY DRIVER/COMPANY INSPECTION AT THE DEPOT:</p>
-                                    <ul>
-                                        <li>- Doors can open and close completely... ______</li>
-                                        <li>- Handle bars and brackets are not bent... ______</li>
-                                        <li>- There are no holes in the floor... ______</li>
-                                        <li>- There are no Holes in the container. ______</li>
-                                        <li>- Seals and gaskets are in acceptable condition. ______</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="footer-right">
-                                <div class="fees-box">
-                                    <div class="fee-line">YARD SERVICES FEE <span id="prev-yard-fee">$0,00</span></div>
-                                    <div class="fee-line">STORAGE FEE <span id="prev-storage-fee">$0,00</span></div>
-                                    <div class="fee-line">TRANSPORTATIONS <span id="prev-trans-fee">$550,00</span></div>
-                                    <div class="fee-line total">TOTAL <span id="prev-total">$550,00</span></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="notes-area">
-                            <p>NOTES:</p>
-                            <div class="notes-box">* SEND PICS TO THE CUSTOMER AND CALL FOR CONFIRMATION</div>
-                        </div>
-
-                        <div class="signature-section">
-                            <div class="sig-col">
-                                <p>FOR DELIVERING CARRIER: THIS EQUIPMENT WAS DELIVERED IN SOUND CONDITION</p>
-                                <div class="sig-line"></div>
-                                <p>BY</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Delivery Format View -->
-        <section id="delivery-format-view" class="view-section hidden">
-            <div class="dashboard-split-container">
-                <!-- Left: Format Form -->
-                <aside class="entry-sidebar primary-entry" style="flex: 0 0 35%;">
-                    <div class="sidebar-header">
-                        <h3>Create Delivery Format</h3>
-                        <div class="header-actions">
-                            <button onclick="window.print()" class="btn-add-sidebar">Print Format</button>
-                            <button onclick="showView('hero')" class="btn-cancel">Exit</button>
-                        </div>
-                    </div>
-                    <div class="sidebar-form">
-                        <div class="form-group"><label>INITIAL DATE</label><input type="date" id="df-init-date"></div>
-                        <div class="form-group"><label>FINAL DATE</label><input type="date" id="df-final-date"></div>
-                        <div class="form-group"><label>STATUS MOVEMENT</label>
-                            <select id="df-move">
-                                <option value="">None</option>
-                                <option value="IN">IN</option>
-                                <option value="OUT">OUT</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>LOAD STATUS</label>
-                            <select id="df-load">
-                                <option value="">None</option>
-                                <option value="EMPTY">EMPTY</option>
-                                <option value="FULL">FULL</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>TYPE</label>
-                            <select id="df-type" required>
-                                <option value="DRY">DRY</option>
-                                <option value="REEFER">REEFER</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>SIZE</label>
-                            <select id="df-size">
-                                <option value="40' HC">40' HC</option>
-                                <option value="40' STD">40' STD</option>
-                                <option value="20' STD">20' STD</option>
-                                <option value="45' HC">45' HC</option>
-                                <option value="20' HC">20' HC</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>MILES</label><input type="number" id="df-miles"></div>
-                        <div class="form-group"><label>RELEASE #</label><input type="text" id="df-release"></div>
-                        <div class="form-group"><label>ORDER #</label><input type="text" id="df-order"></div>
-                        <div class="form-group"><label>DRIVER NAME</label><input type="text" id="df-driver"></div>
-                        <div class="form-group"><label>CONTAINER #</label><input type="text" id="df-cont-num"></div>
-                        <div class="form-group"><label>PHONE</label><input type="text" id="df-phone"></div>
-                        <div class="form-group"><label>DELIVERY DATE</label><input type="date" id="df-del-date"></div>
-                        <div class="form-group"><label>CONDITION</label>
-                            <select id="df-cond">
-                                <option value="">None</option>
-                                <option value="AS IS">AS IS</option>
-                                <option value="WWT">WWT</option>
-                                <option value="CW">CW</option>
-                                <option value="NEW">NEW</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>CITY</label><input type="text" id="df-city"></div>
-                        <div class="form-group"><label>PICK UP ADDRESS</label><input type="text" id="df-pickup"></div>
-                        <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="df-delivery"></div>
-                        <div class="form-group"><label>DOORS</label><input type="text" id="df-doors"></div>
-                        <div class="form-group"><label>COLLECT PAYMENT</label>
-                            <select id="df-collect">
-                                <option value="YES">YES</option>
+                        <div class="form-group"><label>COLLECT PAYMENT?</label>
+                            <select id="u-collect">
                                 <option value="NO">NO</option>
+                                <option value="YES">YES</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>AMOUNT</label><input type="number" id="df-amount"></div>
+                        <div class="form-group"><label>AMOUNT TO COLLECT</label><input type="number" id="u-amount" value="0"></div>
+
+                        <div class="form-group"><label>NOTES</label><textarea id="u-notes" rows="4" style="width: 100%; border: 1px solid #ddd; padding: 10px; border-radius: 6px;"></textarea></div>
                     </div>
                 </aside>
 
-                <!-- Right: Format Preview -->
-                <div class="table-area" style="flex: 0 0 65%; background: #cbd5e1; padding: 40px; overflow-y: auto;">
-                    <div class="receipt-paper" id="printable-format">
+                <!-- Right: Preview Area with Dynamic Templates -->
+                <div class="table-area" style="flex: 1; background: #f1f5f9; padding: 40px; overflow: auto;">
+                    
+                    <!-- Template 1: DELIVERY FORMAT -->
+                    <div class="receipt-paper preview-template" id="tpl-delivery">
                         <div class="receipt-header">
                             <div class="header-left">
                                 <img src="assets/logo.jpg" alt="Logo" class="receipt-logo">
@@ -647,102 +512,187 @@
                             </div>
                             <div class="header-right">
                                 <div class="id-box">ID: <span class="id-val">#6539</span></div>
-                                <div class="date-box-simple" style="margin-top: 10px; font-size: 0.8rem; border: 1px solid #000; padding: 5px;">
-                                    INITIAL DATE: <span id="df-p-init">---</span><br>
-                                    FINAL DATE: <span id="df-p-final">---</span>
+                                <div class="date-box-simple">
+                                    INIT: <span class="p-init">---</span><br>
+                                    FINAL: <span class="p-final">---</span>
                                 </div>
                             </div>
                         </div>
-
                         <div class="receipt-row-check">
-                            <div class="check-item"><span class="box" id="df-p-in-box"></span> IN</div>
-                            <div class="check-item"><span class="box" id="df-p-out-box"></span> OUT</div>
-                            <div class="check-item"><span class="box" id="df-p-empty-box"></span> EMPTY</div>
-                            <div class="check-item"><span class="box" id="df-p-full-box"></span> FULL</div>
-                            <div class="info-item">TYPE: <strong id="df-p-type">DRY</strong></div>
-                            <div class="info-item">MILES: <strong id="df-p-miles">0</strong></div>
-                            <div class="info-item">SIZE: <strong id="df-p-size">20' STD</strong></div>
+                            <div class="check-item"><span class="box p-in-box"></span> IN</div>
+                            <div class="check-item"><span class="box p-out-box"></span> OUT</div>
+                            <div class="check-item"><span class="box p-empty-box"></span> EMPTY</div>
+                            <div class="check-item"><span class="box p-full-box"></span> FULL</div>
+                            <div class="info-item">TYPE: <strong class="p-type">DRY</strong></div>
+                            <div class="info-item">SIZE: <strong class="p-size">---</strong></div>
                         </div>
-
                         <div class="booking-order-container">
-                            <div class="bo-box">RELEASE #: <span id="df-p-release">---</span></div>
-                            <div class="bo-box">ORDER #: <span id="df-p-order">---</span></div>
+                            <div class="bo-box">RELEASE #: <span class="p-release">---</span></div>
+                            <div class="bo-box">ORDER #: <span class="p-order">---</span></div>
                         </div>
-
                         <div class="customer-data">
                             <div class="data-row">
-                                <div class="data-cell">DRIVER NAME: <span id="df-p-driver">---</span></div>
-                                <div class="data-cell">CONTAINER NUMBER: <span id="df-p-cont">---</span></div>
+                                <div class="data-cell">DRIVER NAME: <span class="p-driver">---</span></div>
+                                <div class="data-cell">CONTAINER #: <span class="p-cont">---</span></div>
                             </div>
                             <div class="data-row">
-                                <div class="data-cell">CUSTOMER PHONE: <span id="df-p-phone">---</span></div>
-                                <div class="data-cell">DELIVERY DATE: <span id="df-p-deldate">---</span></div>
+                                <div class="data-cell">CUSTOMER: <span class="p-customer">---</span></div>
+                                <div class="data-cell">PHONE: <span class="p-phone">---</span></div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-cell">CITY: <span class="p-city">---</span></div>
+                                <div class="data-cell">DELIVERY DATE: <span class="p-deldate">---</span></div>
                             </div>
                         </div>
-
                         <div class="condition-section">
                             EQUIPMENT CONDITION: 
-                            <span class="cond-item"><span class="box" id="df-p-asis-box"></span> AS IS</span>
-                            <span class="cond-item"><span class="box" id="df-p-wwt-box"></span> WWT</span>
-                            <span class="cond-item"><span class="box" id="df-p-cw-box"></span> CW</span>
-                            <span class="cond-item"><span class="box" id="df-p-new-box"></span> NEW</span>
+                            <span class="cond-item"><span class="box p-asis-box"></span> AS IS</span>
+                            <span class="cond-item"><span class="box p-wwt-box"></span> WWT</span>
+                            <span class="cond-item"><span class="box p-cw-box"></span> CW</span>
+                            <span class="cond-item"><span class="box p-new-box"></span> NEW</span>
                         </div>
-
                         <div class="footer-split">
                             <div class="footer-left">
-                                <div class="loc-item">CITY: <span id="df-p-city">---</span></div>
-                                <div class="loc-item">PICK UP ADDRESS: <span id="df-p-pickup">---</span></div>
-                                <div class="loc-item">DELIVERY: <span id="df-p-delivery">---</span></div>
-                                
+                                <div class="loc-item">PICK UP ADDRESS: <span class="p-pickup">---</span></div>
+                                <div class="loc-item">DELIVERY: <span class="p-delivery">---</span></div>
                                 <div class="inspection-list">
-                                    <p>DELIVERY DRIVER/COMPANY INSPECTION AT THE DEPOT:</p>
+                                    <p>DRIVER INSPECTION AT THE DEPOT:</p>
                                     <ul>
-                                        <li>- Doors can open and close completely, hinges and latches are not damaged. ______</li>
-                                        <li>- Handle bars and brackets are not bent or damaged. ______</li>
-                                        <li>- There are no holes in the floor, and the floor is not soft or damaged. ______</li>
-                                        <li>- There are no Holes in the container. ______</li>
-                                        <li>- Seals and gaskets are in acceptable condition. ______</li>
+                                        <li>- Doors can open and close completely ______</li>
+                                        <li>- Handle bars/brackets are not bent ______</li>
+                                        <li>- No holes in floor/container ______</li>
                                     </ul>
                                 </div>
                             </div>
                             <div class="footer-right">
-                                <div class="fees-box" style="margin-bottom: 10px;">
-                                    <div style="font-size: 0.7rem; font-weight: 700;">DOORS:</div>
-                                    <div id="df-p-doors" style="min-height: 20px; font-weight: 700;">---</div>
-                                </div>
                                 <div class="fees-box">
-                                    <div class="fee-line">COLLECT PAYMENT: <span id="df-p-collect">YES</span></div>
-                                    <div class="fee-line total">AMOUNT: <span id="df-p-amount">$0,00</span></div>
+                                    <div class="fee-line">DOORS: <span class="p-doors">---</span></div>
+                                    <div class="fee-line">MILES: <span class="p-miles">0</span></div>
+                                    <div class="fee-line">COLLECT: <span class="p-collect">NO</span></div>
+                                    <div class="fee-line total">AMOUNT: <span class="p-amount">$0,00</span></div>
                                 </div>
                             </div>
                         </div>
-
-                        <div class="notes-area">
-                            <p>NOTES:</p>
-                            <div class="notes-box" style="font-size: 0.75rem; line-height: 1.4;">
-                                * INSPECT THE CONTAINER, SEND PICS OF IT AND OUTGATE RECEIPT FROM DEPOT WHEN LOADED.<br>
-                                * LET US KNOW THE ETA AND CALL CUSTOMER ALSO.<br>
-                                * CUSTOMER HAVE TO MARK THE CONTAINER INSPECTION.<br>
-                                * For Customer Information:<br>
-                                * RP Tulipan Transport is not responsible for any damage caused during loading or unloading.<br>
-                                * The customer must secure their cargo inside the container; we are not responsible for any damage.
-                            </div>
-                        </div>
-
+                        <div class="notes-area"><p>NOTES:</p><div class="notes-box p-notes">---</div></div>
                         <div class="signature-section">
-                            <div class="sig-col" style="flex: 1;">
-                                <p>FOR DELIVERING CARRIER: THIS EQUIPMENT WAS DELIVERED IN SOUND CONDITION</p>
-                                <div class="sig-line"></div>
-                                <p>BY</p>
-                            </div>
-                            <div style="width: 40px;"></div>
-                            <div class="sig-col" style="flex: 1;">
-                                <p>FOR DELIVERING CARRIER: THIS EQUIPMENT WAS DELIVERED IN SOUND CONDITION</p>
-                                <div class="sig-line"></div>
-                                <p>BY</p>
-                            </div>
+                            <div class="sig-col"><div class="sig-line"></div><p>DRIVER SIGNATURE</p></div>
+                            <div class="sig-col"><div class="sig-line"></div><p>CUSTOMER SIGNATURE</p></div>
                         </div>
                     </div>
+
+                    <!-- Template 2: YARD SERV RECEIPT -->
+                    <div class="receipt-paper preview-template" id="tpl-yard" style="display: none;">
+                        <div class="receipt-header">
+                            <div class="header-left">
+                                <img src="assets/logo.jpg" alt="Logo" class="receipt-logo">
+                                <div class="company-info">
+                                    <h1>RP TULIPAN TRANSPORT, INC</h1>
+                                    <p>8421 NW 70th ST, MIAMI FL 33166</p>
+                                </div>
+                            </div>
+                            <div class="header-right">
+                                <div class="status-box">STATUS: <span class="status-val">PENDING</span></div>
+                                <div class="id-box">ID: <span class="id-val">#6428</span></div>
+                            </div>
+                        </div>
+                        <div class="receipt-row-check">
+                            <div class="check-item"><span class="box p-in-box"></span> IN</div>
+                            <div class="check-item"><span class="box p-out-box"></span> OUT</div>
+                            <div class="check-item"><span class="box p-empty-box"></span> EMPTY</div>
+                            <div class="check-item"><span class="box p-full-box"></span> FULL</div>
+                            <div class="info-item">TYPE: <strong class="p-type">DRY</strong></div>
+                            <div class="info-item">SIZE: <strong class="p-size">---</strong></div>
+                        </div>
+                        <div class="booking-order-container">
+                            <div class="bo-box">RELEASE #: <span class="p-release">---</span></div>
+                            <div class="bo-box">ORDER #: <span class="p-order">---</span></div>
+                        </div>
+                        <div class="customer-data">
+                            <div class="data-row">
+                                <div class="data-cell">CUSTOMER: <span class="p-customer">---</span></div>
+                                <div class="data-cell">CONTAINER #: <span class="p-cont">---</span></div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-cell">PHONE: <span class="p-phone">---</span></div>
+                                <div class="data-cell">DATE IN: <span class="p-init">---</span></div>
+                            </div>
+                        </div>
+                        <div class="condition-section">
+                            EQUIPMENT CONDITION: 
+                            <span class="cond-item"><span class="box p-asis-box"></span> AS IS</span>
+                            <span class="cond-item"><span class="box p-wwt-box"></span> WWT</span>
+                            <span class="cond-item"><span class="box p-cw-box"></span> CW</span>
+                            <span class="cond-item"><span class="box p-new-box"></span> NEW</span>
+                        </div>
+                        <div class="footer-split">
+                            <div class="footer-left">
+                                <div class="loc-item">NOTES:</div>
+                                <div class="notes-box p-notes" style="border:none; padding:0; font-size:0.75rem;">---</div>
+                            </div>
+                            <div class="footer-right">
+                                <div class="fees-box">
+                                    <div class="fee-line">YARD FEE <span class="p-yard-fee">$0,00</span></div>
+                                    <div class="fee-line">STORAGE FEE <span class="p-storage-fee">$0,00</span></div>
+                                    <div class="fee-line">TRANS. <span class="p-trans-fee">$0,00</span></div>
+                                    <div class="fee-line total">TOTAL <span class="p-total-receipt">$0,00</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="signature-section" style="margin-top:40px;">
+                            <div class="sig-col"><div class="sig-line"></div><p>RECEIVED BY</p></div>
+                        </div>
+                    </div>
+
+                    <!-- Template 3: SALES RECEIPT -->
+                    <div class="receipt-paper preview-template" id="tpl-sales" style="display: none;">
+                        <div class="receipt-header">
+                            <div class="header-left">
+                                <img src="assets/logo.jpg" alt="Logo" class="receipt-logo">
+                                <div class="company-info">
+                                    <h1>RP TULIPAN TRANSPORT, INC</h1>
+                                    <p>SALES & SERVICES RECEIPT</p>
+                                </div>
+                            </div>
+                            <div class="header-right">
+                                <div class="date-box-simple">DATE: <span class="p-init">---</span></div>
+                                <div class="id-box">ID: <span class="id-val">#3-SALES</span></div>
+                            </div>
+                        </div>
+                        <div class="customer-data" style="margin-top:20px;">
+                            <div class="data-row">
+                                <div class="data-cell">CUSTOMER: <span class="p-customer">---</span></div>
+                                <div class="data-cell">PHONE: <span class="p-phone">---</span></div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-cell">CONTAINER #: <span class="p-cont">---</span></div>
+                                <div class="data-cell">SIZE: <span class="p-size">---</span></div>
+                            </div>
+                        </div>
+                        <div class="receipt-row-check" style="border-top:1px solid #000; padding:10px 0;">
+                            <div class="info-item">TYPE: <strong class="p-type">DRY</strong></div>
+                            <div class="info-item">COND: <strong class="p-cond-text">---</strong></div>
+                        </div>
+                        <div class="footer-split" style="margin-top:10px;">
+                            <div class="footer-left">
+                                <div class="notes-area" style="margin:0;"><p>DESCRIPTION:</p><div class="notes-box p-notes" style="min-height:100px;">---</div></div>
+                            </div>
+                            <div class="footer-right">
+                                <div class="fees-box" style="border: 2px solid #000; padding: 15px; border-radius: 12px;">
+                                    <div class="fee-line">SALES PRICE <span class="p-sales-price">$0,00</span></div>
+                                    <div class="fee-line">DELIVERY PRICE <span class="p-delivery-price">$0,00</span></div>
+                                    <div class="fee-line total" style="color: #0f172a; font-size: 1.2rem;">TOTAL <span class="p-total-sales">$0,00</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="notes-area" style="background:#fee2e2; padding:10px; border-radius:4px; margin-top:20px;">
+                            <p style="color:#b91c1c; font-weight:700;">* PAYMENT AT DELIVERY ONLY BY ZELLE, CREDIT CARD, OR CASHIER'S CHECK</p>
+                        </div>
+                        <div class="signature-section" style="margin-top:60px;">
+                            <div class="sig-col"><div class="sig-line"></div><p>AUTHORIZED BY</p></div>
+                            <div class="sig-col"><div class="sig-line"></div><p>ACCEPTED BY CUSTOMER</p></div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </section>
@@ -752,28 +702,23 @@
         const header = document.getElementById('header-nav');
         const heroView = document.getElementById('hero-view');
         const calendarView = document.getElementById('calendar-view');
-        const yardView = document.getElementById('yard-view');
-        const deliveryFormatView = document.getElementById('delivery-format-view');
+        const docsView = document.getElementById('docs-view');
         const tableBody = document.getElementById('table-body');
 
         function showView(view) {
             localStorage.setItem('activeView', view);
             
-            // Hide all views
+            // Hide everything first
             heroView.classList.add('hidden');
             calendarView.classList.add('hidden');
-            yardView.classList.add('hidden');
-            deliveryFormatView.classList.add('hidden');
+            docsView.classList.add('hidden');
             
             // Show requested view
             if (view === 'calendar') {
                 calendarView.classList.remove('hidden');
                 header.classList.add('navbar-fixed-solid');
-            } else if (view === 'yard') {
-                yardView.classList.remove('hidden');
-                header.classList.add('navbar-fixed-solid');
-            } else if (view === 'delivery-format') {
-                deliveryFormatView.classList.remove('hidden');
+            } else if (view === 'docs') {
+                docsView.classList.remove('hidden');
                 header.classList.add('navbar-fixed-solid');
             } else {
                 heroView.classList.remove('hidden');
@@ -783,8 +728,10 @@
         }
 
         function saveTableData() {
+            const logisticsBody = document.getElementById('table-body');
+            if(!logisticsBody) return;
             const rows = [];
-            const trs = tableBody.querySelectorAll('tr');
+            const trs = logisticsBody.querySelectorAll('tr');
             trs.forEach(tr => {
                 const rowData = Array.from(tr.querySelectorAll('td')).map(td => td.textContent);
                 rows.push(rowData);
@@ -793,6 +740,8 @@
         }
 
         function loadTableData() {
+            const logisticsBody = document.getElementById('table-body');
+            if(!logisticsBody) return;
             const saved = localStorage.getItem('logisticsTableData');
             if (saved) {
                 const rows = JSON.parse(saved);
@@ -803,37 +752,9 @@
                         td.textContent = text;
                         tr.appendChild(td);
                     });
-                    tableBody.appendChild(tr);
+                    logisticsBody.appendChild(tr);
                 });
             }
-        }
-
-        function addRow() {
-            const inputs = [
-                'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup', 
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paystatus', 'in-paydate', 'in-yard', 
-                'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver', 'in-rate', 'in-paytype', 
-                'in-sales', 'in-collect', 'in-amount', 'in-phone', 'in-paiddriver', 'in-status', 'in-comission', 
-                'in-comidriver', 'in-income', 'in-invoice', 'in-note', 'in-storage', 'in-inout'
-            ];
-
-            const tr = document.createElement('tr');
-            inputs.forEach(id => {
-                const td = document.createElement('td');
-                const inputEl = document.getElementById(id);
-                td.textContent = inputEl.value;
-                tr.appendChild(td);
-                // Clear the form field
-                if(inputEl.type !== 'date') {
-                    inputEl.value = '';
-                }
-            });
-
-            tableBody.appendChild(tr);
-            saveTableData();
-            
-            // Scroll to the new entry in the table
-            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         // Initialize state on load
@@ -846,147 +767,166 @@
             const toggle = document.getElementById('hamburger-menu');
             const menu = document.getElementById('nav-actions-container');
             
-            const toggleMenu = () => {
-                toggle.classList.toggle('active');
-                menu.classList.toggle('active');
-            };
-
-            window.closeMenu = () => {
-                toggle.classList.remove('active');
-                menu.classList.remove('active');
-            };
-
-            toggle.addEventListener('click', toggleMenu);
-
-            // Yard Receipt Live Preview Logic
-            const setupReceiptSync = (inputId, previewId, isFee = false) => {
-                const input = document.getElementById(inputId);
-                const prev = document.getElementById(previewId);
-                if (input && prev) {
-                    input.addEventListener('input', () => {
-                        let val = input.value || (isFee ? '0' : '---');
-                        if (isFee) {
-                            prev.textContent = `$${parseFloat(val).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                            updateTotal();
-                        } else {
-                            prev.textContent = val;
-                        }
-                    });
-                }
-            };
-
-            const updateTotal = () => {
-                const yard = parseFloat(document.getElementById('r-yard-fee').value) || 0;
-                const storage = parseFloat(document.getElementById('r-storage-fee').value) || 0;
-                const trans = parseFloat(document.getElementById('r-trans-fee').value) || 0;
-                const total = yard + storage + trans;
-                document.getElementById('prev-total').textContent = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-            };
-
-            const syncStatusBoxes = (selectId, prefix) => {
-                const select = document.getElementById(selectId);
-                select.addEventListener('change', () => {
-                    const val = select.value;
-                    // Reset all boxes in this category
-                    const boxes = {
-                        'r-move': ['p-in-box', 'p-out-box'],
-                        'r-load': ['p-empty-box', 'p-full-box'],
-                        'r-cond': ['p-asis-box', 'p-wwt-box', 'p-cw-box', 'p-new-box']
-                    }[selectId];
-                    
-                    boxes.forEach(id => document.getElementById(id).textContent = '');
-                    
-                    if (val === 'IN') document.getElementById('p-in-box').textContent = '✓';
-                    if (val === 'OUT') document.getElementById('p-out-box').textContent = '✓';
-                    if (val === 'EMPTY') document.getElementById('p-empty-box').textContent = '✓';
-                    if (val === 'FULL') document.getElementById('p-full-box').textContent = '✓';
-                    if (val === 'AS IS') document.getElementById('p-asis-box').textContent = '✓';
-                    if (val === 'WWT') document.getElementById('p-wwt-box').textContent = '✓';
-                    if (val === 'CW') document.getElementById('p-cw-box').textContent = '✓';
-                    if (val === 'NEW') document.getElementById('p-new-box').textContent = '✓';
-                });
-            };
-
-            setupReceiptSync('r-customer', 'prev-customer');
-            setupReceiptSync('r-cont-num', 'prev-cont');
-            setupReceiptSync('r-phone', 'prev-phone');
-            setupReceiptSync('r-init-date', 'prev-datein');
-            setupReceiptSync('r-pickup', 'prev-pickup');
-            setupReceiptSync('r-delivery', 'prev-delivery');
-            setupReceiptSync('r-yard-fee', 'prev-yard-fee', true);
-            setupReceiptSync('r-storage-fee', 'prev-storage-fee', true);
-            setupReceiptSync('r-trans-fee', 'prev-trans-fee', true);
-            setupReceiptSync('r-type', 'p-type');
-            setupReceiptSync('r-size', 'p-size');
-            setupReceiptSync('r-booking', 'p-booking');
-            setupReceiptSync('r-order', 'p-order');
-            
-            const notesInput = document.getElementById('r-notes');
-            const notesPrev = document.getElementById('p-notes-display');
-            if (notesInput && notesPrev) {
-                notesInput.addEventListener('input', () => {
-                    notesPrev.textContent = notesInput.value;
+            if(toggle && menu) {
+                toggle.addEventListener('click', () => {
+                    toggle.classList.toggle('active');
+                    menu.classList.toggle('active');
                 });
             }
 
-            syncStatusBoxes('r-move');
-            syncStatusBoxes('r-load');
-            // Delivery Format Live Preview Logic
-            const setupDFSync = (inputId, previewId, isCurrency = false) => {
-                const input = document.getElementById(inputId);
-                const prev = document.getElementById(previewId);
-                if (input && prev) {
-                    input.addEventListener('input', () => {
-                        let val = input.value || '---';
-                        if (isCurrency) {
-                            prev.textContent = `$${parseFloat(val || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                        } else {
-                            prev.textContent = val;
-                        }
-                    });
-                }
+            window.closeMenu = () => {
+                if(toggle) toggle.classList.remove('active');
+                if(menu) menu.classList.remove('active');
             };
 
-            const syncDFBoxes = (selectId) => {
-                const select = document.getElementById(selectId);
-                select.addEventListener('change', () => {
-                    const val = select.value;
-                    const map = {
-                        'df-move': { 'IN': 'df-p-in-box', 'OUT': 'df-p-out-box' },
-                        'df-load': { 'EMPTY': 'df-p-empty-box', 'FULL': 'df-p-full-box' },
-                        'df-cond': { 'AS IS': 'df-p-asis-box', 'WWT': 'df-p-wwt-box', 'CW': 'df-p-cw-box', 'NEW': 'df-p-new-box' }
-                    }[selectId];
+            // DOCS CENTER LOGIC
+            const docSelector = document.getElementById('doc-type-selector');
+            const templates = {
+                'delivery': document.getElementById('tpl-delivery'),
+                'yard': document.getElementById('tpl-yard'),
+                'sales': document.getElementById('tpl-sales')
+            };
+
+            const fieldGroups = {
+                'delivery': document.querySelectorAll('.field-delivery'),
+                'yard': document.querySelectorAll('.field-yard'),
+                'sales': document.querySelectorAll('.field-sales')
+            };
+
+            function updateDocView() {
+                const type = docSelector.value;
+                
+                // Toggle Templates
+                Object.keys(templates).forEach(k => {
+                    if(templates[k]) {
+                        templates[k].style.display = (k === type) ? 'block' : 'none';
+                        // Add class for print helper
+                        templates[k].classList.toggle('hidden-preview', k !== type);
+                    }
+                });
+
+                // Toggle Field visibility
+                Object.keys(fieldGroups).forEach(k => {
+                    fieldGroups[k].forEach(el => {
+                        el.style.display = el.classList.contains(`field-${type}`) ? 'block' : 'none';
+                    });
+                });
+            }
+
+            if(docSelector) {
+                docSelector.addEventListener('change', updateDocView);
+                updateDocView(); // Initial call
+            }
+
+            // Sync Logic
+            const setupDocsSync = (inputId, previewClass, isCurrency = false) => {
+                const input = document.getElementById(inputId);
+                if (!input) return;
+
+                input.addEventListener('input', () => {
+                    const val = input.value || '---';
+                    const previews = document.querySelectorAll(`.${previewClass}`);
+                    previews.forEach(p => {
+                        if (isCurrency) {
+                            p.textContent = `$${parseFloat(val || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                        } else {
+                            p.textContent = val;
+                        }
+                    });
                     
-                    Object.values(map).forEach(id => document.getElementById(id).textContent = '');
-                    if (map[val]) document.getElementById(map[val]).textContent = '✓';
+                    // Specific calculations
+                    if(inputId === 'u-yard-fee' || inputId === 'u-storage-fee' || inputId === 'u-trans-fee') updateYardTotal();
+                    if(inputId === 'u-sales-price' || inputId === 'u-delivery-price') updateSalesTotal();
                 });
             };
 
-            setupDFSync('df-init-date', 'df-p-init');
-            setupDFSync('df-final-date', 'df-p-final');
-            setupDFSync('df-miles', 'df-p-miles');
-            setupDFSync('df-size', 'df-p-size');
-            setupDFSync('df-type', 'df-p-type');
-            setupDFSync('df-release', 'df-p-release');
-            setupDFSync('df-order', 'df-p-order');
-            setupDFSync('df-driver', 'df-p-driver');
-            setupDFSync('df-cont-num', 'df-p-cont');
-            setupDFSync('df-phone', 'df-p-phone');
-            setupDFSync('df-del-date', 'df-p-deldate');
-            setupDFSync('df-city', 'df-p-city');
-            setupDFSync('df-pickup', 'df-p-pickup');
-            setupDFSync('df-delivery', 'df-p-delivery');
-            setupDFSync('df-doors', 'df-p-doors');
-            setupDFSync('df-collect', 'df-p-collect');
-            setupDFSync('df-amount', 'df-p-amount', true);
+            function updateYardTotal() {
+                const y = parseFloat(document.getElementById('u-yard-fee').value) || 0;
+                const s = parseFloat(document.getElementById('u-storage-fee').value) || 0;
+                const t = parseFloat(document.getElementById('u-trans-fee').value) || 0;
+                const total = y + s + t;
+                const prev = document.querySelector('.p-total-receipt');
+                if(prev) prev.textContent = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            }
 
-            syncDFBoxes('df-move');
-            syncDFBoxes('df-load');
-            syncDFBoxes('df-cond');
+            function updateSalesTotal() {
+                const s = parseFloat(document.getElementById('u-sales-price').value) || 0;
+                const d = parseFloat(document.getElementById('u-delivery-price').value) || 0;
+                const total = s + d;
+                const prev = document.querySelector('.p-total-sales');
+                if(prev) prev.textContent = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            }
+
+            function syncCheckboxes(selectId) {
+                const select = document.getElementById(selectId);
+                if(!select) return;
+                
+                select.addEventListener('change', () => {
+                    const val = select.value;
+                    // Reset all
+                    const prefix = selectId === 'u-move' ? 'p-in-box' : (selectId === 'u-load' ? 'p-empty-box' : 'p-asis-box');
+                    
+                    // Instead of a map, we just update all instances in all templates
+                    document.querySelectorAll('.p-in-box, .p-out-box, .p-empty-box, .p-full-box, .p-asis-box, .p-wwt-box, .p-cw-box, .p-new-box').forEach(b => {
+                        if(b.classList.contains(`p-${val.toLowerCase().replace(' ', '')}-box`)) {
+                            b.textContent = '✓';
+                        } else if(
+                            (selectId === 'u-move' && (b.classList.contains('p-in-box') || b.classList.contains('p-out-box'))) ||
+                            (selectId === 'u-load' && (b.classList.contains('p-empty-box') || b.classList.contains('p-full-box'))) ||
+                            (selectId === 'u-cond' && (b.classList.contains('p-asis-box') || b.classList.contains('p-wwt-box') || b.classList.contains('p-cw-box') || b.classList.contains('p-new-box')))
+                        ) {
+                            b.textContent = '';
+                        }
+                    });
+
+                    // Update cond text (for sales receipt)
+                    if(selectId === 'u-cond') {
+                        document.querySelectorAll('.p-cond-text').forEach(t => t.textContent = val);
+                    }
+                });
+            }
+
+            // Bind Syncs
+            setupDocsSync('u-init-date', 'p-init');
+            setupDocsSync('u-final-date', 'p-final');
+            setupDocsSync('u-customer', 'p-customer');
+            setupDocsSync('u-phone', 'p-phone');
+            setupDocsSync('u-cont-num', 'p-cont');
+            setupDocsSync('u-release', 'p-release');
+            setupDocsSync('u-order', 'p-order');
+            setupDocsSync('u-driver', 'p-driver');
+            setupDocsSync('u-del-date', 'p-deldate');
+            setupDocsSync('u-city', 'p-city');
+            setupDocsSync('u-pickup', 'p-pickup');
+            setupDocsSync('u-delivery', 'p-delivery');
+            setupDocsSync('u-miles', 'p-miles');
+            setupDocsSync('u-doors', 'p-doors');
+            setupDocsSync('u-amount', 'p-amount', true);
+            setupDocsSync('u-collect', 'p-collect');
+            setupDocsSync('u-yard-fee', 'p-yard-fee', true);
+            setupDocsSync('u-storage-fee', 'p-storage-fee', true);
+            setupDocsSync('u-trans-fee', 'p-trans-fee', true);
+            setupDocsSync('u-sales-price', 'p-sales-price', true);
+            setupDocsSync('u-delivery-price', 'p-delivery-price', true);
+            setupDocsSync('u-type', 'p-type');
+            setupDocsSync('u-size', 'p-size');
+            
+            // Sync Textarea
+            const notesInput = document.getElementById('u-notes');
+            if(notesInput) {
+                notesInput.addEventListener('input', () => {
+                    document.querySelectorAll('.p-notes').forEach(p => p.textContent = notesInput.value);
+                });
+            }
+
+            syncCheckboxes('u-move');
+            syncCheckboxes('u-load');
+            syncCheckboxes('u-cond');
         });
 
         window.addEventListener('scroll', () => {
-            if (!heroView.classList.contains('hidden')) {
+            const h = document.getElementById('hero-view');
+            if (h && !h.classList.contains('hidden')) {
                 if (window.scrollY > 50) {
                     header.classList.add('navbar-scrolled');
                 } else {
