@@ -404,8 +404,8 @@
                         </div>
 
                         <!-- COMMON FIELDS -->
-                        <div class="form-group"><label>INITIAL DATE</label><input type="date" id="u-init-date"></div>
-                        <div class="form-group field-delivery field-sales"><label>FINAL DATE</label><input type="date" id="u-final-date"></div>
+                        <div class="form-group"><label>DATE</label><input type="date" id="u-init-date"></div>
+
                         
                         <div class="form-row-2" style="display: flex; gap: 10px;">
                             <div class="form-group" style="flex: 1;"><label>MOVEMENT</label>
@@ -457,7 +457,7 @@
                         <div class="form-group"><label>CONTAINER #</label><input type="text" id="u-cont-num" placeholder="XXXX 000000-0"></div>
                         
                         <div class="form-row-2" style="display: flex; gap: 10px;">
-                            <div class="form-group" style="flex: 1;"><label>RELEASE #</label><input type="text" id="u-release" placeholder="Rel #"></div>
+                            <div class="form-group" style="flex: 1;"><label id="label-release">RELEASE #</label><input type="text" id="u-release" placeholder="Rel #"></div>
                             <div class="form-group" style="flex: 1;"><label>ORDER #</label><input type="text" id="u-order" placeholder="Ord #"></div>
                         </div>
 
@@ -469,7 +469,15 @@
                             <div class="form-group"><label>PICK UP ADDRESS</label><input type="text" id="u-pickup"></div>
                             <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="u-delivery"></div>
                             <div class="form-group"><label>MILES</label><input type="number" id="u-miles"></div>
-                            <div class="form-group"><label>DOORS ORIENTATION</label><input type="text" id="u-doors" placeholder="Facing Cab / Back"></div>
+                            <div class="form-group"><label>DOORS DIRECTION</label>
+                                <select id="u-doors">
+                                    <option value="" disabled selected>Select Orientation</option>
+                                    <option value="FACING CAB">FACING CAB</option>
+                                    <option value="FACING BACK">FACING BACK</option>
+                                    <option value="FACING DRIVER">FACING DRIVER</option>
+                                    <option value="FACING PASSENGER">FACING PASSENGER</option>
+                                </select>
+                            </div>
                         </div>
 
                         <!-- YARD SPECIFIC -->
@@ -484,6 +492,10 @@
                             <div class="form-group"><label>SALES PRICE</label><input type="number" id="u-sales-price" value="0"></div>
                             <div class="form-group"><label>DELIVERY PRICE</label><input type="number" id="u-delivery-price" value="0"></div>
                         </div>
+                        
+                        <div class="field-yard field-sales" style="display: none;">
+                            <div class="form-group"><label>TAXES (%)</label><input type="number" id="u-taxes" value="1.07" step="0.01"></div>
+                        </div>
 
                         <div class="form-group"><label>COLLECT PAYMENT?</label>
                             <select id="u-collect">
@@ -491,7 +503,7 @@
                                 <option value="YES">YES</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>AMOUNT TO COLLECT</label><input type="number" id="u-amount" value="0"></div>
+
 
                         <div class="form-group"><label>NOTES</label><textarea id="u-notes" rows="4" style="width: 100%; border: 1px solid #ddd; padding: 10px; border-radius: 6px;"></textarea></div>
                     </div>
@@ -513,8 +525,7 @@
                             <div class="header-right">
                                 <div class="id-box">ID: <span class="id-val">#6539</span></div>
                                 <div class="date-box-simple">
-                                    INIT: <span class="p-init">---</span><br>
-                                    FINAL: <span class="p-final">---</span>
+                                    DATE: <span class="p-init">---</span>
                                 </div>
                             </div>
                         </div>
@@ -569,7 +580,7 @@
                                     <div class="fee-line">DOORS: <span class="p-doors">---</span></div>
                                     <div class="fee-line">MILES: <span class="p-miles">0</span></div>
                                     <div class="fee-line">COLLECT: <span class="p-collect">NO</span></div>
-                                    <div class="fee-line total">AMOUNT: <span class="p-amount">$0,00</span></div>
+
                                 </div>
                             </div>
                         </div>
@@ -591,7 +602,7 @@
                                 </div>
                             </div>
                             <div class="header-right">
-                                <div class="status-box">STATUS: <span class="status-val">PENDING</span></div>
+
                                 <div class="id-box">ID: <span class="id-val">#6428</span></div>
                             </div>
                         </div>
@@ -604,7 +615,7 @@
                             <div class="info-item">SIZE: <strong class="p-size">---</strong></div>
                         </div>
                         <div class="booking-order-container">
-                            <div class="bo-box">RELEASE #: <span class="p-release">---</span></div>
+                            <div class="bo-box">BOOKING #: <span class="p-release">---</span></div>
                             <div class="bo-box">ORDER #: <span class="p-order">---</span></div>
                         </div>
                         <div class="customer-data">
@@ -614,7 +625,7 @@
                             </div>
                             <div class="data-row">
                                 <div class="data-cell">PHONE: <span class="p-phone">---</span></div>
-                                <div class="data-cell">DATE IN: <span class="p-init">---</span></div>
+                                <div class="data-cell">DATE: <span class="p-init">---</span></div>
                             </div>
                         </div>
                         <div class="condition-section">
@@ -634,6 +645,8 @@
                                     <div class="fee-line">YARD FEE <span class="p-yard-fee">$0,00</span></div>
                                     <div class="fee-line">STORAGE FEE <span class="p-storage-fee">$0,00</span></div>
                                     <div class="fee-line">TRANS. <span class="p-trans-fee">$0,00</span></div>
+                                    <div class="fee-line">TAX <span class="p-yard-tax">$0,00</span></div>
+                                    <div class="fee-line">COLLECT <span class="p-collect">NO</span></div>
                                     <div class="fee-line total">TOTAL <span class="p-total-receipt">$0,00</span></div>
                                 </div>
                             </div>
@@ -658,6 +671,10 @@
                                 <div class="id-box">ID: <span class="id-val">#3-SALES</span></div>
                             </div>
                         </div>
+                        <div class="booking-order-container">
+                            <div class="bo-box">RELEASE #: <span class="p-release">---</span></div>
+                            <div class="bo-box">ORDER #: <span class="p-order">---</span></div>
+                        </div>
                         <div class="customer-data" style="margin-top:20px;">
                             <div class="data-row">
                                 <div class="data-cell">CUSTOMER: <span class="p-customer">---</span></div>
@@ -680,6 +697,8 @@
                                 <div class="fees-box" style="border: 2px solid #000; padding: 15px; border-radius: 12px;">
                                     <div class="fee-line">SALES PRICE <span class="p-sales-price">$0,00</span></div>
                                     <div class="fee-line">DELIVERY PRICE <span class="p-delivery-price">$0,00</span></div>
+                                    <div class="fee-line">TAX <span class="p-sales-tax">$0,00</span></div>
+                                    <div class="fee-line">COLLECT <span class="p-collect">NO</span></div>
                                     <div class="fee-line total" style="color: #0f172a; font-size: 1.2rem;">TOTAL <span class="p-total-sales">$0,00</span></div>
                                 </div>
                             </div>
@@ -811,6 +830,12 @@
                         el.style.display = el.classList.contains(`field-${type}`) ? 'block' : 'none';
                     });
                 });
+
+                // Update Dynamic Label
+                const labelRel = document.getElementById('label-release');
+                if(labelRel) {
+                    labelRel.textContent = (type === 'yard') ? 'BOOKING #' : 'RELEASE #';
+                }
             }
 
             if(docSelector) {
@@ -844,7 +869,15 @@
                 const y = parseFloat(document.getElementById('u-yard-fee').value) || 0;
                 const s = parseFloat(document.getElementById('u-storage-fee').value) || 0;
                 const t = parseFloat(document.getElementById('u-trans-fee').value) || 0;
-                const total = y + s + t;
+                const taxPercent = parseFloat(document.getElementById('u-taxes').value) || 0;
+
+                const subtotal = y + s + t;
+                const taxAmount = subtotal * (taxPercent / 100);
+                const total = subtotal + taxAmount;
+
+                const taxPrev = document.querySelector('.p-yard-tax');
+                if(taxPrev) taxPrev.textContent = `$${taxAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+
                 const prev = document.querySelector('.p-total-receipt');
                 if(prev) prev.textContent = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
             }
@@ -852,7 +885,15 @@
             function updateSalesTotal() {
                 const s = parseFloat(document.getElementById('u-sales-price').value) || 0;
                 const d = parseFloat(document.getElementById('u-delivery-price').value) || 0;
-                const total = s + d;
+                const taxPercent = parseFloat(document.getElementById('u-taxes').value) || 0;
+
+                const subtotal = s + d;
+                const taxAmount = subtotal * (taxPercent / 100);
+                const total = subtotal + taxAmount;
+
+                const taxPrev = document.querySelector('.p-sales-tax');
+                if(taxPrev) taxPrev.textContent = `$${taxAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+
                 const prev = document.querySelector('.p-total-sales');
                 if(prev) prev.textContent = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
             }
@@ -901,13 +942,39 @@
             setupDocsSync('u-delivery', 'p-delivery');
             setupDocsSync('u-miles', 'p-miles');
             setupDocsSync('u-doors', 'p-doors');
-            setupDocsSync('u-amount', 'p-amount', true);
+            
+            // Fix sync for select elements
+            const doorsSelect = document.getElementById('u-doors');
+            if(doorsSelect) {
+                doorsSelect.addEventListener('change', () => {
+                    document.querySelectorAll('.p-doors').forEach(p => p.textContent = doorsSelect.value);
+                });
+            }
+            
             setupDocsSync('u-collect', 'p-collect');
+            
+            // Ensure select triggers change immediately
+            const collectSelect = document.getElementById('u-collect');
+            if(collectSelect) {
+                collectSelect.addEventListener('change', () => {
+                    document.querySelectorAll('.p-collect').forEach(p => p.textContent = collectSelect.value);
+                });
+            }
             setupDocsSync('u-yard-fee', 'p-yard-fee', true);
             setupDocsSync('u-storage-fee', 'p-storage-fee', true);
             setupDocsSync('u-trans-fee', 'p-trans-fee', true);
             setupDocsSync('u-sales-price', 'p-sales-price', true);
             setupDocsSync('u-delivery-price', 'p-delivery-price', true);
+            setupDocsSync('u-taxes', 'p-taxes');
+            
+            const taxesInput = document.getElementById('u-taxes');
+            if(taxesInput) {
+                taxesInput.addEventListener('input', () => {
+                    updateYardTotal();
+                    updateSalesTotal();
+                });
+            }
+            
             setupDocsSync('u-type', 'p-type');
             setupDocsSync('u-size', 'p-size');
             
