@@ -61,36 +61,59 @@ main {
     top: 0;
     left: 0;
     width: 100%;
-    z-index: 1000;
-    padding: 20px 0;
+    z-index: 1100; /* Higher than hero and other content */
+    padding: 30px 0; /* Increased vertical padding for more body */
     transition: all 0.4s ease;
     background-color: transparent;
+    display: flex;
+    align-items: center;
 }
 
 .navbar-scrolled {
-    background-color: rgba(10, 25, 47, 0.85);
+    background-color: rgba(10, 25, 47, 0.9);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    padding: 15px 0;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    padding: 20px 0; /* Increased padding even when scrolled */
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
 }
 
 .container-nav {
-    max-width: 1200px;
+    max-width: 1400px; /* Increased width for better button distribution */
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0 5%;
+    width: 100%;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    z-index: 1200;
+}
+
+.navbar-logo-img {
+    height: 50px; /* Slightly larger logo */
+    border-radius: 50%;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .logo-text {
-    color: var(--pure-white);
+    color: #ffffff !important; /* Solid white */
     font-weight: 700;
-    font-size: 1.5rem;
-    letter-spacing: 2px;
+    font-size: 1.8rem; /* Slightly larger */
+    letter-spacing: 2.5px;
     text-decoration: none;
-    transition: opacity 0.3s ease;
+    transition: all 0.3s ease;
+    margin-left: 15px; /* Margin to the left of the text (space between logo and text) */
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .logo-text:hover {
@@ -98,10 +121,10 @@ main {
 }
 
 .navbar-fixed-solid {
-    background-color: rgba(10, 25, 47, 0.95);
+    background-color: rgba(10, 25, 47, 0.98);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
-    padding: 12px 0;
+    padding: 25px 0; /* Enlarge vertical padding */
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -127,8 +150,10 @@ main {
 
 .nav-actions {
     display: flex;
-    gap: 15px;
+    gap: 15px; /* Gap between buttons */
     align-items: center;
+    flex-wrap: wrap; /* Fluid layout if space is insufficient */
+    justify-content: flex-end;
 }
 
 /* Mobile Toggle (Hamburger) */
@@ -136,20 +161,20 @@ main {
     display: none;
     flex-direction: column;
     justify-content: space-between;
-    width: 30px;
-    height: 21px;
+    width: 40px; /* Increased for better touch-area */
+    height: 25px;
     background: transparent;
     border: none;
     cursor: pointer;
-    z-index: 1001;
+    z-index: 1500; /* Ensure it stays on top */
 }
 
 .mobile-toggle .bar {
     width: 100%;
     height: 3px;
-    background-color: var(--pure-white);
+    background-color: #ffffff;
     border-radius: 10px;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mobile-toggle.active .bar:nth-child(1) { transform: translateY(9px) rotate(45deg); }
@@ -177,10 +202,13 @@ main {
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         border-top: 1px solid rgba(255,255,255,0.1);
         backdrop-filter: blur(20px);
+        justify-content: center;
+        text-align: center;
+        z-index: 1400; /* High z-index to stay above content */
     }
 
     .nav-actions.active {
-        display: flex;
+        display: flex !important;
     }
 
     .btn-calendar {
@@ -200,8 +228,10 @@ main {
     background-position: center;
     background-repeat: no-repeat;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    padding-top: 0 !important; /* Reset generic view-section padding for precise control */
 }
 
 /* Dark Navy Overlay for readability */
@@ -220,7 +250,8 @@ main {
     position: relative;
     z-index: 2;
     text-align: center;
-    padding: 0 20px;
+    padding: 35vh 20px 0; /* Shifted down to be approximately in the vertical middle */
+    width: 100%;
 }
 
 /* Branding & Typography */

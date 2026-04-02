@@ -15,12 +15,12 @@
     <!-- Navbar Navigation -->
     <header class="navbar" id="header-nav">
         <div class="container-nav">
-            <div class="logo" style="display: flex; align-items: center;">
-                <img src="assets/logo.jpg" alt="RP Tulipan Logo" style="height: 40px; margin-right: 12px; border-radius: 50%;">
-                <button onclick="closeMenu(); showView('hero')" class="logo-text" style="background:none; border:none; color:inherit; font:inherit; cursor:pointer;">RP TULIPAN</button>
+            <div class="logo">
+                <img src="assets/logo.jpg" alt="RP Tulipan Logo" class="navbar-logo-img">
+                <button onclick="closeMenu(); showView('hero')" class="logo-text">RP TULIPAN</button>
             </div>
             
-            <button class="mobile-toggle" id="hamburger-menu" aria-label="Toggle Menu">
+            <button class="mobile-toggle" id="hamburger-menu" aria-label="Toggle Menu" onclick="toggleMobileMenu(event)">
                 <span class="bar"></span>
                 <span class="bar"></span>
                 <span class="bar"></span>
@@ -670,14 +670,21 @@
             }
         })();
 
-        const hamburger = document.getElementById('hamburger-menu');
-        const navActions = document.getElementById('nav-actions-container');
+        // Robust mobile menu toggle
+        window.toggleMobileMenu = function(e) {
+            if (e) e.stopPropagation();
+            const btn = document.getElementById('hamburger-menu');
+            const menu = document.getElementById('nav-actions-container');
+            if (btn && menu) {
+                btn.classList.toggle('active');
+                menu.classList.toggle('active');
+                console.log("Mobile menu toggled");
+            }
+        };
 
-        if (hamburger && navActions) {
-            hamburger.addEventListener('click', () => {
-                hamburger.classList.toggle('active');
-                navActions.classList.toggle('active');
-            });
+        const hamburger = document.getElementById('hamburger-menu');
+        if (hamburger) {
+            hamburger.addEventListener('click', toggleMobileMenu);
         }
 
         window.closeMenu = function() {
