@@ -994,25 +994,37 @@ main {
 
 @media screen and (max-width: 1024px) {
     #docs-view .dashboard-split-container {
-        flex-direction: column;
-        overflow-y: visible !important; /* Enable global scroll */
+        display: block !important; /* Use block instead of flex to ensure natural document flow */
         height: auto !important;
-        min-height: calc(100vh - 60px);
-        position: relative !important; /* Ensure it flows with the document */
+        min-height: 100vh;
+        overflow: visible !important;
+        position: relative !important;
     }
 
-    .trip-selector-panel, .receipt-form-panel {
+    .trip-selector-panel {
         width: 100% !important;
+        height: 400px !important; /* RE-ESTABLISH FIXED HEIGHT FOR LIST ON MOBILE */
+        display: flex !important;
+        flex-direction: column !important;
         border-right: none;
-        border-bottom: 1px solid #cbd5e1;
-        height: auto !important;
-        max-height: 400px; 
-        overflow-y: auto !important; /* Allow internal scroll if needed but don't block body */
+        border-bottom: 2px solid #cbd5e1;
+        background: #f8fafc !important;
+        z-index: 10;
+    }
+
+    .trip-list-scroll {
+        flex: 1 !important;
+        min-height: 200px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
     }
 
     .receipt-form-panel {
-        max-height: none !important; /* Form should be fully scrollable with the page */
-        padding-bottom: 150px !important; /* Extra space to avoid overlap with mobile nav bars */
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        border-right: none;
+        padding-bottom: 150px !important;
     }
 
     .receipt-preview-panel {
