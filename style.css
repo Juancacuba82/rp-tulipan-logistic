@@ -430,9 +430,30 @@ main {
 .dashboard-split-container {
     display: flex;
     height: calc(100vh - 60px); /* Synchronized with new compact padding */
-    width: 100vw;
+    width: 100%;
     background-color: #f0f2f5;
     overflow: hidden;
+}
+
+@media screen and (max-width: 1024px) {
+    .dashboard-split-container {
+        flex-direction: column !important;
+        height: auto !important;
+        overflow-y: auto !important;
+    }
+
+    .entry-sidebar.primary-entry {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        border-right: none !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+    }
+
+    .table-area {
+        width: 100% !important;
+        flex: 0 0 auto !important;
+        padding: 10px !important;
+    }
 }
 
 /* Left Panel: Form (Fixed width for better side-by-side) */
@@ -507,6 +528,7 @@ main {
 .header-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap; /* Allow buttons to wrap on mobile */
 }
 
 .btn-cancel {
@@ -620,6 +642,26 @@ main {
     .table-area {
         height: 500px;
         border-top: 1px solid #ddd;
+    }
+    
+    .sidebar-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+    
+    .btn-cancel, .btn-add-sidebar {
+        font-size: 0.75rem;
+        padding: 8px 12px;
+        flex: 1 0 auto; /* Allow buttons to shrink/grow as needed but ensure they stay visible */
+        text-align: center;
     }
 }
 
@@ -949,13 +991,48 @@ main {
 .receipt-footer { display: flex; justify-content: space-between; margin-top: 50px; }
 .signature-box { width: 45%; border-top: 2px solid #1a1a1a; text-align: center; padding-top: 8px; font-size: 0.75rem; margin-top: 50px; font-weight: 700; }
 
+@media screen and (max-width: 1024px) {
+    #docs-view .dashboard-split-container {
+        flex-direction: column;
+        overflow-y: auto;
+        height: auto;
+        min-height: calc(100vh - 60px);
+    }
+
+    .trip-selector-panel, .receipt-form-panel {
+        width: 100% !important;
+        border-right: none;
+        border-bottom: 1px solid #cbd5e1;
+        height: auto !important;
+        max-height: 400px; /* Limit height of list on mobile */
+    }
+
+    .receipt-preview-panel {
+        padding: 10px;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    .a4-paper {
+        width: 100% !important;
+        min-height: auto;
+        padding: 10mm 5mm;
+        transform: none !important;
+        box-shadow: none;
+    }
+    
+    .receipt-grid-3 {
+        grid-template-columns: 1fr; /* Stack fields on mobile */
+    }
+}
+
 @media print {
     @page { size: A4; margin: 0; }
     body > *:not(main) { display: none !important; }
     main > *:not(#docs-view) { display: none !important; }
     #docs-view .trip-selector-panel,
     #docs-view .receipt-form-panel { display: none !important; }
-    #docs-view .receipt-preview-panel { padding: 0 !important; background: white !important; }
+    #docs-view .receipt-preview-panel { padding: 0 !important; background: white !important; width: 100% !important; height: auto !important; }
     .a4-paper { box-shadow: none !important; width: 100% !important; min-height: 100% !important; margin: 0 !important; }
     #header-nav { display: none !important; }
 }
