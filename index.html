@@ -17,9 +17,9 @@
     <!-- Navbar Navigation -->
     <header class="navbar" id="header-nav">
         <div class="container-nav">
-            <div class="logo">
-                <img src="assets/logo.jpg" alt="RP Tulipan Logo" class="navbar-logo-img">
-                <button onclick="closeMenu(); showView('hero')" class="logo-text">RP TULIPAN</button>
+            <div class="navbar-logo" onclick="closeMenu(); sessionStorage.setItem('activeSection', 'hero'); showView('hero')" style="cursor: pointer; display: flex; align-items: center; gap: 15px;">
+                <img src="assets/logo.png" alt="RP Tulipan Logo" class="navbar-logo-img" style="width: 45px; height: auto; object-fit: contain;">
+                <span class="logo-text">RP TULIPAN</span>
             </div>
             
             <button class="mobile-toggle" id="hamburger-menu" aria-label="Toggle Menu" onclick="toggleMobileMenu(event)">
@@ -536,12 +536,13 @@
                         <h3>Release Management</h3>
                         <div class="header-actions">
                             <button onclick="addReleaseRow()" class="btn-add-sidebar">Add Release</button>
-                            <button onclick="showView('hero')" class="btn-cancel">Exit</button>
                         </div>
                     </div>
                     <div class="sidebar-form">
-                        <div class="form-group"><label>ID</label><input type="text" id="rel-id" placeholder="ID"></div>
-                        <div class="form-group"><label>DATE</label><input type="date" id="rel-date"></div>
+                        <div class="form-group">
+                            <label>RELEASE / BK#</label>
+                            <input type="text" id="rel-no-releases" placeholder="Rel # or Booking #">
+                        </div>
                         <div class="form-group">
                             <label>TYPE</label>
                             <select id="rel-type">
@@ -549,24 +550,30 @@
                                 <option value="REEFER">REEFER</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>MEASURES</label>
-                            <select id="rel-measures">
-                                <option value="40' HC">40' HC</option>
-                                <option value="40' STD">40' STD</option>
-                                <option value="20' STD">20' STD</option>
-                                <option value="45' HC">45' HC</option>
-                            </select>
+                        <div class="form-group" style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                            <label style="color: var(--corporate-red); margin-bottom: 10px; font-weight: 800; font-size: 0.75rem;">INITIAL STOCK (QTY)</label>
+                            <div style="display: flex; gap: 8px;">
+                                <div style="flex:1;">
+                                    <label style="font-size: 0.6rem; display: block; margin-bottom: 4px;">20' QTY</label>
+                                    <input type="number" id="rel-qty-20" value="0" min="0" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size: 0.6rem; display: block; margin-bottom: 4px;">40' QTY</label>
+                                    <input type="number" id="rel-qty-40" value="0" min="0" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size: 0.6rem; display: block; margin-bottom: 4px;">45' QTY</label>
+                                    <input type="number" id="rel-qty-45" value="0" min="0" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                </div>
+                            </div>
                         </div>
+                        <div class="form-group"><label>DATE</label><input type="date" id="rel-date"></div>
                         <div class="form-group"><label>CITY</label><input type="text" id="rel-city" placeholder="City"></div>
-                        <div class="form-group"><label>SELLER</label><input type="text" id="rel-seller" placeholder="Seller Name"></div>
                         <div class="form-group"><label>DEPOT</label><input type="text" id="rel-depot" placeholder="Depot Name"></div>
-                        <div class="form-group"><label>No RELEASES*</label><input type="text" id="rel-no-releases" placeholder="Rel # or Booking #"></div>
+                        <div class="form-group"><label>SELLER</label><input type="text" id="rel-seller" placeholder="Seller Name"></div>
                         <div class="form-group"><label>PAID BY</label><input type="text" id="rel-paidby" placeholder="Paid By"></div>
-                        <div class="form-group"><label>TRANSPORTATION</label><input type="text" id="rel-transp" placeholder="Transport Name"></div>
-                        <div class="form-group"><label>AMOUNT</label><input type="number" id="rel-qty" value="1"></div>
-                        <div class="form-group"><label>PRICE</label><input type="number" id="rel-price" value="0"></div>
-                        <div class="form-group"><label>TOTAL</label><input type="text" id="rel-total" value="$0,00" readonly style="background: #f1f5f9; font-weight: 700;"></div>
+                        <div class="form-group"><label>TRANSPORT</label><input type="text" id="rel-transp" placeholder="Transport Name"></div>
+                        <div class="form-group"><label>PRICE PER UNIT ($)</label><input type="number" id="rel-price" value="0"></div>
                     </div>
                 </aside>
 
@@ -578,24 +585,18 @@
                         <table id="releases-table">
                             <thead>
                                 <tr class="header-row">
-                                    <th>ID</th>
+                                    <th>RELEASE #</th>
                                     <th>DATE</th>
                                     <th>TYPE</th>
-                                    <th>MEASURES</th>
-                                    <th>CITY</th>
-                                    <th>SELLER</th>
                                     <th>DEPOT</th>
-                                    <th>No RELEASES*</th>
-                                    <th>PAID BY</th>
-                                    <th>TRANS.</th>
-                                    <th>AMOUNT</th>
+                                    <th>CITY</th>
+                                    <th>20' QTY</th>
+                                    <th>40' QTY</th>
+                                    <th>45' QTY</th>
                                     <th>PRICE</th>
-                                    <th>TOTAL</th>
-                                    <th>INV. INICIAL</th>
-                                    <th>PICK UP</th>
-                                    <th>STOCK</th>
-                                    <th>DATE PICK UP</th>
-                                    <th>TRANSPORTATION</th>
+                                    <th>SELLER</th>
+                                    <th>TRANS.</th>
+                                    <th>TOTAL STOCK</th>
                                 </tr>
                             </thead>
                             <tbody id="releases-body">
@@ -705,21 +706,19 @@
             }
         };
 
-        const hamburger = document.getElementById('hamburger-menu');
-        if (hamburger) {
-            hamburger.addEventListener('click', toggleMobileMenu);
-        }
-
+        // Event handled by onclick in HTML
         window.closeMenu = function() {
-            if (hamburger && navActions) {
-                hamburger.classList.remove('active');
-                navActions.classList.remove('active');
+            const btn = document.getElementById('hamburger-menu');
+            const menu = document.getElementById('nav-actions-container');
+            if (btn && menu) {
+                btn.classList.remove('active');
+                menu.classList.remove('active');
             }
         };
 
         function showView(view) {
             console.log("Navigating to:", view);
-            localStorage.setItem('activeView', view);
+            sessionStorage.setItem('activeSection', view);
             
             // 1. Reset Scroll IMMEDIATELY
             window.scrollTo(0, 0);
@@ -829,6 +828,52 @@
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
             
+            // Inventory Validation
+            const selectedRelease = document.getElementById('in-release').value;
+            const selectedSize = document.getElementById('in-size').value;
+            
+            if (selectedRelease && selectedRelease !== '---' && editingIndex === null) {
+                const relSaved = localStorage.getItem('releasesTableData');
+                if(relSaved) {
+                    const relRows = JSON.parse(relSaved);
+                    const rIdx = relRows.findIndex(r => r[0] === selectedRelease);
+                    if (rIdx !== -1) {
+                        let stockIdx = -1;
+                        if (selectedSize.includes("20'")) stockIdx = 5;
+                        else if (selectedSize.includes("40'")) stockIdx = 6;
+                        else if (selectedSize.includes("45'")) stockIdx = 7;
+                        
+                        if (stockIdx !== -1) {
+                            const currentStock = parseInt(relRows[rIdx][stockIdx]) || 0;
+                            if (currentStock <= 0) {
+                                alert(`STOCK EXHAUSTED for Size ${selectedSize} in Release ${selectedRelease}`);
+                                return;
+                            }
+                            // Decrement Stock
+                            relRows[rIdx][stockIdx] = currentStock - 1;
+                            relRows[rIdx][11] = (parseInt(relRows[rIdx][5])||0) + (parseInt(relRows[rIdx][6])||0) + (parseInt(relRows[rIdx][7])||0);
+                            localStorage.setItem('releasesTableData', JSON.stringify(relRows));
+                            
+                            // Re-render releases table and datalists
+                            const relBody = document.getElementById('releases-body');
+                            if(relBody) {
+                                relBody.innerHTML = '';
+                                relRows.forEach(rowData => {
+                                    const tr = document.createElement('tr');
+                                    rowData.forEach(text => {
+                                        const td = document.createElement('td');
+                                        td.textContent = text;
+                                        tr.appendChild(td);
+                                    });
+                                    relBody.appendChild(tr);
+                                });
+                            }
+                            updateReleaseDatalist();
+                        }
+                    }
+                }
+            }
+
             const rowData = fields.map(id => {
                 const el = document.getElementById(id);
                 return el ? el.value || '---' : '---';
@@ -886,17 +931,62 @@
         }
 
         function updateReleaseDatalist() {
-            const saved = localStorage.getItem('logisticsTableData');
+            const saved = localStorage.getItem('releasesTableData');
             const releaseList = document.getElementById('release-list');
             if(saved && releaseList) {
                 const rows = JSON.parse(saved);
-                const uniqueReleases = [...new Set(rows.map(r => r[4]).filter(val => val && val !== '---'))];
+                // Filter: Show only releases that have at least 1 unit in total stock
+                const validReleases = rows.filter(r => {
+                    const total = (parseInt(r[5]) || 0) + (parseInt(r[6]) || 0) + (parseInt(r[7]) || 0);
+                    return total > 0;
+                });
                 releaseList.innerHTML = '';
-                uniqueReleases.sort().forEach(rel => {
-                    const opt = document.createElement('option'); opt.value = rel;
+                validReleases.forEach(r => {
+                    const opt = document.createElement('option'); 
+                    opt.value = r[0]; // Release # is index 0
                     releaseList.appendChild(opt);
                 });
             }
+        }
+
+        // --- DYNAMIC SIZE FILTER BASED ON RELEASE STOCK ---
+        const inReleaseInput = document.getElementById('in-release');
+        const inSizeSelect = document.getElementById('in-size');
+        
+        if(inReleaseInput && inSizeSelect) {
+            inReleaseInput.addEventListener('change', () => {
+                const selectedRel = inReleaseInput.value;
+                const saved = localStorage.getItem('releasesTableData');
+                if(!saved) return;
+                const rows = JSON.parse(saved);
+                const relData = rows.find(r => r[0] === selectedRel);
+                
+                if(relData) {
+                    const stock20 = parseInt(relData[5]) || 0;
+                    const stock40 = parseInt(relData[6]) || 0;
+                    const stock45 = parseInt(relData[7]) || 0;
+                    
+                    // Filter options based on stock
+                    Array.from(inSizeSelect.options).forEach(opt => {
+                        const val = opt.value;
+                        if(!val) return; // Leave "Select Size"
+                        
+                        let shouldShow = true;
+                        if (val.includes("20'")) shouldShow = stock20 > 0;
+                        else if (val.includes("40'")) shouldShow = stock40 > 0;
+                        else if (val.includes("45'")) shouldShow = stock45 > 0;
+                        
+                        opt.disabled = !shouldShow;
+                        opt.style.display = shouldShow ? 'block' : 'none';
+                    });
+                } else {
+                    // Reset if no release found or clear
+                    Array.from(inSizeSelect.options).forEach(opt => {
+                        opt.disabled = false;
+                        opt.style.display = 'block';
+                    });
+                }
+            });
         }
         
         function updateAddressDatalist() {
@@ -1245,6 +1335,10 @@
             updateReleaseDatalist();
             updateAddressDatalist();
             
+            // --- PERSISTENCE LOGIC (Anti-F5) ---
+            const savedSection = sessionStorage.getItem('activeSection') || 'hero';
+            showView(savedSection);
+            
             // Set initial ID and Order
             document.getElementById('in-id').value = 'TRIP-' + Date.now().toString().slice(-6);
             const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -1254,39 +1348,43 @@
 
             // New logic for Release Row addition
             window.addReleaseRow = () => {
-                const fields = ['rel-id', 'rel-date', 'rel-type', 'rel-measures', 'rel-city', 'rel-seller', 'rel-depot', 'rel-no-releases', 'rel-paidby', 'rel-transp', 'rel-qty', 'rel-price', 'rel-total'];
-                const row = document.createElement('tr');
+                const relNo = document.getElementById('rel-no-releases').value;
+                if(!relNo) { alert('Please enter a Release Number'); return; }
                 
-                // Existing fields (sidebar)
-                fields.forEach(f => {
+                const q20 = parseInt(document.getElementById('rel-qty-20').value) || 0;
+                const q40 = parseInt(document.getElementById('rel-qty-40').value) || 0;
+                const q45 = parseInt(document.getElementById('rel-qty-45').value) || 0;
+                const totalStock = q20 + q40 + q45;
+                
+                const data = [
+                    relNo,
+                    document.getElementById('rel-date').value || '---',
+                    document.getElementById('rel-type').value,
+                    document.getElementById('rel-depot').value || '---',
+                    document.getElementById('rel-city').value || '---',
+                    q20, q40, q45,
+                    document.getElementById('rel-price').value || '0',
+                    document.getElementById('rel-seller').value || '---',
+                    document.getElementById('rel-transp').value || '---',
+                    totalStock
+                ];
+
+                const tr = document.createElement('tr');
+                data.forEach(text => {
                     const td = document.createElement('td');
-                    const inputEl = document.getElementById(f);
-                    td.textContent = inputEl ? inputEl.value || '---' : '---';
-                    row.appendChild(td);
+                    td.textContent = text;
+                    tr.appendChild(td);
                 });
 
-                // Add empty cells for the subsequent columns kept in the table
-                for(let i=0; i<5; i++) {
-                    const td = document.createElement('td');
-                    td.textContent = '---';
-                    row.appendChild(td);
-                }
-
-                document.getElementById('releases-body').appendChild(row);
+                document.getElementById('releases-body').appendChild(tr);
                 saveReleasesData();
+                updateReleaseDatalist();
                 
-                // Clear inputs partially
-                document.getElementById('rel-no-releases').value = '';
-                document.getElementById('rel-qty').value = '1';
-                document.getElementById('rel-price').value = '0';
-                updateRelTotal();
-            };
-
-            const updateRelTotal = () => {
-                const q = parseFloat(document.getElementById('rel-qty').value) || 0;
-                const p = parseFloat(document.getElementById('rel-price').value) || 0;
-                const total = q * p;
-                document.getElementById('rel-total').value = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                // Clear inputs
+                ['rel-no-releases', 'rel-qty-20', 'rel-qty-40', 'rel-qty-45', 'rel-depot', 'rel-city', 'rel-seller', 'rel-transp'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.value = (id.includes('qty')) ? '0' : '';
+                });
             };
 
             ['rel-qty', 'rel-price'].forEach(id => {
@@ -1322,16 +1420,8 @@
                 }
             }
 
-            // Mobile Menu Toggle
-            const toggle = document.getElementById('hamburger-menu');
-            const menu = document.getElementById('nav-actions-container');
-            
-            if(toggle && menu) {
-                toggle.addEventListener('click', () => {
-                    toggle.classList.toggle('active');
-                    menu.classList.toggle('active');
-                });
-            }
+            // Logic for hamburger is already globally defined in toggleMobileMenu function 
+            // and attached via onclick in HTML to prevent double-toggle conflicts.
 
             window.closeMenu = () => {
                 if(toggle) toggle.classList.remove('active');
