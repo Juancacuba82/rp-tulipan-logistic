@@ -14,12 +14,25 @@ try {
     console.error("Supabase client failed to initialize. Check if script tag is present.");
 }
 
-// Helper for Trips (Logistics Table Data)
+// Localización: c:\Users\Juanca\Desktop\RP tulipan logistic\supabase-client.js
+
+// Busca y reemplaza la función getTrips por esta versión:
 async function getTrips() {
-    const { data, error } = await db.from('trips').select('*').order('created_at', { ascending: false });
-    if (error) { console.error('Error fetching trips:', error); return []; }
-    return data;
+    try {
+        const { data, error } = await db
+            .from('trips')
+            .select('*'); // Quitamos el order() para evitar fallos con NULLs
+
+        if (error) throw error;
+        console.log("Viajes obtenidos de Supabase:", data.length);
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching trips:', err);
+        return [];
+    }
 }
+
+
 
 async function addTrip(tripData) {
     const { data, error } = await db.from('trips').insert([tripData]);

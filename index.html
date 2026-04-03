@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RP TULIPAN TRANSPORT INC - Professional Container Logistics Solutions. Minimalist and Reliable.">
+    <meta name="description"
+        content="RP TULIPAN TRANSPORT INC - Professional Container Logistics Solutions. Minimalist and Reliable.">
     <title>RP TULIPAN TRANSPORT INC | Container Logistics</title>
     <!-- Modern Typography: Outfit from Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Roboto+Condensed:wght@400;700&display=swap"
+        rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -16,28 +20,39 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
 </head>
+
 <body>
     <!-- Navbar Navigation -->
     <header class="navbar" id="header-nav">
         <div class="container-nav">
-            <div class="navbar-logo" onclick="closeMenu(); sessionStorage.setItem('activeSection', 'hero'); showView('hero')" style="cursor: pointer; display: flex; align-items: center; gap: 15px;">
-                <img src="assets/logo.png" alt="RP Tulipan Logo" class="navbar-logo-img" style="width: 45px; height: auto; object-fit: contain;">
+            <div class="navbar-logo"
+                onclick="closeMenu(); sessionStorage.setItem('activeSection', 'hero'); showView('hero')"
+                style="cursor: pointer; display: flex; align-items: center; gap: 15px;">
+                <img src="assets/logo.png" alt="RP Tulipan Logo" class="navbar-logo-img"
+                    style="width: 45px; height: auto; object-fit: contain;">
                 <span class="logo-text">RP TULIPAN</span>
             </div>
-            
-            <button class="mobile-toggle" id="hamburger-menu" aria-label="Toggle Menu" onclick="toggleMobileMenu(event)">
+
+            <button class="mobile-toggle" id="hamburger-menu" aria-label="Toggle Menu"
+                onclick="toggleMobileMenu(event)">
                 <span class="bar"></span>
                 <span class="bar"></span>
                 <span class="bar"></span>
             </button>
 
             <div class="nav-actions" id="nav-actions-container">
-                <button onclick="closeMenu(); showView('fleet')" class="btn-calendar"><i class="fas fa-truck"></i> FLEET & EQUIPMENT</button>
-                <button onclick="closeMenu(); showView('profit-report')" class="btn-calendar"><i class="fas fa-chart-line"></i> PROFIT REPORT</button>
-                <button onclick="closeMenu(); showView('reports')" class="btn-calendar"><i class="fas fa-truck-loading"></i> DRIVERS REPORTS</button>
-                <button onclick="closeMenu(); showView('releases')" class="btn-calendar"><i class="fas fa-file-signature"></i> FORM RELEASES</button>
-                <button onclick="closeMenu(); showView('docs')" class="btn-calendar"><i class="fas fa-receipt"></i> DOCS & RECEIPTS</button>
-                <button onclick="closeMenu(); showView('calendar')" class="btn-calendar"><i class="fas fa-calendar-check"></i> DELIVERY CALENDAR</button>
+                <button onclick="closeMenu(); showView('fleet')" class="btn-calendar"><i class="fas fa-truck"></i> FLEET
+                    & EQUIPMENT</button>
+                <button onclick="closeMenu(); showView('profit-report')" class="btn-calendar"><i
+                        class="fas fa-chart-line"></i> PROFIT REPORT</button>
+                <button onclick="closeMenu(); showView('reports')" class="btn-calendar"><i
+                        class="fas fa-truck-loading"></i> DRIVERS REPORTS</button>
+                <button onclick="closeMenu(); showView('releases')" class="btn-calendar"><i
+                        class="fas fa-file-signature"></i> FORM RELEASES</button>
+                <button onclick="closeMenu(); showView('docs')" class="btn-calendar"><i class="fas fa-receipt"></i> DOCS
+                    & RECEIPTS</button>
+                <button onclick="closeMenu(); showView('calendar')" class="btn-calendar"><i
+                        class="fas fa-calendar-check"></i> DELIVERY CALENDAR</button>
             </div>
         </div>
     </header>
@@ -105,7 +120,8 @@
                                 <option value="RENT">RENT (Alquiler)</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>ID</label><input type="text" id="in-id" placeholder="TRIP-0000" readonly style="background: #f1f5f9; cursor: not-allowed;"></div>
+                        <div class="form-group"><label>ID</label><input type="text" id="in-id" placeholder="TRIP-0000"
+                                readonly style="background: #f1f5f9; cursor: not-allowed;"></div>
                         <div class="form-group"><label>DATE</label><input type="date" id="in-date"></div>
                         <div class="form-group">
                             <label>SIZE</label>
@@ -130,12 +146,14 @@
                                 <option value="TRAILER RENT">TRAILER RENT</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>N. CONT</label><input type="text" id="in-ncont" placeholder="N. Cont"></div>
+                        <div class="form-group"><label>N. CONT</label><input type="text" id="in-ncont"
+                                placeholder="N. Cont"></div>
                         <div class="form-group"><label>RELEASE #</label>
                             <input type="text" id="in-release" placeholder="Release" list="release-list">
                             <datalist id="release-list"></datalist>
                         </div>
-                        <div class="form-group"><label>ORDER - BOL CONT #</label><input type="text" id="in-order" placeholder="ORD-XXXX"></div>
+                        <div class="form-group"><label>ORDER - BOL CONT #</label><input type="text" id="in-order"
+                                placeholder="ORD-XXXX"></div>
                         <div class="form-group">
                             <label>CITY</label>
                             <select id="in-city" required>
@@ -205,7 +223,8 @@
                                 <option value="TRUCK YARD">
                             </datalist>
                         </div>
-                        <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="in-delivery" placeholder="Delivery"></div>
+                        <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="in-delivery"
+                                placeholder="Delivery"></div>
                         <div class="form-group">
                             <label>DOORS DIRECTION</label>
                             <select id="in-doors" required>
@@ -216,7 +235,8 @@
                                 <option value="FACING PASSENGER">FACING PASSENGER</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>MILES</label><input type="number" id="in-miles" placeholder="0"></div>
+                        <div class="form-group"><label>MILES</label><input type="number" id="in-miles" placeholder="0">
+                        </div>
                         <div class="form-group">
                             <label>CUSTOMER</label>
                             <select id="in-customer" required>
@@ -242,20 +262,25 @@
                         </div>
                         <div class="form-group"><label>YARD RATE</label>
                             <input type="number" id="in-yardrate" style="flex: 0.6;">
-                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-yardpaid"></label>
+                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
+                                    id="in-yardpaid"></label>
                         </div>
                         <div class="form-group"><label>DATE OUT</label><input type="date" id="in-dateout"></div>
                         <div class="form-group"><label>DAY RATE</label><input type="number" id="in-dayrate"></div>
 
                         <!-- RENTAL SPECIFIC FIELDS -->
-                        <div id="rental-fields" style="display: none; background: #fff7ed; padding: 10px; border-radius: 8px; border: 1px solid #ffedd5; margin-bottom: 20px;">
+                        <div id="rental-fields"
+                            style="display: none; background: #fff7ed; padding: 10px; border-radius: 8px; border: 1px solid #ffedd5; margin-bottom: 20px;">
                             <h4 style="font-size: 0.8rem; margin-bottom: 10px; color: #9a3412;">RENTAL DETAILS</h4>
                             <div class="form-group"><label>Monthly Rate</label>
                                 <input type="number" id="in-mrate" style="flex: 0.6;">
-                                <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-rentpaid"></label>
+                                <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
+                                        id="in-rentpaid"></label>
                             </div>
-                            <div class="form-group"><label>Start Date</label><input type="date" id="in-sdaterent" onchange="calcNextDue()"></div>
-                            <div class="form-group"><label>Next Due Date</label><input type="date" id="in-nextdue" readonly style="background: #fdf2f8;"></div>
+                            <div class="form-group"><label>Start Date</label><input type="date" id="in-sdaterent"
+                                    onchange="calcNextDue()"></div>
+                            <div class="form-group"><label>Next Due Date</label><input type="date" id="in-nextdue"
+                                    readonly style="background: #fdf2f8;"></div>
                         </div>
                         <div class="form-group">
                             <label>COMPANY</label>
@@ -312,7 +337,8 @@
                         </div>
                         <div class="form-group"><label>RATE</label>
                             <input type="number" id="in-rate" style="flex: 0.6;" oninput="updateDriverCommission()">
-                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-ratepaid"></label>
+                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
+                                    id="in-ratepaid"></label>
                         </div>
                         <div class="form-group">
                             <label>TYPE OF PAYMENT</label>
@@ -324,7 +350,8 @@
                         </div>
                         <div class="form-group"><label>SALES PRICE</label>
                             <input type="number" id="in-sales" style="flex: 0.6;">
-                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-salespaid"></label>
+                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
+                                    id="in-salespaid"></label>
                         </div>
                         <div class="form-group">
                             <label>COLLECT PAYMENT</label>
@@ -337,10 +364,12 @@
                         <div class="form-group">
                             <label>AMOUNT</label>
                             <input type="number" id="in-amount" style="flex: 0.6;" oninput="updateDriverCommission()">
-                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">CASH <input type="checkbox" id="in-amountpaid"></label>
+                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">CASH <input type="checkbox"
+                                    id="in-amountpaid"></label>
                         </div>
                         <div class="form-group"><label>PHONE #</label><input type="text" id="in-phone"></div>
-                        <div class="form-group"><label>PAID DRIVER</label><input type="number" id="in-paiddriver" oninput="updateDriverCommission()"></div>
+                        <div class="form-group"><label>PAID DRIVER</label><input type="number" id="in-paiddriver"
+                                oninput="updateDriverCommission()"></div>
                         <div class="form-group">
                             <label>STATUS</label>
                             <select id="in-status" required>
@@ -360,7 +389,8 @@
                         </div>
                         <div class="form-group">
                             <label>COMISION DRIVER</label>
-                            <input type="text" id="in-comidriver" readonly style="background: #f1f5f9; font-weight: bold; color: #d32f2f;">
+                            <input type="text" id="in-comidriver" readonly
+                                style="background: #f1f5f9; font-weight: bold; color: #d32f2f;">
                         </div>
                         <div class="form-group">
                             <label style="color: #b91c1c; font-weight: 900;">DRIVER Payout Status</label>
@@ -379,10 +409,13 @@
                             </select>
                         </div>
                         <div class="form-group"><label>NOTE</label><input type="text" id="in-note"></div>
-                        <div class="form-group"><label>EMAIL</label><input type="email" id="in-email" placeholder="customer@email.com"></div>
+                        <div class="form-group"><label>EMAIL</label><input type="email" id="in-email"
+                                placeholder="customer@email.com"></div>
                         <input type="hidden" id="in-mode" value="SALE"> <!-- Fallback if JS missing -->
-                        
-                        <button onclick="addRow()" class="btn-add-sidebar" style="margin-top: 25px; width: 100%; padding: 15px; font-weight: 900; background: #b91c1c; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm Operation</button>
+
+                        <button onclick="addRow()" class="btn-add-sidebar"
+                            style="margin-top: 25px; width: 100%; padding: 15px; font-weight: 900; background: #b91c1c; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm
+                            Operation</button>
                     </div>
                 </aside>
 
@@ -391,7 +424,7 @@
                     <div class="table-toolbar">
                         <h2>Trip History / Data grid</h2>
                     </div>
-                    
+
                     <!-- Advanced Filter Panel -->
                     <div class="advanced-filter-panel">
                         <div class="filter-grid">
@@ -420,7 +453,7 @@
                                     <option value="">All Drivers</option>
                                 </select>
                             </div>
-                            
+
                             <div class="filter-item">
                                 <label>Company</label>
                                 <select id="f-company" onchange="applyAdvancedFilters()">
@@ -445,23 +478,28 @@
                             <!-- Text Live Filters -->
                             <div class="filter-item">
                                 <label>N° Cont</label>
-                                <input type="text" id="f-ncont" placeholder="Search..." oninput="applyAdvancedFilters()">
+                                <input type="text" id="f-ncont" placeholder="Search..."
+                                    oninput="applyAdvancedFilters()">
                             </div>
                             <div class="filter-item">
                                 <label>Order - BOL #</label>
-                                <input type="text" id="f-order" placeholder="Search..." oninput="applyAdvancedFilters()">
+                                <input type="text" id="f-order" placeholder="Search..."
+                                    oninput="applyAdvancedFilters()">
                             </div>
                             <div class="filter-item">
                                 <label>Release #</label>
-                                <input type="text" id="f-release" placeholder="Search..." oninput="applyAdvancedFilters()">
+                                <input type="text" id="f-release" placeholder="Search..."
+                                    oninput="applyAdvancedFilters()">
                             </div>
                             <div class="filter-item">
                                 <label>Phone #</label>
-                                <input type="text" id="f-phone" placeholder="Search..." oninput="applyAdvancedFilters()">
+                                <input type="text" id="f-phone" placeholder="Search..."
+                                    oninput="applyAdvancedFilters()">
                             </div>
                         </div>
                         <div class="filter-actions">
-                            <button onclick="resetAdvancedFilters()" class="btn-reset-filters">Clear All Filters</button>
+                            <button onclick="resetAdvancedFilters()" class="btn-reset-filters">Clear All
+                                Filters</button>
                         </div>
                     </div>
                     <div class="table-scroll-container">
@@ -518,13 +556,18 @@
                 <!-- PANEL 1: Trip Selector (Left) -->
                 <aside class="trip-selector-panel">
                     <div class="trip-search-box">
-                        <label style="font-size: 0.75rem; font-weight: bold; margin-bottom: 5px; display: block;">DATE RANGE FILTER</label>
+                        <label style="font-size: 0.75rem; font-weight: bold; margin-bottom: 5px; display: block;">DATE
+                            RANGE FILTER</label>
                         <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-                            <input type="date" id="trip-from-date" class="form-input" style="padding: 4px; font-size: 0.75rem;" onchange="loadDocTrips()">
-                            <input type="date" id="trip-to-date" class="form-input" style="padding: 4px; font-size: 0.75rem;" onchange="loadDocTrips()">
+                            <input type="date" id="trip-from-date" class="form-input"
+                                style="padding: 4px; font-size: 0.75rem;" onchange="loadDocTrips()">
+                            <input type="date" id="trip-to-date" class="form-input"
+                                style="padding: 4px; font-size: 0.75rem;" onchange="loadDocTrips()">
                         </div>
-                        <label style="font-size: 0.75rem; font-weight: bold; margin-bottom: 5px; display: block;">SEARCH TRIP ID / NAME / CONT#</label>
-                        <input type="text" id="trip-search-input" class="form-input" placeholder="Type ID or Name..." oninput="loadDocTrips()">
+                        <label style="font-size: 0.75rem; font-weight: bold; margin-bottom: 5px; display: block;">SEARCH
+                            TRIP ID / NAME / CONT#</label>
+                        <input type="text" id="trip-search-input" class="form-input" placeholder="Type ID or Name..."
+                            oninput="loadDocTrips()">
                     </div>
                     <div id="trip-list-scroll" class="trip-list-scroll">
                         <!-- Populated via JS -->
@@ -533,15 +576,20 @@
 
                 <!-- PANEL 2: Data Form (Center) -->
                 <aside class="receipt-form-panel">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b;">Universal Receipt</h3>
                         <div style="display: flex; gap: 5px;">
-                            <button onclick="printA4Document()" class="btn-add-sidebar" style="font-size: 0.8rem; background: #b91c1c; padding: 5px 15px;">PRINT RECEIPT</button>
+                            <button onclick="printA4Document()" class="btn-add-sidebar"
+                                style="font-size: 0.8rem; background: #b91c1c; padding: 5px 15px;">PRINT
+                                RECEIPT</button>
                         </div>
                     </div>
                     <div class="sidebar-form" style="padding: 0;">
-                        <div class="form-group"><label>Movement ID</label><input type="text" id="u-r-id" readonly placeholder="Select a trip..."></div>
-                        <div class="form-group"><label>Date</label><input type="date" id="u-r-date" oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Movement ID</label><input type="text" id="u-r-id" readonly
+                                placeholder="Select a trip..."></div>
+                        <div class="form-group"><label>Date</label><input type="date" id="u-r-date"
+                                oninput="drawReceipt()"></div>
                         <div class="form-group"><label>Movement</label>
                             <select id="u-r-move" onchange="drawReceipt()">
                                 <option value="IN">IN (Entry)</option>
@@ -549,23 +597,33 @@
                                 <option value="INTER">INTERCHANGE</option>
                             </select>
                         </div>
-                        
+
                         <div class="receipt-section-title">EQUIPMENT DATA</div>
-                        <div class="form-group"><label>Container #</label><input type="text" id="u-r-cont" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Size/Type</label><input type="text" id="u-r-size" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Release / Booking #</label><input type="text" id="u-r-rel" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Order #</label><input type="text" id="u-r-order" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Doors Direction</label><input type="text" id="u-r-doors" placeholder="FWD / AFT" oninput="drawReceipt()"></div>
-                        
+                        <div class="form-group"><label>Container #</label><input type="text" id="u-r-cont"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Size/Type</label><input type="text" id="u-r-size"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Release / Booking #</label><input type="text" id="u-r-rel"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Order #</label><input type="text" id="u-r-order"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Doors Direction</label><input type="text" id="u-r-doors"
+                                placeholder="FWD / AFT" oninput="drawReceipt()"></div>
+
                         <div class="receipt-section-title">LOGISTICS</div>
-                        <div class="form-group"><label>Customer</label><input type="text" id="u-r-customer" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Phone</label><input type="text" id="u-r-phone" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Pick Up From</label><input type="text" id="u-r-pickup" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Delivery Place</label><input type="text" id="u-r-place" oninput="drawReceipt()"></div>
-                        
+                        <div class="form-group"><label>Customer</label><input type="text" id="u-r-customer"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Phone</label><input type="text" id="u-r-phone"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Pick Up From</label><input type="text" id="u-r-pickup"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Delivery Place</label><input type="text" id="u-r-place"
+                                oninput="drawReceipt()"></div>
+
                         <div class="receipt-section-title">INSPECTION & CONDITION</div>
                         <label style="font-size: 0.7rem;">Check all that apply:</label>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.8rem; margin-top: 5px;">
+                        <div
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.8rem; margin-top: 5px;">
                             <label><input type="checkbox" id="chk-asis" onchange="drawReceipt()"> AS IS</label>
                             <label><input type="checkbox" id="chk-wwt" onchange="drawReceipt()"> WWT</label>
                             <label><input type="checkbox" id="chk-cw" onchange="drawReceipt()"> CW</label>
@@ -575,20 +633,27 @@
                         </div>
 
                         <div class="receipt-section-title">COSTS & FEES</div>
-                        <div class="form-group"><label>Yard Fee ($)</label><input type="number" id="u-r-yard" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Storage / Interchange ($)</label><input type="number" id="u-r-storage" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Sales Price ($)</label><input type="number" id="u-r-sales" oninput="drawReceipt()"></div>
-                        <div class="form-group"><label>Tax (%)</label><input type="number" id="u-r-tax" value="0" oninput="drawReceipt()"></div>
-                        
-                        <div class="form-group" style="margin-top:15px;"><label>Notes</label><textarea id="u-r-notes" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px;" oninput="drawReceipt()"></textarea></div>
-                        
+                        <div class="form-group"><label>Yard Fee ($)</label><input type="number" id="u-r-yard"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Storage / Interchange ($)</label><input type="number"
+                                id="u-r-storage" oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Sales Price ($)</label><input type="number" id="u-r-sales"
+                                oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Tax (%)</label><input type="number" id="u-r-tax" value="0"
+                                oninput="drawReceipt()"></div>
+
+                        <div class="form-group" style="margin-top:15px;"><label>Notes</label><textarea id="u-r-notes"
+                                style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px;"
+                                oninput="drawReceipt()"></textarea></div>
+
                     </div>
                 </aside>
 
                 <!-- PANEL 3: A4 Preview (Right) -->
                 <section class="receipt-preview-panel">
                     <div id="receipt-a4" class="a4-paper">
-                        <div style="text-align: center; margin-top: 50% !important; color: #cbd5e1; font-style: italic;">
+                        <div
+                            style="text-align: center; margin-top: 50% !important; color: #cbd5e1; font-style: italic;">
                             Select a trip ID from the left list to generate a receipt preview.
                         </div>
                     </div>
@@ -617,23 +682,41 @@
                                 <option value="REEFER">REEFER</option>
                             </select>
                         </div>
-                        <div class="form-group" style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-                            <label style="color: var(--corporate-red); margin-bottom: 12px; font-weight: 800; font-size: 0.7rem; display: block; letter-spacing: 0.5px;">INVENTORY & PRICING</label>
+                        <div class="form-group"
+                            style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                            <label
+                                style="color: var(--corporate-red); margin-bottom: 12px; font-weight: 800; font-size: 0.7rem; display: block; letter-spacing: 0.5px;">INVENTORY
+                                & PRICING</label>
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                                <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                    <label style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">20' FT</label>
-                                    <input type="number" id="rel-qty-20" placeholder="Qty" value="0" min="0" style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
-                                    <input type="number" id="rel-price-20" placeholder="Price $" value="0" style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
+                                <div
+                                    style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                    <label
+                                        style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">20'
+                                        FT</label>
+                                    <input type="number" id="rel-qty-20" placeholder="Qty" value="0" min="0"
+                                        style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
+                                    <input type="number" id="rel-price-20" placeholder="Price $" value="0"
+                                        style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
                                 </div>
-                                <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                    <label style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">40' FT</label>
-                                    <input type="number" id="rel-qty-40" placeholder="Qty" value="0" min="0" style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
-                                    <input type="number" id="rel-price-40" placeholder="Price $" value="0" style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
+                                <div
+                                    style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                    <label
+                                        style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">40'
+                                        FT</label>
+                                    <input type="number" id="rel-qty-40" placeholder="Qty" value="0" min="0"
+                                        style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
+                                    <input type="number" id="rel-price-40" placeholder="Price $" value="0"
+                                        style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
                                 </div>
-                                <div style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                    <label style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">45' FT</label>
-                                    <input type="number" id="rel-qty-45" placeholder="Qty" value="0" min="0" style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
-                                    <input type="number" id="rel-price-45" placeholder="Price $" value="0" style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
+                                <div
+                                    style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                    <label
+                                        style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">45'
+                                        FT</label>
+                                    <input type="number" id="rel-qty-45" placeholder="Qty" value="0" min="0"
+                                        style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
+                                    <input type="number" id="rel-price-45" placeholder="Price $" value="0"
+                                        style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
                                 </div>
                             </div>
                         </div>
@@ -656,8 +739,10 @@
                                 <option value="BALTIMORE">BALTIMORE</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>DEPOT</label><input type="text" id="rel-depot" placeholder="Depot Name"></div>
-                        <div class="form-group"><label>SELLER</label><input type="text" id="rel-seller" placeholder="Seller Name"></div>
+                        <div class="form-group"><label>DEPOT</label><input type="text" id="rel-depot"
+                                placeholder="Depot Name"></div>
+                        <div class="form-group"><label>SELLER</label><input type="text" id="rel-seller"
+                                placeholder="Seller Name"></div>
                     </div>
                 </aside>
 
@@ -704,32 +789,47 @@
                             <button onclick="resetFleetForm()" class="btn-cancel">Reset</button>
                         </div>
                     </div>
-                    
+
                     <!-- Tabs -->
-                    <div class="fleet-tabs" style="display: flex; background: #e2e8f0; padding: 5px; gap: 5px; border-bottom: 2px solid #cbd5e1;">
-                        <button onclick="switchFleetTab('truck')" id="tab-truck" class="btn-fleet-tab active">TRUCKS</button>
-                        <button onclick="switchFleetTab('trailer')" id="tab-trailer" class="btn-fleet-tab">TRAILERS</button>
+                    <div class="fleet-tabs"
+                        style="display: flex; background: #e2e8f0; padding: 5px; gap: 5px; border-bottom: 2px solid #cbd5e1;">
+                        <button onclick="switchFleetTab('truck')" id="tab-truck"
+                            class="btn-fleet-tab active">TRUCKS</button>
+                        <button onclick="switchFleetTab('trailer')" id="tab-trailer"
+                            class="btn-fleet-tab">TRAILERS</button>
                     </div>
 
                     <div class="sidebar-form">
                         <input type="hidden" id="f-id">
                         <input type="hidden" id="f-type" value="truck">
-                        
-                        <div class="form-group"><label>UNIT #</label><input type="text" id="f-unit" placeholder="e.g. T-101"></div>
-                        <div class="form-group"><label>VIN</label><input type="text" id="f-vin" placeholder="VIN #"></div>
-                        <div class="form-group"><label>PLATE / TAG</label><input type="text" id="f-plate" placeholder="Plate #"></div>
-                        <div class="form-group"><label>YEAR</label><input type="number" id="f-year" placeholder="2024"></div>
-                        
-                        <div id="truck-only-fields">
-                            <div class="form-group"><label>CURRENT MILEAGE</label><input type="number" id="f-miles" placeholder="0"></div>
+
+                        <div class="form-group"><label>UNIT #</label><input type="text" id="f-unit"
+                                placeholder="e.g. T-101"></div>
+                        <div class="form-group"><label>VIN</label><input type="text" id="f-vin" placeholder="VIN #">
+                        </div>
+                        <div class="form-group"><label>PLATE / TAG</label><input type="text" id="f-plate"
+                                placeholder="Plate #"></div>
+                        <div class="form-group"><label>YEAR</label><input type="number" id="f-year" placeholder="2024">
                         </div>
 
-                        <div class="maintenance-box" style="margin: 20px 0; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                            <h4 style="font-size: 0.8rem; margin-bottom: 15px; color: #1e293b; border-bottom: 1px solid #ddd; padding-bottom: 5px;">PREVENTIVE MAINTENANCE</h4>
-                            <div class="form-group"><label>Last Service Date</label><input type="date" id="f-last-date"></div>
-                            <div class="form-group"><label>Last Service Miles</label><input type="number" id="f-last-miles"></div>
-                            <div class="form-group"><label style="color: #b91c1c;">Next Service Due (Date)</label><input type="date" id="f-due-date"></div>
-                            <div class="form-group"><label style="color: #b91c1c;">Next Service Due (Miles)</label><input type="number" id="f-due-miles"></div>
+                        <div id="truck-only-fields">
+                            <div class="form-group"><label>CURRENT MILEAGE</label><input type="number" id="f-miles"
+                                    placeholder="0"></div>
+                        </div>
+
+                        <div class="maintenance-box"
+                            style="margin: 20px 0; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <h4
+                                style="font-size: 0.8rem; margin-bottom: 15px; color: #1e293b; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+                                PREVENTIVE MAINTENANCE</h4>
+                            <div class="form-group"><label>Last Service Date</label><input type="date" id="f-last-date">
+                            </div>
+                            <div class="form-group"><label>Last Service Miles</label><input type="number"
+                                    id="f-last-miles"></div>
+                            <div class="form-group"><label style="color: #b91c1c;">Next Service Due (Date)</label><input
+                                    type="date" id="f-due-date"></div>
+                            <div class="form-group"><label style="color: #b91c1c;">Next Service Due
+                                    (Miles)</label><input type="number" id="f-due-miles"></div>
                         </div>
 
                         <div class="form-group">
@@ -768,27 +868,33 @@
         </section>
         <!-- DRIVERS REPORTS VIEW -->
         <section id="reports-view" class="view-section hidden" style="padding-bottom: 150px;">
-            <div class="dashboard-split-container" style="display: block; padding: 20px; height: auto; min-height: 100vh; overflow: visible;">
+            <div class="dashboard-split-container"
+                style="display: block; padding: 20px; height: auto; min-height: 100vh; overflow: visible;">
                 <div class="table-area" style="padding: 0; height: auto; overflow: visible;">
                     <div class="table-toolbar" style="display: block; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <div>
                                 <h2 style="font-size: 1.8rem; letter-spacing: 1px;">Drivers Settlement Panel</h2>
                                 <p style="color: #64748b; font-size: 0.9rem;">Financial control & weekly payroll</p>
                             </div>
                             <button onclick="window.print()" class="btn-add-sidebar">Print Payout Report</button>
                         </div>
-                        
+
                         <!-- Filter Panel -->
-                        <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; border: 1px solid #e2e8f0;">
-                            <input type="text" id="filter-search" class="form-input" placeholder="Search Driver/Name..." oninput="renderDriverLog()">
+                        <div
+                            style="background: #f1f5f9; padding: 15px; border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; border: 1px solid #e2e8f0;">
+                            <input type="text" id="filter-search" class="form-input" placeholder="Search Driver/Name..."
+                                oninput="renderDriverLog()">
                             <input type="date" id="filter-from" class="form-input" onchange="renderDriverLog()">
                             <input type="date" id="filter-to" class="form-input" onchange="renderDriverLog()">
-                            <button onclick="toggleSelectAllDrivers()" class="btn-add-sidebar" style="background: #1e293b; color: white;">SELECT ALL DISPLAYED</button>
-                            <button onclick="resetReportFilters()" class="btn-cancel" style="background: #cbd5e1;">Reset Filters</button>
+                            <button onclick="toggleSelectAllDrivers()" class="btn-add-sidebar"
+                                style="background: #1e293b; color: white;">SELECT ALL DISPLAYED</button>
+                            <button onclick="resetReportFilters()" class="btn-cancel" style="background: #cbd5e1;">Reset
+                                Filters</button>
                         </div>
                     </div>
-                    
+
                     <div class="table-scroll-container">
                         <table class="drivers-report-table">
                             <thead>
@@ -809,60 +915,76 @@
                             <tbody id="dl-body"></tbody>
                             <tfoot>
                                 <tr>
-                                    <th colspan="5" id="dl-footer-label" style="text-align: right; font-size: 1.2rem; padding-right: 20px;">Total Settlement:</th>
-                                    <th colspan="3" id="dl-total-paid" style="font-size: 1.2rem; color: #b91c1c;">$0.00</th>
+                                    <th colspan="5" id="dl-footer-label"
+                                        style="text-align: right; font-size: 1.2rem; padding-right: 20px;">Total
+                                        Settlement:</th>
+                                    <th colspan="3" id="dl-total-paid" style="font-size: 1.2rem; color: #b91c1c;">$0.00
+                                    </th>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
-                    
-                    <!-- NEW: Weekly Settlement Calculator (Based on Image Reference) -->
-                    <div class="weekly-calculator-container">
-                        <div class="calc-section">
-                            <table class="settlement-calc-table">
-                                <tr>
-                                    <td class="calc-label">CASH COLLECTED</td>
-                                    <td class="calc-input-cell"><input type="number" id="calc-cash-coll" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                                </tr>
-                                <tr>
-                                    <td class="calc-label">DRIVER SALARY</td>
-                                    <td class="calc-input-cell"><input type="number" id="calc-driver-deduct" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                                </tr>
-                                <tr>
-                                    <td class="calc-label">LAST WEEK BALANCE</td>
-                                    <td class="calc-input-cell"><input type="number" id="calc-last-bal" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                                </tr>
-                                <tr>
-                                    <td class="calc-label">CASH BALANCE</td>
-                                    <td class="calc-result-cell yellow-bg" id="res-cash-bal">$0.00</td>
-                                </tr>
-                            </table>
-                        </div>
 
-                        <div class="calc-section">
-                            <table class="settlement-calc-table">
-                                <tr>
-                                    <td class="calc-label">GROSS</td>
-                                    <td class="calc-input-cell"><input type="number" id="calc-gross" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                                </tr>
-                                <tr>
-                                    <td class="calc-label">FACTORY</td>
-                                    <td class="calc-input-cell"><input type="number" id="calc-factory" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                                </tr>
-                                <tr>
-                                    <td class="calc-label">WEEKLY PAYMENT</td>
-                                    <td class="calc-input-cell"><input type="number" id="calc-weekly" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                                </tr>
-                                <tr>
-                                    <td class="calc-label">DRIVER SALARY</td>
-                                    <td class="calc-result-cell" id="res-driver-salary" style="background:#fbc7a4; color:#000;">$0.00</td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
+            <!-- NEW: Weekly Settlement Calculator (Based on Image Reference) -->
+            <div class="weekly-calculator-container">
+                <div class="calc-section">
+                    <table class="settlement-calc-table">
+                        <tr>
+                            <td class="calc-label">CASH COLLECTED</td>
+                            <td class="calc-input-cell"><input type="number" id="calc-cash-coll" value="0" step="0.01"
+                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                        </tr>
+                        <tr>
+                            <td class="calc-label">DRIVER SALARY</td>
+                            <td class="calc-input-cell"><input type="number" id="calc-driver-deduct" value="0"
+                                    step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                        </tr>
+                        <tr>
+                            <td class="calc-label">LAST WEEK BALANCE</td>
+                            <td class="calc-input-cell"><input type="number" id="calc-last-bal" value="0" step="0.01"
+                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                        </tr>
+                        <tr>
+                            <td class="calc-label">CASH BALANCE</td>
+                            <td class="calc-result-cell yellow-bg" id="res-cash-bal">$0.00</td>
+                        </tr>
+                    </table>
                 </div>
+
+                <div class="calc-section">
+                    <table class="settlement-calc-table">
+                        <tr>
+                            <td class="calc-label">GROSS</td>
+                            <td class="calc-input-cell"><input type="number" id="calc-gross" value="0" step="0.01"
+                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                        </tr>
+                        <tr>
+                            <td class="calc-label">FACTORY</td>
+                            <td class="calc-input-cell"><input type="number" id="calc-factory" value="0" step="0.01"
+                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                        </tr>
+                        <tr>
+                            <td class="calc-label">WEEKLY PAYMENT</td>
+                            <td class="calc-input-cell"><input type="number" id="calc-weekly" value="0" step="0.01"
+                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                        </tr>
+                        <tr>
+                            <td class="calc-label">DRIVER SALARY</td>
+                            <td class="calc-result-cell" id="res-driver-salary" style="background:#fbc7a4; color:#000;">
+                                $0.00</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            </div>
             </div>
         </section>
         <!-- EXPENSE MANAGEMENT View -->
@@ -894,15 +1016,21 @@
                             <label>DESCRIPTION (OTHER)</label>
                             <input type="text" id="exp-other-desc" placeholder="Specify expense type">
                         </div>
-                        <div class="form-group"><label>AMOUNT ($)</label><input type="number" id="exp-amount" value="0"></div>
-                        <div class="form-group"><label>DETAILS / NOTE</label><textarea id="exp-note" style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px;"></textarea></div>
+                        <div class="form-group"><label>AMOUNT ($)</label><input type="number" id="exp-amount" value="0">
+                        </div>
+                        <div class="form-group"><label>DETAILS / NOTE</label><textarea id="exp-note"
+                                style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px;"></textarea>
+                        </div>
                     </div>
                 </aside>
 
                 <div class="table-area">
-                    <div class="table-toolbar" style="display:flex; justify-content: space-between; align-items:center;">
+                    <div class="table-toolbar"
+                        style="display:flex; justify-content: space-between; align-items:center;">
                         <h2>Recent Expenses History</h2>
-                        <h3 id="exp-total-badge" style="background:#f1f5f9; padding: 10px 20px; border-radius: 8px; color: #b91c1c; font-weight:900;">Total: $0.00</h3>
+                        <h3 id="exp-total-badge"
+                            style="background:#f1f5f9; padding: 10px 20px; border-radius: 8px; color: #b91c1c; font-weight:900;">
+                            Total: $0.00</h3>
                     </div>
                     <div class="table-scroll-container">
                         <table class="drivers-report-table">
@@ -994,22 +1122,28 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="chart-panel">
                         <!-- We can add a CSS chart or just a placeholder for visual excellence -->
                         <h3>Revenue Distribution</h3>
                         <div class="simple-bar-chart">
                             <div class="bar-group">
                                 <label>Ventas</label>
-                                <div class="bar-container"><div id="bar-sales" class="bar sales" style="width: 0%"></div></div>
+                                <div class="bar-container">
+                                    <div id="bar-sales" class="bar sales" style="width: 0%"></div>
+                                </div>
                             </div>
                             <div class="bar-group">
                                 <label>Rentas</label>
-                                <div class="bar-container"><div id="bar-rentals" class="bar rentals" style="width: 0%"></div></div>
+                                <div class="bar-container">
+                                    <div id="bar-rentals" class="bar rentals" style="width: 0%"></div>
+                                </div>
                             </div>
                             <div class="bar-group">
                                 <label>Yard</label>
-                                <div class="bar-container"><div id="bar-yard" class="bar yard" style="width: 0%"></div></div>
+                                <div class="bar-container">
+                                    <div id="bar-yard" class="bar yard" style="width: 0%"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1135,7 +1269,7 @@
         function mapExpenseToArray(e) {
             return [
                 e.date || '---', e.category || '---', e.description || '---',
-                `$${(e.amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, e.note || '---',
+                `$${(e.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, e.note || '---',
                 e.expense_id
             ];
         }
@@ -1173,7 +1307,7 @@
                 qty_45: parseInt(row[9]) || 0,
                 price_45: parseFloat(row[10]) || 0,
                 seller: row[11],
-                total_stock: (parseInt(row[5])||0) + (parseInt(row[7])||0) + (parseInt(row[9])||0)
+                total_stock: (parseInt(row[5]) || 0) + (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0)
             };
         }
 
@@ -1182,9 +1316,9 @@
         const calendarView = document.getElementById('calendar-view');
         const docsView = document.getElementById('docs-view');
         const tableBody = document.getElementById('table-body');
-        
+
         // --- PERMANENT DATA MIGRATION (One-time on startup) ---
-        (function() {
+        (function () {
             const dataKey = 'logisticsTableData';
             const rawData = localStorage.getItem(dataKey);
             if (rawData) {
@@ -1199,7 +1333,7 @@
                         }
                         return rowData;
                     });
-                    
+
                     if (migrationCount > 0) {
                         localStorage.setItem(dataKey, JSON.stringify(migratedRows));
                         console.log(`Successfully migrated ${migrationCount} legacy records to the new 43-field structure.`);
@@ -1208,19 +1342,19 @@
                     console.error('Migration failed:', e);
                 }
             }
-            
+
             // --- RELEASES MIGRATION (Structural Upgrade to Pricing per Size) ---
             const relKey = 'releasesTableData';
             const relRaw = localStorage.getItem(relKey);
-            if(relRaw) {
+            if (relRaw) {
                 try {
                     let relRows = JSON.parse(relRaw);
                     // Standard upgrade: 11 columns -> 13 columns
-                    if(relRows.length > 0 && relRows[0].length === 11) {
+                    if (relRows.length > 0 && relRows[0].length === 11) {
                         relRows = relRows.map(r => {
                             // Old structure: [0:NO, 1:DATE, 2:TYPE, 3:DEPOT, 4:CITY, 5:Q20, 6:Q40, 7:Q45, 8:PRICE, 9:SELLER, 10:TOTAL]
                             const newRow = [
-                                r[0], r[1], r[2], r[3], r[4], 
+                                r[0], r[1], r[2], r[3], r[4],
                                 r[5], r[8], // 20 Qty, 20 Price
                                 r[6], r[8], // 40 Qty, 40 Price
                                 r[7], r[8], // 45 Qty, 45 Price
@@ -1228,10 +1362,10 @@
                             ];
                             return newRow;
                         });
-            localStorage.setItem(relKey, JSON.stringify(relRows));
+                        localStorage.setItem(relKey, JSON.stringify(relRows));
                         console.log('Migrated Release structure to support per-size pricing.');
                     }
-                } catch(e) {}
+                } catch (e) { }
             }
 
             // --- V2 REMOVE PAYMENT STATUS (INDEX 12) ---
@@ -1251,11 +1385,11 @@
                         console.log('Successfully removed PAYMENT STATUS column and shifted indices.');
                     }
                 }
-            } catch(e) {}
+            } catch (e) { }
         })();
 
         // Robust mobile menu toggle
-        window.toggleMobileMenu = function(e) {
+        window.toggleMobileMenu = function (e) {
             if (e) e.stopPropagation();
             const btn = document.getElementById('hamburger-menu');
             const menu = document.getElementById('nav-actions-container');
@@ -1267,7 +1401,7 @@
         };
 
         // Event handled by onclick in HTML
-        window.closeMenu = function() {
+        window.closeMenu = function () {
             const btn = document.getElementById('hamburger-menu');
             const menu = document.getElementById('nav-actions-container');
             if (btn && menu) {
@@ -1279,45 +1413,45 @@
         function showView(view) {
             console.log("Navigating to:", view);
             sessionStorage.setItem('activeSection', view);
-            
+
             // 1. Reset Scroll IMMEDIATELY
             window.scrollTo(0, 0);
-            
+
             // 2. Hide ALL sections with strict display:none and class hidden
             const sections = document.querySelectorAll('.view-section');
             sections.forEach(v => {
                 v.classList.add('hidden');
-                v.style.display = 'none'; 
+                v.style.display = 'none';
             });
-            
+
             // 3. Identification of target section
             const targetId = view.endsWith('-view') ? view : view + '-view';
             const target = document.getElementById(targetId);
-            
+
             if (target) {
                 target.classList.remove('hidden');
                 // Use block for most sections, or flex if needed by component
-                target.style.display = (view === 'hero') ? 'block' : 'block'; 
-                
+                target.style.display = (view === 'hero') ? 'block' : 'block';
+
                 // Special case for navbar styling
                 if (view === 'hero') {
                     header.classList.remove('navbar-fixed-solid');
                 } else {
                     header.classList.add('navbar-fixed-solid');
                 }
-                
+
                 // 4. Trigger specific loads
                 if (view === 'docs') {
-                    if(window.loadDocTrips) window.loadDocTrips();
+                    if (window.loadDocTrips) window.loadDocTrips();
                 } else if (view === 'reports') {
-                    if(window.renderDriverLog) window.renderDriverLog();
+                    if (window.renderDriverLog) window.renderDriverLog();
                 } else if (view === 'calendar') {
-                    if(window.loadTableData) window.loadTableData();
-                    if(window.updateFleetSelectors) window.updateFleetSelectors();
+                    if (window.loadTableData) window.loadTableData();
+                    if (window.updateFleetSelectors) window.updateFleetSelectors();
                 } else if (view === 'fleet') {
-                    if(window.loadFleetData) window.loadFleetData();
+                    if (window.loadFleetData) window.loadFleetData();
                 } else if (view === 'profit-report') {
-                    if(window.renderProfitReport) window.renderProfitReport();
+                    if (window.renderProfitReport) window.renderProfitReport();
                 }
             } else {
                 console.warn("View not found:", targetId);
@@ -1326,7 +1460,7 @@
 
         function saveTableData() {
             const logisticsBody = document.getElementById('table-body');
-            if(!logisticsBody) return;
+            if (!logisticsBody) return;
             const rows = [];
             const trs = logisticsBody.querySelectorAll('tr');
             trs.forEach(tr => {
@@ -1339,13 +1473,13 @@
         function toggleModeFields() {
             const mode = document.getElementById('in-mode').value;
             const rentalGroup = document.getElementById('rental-fields');
-            if(rentalGroup) rentalGroup.style.display = (mode === 'RENT') ? 'block' : 'none';
+            if (rentalGroup) rentalGroup.style.display = (mode === 'RENT') ? 'block' : 'none';
         }
 
         function calcNextDue() {
             const startStr = document.getElementById('in-sdaterent').value;
-            if(!startStr) return;
-            const start = new Date(startStr + 'T00:00:00'); 
+            if (!startStr) return;
+            const start = new Date(startStr + 'T00:00:00');
             start.setDate(start.getDate() + 30);
             document.getElementById('in-nextdue').value = start.toISOString().split('T')[0];
         }
@@ -1354,7 +1488,7 @@
         function populateFilterPickers() {
             if (currentTrips.length === 0) return;
             const rows = currentTrips;
-            
+
             // Indices: 6:City, 2:Size, 11:Customer, 18:Driver, 17:Company, 26:Status
             const filters = {
                 'f-city': 6,
@@ -1369,43 +1503,43 @@
                 const select = document.getElementById(id);
                 if (!select) continue;
                 const columnIdx = filters[id];
-                
+
                 // Get unique, non-empty, non-dashed values
                 let uniqueValues = [...new Set(rows.map(row => row[columnIdx]))]
                     .filter(val => val && val !== '---' && val !== '')
                     .sort();
-                
+
                 // For City filter specifically, show ALL available cities from the form list
                 if (id === 'f-city') {
                     uniqueValues = [
-                        "MIAMI", "TAMPA", "JACKSONVILLE", "SAVANNAH", "TITUSVILLE", 
-                        "MASCOTTE", "ORLANDO", "ATLANTA", "CHARLESTON", "NEWARK", 
+                        "MIAMI", "TAMPA", "JACKSONVILLE", "SAVANNAH", "TITUSVILLE",
+                        "MASCOTTE", "ORLANDO", "ATLANTA", "CHARLESTON", "NEWARK",
                         "SUMMERVILLE", "BALTIMORE"
                     ].sort();
                 } else if (id === 'f-customer') {
                     uniqueValues = [
-                        "ANTONIO RENT", "RICHARD HAYNES", "MARK MORRINSON", "KEMOY", 
-                        "GLOBAL CONTAINER & CHASSIS", "PROSTAR GROUP CONTAINER", 
+                        "ANTONIO RENT", "RICHARD HAYNES", "MARK MORRINSON", "KEMOY",
+                        "GLOBAL CONTAINER & CHASSIS", "PROSTAR GROUP CONTAINER",
                         "MAREX ROAD SERVICES", "ZUM SHIPPING"
                     ].sort();
                 } else if (id === 'f-driver') {
                     uniqueValues = [
-                        "A & A TOWING", "ANTHONY", "ANTONIO R", "AYG TRANSPORT", "BRUNO", 
-                        "ELIER", "FLCHR", "JAYDEN TRANSPORTATION", "JOHN CARLOS", 
-                        "JORGE ANDY", "JOSE", "JR SUPER CRANE", "JRSC-ROBERT", "JUAN CARLOS", 
-                        "JUSTIN F.H", "JY3 FREIGHT LLC", "KELLY K", "LUIS D", "LUIS DELIVERY", 
-                        "LUIS G", "LUIS SOSA", "MARIO", "MIGUEL LL", "MILAY", 
-                        "MOBILE UNITS TRANSPORT", "PERFECT TOUCH TRANSPORT", "QUALITY CONT", 
-                        "RAMONCITO", "REYNA", "ROBERT", "ROLY", "RONALD", "SIDE LOADER", 
+                        "A & A TOWING", "ANTHONY", "ANTONIO R", "AYG TRANSPORT", "BRUNO",
+                        "ELIER", "FLCHR", "JAYDEN TRANSPORTATION", "JOHN CARLOS",
+                        "JORGE ANDY", "JOSE", "JR SUPER CRANE", "JRSC-ROBERT", "JUAN CARLOS",
+                        "JUSTIN F.H", "JY3 FREIGHT LLC", "KELLY K", "LUIS D", "LUIS DELIVERY",
+                        "LUIS G", "LUIS SOSA", "MARIO", "MIGUEL LL", "MILAY",
+                        "MOBILE UNITS TRANSPORT", "PERFECT TOUCH TRANSPORT", "QUALITY CONT",
+                        "RAMONCITO", "REYNA", "ROBERT", "ROLY", "RONALD", "SIDE LOADER",
                         "TRAVIS J", "WS KINGDOM LLC", "YADIER", "YANDY JAX"
                     ].sort();
                 }
-                
+
                 // Keep the "All" option
                 const firstOption = select.options[0];
                 select.innerHTML = '';
                 select.appendChild(firstOption);
-                
+
                 uniqueValues.forEach(val => {
                     // Only show DONE and PENDING operational statuses
                     if (id === 'f-status' && val !== 'DONE' && val !== 'PENDING') return;
@@ -1442,18 +1576,18 @@
                 const matchCustomer = !filters.customer || cells[11].textContent.toLowerCase() === filters.customer;
                 const matchDriver = !filters.driver || cells[18].textContent.toLowerCase() === filters.driver;
                 const matchCompany = !filters.company || cells[17].textContent.toLowerCase() === filters.company;
-                const matchStatus = (filters.status === 'pending payment') 
+                const matchStatus = (filters.status === 'pending payment')
                     ? (cells[38].textContent === 'PEND' || cells[40].textContent === 'PEND' || cells[41].textContent === 'PEND' || cells[42].textContent === 'PEND')
                     : (!filters.status || cells[26].textContent.toLowerCase() === filters.status);
                 const matchCollect = !filters.collect || cells[22].textContent.toLowerCase() === filters.collect;
-                
+
                 const matchNcont = !filters.ncont || cells[3].textContent.toLowerCase().includes(filters.ncont);
                 const matchOrder = !filters.order || cells[5].textContent.toLowerCase().includes(filters.order);
                 const matchRelease = !filters.release || cells[4].textContent.toLowerCase().includes(filters.release);
                 const matchPhone = !filters.phone || cells[24].textContent.toLowerCase().includes(filters.phone);
 
-                if (matchCity && matchSize && matchCustomer && matchDriver && matchCompany && 
-                    matchStatus && matchCollect && matchNcont && matchOrder && 
+                if (matchCity && matchSize && matchCustomer && matchDriver && matchCompany &&
+                    matchStatus && matchCollect && matchNcont && matchOrder &&
                     matchRelease && matchPhone) {
                     tr.style.display = '';
                 } else {
@@ -1473,10 +1607,10 @@
             if (editingIndex === null) {
                 const nextId = 'TRIP-' + Date.now().toString().slice(-6);
                 document.getElementById('in-id').value = nextId;
-                
+
                 // Only auto-generate Order if user hasn't typed one
                 const ordInput = document.getElementById('in-order');
-                if(!ordInput.value || ordInput.value.trim() === '') {
+                if (!ordInput.value || ordInput.value.trim() === '') {
                     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
                     let ordSuffix = '';
                     for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -1484,21 +1618,21 @@
                 }
             }
             const fields = [
-                'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup', 
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate', 
-                'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver', 
-                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone', 
-                'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income', 
+                'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate',
+                'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver',
+                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income',
                 'in-invoice', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
-            
+
             // Inventory Validation (SUPABASE)
             const selectedRelease = document.getElementById('in-release').value;
             const selectedSize = document.getElementById('in-size').value;
-            
+
             if (selectedRelease && selectedRelease !== '---' && editingIndex === null) {
-                if(currentReleases.length > 0) {
+                if (currentReleases.length > 0) {
                     const rIdx = currentReleases.findIndex(r => r[0] === selectedRelease);
                     if (rIdx !== -1) {
                         let stockIdx = -1;
@@ -1506,7 +1640,7 @@
                         if (selectedSize.includes("20'")) { stockIdx = 5; dbField = 'qty_20'; }
                         else if (selectedSize.includes("40'")) { stockIdx = 7; dbField = 'qty_40'; }
                         else if (selectedSize.includes("45'")) { stockIdx = 9; dbField = 'qty_45'; }
-                        
+
                         if (stockIdx !== -1) {
                             const currentStock = parseInt(currentReleases[rIdx][stockIdx]) || 0;
                             if (currentStock <= 0) {
@@ -1517,11 +1651,11 @@
                             const newStock = currentStock - 1;
                             const updateObj = {};
                             updateObj[dbField] = newStock;
-                            
+
                             try {
                                 await updateRelease(selectedRelease, updateObj);
                                 await loadReleasesData(); // Refresh local cache and UI
-                            } catch(e) {
+                            } catch (e) {
                                 console.error("Inventory update failed:", e);
                             }
                         }
@@ -1540,33 +1674,35 @@
             const stRate = document.getElementById('in-ratepaid').checked ? 'PAID' : 'PEND';
             const stSales = document.getElementById('in-salespaid').checked ? 'PAID' : 'PEND';
             const stAmount = document.getElementById('in-amountpaid').checked ? 'PAID' : 'PEND';
-            rowData.push(stYard, stRent, stRate, stSales, stAmount); 
-            
+
+            // Inserting checkbox states at 36-40
+            rowData.splice(36, 0, stYard, stRent, stRate, stSales, stAmount);
+
             // Index 41: Balance Pending
             let pending = 0;
-            if(stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate').value) || 0;
-            if(stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate').value) || 0;
-            if(stSales === 'PEND') pending += parseFloat(document.getElementById('in-sales').value) || 0;
-            if(stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount').value) || 0;
-            if(stRent === 'PEND' && document.getElementById('in-mode').value === 'RENT') pending += parseFloat(document.getElementById('in-mrate').value) || 0;
-            rowData.push(`$${pending.toFixed(2)}`); 
+            if (stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate').value) || 0;
+            if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate').value) || 0;
+            if (stSales === 'PEND') pending += parseFloat(document.getElementById('in-sales').value) || 0;
+            if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount').value) || 0;
+            if (stRent === 'PEND' && document.getElementById('in-mode').value === 'RENT') pending += parseFloat(document.getElementById('in-mrate').value) || 0;
 
-            // Index 42: Driver Payout Status
-            rowData.push(document.getElementById('in-driverpaid').value || 'PENDING');
+            rowData.splice(41, 0, `$${pending.toFixed(2)}`); // index 41
+            rowData.splice(42, 0, document.getElementById('in-driverpaid').value || 'PENDING'); // index 42
+            rowData.splice(43, 0, document.getElementById('in-email').value || '---'); // index 43
 
-            // Index 43: EMAIL
-            rowData.push(document.getElementById('in-email').value || '---');
+            // Fixed placeholders for truck/trailer at 44 and 45
+            rowData.splice(44, 0, '---', '---');
 
             // --- SUPABASE INTEGRATION ---
             const tripObj = mapArrayToTrip(rowData);
-            
+
             try {
                 if (editingIndex !== null) {
                     // UPDATE MODE
                     const tripId = rowData[0];
                     await updateTrip(tripId, tripObj);
-                    editingIndex = null; 
-                    
+                    editingIndex = null;
+
                     const btn = document.querySelector('.btn-add-sidebar');
                     if (btn) {
                         btn.textContent = 'Confirm Operation';
@@ -1576,33 +1712,33 @@
                     // NEW MODE
                     await addTrip(tripObj);
                 }
-                
+
                 // Refresh data from database
                 await loadTableData();
-                
-                if(window.updateReleaseDatalist) window.updateReleaseDatalist();
-                if(window.updateAddressDatalist) window.updateAddressDatalist();
-                if(window.renderDriverLog) window.renderDriverLog();
+
+                if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+                if (window.updateAddressDatalist) window.updateAddressDatalist();
+                if (window.renderDriverLog) window.renderDriverLog();
 
                 // Clear entry fields partially
                 ['in-ncont', 'in-release', 'in-delivery', 'in-miles'].forEach(id => {
                     const el = document.getElementById(id);
-                    if(el) el.value = '';
+                    if (el) el.value = '';
                 });
-                
+
                 // Re-initialize ID for next entry
                 initNewTripId();
                 alert("Trip saved successfully in Supabase!");
 
             } catch (err) {
                 console.error("Failed to save trip:", err);
-                alert("Error saving trip to database. Check console.");
+                alert("DATABASE ERROR: " + (err.message || "Unknown error"));
             }
         }
 
         function updateReleaseDatalist() {
             const releaseList = document.getElementById('release-list');
-            if(currentReleases.length > 0 && releaseList) {
+            if (currentReleases.length > 0 && releaseList) {
                 // Filter: Show only releases that have at least 1 unit in total stock
                 const validReleases = currentReleases.filter(r => {
                     const total = (parseInt(r[5]) || 0) + (parseInt(r[7]) || 0) + (parseInt(r[9]) || 0);
@@ -1610,7 +1746,7 @@
                 });
                 releaseList.innerHTML = '';
                 validReleases.forEach(r => {
-                    const opt = document.createElement('option'); 
+                    const opt = document.createElement('option');
                     opt.value = r[0]; // Release # is index 0
                     releaseList.appendChild(opt);
                 });
@@ -1620,28 +1756,28 @@
         // --- DYNAMIC SIZE FILTER BASED ON RELEASE STOCK ---
         const inReleaseInput = document.getElementById('in-release');
         const inSizeSelect = document.getElementById('in-size');
-        
-        if(inReleaseInput && inSizeSelect) {
+
+        if (inReleaseInput && inSizeSelect) {
             inReleaseInput.addEventListener('change', () => {
                 const selectedRel = inReleaseInput.value;
-                if(currentReleases.length === 0) return;
+                if (currentReleases.length === 0) return;
                 const relData = currentReleases.find(r => r[0] === selectedRel);
-                
-                if(relData) {
+
+                if (relData) {
                     const stock20 = parseInt(relData[5]) || 0;
                     const stock40 = parseInt(relData[7]) || 0;
                     const stock45 = parseInt(relData[9]) || 0;
-                    
+
                     // Filter options based on stock
                     Array.from(inSizeSelect.options).forEach(opt => {
                         const val = opt.value;
-                        if(!val) return; // Leave "Select Size"
-                        
+                        if (!val) return; // Leave "Select Size"
+
                         let shouldShow = true;
                         if (val.includes("20'")) shouldShow = stock20 > 0;
                         else if (val.includes("40'")) shouldShow = stock40 > 0;
                         else if (val.includes("45'")) shouldShow = stock45 > 0;
-                        
+
                         opt.disabled = !shouldShow;
                         opt.style.display = shouldShow ? 'block' : 'none';
                     });
@@ -1654,10 +1790,10 @@
                 }
             });
         }
-        
+
         function updateAddressDatalist() {
             const addressList = document.getElementById('address-list');
-            if(currentTrips.length > 0 && addressList) {
+            if (currentTrips.length > 0 && addressList) {
                 const rows = currentTrips;
                 const storedValues = rows.map(r => r[7]).filter(val => val && val !== '---');
                 const existingOptions = Array.from(addressList.options).map(opt => opt.value);
@@ -1679,25 +1815,25 @@
         }
 
         function loadTripToEdit(idx) {
-            if(!currentTrips[idx]) return;
+            if (!currentTrips[idx]) return;
             const rowData = currentTrips[idx];
 
             editingIndex = idx; // Set Global Edit State
 
             // Populate Fields (Map back from indices 0-35)
             const fields = [
-                'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup', 
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate', 
-                'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver', 
-                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone', 
-                'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income', 
+                'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate',
+                'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver',
+                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income',
                 'in-invoice', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
 
             fields.forEach((id, i) => {
                 const el = document.getElementById(id);
-                if(el) el.value = (rowData[i] === '---') ? '' : rowData[i];
+                if (el) el.value = (rowData[i] === '---') ? '' : rowData[i];
             });
 
             // Set Checkboxes (Indices 36-40)
@@ -1706,12 +1842,14 @@
             document.getElementById('in-ratepaid').checked = (rowData[38] === 'PAID');
             document.getElementById('in-salespaid').checked = (rowData[39] === 'PAID');
             document.getElementById('in-amountpaid').checked = (rowData[40] === 'PAID');
-            
+
             // Driver Paid Status (Index 42)
             document.getElementById('in-driverpaid').value = rowData[42] || 'PENDING';
-            
+
             // Email (Index 43)
             document.getElementById('in-email').value = rowData[43] || '';
+
+            // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
 
             // Refresh UI States
             toggleModeFields();
@@ -1731,11 +1869,11 @@
 
         async function loadTableData() {
             const logisticsBody = document.getElementById('table-body');
-            if(!logisticsBody) return;
+            if (!logisticsBody) return;
             logisticsBody.innerHTML = '';
-            
+
             // Populating dynamic filters
-            populateFilterPickers();
+            //populateFilterPickers();
 
             // Fetch from Supabase
             const data = await getTrips();
@@ -1743,7 +1881,7 @@
 
             currentTrips.forEach((rowData, idx) => {
                 const tr = document.createElement('tr');
-                
+
                 const mode = rowData[32];
                 const nextDue = rowData[35];
                 const stYard = rowData[36];
@@ -1755,13 +1893,13 @@
                 rowData.slice(0, 32).forEach((text, i) => {
                     const td = document.createElement('td');
                     td.textContent = text;
-                    
+
                     // Amount coloring (Indices: 14=Yard, 19=Rate, 21=Sales, 23=Amount, 33=Rent)
-                    if(i === 14 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
-                    if(i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
-                    if(i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
-                    if(i === 23 && text !== '---') td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
-                    
+                    if (i === 14 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
+                    if (i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
+                    if (i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
+                    if (i === 23 && text !== '---') td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
+
                     tr.appendChild(td);
                 });
 
@@ -1775,7 +1913,7 @@
                 // EDIT TRIGGER (On Highlight Rows or anywhere in the TR)
                 tr.style.cursor = 'pointer';
                 tr.onclick = () => loadTripToEdit(idx);
-                
+
                 if (editingIndex === idx) {
                     tr.classList.add('editing-row');
                 }
@@ -1787,7 +1925,7 @@
                 logisticsBody.appendChild(tr);
             });
             // Apply existing filters if any (for real-time persistence)
-            applyAdvancedFilters();
+            //applyAdvancedFilters();
         }
 
         let reportShowUnpaidOnly = false;
@@ -1812,10 +1950,10 @@
 
         async function markTripAsPaid(tripId) {
             const tripIdx = currentTrips.findIndex(r => r[0] === tripId);
-            if(tripIdx !== -1) {
+            if (tripIdx !== -1) {
                 // Toggle status (Index 42)
                 const newStatus = (currentTrips[tripIdx][42] === 'PAID') ? 'PENDING' : 'PAID';
-                
+
                 try {
                     await updateTrip(tripId, { payout_status: newStatus });
                     await loadTableData(); // Sync calendar table and local cache
@@ -1828,10 +1966,10 @@
         }
 
         async function settleDriverGroup(driverName) {
-            if(!confirm(`Are you sure you want to mark ALL pending trips for ${driverName} as PAID?`)) return;
-            
+            if (!confirm(`Are you sure you want to mark ALL pending trips for ${driverName} as PAID?`)) return;
+
             const toUpdate = currentTrips.filter(r => (r[18] || 'UNASSIGNED') === driverName && r[42] !== 'PAID');
-            
+
             try {
                 // Bulk update logic: Sequential for safety or Promise.all
                 const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PAID' }));
@@ -1846,10 +1984,10 @@
         }
 
         async function revertDriverGroup(driverName) {
-            if(!confirm(`Do you want to REVERT all trips for ${driverName} back to PENDING?`)) return;
+            if (!confirm(`Do you want to REVERT all trips for ${driverName} back to PENDING?`)) return;
 
             const toUpdate = currentTrips.filter(r => (r[18] || 'UNASSIGNED') === driverName && r[42] === 'PAID');
-            
+
             try {
                 const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PENDING' }));
                 await Promise.all(promises);
@@ -1863,27 +2001,27 @@
 
         function renderDriverLog() {
             const body = document.getElementById('dl-body');
-            if(!body) return;
+            if (!body) return;
             body.innerHTML = '';
-            
+
             const searchTerm = (document.getElementById('filter-search')?.value || '').toLowerCase();
             const dateFrom = document.getElementById('filter-from')?.value;
             const dateTo = document.getElementById('filter-to')?.value;
-            
-            if(currentTrips.length > 0) {
+
+            if (currentTrips.length > 0) {
                 const allRows = currentTrips;
-                
+
                 // 1. Filter the rows first
                 const filtered = allRows.filter(r => {
                     const rDate = r[1];
                     const rId = r[0];
                     const rDriver = (r[18] || 'UNASSIGNED').toString();
                     const rStatus = r[42] || 'PENDING';
-                    
+
                     const matchesSearch = rDriver.toLowerCase().includes(searchTerm) || rId.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
                     const matchesStatus = !reportShowUnpaidOnly || rStatus === 'PENDING';
-                    
+
                     return matchesSearch && matchesDate && matchesStatus;
                 });
 
@@ -1891,9 +2029,9 @@
                 let selectedIndices = new Set();
                 let currentFilteredRows = []; // Keep global reference for select all
 
-                window.toggleSelectAllDrivers = function() {
+                window.toggleSelectAllDrivers = function () {
                     const rows = body.querySelectorAll('tr:not(.selection-summary-row)');
-                    if(selectedIndices.size === currentFilteredRows.length && currentFilteredRows.length > 0) {
+                    if (selectedIndices.size === currentFilteredRows.length && currentFilteredRows.length > 0) {
                         // Deselect All
                         selectedIndices.clear();
                         rows.forEach(r => r.classList.remove('selected-row'));
@@ -1908,9 +2046,9 @@
                 const updateSelectionSummary = () => {
                     // Remove existing summary row
                     const existing = document.getElementById('dl-selection-summary');
-                    if(existing) existing.remove();
-                    
-                    if(selectedIndices.size === 0) return;
+                    if (existing) existing.remove();
+
+                    if (selectedIndices.size === 0) return;
 
                     let totalPaidDriver = 0;
                     let totalCash = 0;
@@ -1918,7 +2056,7 @@
                     selectedIndices.forEach(idx => {
                         const r = filtered[idx];
                         totalPaidDriver += parseFloat(r[28]) || 0;
-                        if(r[40] === 'PAID') {
+                        if (r[40] === 'PAID') {
                             totalCash += parseFloat(r[23]) || 0;
                         }
                     });
@@ -1926,11 +2064,11 @@
                     // SYNC WITH CALCULATOR (New Sync Logic)
                     const calcGross = document.getElementById('calc-gross');
                     const calcCashColl = document.getElementById('calc-cash-coll');
-                    if(calcGross) calcGross.value = totalPaidDriver.toFixed(2);
-                    if(calcCashColl) calcCashColl.value = totalCash.toFixed(2);
-                    
+                    if (calcGross) calcGross.value = totalPaidDriver.toFixed(2);
+                    if (calcCashColl) calcCashColl.value = totalCash.toFixed(2);
+
                     // Trigger the math for Balance and Driver Salary results
-                    if(window.updateWeeklyCalc) window.updateWeeklyCalc();
+                    if (window.updateWeeklyCalc) window.updateWeeklyCalc();
 
                     const finalNet = totalPaidDriver - totalCash;
 
@@ -1943,7 +2081,7 @@
                         <td style="color: #4ade80;">$${finalNet.toFixed(2)}</td>
                         <td></td>
                     `;
-                    
+
                     // Insert after the last selected actual row in the DOM
                     let lastSelectedRow = null;
                     const rows = body.querySelectorAll('tr:not(.selection-summary-row)');
@@ -1951,7 +2089,7 @@
                         if (rows[idx]) lastSelectedRow = rows[idx];
                     });
 
-                    if(lastSelectedRow) {
+                    if (lastSelectedRow) {
                         lastSelectedRow.after(summaryTr);
                     }
                 };
@@ -1962,7 +2100,7 @@
                     const tr = document.createElement('tr');
                     tr.style.cursor = 'pointer';
                     tr.onclick = (e) => {
-                        if(selectedIndices.has(idx)) {
+                        if (selectedIndices.has(idx)) {
                             selectedIndices.delete(idx);
                             tr.classList.remove('selected-row');
                         } else {
@@ -1971,20 +2109,20 @@
                         }
                         updateSelectionSummary();
                     };
-                    
+
                     // Columns: DATE(1), SIZE(2), N° CONT(3), ORDER#(5), CITY(6), PICKUP(7), DELIVERY(8), MILES(10), DRIVER(18), PAID DRIVER(28), CASH(23)
                     const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 18, 28, 23];
-                    
+
                     cellIndices.forEach(idx => {
                         const td = document.createElement('td');
                         let value = r[idx] || '---';
-                        
+
                         // Condition for CASH column (Index 23): Only show if stAmount (Index 40) is PAID
                         if (idx === 23) {
                             const isCashMarked = (r[40] === 'PAID');
                             value = isCashMarked ? (r[23] || '---') : '---';
                         }
-                        
+
                         td.textContent = value;
                         tr.appendChild(td);
                     });
@@ -1994,19 +2132,19 @@
                 // Clean up footer for now as requested
                 const footerLabel = document.getElementById('dl-footer-label');
                 const totalDisplay = document.getElementById('dl-total-paid');
-                if(footerLabel) footerLabel.textContent = "Report Entries:";
-                if(totalDisplay) totalDisplay.textContent = filtered.length;
+                if (footerLabel) footerLabel.textContent = "Report Entries:";
+                if (totalDisplay) totalDisplay.textContent = filtered.length;
             }
         }
 
-        window.updateWeeklyCalc = function() {
+        window.updateWeeklyCalc = function () {
             // Right Side: Driver Salary Calc
             const gross = parseFloat(document.getElementById('calc-gross').value) || 0;
             const factory = parseFloat(document.getElementById('calc-factory').value) || 0;
             const weekly = parseFloat(document.getElementById('calc-weekly').value) || 0;
             const salary = gross - factory - weekly;
-            
-            document.getElementById('res-driver-salary').textContent = `$${salary.toLocaleString('de-DE', {minimumFractionDigits: 2})}`;
+
+            document.getElementById('res-driver-salary').textContent = `$${salary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
 
             // Left Side: Cash Balance Calc
             const cashColl = parseFloat(document.getElementById('calc-cash-coll').value) || 0;
@@ -2014,7 +2152,7 @@
             const lastBal = parseFloat(document.getElementById('calc-last-bal').value) || 0;
             const cashBal = cashColl - deduct - lastBal;
 
-            document.getElementById('res-cash-bal').textContent = `$${cashBal.toLocaleString('de-DE', {minimumFractionDigits: 2})}`;
+            document.getElementById('res-cash-bal').textContent = `$${cashBal.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
         }
 
         // Initialize state on load
@@ -2025,11 +2163,11 @@
             renderDriverLog();
             updateReleaseDatalist();
             updateAddressDatalist();
-            
+
             // --- PERSISTENCE LOGIC (Anti-F5) ---
             const savedSection = sessionStorage.getItem('activeSection') || 'hero';
             showView(savedSection);
-            
+
             // Set initial ID and Order
             document.getElementById('in-id').value = 'TRIP-' + Date.now().toString().slice(-6);
             const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -2041,8 +2179,8 @@
             // New logic for Release Row addition (SUPABASE)
             window.addReleaseRow = async () => {
                 const relNo = document.getElementById('rel-no-releases').value;
-                if(!relNo) { alert('Please enter a Release Number'); return; }
-                
+                if (!relNo) { alert('Please enter a Release Number'); return; }
+
                 const q20 = parseInt(document.getElementById('rel-qty-20').value) || 0;
                 const p20 = parseFloat(document.getElementById('rel-price-20').value) || 0;
                 const q40 = parseInt(document.getElementById('rel-qty-40').value) || 0;
@@ -2050,7 +2188,7 @@
                 const q45 = parseInt(document.getElementById('rel-qty-45').value) || 0;
                 const p45 = parseFloat(document.getElementById('rel-price-45').value) || 0;
                 const totalStock = q20 + q40 + q45;
-                
+
                 const dataRow = [
                     relNo,
                     document.getElementById('rel-date').value || '---',
@@ -2065,16 +2203,16 @@
                 ];
 
                 const releaseObj = mapArrayToRelease(dataRow);
-                
+
                 try {
                     await addRelease(releaseObj);
                     await loadReleasesData(); // Reload Table
-                    if(window.updateReleaseDatalist) window.updateReleaseDatalist();
-                    
+                    if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+
                     // Clear inputs
                     ['rel-no-releases', 'rel-qty-20', 'rel-price-20', 'rel-qty-40', 'rel-price-40', 'rel-qty-45', 'rel-price-45', 'rel-depot', 'rel-city', 'rel-seller'].forEach(id => {
                         const el = document.getElementById(id);
-                        if(el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
+                        if (el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
                     });
                     alert("Release saved to Supabase!");
                 } catch (err) {
@@ -2083,18 +2221,18 @@
                 }
             };
 
-            window.saveReleasesData = function() {
+            window.saveReleasesData = function () {
                 // Obsolete now that we use Supabase directly, but keeping it empty for potential temporary use
             };
 
             async function loadReleasesData() {
                 const body = document.getElementById('releases-body');
                 if (!body) return;
-                
+
                 try {
                     const data = await getReleases();
                     currentReleases = data.map(mapReleaseToArray);
-                    
+
                     body.innerHTML = '';
                     currentReleases.forEach(rowData => {
                         const tr = document.createElement('tr');
@@ -2109,7 +2247,7 @@
                     console.error("Error loading releases:", err);
                 }
             }
-        // Mobile menu behavior is handled by global toggleMobileMenu and closeMenu functions.
+            // Mobile menu behavior is handled by global toggleMobileMenu and closeMenu functions.
 
             // EXPENSE MANAGEMENT LOGIC
             window.toggleOtherExpense = () => {
@@ -2123,15 +2261,15 @@
                 const otherVal = document.getElementById('exp-other-desc').value;
                 const amount = parseFloat(document.getElementById('exp-amount').value) || 0;
                 const note = document.getElementById('exp-note').value || '---';
-                
+
                 const desc = (cat === 'Other') ? otherVal : cat;
-                const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}`, note];
-                
+                const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note];
+
                 try {
                     const expenseObj = mapArrayToExpense(rowData);
                     await addExpense(expenseObj);
                     await loadExpensesData(); // Reload from Supabase
-                    
+
                     // Reset form partially
                     document.getElementById('exp-amount').value = '0';
                     document.getElementById('exp-note').value = '';
@@ -2146,20 +2284,20 @@
             async function loadExpensesData() {
                 const body = document.getElementById('expenses-body');
                 if (!body) return;
-                
+
                 try {
                     const data = await getExpenses();
                     currentExpenses = data.map(mapExpenseToArray);
-                    
+
                     body.innerHTML = '';
                     currentExpenses.forEach((rowData) => {
                         const tr = document.createElement('tr');
                         rowData.slice(0, 5).forEach(text => { // Show first 5 columns
-                           const td = document.createElement('td');
-                           td.textContent = text;
-                           tr.appendChild(td);
+                            const td = document.createElement('td');
+                            td.textContent = text;
+                            tr.appendChild(td);
                         });
-                        
+
                         // Action Cell (Delete using expense_id at rowData[5])
                         const actionsTd = document.createElement('td');
                         const delBtn = document.createElement('button');
@@ -2193,7 +2331,7 @@
                     const amountStr = row.cells[3].textContent.replace('$', '').replace(/,/g, '');
                     total += parseFloat(amountStr) || 0;
                 });
-                document.getElementById('exp-total-badge').textContent = `Total: $${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                document.getElementById('exp-total-badge').textContent = `Total: $${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             }
 
             function saveExpensesData() {
@@ -2201,10 +2339,10 @@
             }
 
             // PROFIT REPORT CALCULATIONS
-            window.renderProfitReport = function() {
+            window.renderProfitReport = function () {
                 const dateFrom = document.getElementById('profit-date-from').value;
                 const dateTo = document.getElementById('profit-date-to').value;
-                
+
                 const logisticsData = currentTrips;
                 const expensesData = currentExpenses;
 
@@ -2221,7 +2359,7 @@
                     if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                         totals.sales += parseFloat(row[22]) || 0;
                         totals.yard += parseFloat(row[15]) || 0;
-                        
+
                         // Rentals: Sum Day Rate (17) and Monthly Rate (34)
                         const dayRate = parseFloat(row[17]) || 0;
                         const monthlyRate = parseFloat(row[34]) || 0;
@@ -2243,13 +2381,13 @@
                 const netProfit = totalRevenue - totals.expenses;
 
                 // 3. Update Summary Cards
-                document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                document.getElementById('total-expenses-val').textContent = `$${totals.expenses.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                
+                document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                document.getElementById('total-expenses-val').textContent = `$${totals.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
                 const netEl = document.getElementById('net-profit-val');
                 const profitCard = document.getElementById('profit-card-status');
-                netEl.textContent = `$${netProfit.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                
+                netEl.textContent = `$${netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
                 if (netProfit >= 0) {
                     netEl.className = 'positive';
                     profitCard.className = 'summary-card profit positive';
@@ -2259,9 +2397,9 @@
                 }
 
                 // 4. Update Breakdown List
-                document.getElementById('val-sales').textContent = `$${totals.sales.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                document.getElementById('val-rentals').textContent = `$${totals.rentals.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                document.getElementById('val-yard').textContent = `$${totals.yard.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                document.getElementById('val-sales').textContent = `$${totals.sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                document.getElementById('val-rentals').textContent = `$${totals.rentals.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                document.getElementById('val-yard').textContent = `$${totals.yard.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
                 // 5. Update Simple Bar Chart
                 const maxVal = Math.max(totals.sales, totals.rentals, totals.yard, 1);
@@ -2270,7 +2408,7 @@
                 document.getElementById('bar-yard').style.width = `${(totals.yard / maxVal) * 100}%`;
             };
 
-            window.resetProfitFilters = function() {
+            window.resetProfitFilters = function () {
                 document.getElementById('profit-date-from').value = '';
                 document.getElementById('profit-date-to').value = '';
                 renderProfitReport();
@@ -2293,13 +2431,13 @@
             // --- UNIVERSAL RECEIPT LOGIC ---
             let currentDocTrip = null;
 
-            window.loadDocTrips = function() {
+            window.loadDocTrips = function () {
                 const search = (document.getElementById('trip-search-input').value || '').toLowerCase();
                 const fromDate = document.getElementById('trip-from-date').value;
                 const toDate = document.getElementById('trip-to-date').value;
                 const list = document.getElementById('trip-list-scroll');
                 const data = currentTrips;
-                
+
                 list.innerHTML = '';
                 data.slice().reverse().forEach(trip => {
                     const id = (trip[0] || '').toLowerCase();
@@ -2307,12 +2445,12 @@
                     const cont = (trip[3] || '').toLowerCase();
                     const cust = (trip[11] || '').toLowerCase();
                     const drv = (trip[18] || '').toLowerCase();
-                    
+
                     // Show all if search is empty, or match specific terms: ID, Container, Customer, Driver
                     const matchesSearch = !search || id.includes(search) || cont.includes(search) || cust.includes(search) || drv.includes(search);
                     const matchesDate = (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
 
-                    if(matchesSearch && matchesDate) {
+                    if (matchesSearch && matchesDate) {
                         const div = document.createElement('div');
                         div.className = 'trip-item';
                         div.innerHTML = `
@@ -2327,45 +2465,45 @@
                 });
             }
 
-            window.fillReceiptFromTrip = function(trip, el) {
+            window.fillReceiptFromTrip = function (trip, el) {
                 // UI Active State
                 document.querySelectorAll('.trip-item').forEach(i => i.classList.remove('active'));
-                if(el) el.classList.add('active');
+                if (el) el.classList.add('active');
 
                 // Store selected trip and CLEAR sideform for overrides
                 currentDocTrip = trip;
-                
+
                 // Clear inputs so they remain "empty" for manual use
-                const inputs = ['u-r-id','u-r-date','u-r-cont','u-r-size','u-r-rel','u-r-order','u-r-doors','u-r-customer','u-r-phone','u-r-pickup','u-r-place','u-r-yard','u-r-storage','u-r-sales','u-r-notes'];
+                const inputs = ['u-r-id', 'u-r-date', 'u-r-cont', 'u-r-size', 'u-r-rel', 'u-r-order', 'u-r-doors', 'u-r-customer', 'u-r-phone', 'u-r-pickup', 'u-r-place', 'u-r-yard', 'u-r-storage', 'u-r-sales', 'u-r-notes'];
                 inputs.forEach(id => {
                     const elInput = document.getElementById(id);
-                    if(elInput) elInput.value = '';
+                    if (elInput) elInput.value = '';
                 });
-                
+
                 // Reset checkboxes
-                ['chk-asis','chk-wwt','chk-cw','chk-new','chk-holes','chk-doors'].forEach(id => {
+                ['chk-asis', 'chk-wwt', 'chk-cw', 'chk-new', 'chk-holes', 'chk-doors'].forEach(id => {
                     const elChk = document.getElementById(id);
-                    if(elChk) elChk.checked = false;
+                    if (elChk) elChk.checked = false;
                 });
-                
+
                 drawReceipt();
             }
 
-            window.drawReceipt = function() {
+            window.drawReceipt = function () {
                 const preview = document.getElementById('receipt-a4');
-                
+
                 // Helper: Prioritize Manual Input (Sidebar) over Trip Data
                 const getV = (id, tripIdx, def = '') => {
                     const manual = document.getElementById(id).value;
-                    if(manual && manual !== '0' && manual !== '') return manual;
-                    if(currentDocTrip && currentDocTrip[tripIdx]) return currentDocTrip[tripIdx];
+                    if (manual && manual !== '0' && manual !== '') return manual;
+                    if (currentDocTrip && currentDocTrip[tripIdx]) return currentDocTrip[tripIdx];
                     return def;
                 };
 
                 const getB = (id, searchText) => {
                     const manual = document.getElementById(id).checked;
-                    if(manual) return true;
-                    if(!currentDocTrip) return false;
+                    if (manual) return true;
+                    if (!currentDocTrip) return false;
                     const note = (currentDocTrip[31] || '').toUpperCase();
                     return note.includes(searchText);
                 };
@@ -2423,20 +2561,20 @@
                     </div>
                 `;
 
-                if(!data.id) {
+                if (!data.id) {
                     preview.innerHTML = headerHtml;
                     return;
                 }
 
                 // Helper to render field if not empty
                 const f = (label, val) => {
-                    if(!val || val === '---') return '';
+                    if (!val || val === '---') return '';
                     return `<div class="receipt-field"><label>${label}</label><span>${val}</span></div>`;
                 };
 
                 // Helper to render section if has children
                 const s = (title, content) => {
-                    if(!content.trim()) return '';
+                    if (!content.trim()) return '';
                     return `
                         <div class="receipt-section-title">${title}</div>
                         <div class="receipt-grid-3">${content}</div>
@@ -2447,18 +2585,18 @@
                 const logisticContent = f('MOVEMENT TYPE', data.move) + f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order);
                 const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place);
                 const clientContent = f('CUSTOMER NAME', data.cust) + f('PHONE', data.phone);
-                
+
                 // Inspection Section (Special because of grid layout)
                 let inspectionContent = '';
-                if(data.cond.asis) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> AS IS</div>`;
-                if(data.cond.wwt) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> WWT</div>`;
-                if(data.cond.cw) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> CW</div>`;
-                if(data.cond.new) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> NEW</div>`;
-                if(data.cond.holes) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> NO HOLES</div>`;
-                if(data.cond.doors) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> DOORS OK</div>`;
+                if (data.cond.asis) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> AS IS</div>`;
+                if (data.cond.wwt) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> WWT</div>`;
+                if (data.cond.cw) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> CW</div>`;
+                if (data.cond.new) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> NEW</div>`;
+                if (data.cond.holes) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> NO HOLES</div>`;
+                if (data.cond.doors) inspectionContent += `<div style="display:flex; align-items:center; gap:5px;"><span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px;">X</span> DOORS OK</div>`;
 
                 let inspectionSectionHtml = '';
-                if(inspectionContent) {
+                if (inspectionContent) {
                     inspectionSectionHtml = `
                         <div class="receipt-section-title">Inspection & Condition</div>
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; font-size: 0.8rem;">
@@ -2469,13 +2607,13 @@
 
                 // Billing Table
                 let billingRows = '';
-                if(data.yard > 0) billingRows += `<tr><td>Yard Loading / Interchange Fee</td><td style="text-align:right;">$${data.yard.toFixed(2)}</td></tr>`;
-                if(data.storage > 0) billingRows += `<tr><td>Storage / Rental Fee</td><td style="text-align:right;">$${data.storage.toFixed(2)}</td></tr>`;
-                if(data.sales > 0) billingRows += `<tr><td>Container Sales</td><td style="text-align:right;">$${data.sales.toFixed(2)}</td></tr>`;
-                if(taxVal > 0) billingRows += `<tr><td>Taxes (${data.taxRate}%)</td><td style="text-align:right;">$${taxVal.toFixed(2)}</td></tr>`;
+                if (data.yard > 0) billingRows += `<tr><td>Yard Loading / Interchange Fee</td><td style="text-align:right;">$${data.yard.toFixed(2)}</td></tr>`;
+                if (data.storage > 0) billingRows += `<tr><td>Storage / Rental Fee</td><td style="text-align:right;">$${data.storage.toFixed(2)}</td></tr>`;
+                if (data.sales > 0) billingRows += `<tr><td>Container Sales</td><td style="text-align:right;">$${data.sales.toFixed(2)}</td></tr>`;
+                if (taxVal > 0) billingRows += `<tr><td>Taxes (${data.taxRate}%)</td><td style="text-align:right;">$${taxVal.toFixed(2)}</td></tr>`;
 
                 let billingSectionHtml = '';
-                if(total > 0) {
+                if (total > 0) {
                     billingSectionHtml = `
                         <div class="receipt-section-title">Billing Summary</div>
                         <table class="receipt-table">
@@ -2518,10 +2656,10 @@
                 `;
             }
 
-            window.printA4Document = function() {
+            window.printA4Document = function () {
                 const el = document.getElementById('receipt-a4');
-                if(!el) return;
-                
+                if (!el) return;
+
                 const printWin = window.open('', '', 'width=1000,height=1200');
                 printWin.document.write('<html><head><title>Print Receipt</title>');
                 // Import the same fonts
@@ -2551,7 +2689,7 @@
                 printWin.document.write(el.innerHTML);
                 printWin.document.write('</body></html>');
                 printWin.document.close();
-                
+
                 printWin.focus();
                 setTimeout(() => {
                     printWin.print();
@@ -2559,14 +2697,14 @@
                 }, 500);
             }
 
-            window.updateCalendarFromReceipt = async function() {
+            window.updateCalendarFromReceipt = async function () {
                 const id = document.getElementById('u-r-id').value;
-                if(!id) return alert('Select a trip first!');
+                if (!id) return alert('Select a trip first!');
 
                 const tripIdx = currentTrips.findIndex(t => t[0] === id);
-                if(tripIdx === -1) return alert('Trip ID not found in database.');
+                if (tripIdx === -1) return alert('Trip ID not found in database.');
 
-                if(!confirm('This will update the main Delivery Calendar with these manual changes. Continue?')) return;
+                if (!confirm('This will update the main Delivery Calendar with these manual changes. Continue?')) return;
 
                 // Sync Back to Supabase using proper field names
                 const updates = {
@@ -2584,25 +2722,25 @@
                     sales_price: parseFloat(document.getElementById('u-r-sales').value) || 0,
                     note: document.getElementById('u-r-notes').value
                 };
-                
+
                 try {
                     await updateTrip(id, updates);
-                    if(window.loadTableData) await window.loadTableData();
+                    if (window.loadTableData) await window.loadTableData();
                     await loadDocTrips();
                     alert('Success! Calendar and Report Panel have been updated with these values.');
-                } catch(err) {
+                } catch (err) {
                     console.error("Sync failed:", err);
                     alert("Failed to sync calendar with Supabase.");
                 }
             }
 
             // --- AUTO COMMISSION LOGIC ---
-            window.updateDriverCommission = function() {
+            window.updateDriverCommission = function () {
                 const company = document.getElementById('in-company').value;
                 const commText = document.getElementById('in-comission').value;
                 const commPercent = parseFloat(commText) || 30; // Default 30 if parsing fails
                 const paidBase = parseFloat(document.getElementById('in-paiddriver').value) || 0;
-                
+
                 let result = 0;
                 // If it's a company driver (RP Tulipan or JR Super Crame)
                 if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
@@ -2611,9 +2749,9 @@
                     // Independent driver gets the full amount listed in Paid Driver
                     result = paidBase;
                 }
-                
+
                 const commEl = document.getElementById('in-comidriver');
-                if(commEl) {
+                if (commEl) {
                     commEl.value = result.toFixed(2);
                 }
             }
@@ -2626,16 +2764,16 @@
             const today = dateObj.toISOString().split('T')[0];
             dateObj.setDate(dateObj.getDate() - 30);
             const past30 = dateObj.toISOString().split('T')[0];
-            
+
             const fromD = document.getElementById('trip-from-date');
             const toD = document.getElementById('trip-to-date');
-            if(fromD) fromD.value = past30;
-            if(toD) toD.value = today;
+            if (fromD) fromD.value = past30;
+            if (toD) toD.value = today;
 
             // --- FLEET MANAGEMENT LOGIC ---
             let currentFleetTab = 'truck';
-            
-            window.switchFleetTab = function(type) {
+
+            window.switchFleetTab = function (type) {
                 currentFleetTab = type;
                 document.getElementById('f-type').value = type;
                 document.getElementById('truck-only-fields').style.display = (type === 'truck') ? 'block' : 'none';
@@ -2645,7 +2783,7 @@
                 renderFleetTable();
             };
 
-            window.saveFleetUnit = async function() {
+            window.saveFleetUnit = async function () {
                 const id = document.getElementById('f-id').value;
                 const unitData = {
                     id: id || Date.now().toString(),
@@ -2670,29 +2808,29 @@
                     await loadFleetData();
                     resetFleetForm();
                     alert('Unit saved successfully!');
-                } catch(err) {
+                } catch (err) {
                     console.error("Error saving fleet unit:", err);
                     alert("Failed to save unit to Supabase.");
                 }
             };
 
-            window.renderFleetTable = function() {
+            window.renderFleetTable = function () {
                 const fleet = currentFleet;
                 const body = document.getElementById('fleet-table-body');
-                if(!body) return;
+                if (!body) return;
                 body.innerHTML = '';
-                
+
                 const filtered = fleet.filter(u => u.type === currentFleetTab);
                 const today = new Date().toISOString().split('T')[0];
 
                 filtered.forEach(u => {
                     const tr = document.createElement('tr');
-                    
+
                     // Maintenance Logic Check
                     let isOverdue = false;
                     if (u.dueDate && u.dueDate <= today) isOverdue = true;
                     if (u.type === 'truck' && u.dueMiles && parseInt(u.miles) >= parseInt(u.dueMiles)) isOverdue = true;
-                    
+
                     const nextServiceText = (u.dueDate || u.dueMiles) ? `${u.dueDate || 'N/A'}${u.dueMiles ? ' / ' + u.dueMiles + ' mi' : ''}` : 'No Due Set';
                     const statusClass = (u.status === 'Available') ? 'status-paid' : 'status-pending';
 
@@ -2712,7 +2850,7 @@
                 });
             };
 
-            window.editFleetUnit = function(id) {
+            window.editFleetUnit = function (id) {
                 const unit = currentFleet.find(u => u.id === id);
                 if (!unit) return;
 
@@ -2727,16 +2865,16 @@
                 document.getElementById('f-due-date').value = unit.dueDate;
                 document.getElementById('f-due-miles').value = unit.dueMiles;
                 document.getElementById('f-status').value = unit.status;
-                
+
                 document.getElementById('fleet-form-title').textContent = 'Edit Unit ' + unit.num;
             };
 
-            window.deleteFleetUnit = async function(id) {
+            window.deleteFleetUnit = async function (id) {
                 if (!confirm('Are you sure you want to delete this unit?')) return;
                 try {
                     await deleteFleetUnit(id);
                     await loadFleetData();
-                } catch(err) {
+                } catch (err) {
                     console.error("Error deleting unit:", err);
                 }
             };
@@ -2746,49 +2884,21 @@
                     const data = await getFleet();
                     currentFleet = data.map(mapFleetToUI);
                     renderFleetTable();
-                    updateFleetSelectors();
-                } catch(err) {
+                } catch (err) {
                     console.error("Error loading fleet:", err);
                 }
             }
             window.loadFleetData = loadFleetData;
 
-            window.updateFleetSelectors = function() {
-                const fleet = currentFleet;
-                const truckSel = document.getElementById('in-truck');
-                const trailerSel = document.getElementById('in-trailer');
-                
-                if (!truckSel || !trailerSel) return;
-
-                const trucks = fleet.filter(u => u.type === 'truck' && u.status === 'Available');
-                const trailers = fleet.filter(u => u.type === 'trailer' && u.status === 'Available');
-
-                truckSel.innerHTML = '<option value="" disabled selected>Select Truck</option>';
-                trucks.forEach(t => {
-                    const opt = document.createElement('option');
-                    opt.value = t.num;
-                    opt.textContent = t.num;
-                    truckSel.appendChild(opt);
-                });
-
-                trailerSel.innerHTML = '<option value="" disabled selected>Select Trailer</option>';
-                trailers.forEach(t => {
-                    const opt = document.createElement('option');
-                    opt.value = t.num;
-                    opt.textContent = t.num;
-                    trailerSel.appendChild(opt);
-                });
-            };
-
             // Run initial load
-            updateFleetSelectors();
+            loadFleetData();
 
         });
 
         document.addEventListener('DOMContentLoaded', () => {
             const activeSection = sessionStorage.getItem('activeSection') || 'hero';
             showView(activeSection);
-            
+
             // Ensure ID is generated for initial new trip
             if (window.initNewTripId) window.initNewTripId();
         });
@@ -2806,4 +2916,5 @@
     </script>
 
 </body>
+
 </html>
