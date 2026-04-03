@@ -496,6 +496,15 @@
                                 <input type="text" id="f-phone" placeholder="Search..."
                                     oninput="applyAdvancedFilters()">
                             </div>
+                            <!-- Date Range Filters -->
+                            <div class="filter-item" style="border-left: 2px solid #e2e8f0; padding-left: 15px;">
+                                <label style="color: #b91c1c;">FROM Date</label>
+                                <input type="date" id="f-from-date" onchange="applyAdvancedFilters()">
+                            </div>
+                            <div class="filter-item">
+                                <label style="color: #b91c1c;">TO Date</label>
+                                <input type="date" id="f-to-date" onchange="applyAdvancedFilters()">
+                            </div>
                         </div>
                         <div class="filter-actions">
                             <button onclick="resetAdvancedFilters()" class="btn-reset-filters">Clear All
@@ -1568,7 +1577,9 @@
                 ncont: document.getElementById('f-ncont').value.toLowerCase(),
                 order: document.getElementById('f-order').value.toLowerCase(),
                 release: document.getElementById('f-release').value.toLowerCase(),
-                phone: document.getElementById('f-phone').value.toLowerCase()
+                phone: document.getElementById('f-phone').value.toLowerCase(),
+                fromDate: document.getElementById('f-from-date').value,
+                toDate: document.getElementById('f-to-date').value
             };
 
             const rows = document.querySelectorAll('#table-body tr');
@@ -1589,10 +1600,15 @@
                 const matchOrder = !filters.order || cells[5].textContent.toLowerCase().includes(filters.order);
                 const matchRelease = !filters.release || cells[4].textContent.toLowerCase().includes(filters.release);
                 const matchPhone = !filters.phone || cells[24].textContent.toLowerCase().includes(filters.phone);
+                
+                // Date Range Match
+                const tripDate = cells[1].textContent; // DATE column is at index 1
+                const matchDate = (!filters.fromDate || tripDate >= filters.fromDate) && 
+                                  (!filters.toDate || tripDate <= filters.toDate);
 
                 if (matchCity && matchSize && matchCustomer && matchDriver && matchCompany &&
                     matchStatus && matchCollect && matchNcont && matchOrder &&
-                    matchRelease && matchPhone) {
+                    matchRelease && matchPhone && matchDate) {
                     tr.style.display = '';
                 } else {
                     tr.style.display = 'none';
