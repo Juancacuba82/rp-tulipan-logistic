@@ -307,18 +307,6 @@
                                 <option value="YANDY JAX">YANDY JAX</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label style="color: #1e293b;">ASSIGNED TRUCK</label>
-                            <select id="in-truck" required>
-                                <option value="" disabled selected>Select Truck</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label style="color: #1e293b;">ASSIGNED TRAILER</label>
-                            <select id="in-trailer" required>
-                                <option value="" disabled selected>Select Trailer</option>
-                            </select>
-                        </div>
                         <div class="form-group"><label>RATE</label>
                             <input type="number" id="in-rate" style="flex: 0.6;" oninput="updateDriverCommission()">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-ratepaid"></label>
@@ -343,7 +331,11 @@
                                 <option value="NO">NO</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>AMOUNT</label><input type="number" id="in-amount" oninput="updateDriverCommission()"></div>
+                        <div class="form-group">
+                            <label>AMOUNT</label>
+                            <input type="number" id="in-amount" style="flex: 0.6;" oninput="updateDriverCommission()">
+                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">CASH <input type="checkbox" id="in-amountpaid"></label>
+                        </div>
                         <div class="form-group"><label>PHONE #</label><input type="text" id="in-phone"></div>
                         <div class="form-group"><label>PAID DRIVER</label><input type="number" id="in-paiddriver" oninput="updateDriverCommission()"></div>
                         <div class="form-group">
@@ -473,49 +465,37 @@
                             <thead>
                                 <tr class="header-row">
                                     <th>ID</th>
-                                    <th>2. DATE</th>
-                                    <th>3. SIZE</th>
-                                    <th>4. N. CONT</th>
-                                    <th>5. RELEASE #</th>
-                                    <th>6. ORDER - BOL CONT #</th>
-                                    <th>7. CITY</th>
-                                    <th>8. PICK UP ADDRESS</th>
-                                    <th>9. DELIVERY PLACE</th>
-                                    <th>10. DOORS DIRECTION</th>
-                                    <th>11. MILES</th>
-                                    <th>12. CUSTOMER</th>
-                                    <th>13. PAYMENT DATE</th>
-                                    <th>15. YARD SERVICES</th>
-                                    <th>16. YARD SERVICES RATE</th>
-                                    <th>17. DATE OUT</th>
-                                    <th>18. DAY RATE</th>
-                                    <th>19. COMPANY</th>
-                                    <th>20. DRIVER</th>
-                                    <th>21. RATE</th>
-                                    <th>22. TYPE OF PAYMENT</th>
-                                    <th>23. SALES PRICE</th>
-                                    <th>24. COLLECT PAYMENT</th>
-                                    <th>25. AMOUNT</th>
-                                    <th>26. PHONE #</th>
-                                    <th>27. PAID DRIVER</th>
-                                    <th>28. STATUS</th>
-                                    <th>29. COMISSION</th>
-                                    <th>30. COMISION DRIVER</th>
-                                    <th>31. INCOME DIS FEE</th>
-                                    <th>32. INVOICE</th>
-                                    <th>33. NOTE</th>
-                                    
-                                    
-                                    <th>MODE</th>
-                                    <th>MONTHLY RATE</th>
-                                    <th>RENT START</th>
-                                    <th>NEXT DUE</th>
-                                    <th>ST_YARD</th>
-                                    <th>ST_RENT</th>
-                                    <th>ST_RATE</th>
-                                    <th>ST_SALES</th>
-                                    <th>BALANCE PENDING</th>
-                                    <th>DRIVER PAYOUT</th>
+                                    <th>DATE</th>
+                                    <th>SIZE</th>
+                                    <th>N. CONT</th>
+                                    <th>RELEASE #</th>
+                                    <th>ORDER - BOL CONT #</th>
+                                    <th>CITY</th>
+                                    <th>PICK UP ADDRESS</th>
+                                    <th>DELIVERY PLACE</th>
+                                    <th>DOORS DIRECTION</th>
+                                    <th>MILES</th>
+                                    <th>CUSTOMER</th>
+                                    <th>PAYMENT DATE</th>
+                                    <th>YARD SERVICES</th>
+                                    <th>YARD SERVICES RATE</th>
+                                    <th>DATE OUT</th>
+                                    <th>DAY RATE</th>
+                                    <th>COMPANY</th>
+                                    <th>DRIVER</th>
+                                    <th>RATE</th>
+                                    <th>TYPE OF PAYMENT</th>
+                                    <th>SALES PRICE</th>
+                                    <th>COLLECT PAYMENT</th>
+                                    <th>AMOUNT</th>
+                                    <th>PHONE #</th>
+                                    <th>PAID DRIVER</th>
+                                    <th>STATUS</th>
+                                    <th>COMISSION</th>
+                                    <th>COMISION DRIVER</th>
+                                    <th>INCOME DIS FEE</th>
+                                    <th>INVOICE</th>
+                                    <th>NOTE</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body">
@@ -799,7 +779,7 @@
                         
                         <!-- Filter Panel -->
                         <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; border: 1px solid #e2e8f0;">
-                            <input type="text" id="filter-search" class="form-input" placeholder="Search Driver/ID..." oninput="renderDriverLog()">
+                            <input type="text" id="filter-search" class="form-input" placeholder="Search Driver/Name..." oninput="renderDriverLog()">
                             <input type="date" id="filter-from" class="form-input" onchange="renderDriverLog()">
                             <input type="date" id="filter-to" class="form-input" onchange="renderDriverLog()">
                             <button id="btn-pending-only" onclick="togglePendingFilter()" class="btn-cancel" style="background: #fff; border: 1px solid #cbd5e1;">Show Unpaid Only</button>
@@ -812,13 +792,16 @@
                             <thead>
                                 <tr>
                                     <th>DATE</th>
-                                    <th>TRIP ID</th>
+                                    <th>SIZE</th>
+                                    <th>N° CONT</th>
+                                    <th>ORDER #</th>
+                                    <th>CITY</th>
+                                    <th>PICK UP ADDRESS</th>
+                                    <th>DELIVERY PLACE</th>
+                                    <th>MILES</th>
                                     <th>DRIVER</th>
-                                    <th>COMPANY</th>
-                                    <th>NET AMOUNT</th>
-                                    <th>DRIVER COMISSION</th>
-                                    <th>PAYOUT STATUS</th>
-                                    <th>ACTION</th>
+                                    <th>PAID DRIVER</th>
+                                    <th>CASH</th>
                                 </tr>
                             </thead>
                             <tbody id="dl-body"></tbody>
@@ -1256,7 +1239,7 @@
                 const matchDriver = !filters.driver || cells[18].textContent.toLowerCase() === filters.driver;
                 const matchCompany = !filters.company || cells[17].textContent.toLowerCase() === filters.company;
                 const matchStatus = (filters.status === 'pending payment') 
-                    ? (cells[38].textContent === 'PEND' || cells[40].textContent === 'PEND' || cells[41].textContent === 'PEND')
+                    ? (cells[38].textContent === 'PEND' || cells[40].textContent === 'PEND' || cells[41].textContent === 'PEND' || cells[42].textContent === 'PEND')
                     : (!filters.status || cells[26].textContent.toLowerCase() === filters.status);
                 const matchCollect = !filters.collect || cells[22].textContent.toLowerCase() === filters.collect;
                 
@@ -1303,8 +1286,7 @@
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone', 
                 'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income', 
                 'in-invoice', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue',
-                'in-truck', 'in-trailer'
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
             
             // Inventory Validation
@@ -1358,23 +1340,25 @@
                 return el ? el.value || '---' : '---';
             });
 
-            // Add Checkbox States (Index 39-42)
+            // Add Checkbox States (Indices 36-40)
             const stYard = document.getElementById('in-yardpaid').checked ? 'PAID' : 'PEND';
             const stRent = document.getElementById('in-rentpaid').checked ? 'PAID' : 'PEND';
             const stRate = document.getElementById('in-ratepaid').checked ? 'PAID' : 'PEND';
             const stSales = document.getElementById('in-salespaid').checked ? 'PAID' : 'PEND';
-            rowData.push(stYard, stRent, stRate, stSales); // Indices 38, 39, 40, 41
+            const stAmount = document.getElementById('in-amountpaid').checked ? 'PAID' : 'PEND';
+            rowData.push(stYard, stRent, stRate, stSales, stAmount); 
             
-            // Index 42: Balance Pending
+            // Index 41: Balance Pending
             let pending = 0;
             if(stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate').value) || 0;
             if(stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate').value) || 0;
             if(stSales === 'PEND') pending += parseFloat(document.getElementById('in-sales').value) || 0;
+            if(stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount').value) || 0;
             if(stRent === 'PEND' && document.getElementById('in-mode').value === 'RENT') pending += parseFloat(document.getElementById('in-mrate').value) || 0;
             rowData.push(`$${pending.toFixed(2)}`); 
 
-            // Index 43: Driver Payout Status
-            rowData.push(document.getElementById('in-driverpaid').value);
+            // Index 42: Driver Payout Status
+            rowData.push(document.getElementById('in-driverpaid').value || 'PENDING');
 
             const saved = localStorage.getItem('logisticsTableData') ? JSON.parse(localStorage.getItem('logisticsTableData')) : [];
             
@@ -1503,7 +1487,7 @@
 
             editingIndex = idx; // Set Global Edit State
 
-            // Populate Fields (Map back from indices 0-38)
+            // Populate Fields (Map back from indices 0-35)
             const fields = [
                 'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup', 
                 'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate', 
@@ -1511,8 +1495,7 @@
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone', 
                 'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income', 
                 'in-invoice', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue',
-                'in-truck', 'in-trailer'
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
 
             fields.forEach((id, i) => {
@@ -1520,14 +1503,15 @@
                 if(el) el.value = (rowData[i] === '---') ? '' : rowData[i];
             });
 
-            // Set Checkboxes (Indices 38-41)
-            document.getElementById('in-yardpaid').checked = (rowData[38] === 'PAID');
-            document.getElementById('in-rentpaid').checked = (rowData[39] === 'PAID');
-            document.getElementById('in-ratepaid').checked = (rowData[40] === 'PAID');
-            document.getElementById('in-salespaid').checked = (rowData[41] === 'PAID');
+            // Set Checkboxes (Indices 36-40)
+            document.getElementById('in-yardpaid').checked = (rowData[36] === 'PAID');
+            document.getElementById('in-rentpaid').checked = (rowData[37] === 'PAID');
+            document.getElementById('in-ratepaid').checked = (rowData[38] === 'PAID');
+            document.getElementById('in-salespaid').checked = (rowData[39] === 'PAID');
+            document.getElementById('in-amountpaid').checked = (rowData[40] === 'PAID');
             
-            // Driver Paid Status (Index 43)
-            document.getElementById('in-driverpaid').value = rowData[43] || 'PENDING';
+            // Driver Paid Status (Index 42)
+            document.getElementById('in-driverpaid').value = rowData[42] || 'PENDING';
 
             // Refresh UI States
             toggleModeFields();
@@ -1566,24 +1550,25 @@
                     
                     const mode = rowData[32];
                     const nextDue = rowData[35];
-                    const stYard = rowData[38];
-                    const stRent = rowData[39];
-                    const stRate = rowData[40];
-                    const stSales = rowData[41];
+                    const stYard = rowData[36];
+                    const stRent = rowData[37];
+                    const stRate = rowData[38];
+                    const stSales = rowData[39];
+                    const stAmount = rowData[40];
 
-                    rowData.forEach((text, i) => {
+                    rowData.slice(0, 32).forEach((text, i) => {
                         const td = document.createElement('td');
                         td.textContent = text;
                         
-                        // Amount coloring (Indices: 14=Yard, 19=Rate, 21=Sales, 33=Rent)
+                        // Amount coloring (Indices: 14=Yard, 19=Rate, 21=Sales, 23=Amount, 33=Rent)
                         if(i === 14 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
                         if(i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
                         if(i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        if(i === 33 && text !== '---') td.style.backgroundColor = (stRent === 'PAID') ? '#dcfce7' : '#fee2e2';
+                        if(i === 23 && text !== '---') td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
+                        // Note: Monthly Rate (33) and Next Due (35) are no longer visible, 
+                        // but for consistency we could leave the logic if we ever re-enable them.
+                        // However, we skip i === 33 since we sliced to 32.
                         
-                        if(i === 35 && mode === 'RENT' && text !== '---') { // 35: nextDue
-                           if(new Date(text + 'T00:00:00') < new Date()) td.style.color = 'red';
-                        }
                         tr.appendChild(td);
                     });
 
@@ -1693,7 +1678,7 @@
                 const filtered = allRows.filter(r => {
                     const rDate = r[1];
                     const rId = r[0];
-                    const rDriver = r[19] || 'UNASSIGNED';
+                    const rDriver = (r[18] || 'UNASSIGNED').toString();
                     const rStatus = r[44] || 'PENDING';
                     
                     const matchesSearch = rDriver.toLowerCase().includes(searchTerm) || rId.toLowerCase().includes(searchTerm);
@@ -1703,125 +1688,35 @@
                     return matchesSearch && matchesDate && matchesStatus;
                 });
 
-                // 2. Group by Driver
-                const groups = {};
+                // Render simple flat list of 11 columns
                 filtered.forEach(r => {
-                    const dName = r[19] || 'UNASSIGNED';
-                    if(!groups[dName]) groups[dName] = [];
-                    groups[dName].push(r);
-                });
-
-                // 3. Render Groups with Subtotals
-                Object.keys(groups).sort().forEach(driverName => {
-                    let driverPendingTotal = 0;
-
-                    groups[driverName].forEach(r => {
-                        const tr = document.createElement('tr');
-                        const rDate = r[1];
-                        const rId = r[0];
-                        const rCompany = r[17];
-                        const rAmount = parseFloat(r[23]) || 0;
-                        const rComi = parseFloat(r[28]) || 0;
-                        const rStatus = r[43] || 'PENDING';
-
-                        const cells = [rDate, rId, driverName, rCompany, `$${rAmount.toLocaleString()}`, `$${rComi.toLocaleString()}`, rStatus];
-                        cells.forEach((text, i) => {
-                            const td = document.createElement('td');
-                            td.textContent = text;
-                            if(i === 6) { 
-                                td.style.fontWeight = 'bold';
-                                td.style.color = (text === 'PAID') ? '#4ade80' : '#dc2626';
-                            }
-                            tr.appendChild(td);
-                        });
-
-                        // Action Button
-                        const actionTd = document.createElement('td');
-                        const btn = document.createElement('button');
-                        btn.textContent = (rStatus === 'PAID') ? 'Set PENDING' : 'Mark PAID';
-                        btn.className = 'btn-add-sidebar';
-                        btn.style.fontSize = '0.65rem';
-                        btn.style.padding = '4px 8px';
-                        btn.style.background = (rStatus === 'PAID') ? '#94a3b8' : '#059669';
-                        btn.onclick = () => markTripAsPaid(rId);
-                        actionTd.appendChild(btn);
-                        tr.appendChild(actionTd);
-
-                        body.appendChild(tr);
+                    const tr = document.createElement('tr');
+                    
+                    // Columns: DATE(1), SIZE(2), N° CONT(3), ORDER#(5), CITY(6), PICKUP(7), DELIVERY(8), MILES(10), DRIVER(18), PAID DRIVER(28), CASH(23)
+                    const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 18, 28, 23];
+                    
+                    cellIndices.forEach(idx => {
+                        const td = document.createElement('td');
+                        let value = r[idx] || '---';
                         
-                        // ONLY ADD TO TOTAL IF PENDING
-                        if (rStatus !== 'PAID') {
-                            driverPendingTotal += rComi;
+                        // Condition for CASH column (Index 23): Only show if stAmount (Index 40) is PAID
+                        if (idx === 23) {
+                            const isCashMarked = (r[40] === 'PAID');
+                            value = isCashMarked ? (r[23] || '---') : '---';
                         }
+                        
+                        td.textContent = value;
+                        tr.appendChild(td);
                     });
 
-                    // Render Subtotal Row for this Driver (LIVE BALANCE)
-                    const subtr = document.createElement('tr');
-                    subtr.classList.add('subtotal-row');
-                    
-                    const labelTd = document.createElement('td');
-                    labelTd.setAttribute('colspan', '5');
-                    labelTd.style.textAlign = 'right';
-                    labelTd.style.paddingRight = '20px';
-                    labelTd.textContent = `PENDING TO PAY ${driverName}:`;
-                    subtr.appendChild(labelTd);
-
-                    const totalTd = document.createElement('td');
-                    totalTd.textContent = `$${driverPendingTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                    subtr.appendChild(totalTd);
-
-                    const statusTd = document.createElement('td');
-                    statusTd.style.textAlign = 'center';
-                    statusTd.textContent = (driverPendingTotal > 0) ? 'DEBT' : 'CLEARED';
-                    subtr.appendChild(statusTd);
-
-                    // Group Action: Settle All / Revert
-                    const groupActionTd = document.createElement('td');
-                    if (driverPendingTotal > 0) {
-                        const settleBtn = document.createElement('button');
-                        settleBtn.textContent = 'SETTLE ALL';
-                        settleBtn.style.fontSize = '0.6rem';
-                        settleBtn.style.padding = '2px 6px';
-                        settleBtn.style.background = '#4338ca';
-                        settleBtn.style.color = 'white';
-                        settleBtn.style.borderRadius = '4px';
-                        settleBtn.onclick = () => settleDriverGroup(driverName);
-                        groupActionTd.appendChild(settleBtn);
-                    } else {
-                        // If balance is 0, offer REVERT ALL (Assuming there are paid trips)
-                        const revertBtn = document.createElement('button');
-                        revertBtn.textContent = 'REVERT ALL';
-                        revertBtn.style.fontSize = '0.55rem';
-                        revertBtn.style.padding = '2px 6px';
-                        revertBtn.style.background = '#ef4444'; // Red for revert
-                        revertBtn.style.color = 'white';
-                        revertBtn.style.borderRadius = '4px';
-                        revertBtn.onclick = () => revertDriverGroup(driverName);
-                        groupActionTd.appendChild(revertBtn);
-                    }
-                    subtr.appendChild(groupActionTd);
-
-                    body.appendChild(subtr);
-                    globalTotal += driverPendingTotal;
+                    body.appendChild(tr);
                 });
-                
-                // 4. Add a spacer row at the very end to prevent the sticky footer from hiding data
-                const spacer = document.createElement('tr');
-                spacer.style.height = '100px';
-                body.appendChild(spacer);
+                // Clean up footer for now as requested
+                const footerLabel = document.getElementById('dl-footer-label');
+                const totalDisplay = document.getElementById('dl-total-paid');
+                if(footerLabel) footerLabel.textContent = "Report Entries:";
+                if(totalDisplay) totalDisplay.textContent = filtered.length;
             }
-            
-            const footerLabel = document.getElementById('dl-footer-label');
-            const totalDisplay = document.getElementById('dl-total-paid');
-            
-            if(searchTerm) {
-                footerLabel.textContent = `Total Settlement for ${searchTerm.toUpperCase()}:`;
-            } else {
-                footerLabel.textContent = `Global Settlement Summary:`;
-            }
-            
-            totalDisplay.textContent = `$${globalTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-            totalDisplay.style.color = '#4ade80'; // Bright green for the final total in dark footer
         }
 
         // Initialize state on load
