@@ -1047,14 +1047,8 @@ main {
 }
 
 @media print {
-    @page { size: A4; margin: 0; }
-    body > *:not(main) { display: none !important; }
-    main > *:not(#docs-view) { display: none !important; }
-    #docs-view .trip-selector-panel,
-    #docs-view .receipt-form-panel { display: none !important; }
-    #docs-view .receipt-preview-panel { padding: 0 !important; background: white !important; width: 100% !important; height: auto !important; }
-    .a4-paper { box-shadow: none !important; width: 100% !important; min-height: 100% !important; margin: 0 !important; }
-    #header-nav { display: none !important; }
+    @page { size: auto; margin: 0; }
+    #header-nav, header, footer, .trip-selector-panel, .receipt-form-panel { display: none !important; }
 }
 
 /* --- PROFIT REPORT STYLES --- */

@@ -518,8 +518,8 @@
                             <input type="date" id="trip-from-date" class="form-input" style="padding: 4px; font-size: 0.75rem;" onchange="loadDocTrips()">
                             <input type="date" id="trip-to-date" class="form-input" style="padding: 4px; font-size: 0.75rem;" onchange="loadDocTrips()">
                         </div>
-                        <label style="font-size: 0.75rem; font-weight: bold; margin-bottom: 5px; display: block;">SEARCH TRIP ID / CONT#</label>
-                        <input type="text" id="trip-search-input" class="form-input" placeholder="Type ID or Cont#..." oninput="loadDocTrips()">
+                        <label style="font-size: 0.75rem; font-weight: bold; margin-bottom: 5px; display: block;">SEARCH TRIP ID / NAME / CONT#</label>
+                        <input type="text" id="trip-search-input" class="form-input" placeholder="Type ID or Name..." oninput="loadDocTrips()">
                     </div>
                     <div id="trip-list-scroll" class="trip-list-scroll">
                         <!-- Populated via JS -->
@@ -531,8 +531,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b;">Universal Receipt</h3>
                         <div style="display: flex; gap: 5px;">
-                            <button onclick="updateCalendarFromReceipt()" class="btn-cancel" style="background: #dcfce7; color: #166534; font-size: 0.7rem;">Sync Back</button>
-                            <button onclick="window.print()" class="btn-add-sidebar" style="font-size: 0.7rem;">Print A4</button>
+                            <button onclick="printA4Document()" class="btn-add-sidebar" style="font-size: 0.8rem; background: #b91c1c; padding: 5px 15px;">PRINT RECEIPT</button>
                         </div>
                     </div>
                     <div class="sidebar-form" style="padding: 0;">
@@ -551,10 +550,12 @@
                         <div class="form-group"><label>Size/Type</label><input type="text" id="u-r-size" oninput="drawReceipt()"></div>
                         <div class="form-group"><label>Release / Booking #</label><input type="text" id="u-r-rel" oninput="drawReceipt()"></div>
                         <div class="form-group"><label>Order #</label><input type="text" id="u-r-order" oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Doors Direction</label><input type="text" id="u-r-doors" placeholder="FWD / AFT" oninput="drawReceipt()"></div>
                         
                         <div class="receipt-section-title">LOGISTICS</div>
                         <div class="form-group"><label>Customer</label><input type="text" id="u-r-customer" oninput="drawReceipt()"></div>
                         <div class="form-group"><label>Phone</label><input type="text" id="u-r-phone" oninput="drawReceipt()"></div>
+                        <div class="form-group"><label>Pick Up From</label><input type="text" id="u-r-pickup" oninput="drawReceipt()"></div>
                         <div class="form-group"><label>Delivery Place</label><input type="text" id="u-r-place" oninput="drawReceipt()"></div>
                         
                         <div class="receipt-section-title">INSPECTION & CONDITION</div>
@@ -576,10 +577,6 @@
                         
                         <div class="form-group" style="margin-top:15px;"><label>Notes</label><textarea id="u-r-notes" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px;" oninput="drawReceipt()"></textarea></div>
                         
-                        <div class="form-group" style="margin-top:25px; display:flex; gap:10px;">
-                            <button onclick="updateCalendarFromReceipt()" class="btn-add-sidebar" style="flex:1; background:#0f172a;">Sync Back</button>
-                            <button onclick="window.print()" class="btn-add-sidebar" style="flex:1; background:#b91c1c;">Print Doc</button>
-                        </div>
                     </div>
                 </aside>
 
@@ -2075,6 +2072,8 @@
             };
 
             // --- UNIVERSAL RECEIPT LOGIC ---
+            let currentDocTrip = null;
+
             window.loadDocTrips = function() {
                 const search = (document.getElementById('trip-search-input').value || '').toLowerCase();
                 const fromDate = document.getElementById('trip-from-date').value;
@@ -2088,7 +2087,7 @@
                     const date = trip[1] || ''; // Trip Date is Index 1
                     const cont = (trip[3] || '').toLowerCase();
                     const cust = (trip[11] || '').toLowerCase();
-                    const drv = (trip[19] || '').toLowerCase();
+                    const drv = (trip[18] || '').toLowerCase();
                     
                     // Show all if search is empty, or match specific terms: ID, Container, Customer, Driver
                     const matchesSearch = !search || id.includes(search) || cont.includes(search) || cust.includes(search) || drv.includes(search);
@@ -2114,31 +2113,21 @@
                 document.querySelectorAll('.trip-item').forEach(i => i.classList.remove('active'));
                 if(el) el.classList.add('active');
 
-                // Fill Form
-                document.getElementById('u-r-id').value = trip[0] || '';
-                document.getElementById('u-r-date').value = trip[1] || '';
-                document.getElementById('u-r-move').value = trip[34] || 'IN';
-                document.getElementById('u-r-cont').value = trip[3] || '';
-                document.getElementById('u-r-size').value = trip[2] || '';
-                document.getElementById('u-r-rel').value = trip[4] || '';
-                document.getElementById('u-r-order').value = trip[5] || '';
-                document.getElementById('u-r-customer').value = trip[11] || '';
-                document.getElementById('u-r-phone').value = trip[24] || '';
-                document.getElementById('u-r-place').value = trip[8] || '';
+                // Store selected trip and CLEAR sideform for overrides
+                currentDocTrip = trip;
                 
-                // Fees
-                document.getElementById('u-r-yard').value = trip[14] || 0;
-                document.getElementById('u-r-storage').value = trip[35] || 0;
-                document.getElementById('u-r-sales').value = trip[21] || 0;
+                // Clear inputs so they remain "empty" for manual use
+                const inputs = ['u-r-id','u-r-date','u-r-cont','u-r-size','u-r-rel','u-r-order','u-r-doors','u-r-customer','u-r-phone','u-r-pickup','u-r-place','u-r-yard','u-r-storage','u-r-sales','u-r-notes'];
+                inputs.forEach(id => {
+                    const elInput = document.getElementById(id);
+                    if(elInput) elInput.value = '';
+                });
                 
-                // Conditions (simplified heuristic)
-                const note = (trip[32] || '').toUpperCase();
-                document.getElementById('chk-asis').checked = note.includes('AS IS');
-                document.getElementById('chk-wwt').checked = note.includes('WWT');
-                document.getElementById('chk-cw').checked = note.includes('CW');
-                document.getElementById('chk-new').checked = note.includes('NEW');
-                document.getElementById('chk-holes').checked = note.includes('NO HOLES');
-                document.getElementById('chk-doors').checked = note.includes('DOORS OK');
+                // Reset checkboxes
+                ['chk-asis','chk-wwt','chk-cw','chk-new','chk-holes','chk-doors'].forEach(id => {
+                    const elChk = document.getElementById(id);
+                    if(elChk) elChk.checked = false;
+                });
                 
                 drawReceipt();
             }
@@ -2146,31 +2135,49 @@
             window.drawReceipt = function() {
                 const preview = document.getElementById('receipt-a4');
                 
-                // Gather Data from Form
+                // Helper: Prioritize Manual Input (Sidebar) over Trip Data
+                const getV = (id, tripIdx, def = '') => {
+                    const manual = document.getElementById(id).value;
+                    if(manual && manual !== '0' && manual !== '') return manual;
+                    if(currentDocTrip && currentDocTrip[tripIdx]) return currentDocTrip[tripIdx];
+                    return def;
+                };
+
+                const getB = (id, searchText) => {
+                    const manual = document.getElementById(id).checked;
+                    if(manual) return true;
+                    if(!currentDocTrip) return false;
+                    const note = (currentDocTrip[31] || '').toUpperCase();
+                    return note.includes(searchText);
+                };
+
+                // Gather Data for Rendering
                 const data = {
-                    id: document.getElementById('u-r-id').value,
-                    date: document.getElementById('u-r-date').value,
-                    move: document.getElementById('u-r-move').value,
-                    cont: document.getElementById('u-r-cont').value,
-                    size: document.getElementById('u-r-size').value,
-                    rel: document.getElementById('u-r-rel').value,
-                    order: document.getElementById('u-r-order').value,
-                    cust: document.getElementById('u-r-customer').value,
-                    phone: document.getElementById('u-r-phone').value,
-                    place: document.getElementById('u-r-place').value,
-                    yard: parseFloat(document.getElementById('u-r-yard').value) || 0,
-                    storage: parseFloat(document.getElementById('u-r-storage').value) || 0,
-                    transp: parseFloat(document.getElementById('u-r-transp').value) || 0,
-                    sales: parseFloat(document.getElementById('u-r-sales').value) || 0,
+                    id: getV('u-r-id', 0),
+                    date: getV('u-r-date', 1),
+                    move: document.getElementById('u-r-move').value || 'IN/OUT',
+                    cont: getV('u-r-cont', 3),
+                    size: getV('u-r-size', 2),
+                    rel: getV('u-r-rel', 4),
+                    order: getV('u-r-order', 5),
+                    doors: getV('u-r-doors', 9),
+                    cust: getV('u-r-customer', 11),
+                    phone: getV('u-r-phone', 24),
+                    pickup: getV('u-r-pickup', 7),
+                    place: getV('u-r-place', 8),
+                    yard: parseFloat(getV('u-r-yard', 14)) || 0,
+                    storage: parseFloat(getV('u-r-storage', 16)) || 0,
+                    transp: parseFloat(document.getElementById('u-r-transp')?.value) || 0,
+                    sales: parseFloat(getV('u-r-sales', 21)) || 0,
                     taxRate: parseFloat(document.getElementById('u-r-tax').value) || 0,
-                    notes: document.getElementById('u-r-notes').value,
+                    notes: getV('u-r-notes', 31),
                     cond: {
-                        asis: document.getElementById('chk-asis').checked,
-                        wwt: document.getElementById('chk-wwt').checked,
-                        cw: document.getElementById('chk-cw').checked,
-                        new: document.getElementById('chk-new').checked,
-                        holes: document.getElementById('chk-holes').checked,
-                        doors: document.getElementById('chk-doors').checked
+                        asis: getB('chk-asis', 'AS IS'),
+                        wwt: getB('chk-wwt', 'WWT'),
+                        cw: getB('chk-cw', 'CW'),
+                        new: getB('chk-new', 'NEW'),
+                        holes: getB('chk-holes', 'NO HOLES'),
+                        doors: getB('chk-doors', 'DOORS OK')
                     }
                 };
 
@@ -2184,8 +2191,8 @@
                         <div class="receipt-logo-area">
                             <h1 style="color:#b91c1c; font-size: 1.8rem; letter-spacing:-1px;">RP TULIPAN</h1>
                             <p style="font-weight:900; color:#1e293b; margin-top:-5px;">TRANSPORT, INC.</p>
-                            <p style="font-size:0.7rem; color:#64748b;">8421 NW 70th ST, MIAMI FL 33166</p>
-                            <p style="font-size:0.7rem; color:#64748b;">Phone: (305) 510-6534 | (786) 280-9941</p>
+                            <p style="font-size:0.7rem; color:#64748b;">9804 nw 80 ave Hialeah Gardens fl 33016</p>
+                            <p style="font-size:0.7rem; color:#64748b;">Phone: 786-768-4409 | 786-736-6288</p>
                         </div>
                         ${data.id ? `
                         <div class="receipt-meta-box">
@@ -2219,7 +2226,7 @@
 
                 // Sections
                 const logisticContent = f('MOVEMENT TYPE', data.move) + f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order);
-                const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('DELIVERY PLACE', data.place);
+                const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place);
                 const clientContent = f('CUSTOMER NAME', data.cust) + f('PHONE', data.phone);
                 
                 // Inspection Section (Special because of grid layout)
@@ -2290,6 +2297,47 @@
                         <div class="signature-box" style="border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b;">RECEIVED BY (CUSTOMER)</div>
                     </div>
                 `;
+            }
+
+            window.printA4Document = function() {
+                const el = document.getElementById('receipt-a4');
+                if(!el) return;
+                
+                const printWin = window.open('', '', 'width=1000,height=1200');
+                printWin.document.write('<html><head><title>Print Receipt</title>');
+                // Import the same fonts
+                printWin.document.write('<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">');
+                printWin.document.write('<style>');
+                printWin.document.write(`
+                    body { margin: 0; padding: 0; font-family: "Outfit", sans-serif; -webkit-print-color-adjust: exact; }
+                    .a4-paper { width: 210mm; margin: 0 auto; padding: 20mm; background: white; min-height: 297mm; }
+                    .receipt-header { display: flex; justify-content: space-between; border-bottom: 3px solid #1e293b; padding-bottom: 15px; margin-bottom: 20px; }
+                    .receipt-logo-area h1 { font-size: 1.8rem; margin: 0; font-weight: 900; color: #b91c1c; }
+                    .receipt-logo-area p { font-size: 0.8rem; margin: 2px 0; color: #1e293b; }
+                    .receipt-meta-box { text-align: right; }
+                    .receipt-meta-box h2 { font-size: 1.5rem; margin: 0; color: #b91c1c; font-weight: 900; }
+                    .receipt-section-title { background: #f8fafc; padding: 6px 12px; font-weight: 800; font-size: 0.8rem; margin-top: 18px; border-left: 5px solid #1e293b; color: #1e293b; text-transform: uppercase; }
+                    .receipt-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 12px; }
+                    .receipt-field { font-size: 0.9rem; }
+                    .receipt-field label { display: block; font-weight: 700; color: #64748b; font-size: 0.7rem; margin-bottom: 2px; }
+                    .receipt-field span { font-weight: 700; border-bottom: 1px dashed #cbd5e1; display: block; min-height: 1.4rem; }
+                    .receipt-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    .receipt-table th { background: #1e293b; color: white; text-align: left; padding: 10px; font-size: 0.8rem; }
+                    .receipt-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+                    .receipt-total-row { background: #f1f5f9; font-weight: 900; font-size: 1.2rem; }
+                    .signature-box { width: 45%; border-top: 2px solid #1a1a1a; text-align: center; padding-top: 10px; font-size: 0.8rem; margin-top: 60px; font-weight: 700; }
+                    @media print { @page { size: auto; margin: 10mm; } }
+                `);
+                printWin.document.write('</style></head><body>');
+                printWin.document.write(el.innerHTML);
+                printWin.document.write('</body></html>');
+                printWin.document.close();
+                
+                printWin.focus();
+                setTimeout(() => {
+                    printWin.print();
+                    printWin.close();
+                }, 500);
             }
 
             window.updateCalendarFromReceipt = function() {
