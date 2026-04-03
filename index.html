@@ -12,6 +12,9 @@
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
 </head>
 <body>
     <!-- Navbar Navigation -->
@@ -1016,14 +1019,170 @@
     </main>
 
     <script>
+        // --- TRIP DATA MAPPING HELPERS ---
+        function mapTripToArray(t) {
+            return [
+                t.trip_id || '---', t.date || '---', t.size || '---', t.n_cont || '---', t.release_no || '---',
+                t.order_no || '---', t.city || '---', t.pickup_address || '---', t.delivery_place || '---',
+                t.doors_direction || '---', t.miles || 0, t.customer || '---', t.payment_date || '---',
+                t.yard_services || '---', t.yard_rate || 0, t.date_out || '---', t.day_rate || 0,
+                t.company || '---', t.driver || '---', t.rate || 0, t.pay_type || '---',
+                t.sales_price || 0, t.collect_payment || '---', t.amount || 0, t.phone || '---',
+                t.paid_driver_amount || 0, t.status || '---', t.commission_percent || '---',
+                t.commission_driver || 0, t.income_dis_fee || 0, t.invoice || '---', t.note || '---',
+                t.mode || '---', t.monthly_rate || 0, t.start_date_rent || '---', t.next_due || '---',
+                t.st_yard || 'PEND', t.st_rent || 'PEND', t.st_rate || 'PEND', t.st_sales || 'PEND',
+                t.st_amount || 'PEND', `$${(t.pending_balance || 0).toFixed(2)}`,
+                t.payout_status || 'PENDING', t.email || '---',
+                t.truck_unit || '---', t.trailer_unit || '---'
+            ];
+        }
+
+        function mapArrayToTrip(row) {
+            return {
+                trip_id: row[0],
+                date: row[1] === '---' ? null : row[1],
+                size: row[2],
+                n_cont: row[3],
+                release_no: row[4],
+                order_no: row[5],
+                city: row[6],
+                pickup_address: row[7],
+                delivery_place: row[8],
+                doors_direction: row[9],
+                miles: parseFloat(row[10]) || 0,
+                customer: row[11],
+                payment_date: row[12] === '---' ? null : row[12],
+                yard_services: row[13],
+                yard_rate: parseFloat(row[14]) || 0,
+                date_out: row[15] === '---' ? null : row[15],
+                day_rate: parseFloat(row[16]) || 0,
+                company: row[17],
+                driver: row[18],
+                rate: parseFloat(row[19]) || 0,
+                pay_type: row[20],
+                sales_price: parseFloat(row[21]) || 0,
+                collect_payment: row[22],
+                amount: parseFloat(row[23]) || 0,
+                phone: row[24],
+                paid_driver_amount: parseFloat(row[25]) || 0,
+                status: row[26],
+                commission_percent: row[27],
+                commission_driver: parseFloat(row[28]) || 0,
+                income_dis_fee: parseFloat(row[29]) || 0,
+                invoice: row[30],
+                note: row[31],
+                mode: row[32],
+                monthly_rate: parseFloat(row[33]) || 0,
+                start_date_rent: row[34] === '---' ? null : row[34],
+                next_due: row[35] === '---' ? null : row[35],
+                st_yard: row[36],
+                st_rent: row[37],
+                st_rate: row[38],
+                st_sales: row[39],
+                st_amount: row[40],
+                pending_balance: parseFloat(row[41].replace('$', '').replace(/,/g, '')) || 0,
+                payout_status: row[42],
+                email: row[43],
+                truck_unit: row[44] || null,
+                trailer_unit: row[45] || null
+            };
+        }
+
+        // --- UI STATE ---
+        let currentTrips = []; // Cache from Supabase
+        let currentReleases = []; // Cache from Supabase
+        let currentExpenses = []; // Cache from Supabase
+        let currentFleet = []; // Cache from Supabase
+        let editingIndex = null;
+
+        // --- FLEET DATA MAPPERS ---
+        function mapFleetToUI(f) {
+            return {
+                id: f.unit_id,
+                type: f.type,
+                num: f.unit_number,
+                vin: f.vin,
+                plate: f.plate,
+                year: f.year,
+                miles: f.miles,
+                lastDate: f.last_service_date || '',
+                lastMiles: f.last_service_miles || 0,
+                dueDate: f.next_service_due_date || '',
+                dueMiles: f.next_service_due_miles || 0,
+                status: f.status
+            };
+        }
+
+        function mapUIToFleet(u) {
+            return {
+                unit_id: u.id,
+                type: u.type,
+                unit_number: u.num,
+                vin: u.vin,
+                plate: u.plate,
+                year: parseInt(u.year) || null,
+                miles: parseInt(u.miles) || 0,
+                last_service_date: u.lastDate === '' ? null : u.lastDate,
+                last_service_miles: parseInt(u.lastMiles) || 0,
+                next_service_due_date: u.dueDate === '' ? null : u.dueDate,
+                next_service_due_miles: parseInt(u.dueMiles) || 0,
+                status: u.status
+            };
+        }
+
+        // --- EXPENSE DATA MAPPERS ---
+        function mapExpenseToArray(e) {
+            return [
+                e.date || '---', e.category || '---', e.description || '---',
+                `$${(e.amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`, e.note || '---',
+                e.expense_id
+            ];
+        }
+
+        function mapArrayToExpense(row) {
+            return {
+                date: row[0] === '---' ? null : row[1],
+                category: row[1],
+                description: row[2],
+                amount: parseFloat(row[3].replace('$', '').replace(/,/g, '')) || 0,
+                note: row[4]
+            };
+        }
+
+        // --- RELEASE DATA MAPPERS ---
+        function mapReleaseToArray(r) {
+            return [
+                r.release_no, r.date, r.type || 'EMPTY', r.depot || '---', r.city || '---',
+                r.qty_20 || 0, r.price_20 || 0, r.qty_40 || 0, r.price_40 || 0,
+                r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0
+            ];
+        }
+
+        function mapArrayToRelease(row) {
+            return {
+                release_no: row[0],
+                date: row[1] === '---' ? null : row[1],
+                type: row[2],
+                depot: row[3],
+                city: row[4],
+                qty_20: parseInt(row[5]) || 0,
+                price_20: parseFloat(row[6]) || 0,
+                qty_40: parseInt(row[7]) || 0,
+                price_40: parseFloat(row[8]) || 0,
+                qty_45: parseInt(row[9]) || 0,
+                price_45: parseFloat(row[10]) || 0,
+                seller: row[11],
+                total_stock: (parseInt(row[5])||0) + (parseInt(row[7])||0) + (parseInt(row[9])||0)
+            };
+        }
+
         const header = document.getElementById('header-nav');
         const heroView = document.getElementById('hero-view');
         const calendarView = document.getElementById('calendar-view');
         const docsView = document.getElementById('docs-view');
         const tableBody = document.getElementById('table-body');
         
-        let editingIndex = null; // Track if we are editing an existing record
-
         // --- PERMANENT DATA MIGRATION (One-time on startup) ---
         (function() {
             const dataKey = 'logisticsTableData';
@@ -1193,9 +1352,8 @@
 
         // --- ADVANCED FILTERING LOGIC ---
         function populateFilterPickers() {
-            const rawData = localStorage.getItem('logisticsTableData');
-            if (!rawData) return;
-            const rows = JSON.parse(rawData);
+            if (currentTrips.length === 0) return;
+            const rows = currentTrips;
             
             // Indices: 6:City, 2:Size, 11:Customer, 18:Driver, 17:Company, 26:Status
             const filters = {
@@ -1310,7 +1468,7 @@
             applyAdvancedFilters();
         }
 
-        function addRow() {
+        async function addRow() {
             // Auto-generate ID and Order ONLY if not editing
             if (editingIndex === null) {
                 const nextId = 'TRIP-' + Date.now().toString().slice(-6);
@@ -1335,47 +1493,37 @@
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
             
-            // Inventory Validation
+            // Inventory Validation (SUPABASE)
             const selectedRelease = document.getElementById('in-release').value;
             const selectedSize = document.getElementById('in-size').value;
             
             if (selectedRelease && selectedRelease !== '---' && editingIndex === null) {
-                const relSaved = localStorage.getItem('releasesTableData');
-                if(relSaved) {
-                    const relRows = JSON.parse(relSaved);
-                    const rIdx = relRows.findIndex(r => r[0] === selectedRelease);
+                if(currentReleases.length > 0) {
+                    const rIdx = currentReleases.findIndex(r => r[0] === selectedRelease);
                     if (rIdx !== -1) {
                         let stockIdx = -1;
-                        if (selectedSize.includes("20'")) stockIdx = 5;
-                        else if (selectedSize.includes("40'")) stockIdx = 7;
-                        else if (selectedSize.includes("45'")) stockIdx = 9;
+                        let dbField = '';
+                        if (selectedSize.includes("20'")) { stockIdx = 5; dbField = 'qty_20'; }
+                        else if (selectedSize.includes("40'")) { stockIdx = 7; dbField = 'qty_40'; }
+                        else if (selectedSize.includes("45'")) { stockIdx = 9; dbField = 'qty_45'; }
                         
                         if (stockIdx !== -1) {
-                            const currentStock = parseInt(relRows[rIdx][stockIdx]) || 0;
+                            const currentStock = parseInt(currentReleases[rIdx][stockIdx]) || 0;
                             if (currentStock <= 0) {
                                 alert(`STOCK EXHAUSTED for Size ${selectedSize} in Release ${selectedRelease}`);
                                 return;
                             }
-                             // Decrement Stock
-                            relRows[rIdx][stockIdx] = currentStock - 1;
-                            relRows[rIdx][12] = (parseInt(relRows[rIdx][5])||0) + (parseInt(relRows[rIdx][7])||0) + (parseInt(relRows[rIdx][9])||0);
-                            localStorage.setItem('releasesTableData', JSON.stringify(relRows));
+                            // Decrement Stock in Supabase
+                            const newStock = currentStock - 1;
+                            const updateObj = {};
+                            updateObj[dbField] = newStock;
                             
-                            // Re-render releases table and datalists
-                            const relBody = document.getElementById('releases-body');
-                            if(relBody) {
-                                relBody.innerHTML = '';
-                                relRows.forEach(rowData => {
-                                    const tr = document.createElement('tr');
-                                    rowData.forEach(text => {
-                                        const td = document.createElement('td');
-                                        td.textContent = text;
-                                        tr.appendChild(td);
-                                    });
-                                    relBody.appendChild(tr);
-                                });
+                            try {
+                                await updateRelease(selectedRelease, updateObj);
+                                await loadReleasesData(); // Refresh local cache and UI
+                            } catch(e) {
+                                console.error("Inventory update failed:", e);
                             }
-                            updateReleaseDatalist();
                         }
                     }
                 }
@@ -1409,48 +1557,54 @@
             // Index 43: EMAIL
             rowData.push(document.getElementById('in-email').value || '---');
 
-            const saved = localStorage.getItem('logisticsTableData') ? JSON.parse(localStorage.getItem('logisticsTableData')) : [];
+            // --- SUPABASE INTEGRATION ---
+            const tripObj = mapArrayToTrip(rowData);
             
-            if (editingIndex !== null) {
-                // UPDATE MODE
-                saved[editingIndex] = rowData;
-                editingIndex = null; // Reset
-                
-                // Reset Button
-                const btn = document.querySelector('.btn-add-sidebar');
-                if (btn) {
-                   btn.textContent = 'Confirm Operation';
-                   btn.classList.remove('btn-update');
+            try {
+                if (editingIndex !== null) {
+                    // UPDATE MODE
+                    const tripId = rowData[0];
+                    await updateTrip(tripId, tripObj);
+                    editingIndex = null; 
+                    
+                    const btn = document.querySelector('.btn-add-sidebar');
+                    if (btn) {
+                        btn.textContent = 'Confirm Operation';
+                        btn.classList.remove('btn-update');
+                    }
+                } else {
+                    // NEW MODE
+                    await addTrip(tripObj);
                 }
-            } else {
-                // NEW MODE
-                saved.push(rowData);
+                
+                // Refresh data from database
+                await loadTableData();
+                
+                if(window.updateReleaseDatalist) window.updateReleaseDatalist();
+                if(window.updateAddressDatalist) window.updateAddressDatalist();
+                if(window.renderDriverLog) window.renderDriverLog();
+
+                // Clear entry fields partially
+                ['in-ncont', 'in-release', 'in-delivery', 'in-miles'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.value = '';
+                });
+                
+                // Re-initialize ID for next entry
+                initNewTripId();
+                alert("Trip saved successfully in Supabase!");
+
+            } catch (err) {
+                console.error("Failed to save trip:", err);
+                alert("Error saving trip to database. Check console.");
             }
-            
-            localStorage.setItem('logisticsTableData', JSON.stringify(saved));
-
-            loadTableData();
-            
-            if(window.updateReleaseDatalist) window.updateReleaseDatalist();
-            if(window.updateAddressDatalist) window.updateAddressDatalist();
-            if(window.renderDriverLog) window.renderDriverLog();
-
-            // Clear entry fields partially
-            ['in-ncont', 'in-release', 'in-delivery', 'in-miles'].forEach(id => {
-               if(el) el.value = '';
-            });
-            
-            // Re-initialize ID for next entry
-            initNewTripId();
         }
 
         function updateReleaseDatalist() {
-            const saved = localStorage.getItem('releasesTableData');
             const releaseList = document.getElementById('release-list');
-            if(saved && releaseList) {
-                const rows = JSON.parse(saved);
+            if(currentReleases.length > 0 && releaseList) {
                 // Filter: Show only releases that have at least 1 unit in total stock
-                const validReleases = rows.filter(r => {
+                const validReleases = currentReleases.filter(r => {
                     const total = (parseInt(r[5]) || 0) + (parseInt(r[7]) || 0) + (parseInt(r[9]) || 0);
                     return total > 0;
                 });
@@ -1470,10 +1624,8 @@
         if(inReleaseInput && inSizeSelect) {
             inReleaseInput.addEventListener('change', () => {
                 const selectedRel = inReleaseInput.value;
-                const saved = localStorage.getItem('releasesTableData');
-                if(!saved) return;
-                const rows = JSON.parse(saved);
-                const relData = rows.find(r => r[0] === selectedRel);
+                if(currentReleases.length === 0) return;
+                const relData = currentReleases.find(r => r[0] === selectedRel);
                 
                 if(relData) {
                     const stock20 = parseInt(relData[5]) || 0;
@@ -1504,10 +1656,9 @@
         }
         
         function updateAddressDatalist() {
-            const saved = localStorage.getItem('logisticsTableData');
             const addressList = document.getElementById('address-list');
-            if(saved && addressList) {
-                const rows = JSON.parse(saved);
+            if(currentTrips.length > 0 && addressList) {
+                const rows = currentTrips;
                 const storedValues = rows.map(r => r[7]).filter(val => val && val !== '---');
                 const existingOptions = Array.from(addressList.options).map(opt => opt.value);
                 const uniqueNewOnes = [...new Set(storedValues)].filter(val => !existingOptions.includes(val));
@@ -1528,11 +1679,8 @@
         }
 
         function loadTripToEdit(idx) {
-            const saved = localStorage.getItem('logisticsTableData');
-            if(!saved) return;
-            const rows = JSON.parse(saved);
-            const rowData = rows[idx];
-            if(!rowData) return;
+            if(!currentTrips[idx]) return;
+            const rowData = currentTrips[idx];
 
             editingIndex = idx; // Set Global Edit State
 
@@ -1581,7 +1729,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function loadTableData() {
+        async function loadTableData() {
             const logisticsBody = document.getElementById('table-body');
             if(!logisticsBody) return;
             logisticsBody.innerHTML = '';
@@ -1589,60 +1737,55 @@
             // Populating dynamic filters
             populateFilterPickers();
 
-            const saved = localStorage.getItem('logisticsTableData');
-            if (saved) {
-                const rows = JSON.parse(saved);
-                rows.forEach((rowData, idx) => {
-                    // MIGRATION: If old format (45 fields), convert to 43 by removing old STORAGE (33) and IN-OUT (34)
-                    if (rowData.length === 45) {
-                        rowData.splice(33, 2);
-                    }
+            // Fetch from Supabase
+            const data = await getTrips();
+            currentTrips = data.map(mapTripToArray);
 
-                    const tr = document.createElement('tr');
+            currentTrips.forEach((rowData, idx) => {
+                const tr = document.createElement('tr');
+                
+                const mode = rowData[32];
+                const nextDue = rowData[35];
+                const stYard = rowData[36];
+                const stRent = rowData[37];
+                const stRate = rowData[38];
+                const stSales = rowData[39];
+                const stAmount = rowData[40];
+
+                rowData.slice(0, 32).forEach((text, i) => {
+                    const td = document.createElement('td');
+                    td.textContent = text;
                     
-                    const mode = rowData[32];
-                    const nextDue = rowData[35];
-                    const stYard = rowData[36];
-                    const stRent = rowData[37];
-                    const stRate = rowData[38];
-                    const stSales = rowData[39];
-                    const stAmount = rowData[40];
-
-                    rowData.slice(0, 32).forEach((text, i) => {
-                        const td = document.createElement('td');
-                        td.textContent = text;
-                        
-                        // Amount coloring (Indices: 14=Yard, 19=Rate, 21=Sales, 23=Amount, 33=Rent)
-                        if(i === 14 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        if(i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        if(i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        if(i === 23 && text !== '---') td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        
-                        tr.appendChild(td);
-                    });
-
-                    // Add EMAIL as the very last visible cell
-                    const tdEmail = document.createElement('td');
-                    tdEmail.textContent = rowData[43] || '---';
-                    tr.appendChild(tdEmail);
-
-                    // Actions Cel (Manual logic omitted as per previous user request for simplicity)
-
-                    // EDIT TRIGGER (On Highlight Rows or anywhere in the TR)
-                    tr.style.cursor = 'pointer';
-                    tr.onclick = () => loadTripToEdit(idx);
+                    // Amount coloring (Indices: 14=Yard, 19=Rate, 21=Sales, 23=Amount, 33=Rent)
+                    if(i === 14 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
+                    if(i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
+                    if(i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
+                    if(i === 23 && text !== '---') td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
                     
-                    if (editingIndex === idx) {
-                        tr.classList.add('editing-row');
-                    }
-
-                    if (mode === 'RENT' && nextDue !== '---' && new Date(nextDue + 'T00:00:00') < new Date()) {
-                        tr.style.backgroundColor = '#fff7ed';
-                        tr.style.border = '2px solid #f97316';
-                    }
-                    logisticsBody.appendChild(tr);
+                    tr.appendChild(td);
                 });
-            }
+
+                // Add EMAIL as the very last visible cell
+                const tdEmail = document.createElement('td');
+                tdEmail.textContent = rowData[43] || '---';
+                tr.appendChild(tdEmail);
+
+                // Actions Cel (Manual logic omitted as per previous user request for simplicity)
+
+                // EDIT TRIGGER (On Highlight Rows or anywhere in the TR)
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => loadTripToEdit(idx);
+                
+                if (editingIndex === idx) {
+                    tr.classList.add('editing-row');
+                }
+
+                if (mode === 'RENT' && nextDue !== '---' && new Date(nextDue + 'T00:00:00') < new Date()) {
+                    tr.style.backgroundColor = '#fff7ed';
+                    tr.style.border = '2px solid #f97316';
+                }
+                logisticsBody.appendChild(tr);
+            });
             // Apply existing filters if any (for real-time persistence)
             applyAdvancedFilters();
         }
@@ -1667,75 +1810,75 @@
             renderDriverLog();
         }
 
-        function markTripAsPaid(tripId) {
-            const saved = localStorage.getItem('logisticsTableData');
-            if(!saved) return;
-            const rows = JSON.parse(saved);
-            const rIdx = rows.findIndex(r => r[0] === tripId);
-            if(rIdx !== -1) {
+        async function markTripAsPaid(tripId) {
+            const tripIdx = currentTrips.findIndex(r => r[0] === tripId);
+            if(tripIdx !== -1) {
                 // Toggle status (Index 42)
-                rows[rIdx][42] = (rows[rIdx][42] === 'PAID') ? 'PENDING' : 'PAID';
-                localStorage.setItem('logisticsTableData', JSON.stringify(rows));
-                renderDriverLog();
-                loadTableData(); // Sync calendar table too
+                const newStatus = (currentTrips[tripIdx][42] === 'PAID') ? 'PENDING' : 'PAID';
+                
+                try {
+                    await updateTrip(tripId, { payout_status: newStatus });
+                    await loadTableData(); // Sync calendar table and local cache
+                    renderDriverLog();
+                } catch (e) {
+                    console.error("Payout toggle failed:", e);
+                    alert("Failed to update payout status in database.");
+                }
             }
         }
 
-        function settleDriverGroup(driverName) {
+        async function settleDriverGroup(driverName) {
             if(!confirm(`Are you sure you want to mark ALL pending trips for ${driverName} as PAID?`)) return;
             
-            const saved = localStorage.getItem('logisticsTableData');
-            if(!saved) return;
-            const rows = JSON.parse(saved);
-            rows.forEach(r => {
-                const rDriver = r[18] || 'UNASSIGNED';
-                if(rDriver === driverName) {
-                    r[42] = 'PAID';
-                }
-            });
-            localStorage.setItem('logisticsTableData', JSON.stringify(rows));
-            renderDriverLog();
-            loadTableData();
+            const toUpdate = currentTrips.filter(r => (r[18] || 'UNASSIGNED') === driverName && r[42] !== 'PAID');
+            
+            try {
+                // Bulk update logic: Sequential for safety or Promise.all
+                const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PAID' }));
+                await Promise.all(promises);
+                await loadTableData();
+                renderDriverLog();
+                alert(`Settled ${toUpdate.length} trips for ${driverName}`);
+            } catch (e) {
+                console.error("Group settlement failed:", e);
+                alert("Some trips failed to update. Check console.");
+            }
         }
 
-        function revertDriverGroup(driverName) {
+        async function revertDriverGroup(driverName) {
             if(!confirm(`Do you want to REVERT all trips for ${driverName} back to PENDING?`)) return;
 
-            const saved = localStorage.getItem('logisticsTableData');
-            if(!saved) return;
-            const rows = JSON.parse(saved);
-            rows.forEach(r => {
-                const rDriver = r[18] || 'UNASSIGNED';
-                if(rDriver === driverName) {
-                    r[43] = 'PENDING';
-                }
-            });
-            localStorage.setItem('logisticsTableData', JSON.stringify(rows));
-            renderDriverLog();
-            loadTableData();
+            const toUpdate = currentTrips.filter(r => (r[18] || 'UNASSIGNED') === driverName && r[42] === 'PAID');
+            
+            try {
+                const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PENDING' }));
+                await Promise.all(promises);
+                await loadTableData();
+                renderDriverLog();
+                alert(`Reverted ${toUpdate.length} trips to pending.`);
+            } catch (e) {
+                console.error("Group revert failed:", e);
+            }
         }
 
         function renderDriverLog() {
             const body = document.getElementById('dl-body');
             if(!body) return;
-            const saved = localStorage.getItem('logisticsTableData');
             body.innerHTML = '';
             
-            const searchTerm = document.getElementById('filter-search').value.toLowerCase();
-            const dateFrom = document.getElementById('filter-from').value;
-            const dateTo = document.getElementById('filter-to').value;
+            const searchTerm = (document.getElementById('filter-search')?.value || '').toLowerCase();
+            const dateFrom = document.getElementById('filter-from')?.value;
+            const dateTo = document.getElementById('filter-to')?.value;
             
-            let globalTotal = 0;
-
-            if(saved) {
-                const allRows = JSON.parse(saved);
+            if(currentTrips.length > 0) {
+                const allRows = currentTrips;
                 
                 // 1. Filter the rows first
                 const filtered = allRows.filter(r => {
                     const rDate = r[1];
                     const rId = r[0];
                     const rDriver = (r[18] || 'UNASSIGNED').toString();
-                    const rStatus = r[44] || 'PENDING';
+                    const rStatus = r[42] || 'PENDING';
                     
                     const matchesSearch = rDriver.toLowerCase().includes(searchTerm) || rId.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
@@ -1895,19 +2038,20 @@
             document.getElementById('in-order').value = 'ORD-' + initialOrd;
 
             // New logic for Release Row addition
-            window.addReleaseRow = () => {
+            // New logic for Release Row addition (SUPABASE)
+            window.addReleaseRow = async () => {
                 const relNo = document.getElementById('rel-no-releases').value;
                 if(!relNo) { alert('Please enter a Release Number'); return; }
                 
                 const q20 = parseInt(document.getElementById('rel-qty-20').value) || 0;
-                const p20 = document.getElementById('rel-price-20').value || '0';
+                const p20 = parseFloat(document.getElementById('rel-price-20').value) || 0;
                 const q40 = parseInt(document.getElementById('rel-qty-40').value) || 0;
-                const p40 = document.getElementById('rel-price-40').value || '0';
+                const p40 = parseFloat(document.getElementById('rel-price-40').value) || 0;
                 const q45 = parseInt(document.getElementById('rel-qty-45').value) || 0;
-                const p45 = document.getElementById('rel-price-45').value || '0';
+                const p45 = parseFloat(document.getElementById('rel-price-45').value) || 0;
                 const totalStock = q20 + q40 + q45;
                 
-                const data = [
+                const dataRow = [
                     relNo,
                     document.getElementById('rel-date').value || '---',
                     document.getElementById('rel-type').value,
@@ -1920,43 +2064,39 @@
                     totalStock
                 ];
 
-                const tr = document.createElement('tr');
-                data.forEach(text => {
-                    const td = document.createElement('td');
-                    td.textContent = text;
-                    tr.appendChild(td);
-                });
-
-                document.getElementById('releases-body').appendChild(tr);
-                saveReleasesData();
-                updateReleaseDatalist();
+                const releaseObj = mapArrayToRelease(dataRow);
                 
-                // Clear inputs
-                ['rel-no-releases', 'rel-qty-20', 'rel-price-20', 'rel-qty-40', 'rel-price-40', 'rel-qty-45', 'rel-price-45', 'rel-depot', 'rel-city', 'rel-seller'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if(el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
-                });
+                try {
+                    await addRelease(releaseObj);
+                    await loadReleasesData(); // Reload Table
+                    if(window.updateReleaseDatalist) window.updateReleaseDatalist();
+                    
+                    // Clear inputs
+                    ['rel-no-releases', 'rel-qty-20', 'rel-price-20', 'rel-qty-40', 'rel-price-40', 'rel-qty-45', 'rel-price-45', 'rel-depot', 'rel-city', 'rel-seller'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
+                    });
+                    alert("Release saved to Supabase!");
+                } catch (err) {
+                    console.error("Error adding release:", err);
+                    alert("Failed to save release to database.");
+                }
             };
 
-            // Release total logic handled within addReleaseRow directly now.
+            window.saveReleasesData = function() {
+                // Obsolete now that we use Supabase directly, but keeping it empty for potential temporary use
+            };
 
-            function saveReleasesData() {
+            async function loadReleasesData() {
                 const body = document.getElementById('releases-body');
-                if(!body) return;
-                const rows = [];
-                body.querySelectorAll('tr').forEach(tr => {
-                    const data = Array.from(tr.querySelectorAll('td')).slice(0, 18).map(td => td.textContent);
-                    rows.push(data);
-                });
-                localStorage.setItem('releasesTableData', JSON.stringify(rows));
-            }
-
-            function loadReleasesData() {
-                const saved = localStorage.getItem('releasesTableData');
-                const body = document.getElementById('releases-body');
-                if (saved && body) {
-                    const rowsData = JSON.parse(saved);
-                    rowsData.forEach(rowData => {
+                if (!body) return;
+                
+                try {
+                    const data = await getReleases();
+                    currentReleases = data.map(mapReleaseToArray);
+                    
+                    body.innerHTML = '';
+                    currentReleases.forEach(rowData => {
                         const tr = document.createElement('tr');
                         rowData.forEach(text => {
                             const td = document.createElement('td');
@@ -1965,6 +2105,8 @@
                         });
                         body.appendChild(tr);
                     });
+                } catch (err) {
+                    console.error("Error loading releases:", err);
                 }
             }
         // Mobile menu behavior is handled by global toggleMobileMenu and closeMenu functions.
@@ -1975,7 +2117,7 @@
                 document.getElementById('group-exp-other').style.display = (cat === 'Other') ? 'block' : 'none';
             };
 
-            window.addExpenseRow = () => {
+            window.addExpenseRow = async () => {
                 const date = document.getElementById('exp-date').value || '---';
                 const cat = document.getElementById('exp-category').value;
                 const otherVal = document.getElementById('exp-other-desc').value;
@@ -1983,88 +2125,79 @@
                 const note = document.getElementById('exp-note').value || '---';
                 
                 const desc = (cat === 'Other') ? otherVal : cat;
+                const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}`, note];
                 
-                const data = [date, cat, desc, `$${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}`, note];
-                const tr = document.createElement('tr');
-                
-                data.forEach(text => {
-                   const td = document.createElement('td');
-                   td.textContent = text;
-                   tr.appendChild(td);
-                });
-                
-                // Add Delete action
-                const actionsTd = document.createElement('td');
-                const delBtn = document.createElement('button');
-                delBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                delBtn.className = 'btn-cancel';
-                delBtn.style.padding = '5px 10px';
-                delBtn.onclick = (e) => {
-                    tr.remove();
-                    saveExpensesData();
-                    calculateExpenseTotal();
-                };
-                actionsTd.appendChild(delBtn);
-                tr.appendChild(actionsTd);
-                
-                document.getElementById('expenses-body').appendChild(tr);
-                saveExpensesData();
-                calculateExpenseTotal();
-                
-                // Reset form partially
-                document.getElementById('exp-amount').value = '0';
-                document.getElementById('exp-note').value = '';
-                document.getElementById('exp-other-desc').value = '';
+                try {
+                    const expenseObj = mapArrayToExpense(rowData);
+                    await addExpense(expenseObj);
+                    await loadExpensesData(); // Reload from Supabase
+                    
+                    // Reset form partially
+                    document.getElementById('exp-amount').value = '0';
+                    document.getElementById('exp-note').value = '';
+                    document.getElementById('exp-other-desc').value = '';
+                    alert("Expense saved successfully!");
+                } catch (err) {
+                    console.error("Error adding expense:", err);
+                    alert("Failed to save expense to database.");
+                }
             };
+
+            async function loadExpensesData() {
+                const body = document.getElementById('expenses-body');
+                if (!body) return;
+                
+                try {
+                    const data = await getExpenses();
+                    currentExpenses = data.map(mapExpenseToArray);
+                    
+                    body.innerHTML = '';
+                    currentExpenses.forEach((rowData) => {
+                        const tr = document.createElement('tr');
+                        rowData.slice(0, 5).forEach(text => { // Show first 5 columns
+                           const td = document.createElement('td');
+                           td.textContent = text;
+                           tr.appendChild(td);
+                        });
+                        
+                        // Action Cell (Delete using expense_id at rowData[5])
+                        const actionsTd = document.createElement('td');
+                        const delBtn = document.createElement('button');
+                        delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        delBtn.className = 'btn-cancel';
+                        delBtn.style.padding = '5px 10px';
+                        delBtn.onclick = async () => {
+                            if (!confirm('Are you sure you want to delete this expense?')) return;
+                            try {
+                                const expenseId = rowData[5];
+                                await deleteExpense(expenseId);
+                                await loadExpensesData();
+                            } catch (e) {
+                                console.error("Error deleting expense:", e);
+                                alert("Failed to delete expense from database.");
+                            }
+                        };
+                        actionsTd.appendChild(delBtn);
+                        tr.appendChild(actionsTd);
+                        body.appendChild(tr);
+                    });
+                    calculateExpenseTotal();
+                } catch (err) {
+                    console.error("Error loading expenses:", err);
+                }
+            }
 
             function calculateExpenseTotal() {
                 let total = 0;
                 document.querySelectorAll('#expenses-body tr').forEach(row => {
-                    const amountStr = row.cells[3].textContent.replace('$', '').replace(',', '');
+                    const amountStr = row.cells[3].textContent.replace('$', '').replace(/,/g, '');
                     total += parseFloat(amountStr) || 0;
                 });
                 document.getElementById('exp-total-badge').textContent = `Total: $${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
             }
 
             function saveExpensesData() {
-                const rows = [];
-                document.querySelectorAll('#expenses-body tr').forEach(tr => {
-                    const data = Array.from(tr.querySelectorAll('td')).slice(0, 5).map(td => td.textContent);
-                    rows.push(data);
-                });
-                localStorage.setItem('expensesTableData', JSON.stringify(rows));
-            }
-
-            function loadExpensesData() {
-                const saved = localStorage.getItem('expensesTableData');
-                const body = document.getElementById('expenses-body');
-                if (saved && body) {
-                    const rowsData = JSON.parse(saved);
-                    rowsData.forEach(rowData => {
-                        const tr = document.createElement('tr');
-                        rowData.forEach(text => {
-                            const td = document.createElement('td');
-                            td.textContent = text;
-                            tr.appendChild(td);
-                        });
-                        
-                        const actionsTd = document.createElement('td');
-                        const delBtn = document.createElement('button');
-                        delBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                        delBtn.className = 'btn-cancel';
-                        delBtn.style.padding = '5px 10px';
-                        delBtn.onclick = (e) => {
-                            tr.remove();
-                            saveExpensesData();
-                            calculateExpenseTotal();
-                        };
-                        actionsTd.appendChild(delBtn);
-                        tr.appendChild(actionsTd);
-                        
-                        body.appendChild(tr);
-                    });
-                    calculateExpenseTotal();
-                }
+                // Obsolete now that we use Supabase
             }
 
             // PROFIT REPORT CALCULATIONS
@@ -2072,8 +2205,8 @@
                 const dateFrom = document.getElementById('profit-date-from').value;
                 const dateTo = document.getElementById('profit-date-to').value;
                 
-                const logisticsData = JSON.parse(localStorage.getItem('logisticsTableData') || '[]');
-                const expensesData = JSON.parse(localStorage.getItem('expensesData') || localStorage.getItem('expensesTableData') || '[]');
+                const logisticsData = currentTrips;
+                const expensesData = currentExpenses;
 
                 let totals = {
                     sales: 0,
@@ -2165,7 +2298,7 @@
                 const fromDate = document.getElementById('trip-from-date').value;
                 const toDate = document.getElementById('trip-to-date').value;
                 const list = document.getElementById('trip-list-scroll');
-                const data = JSON.parse(localStorage.getItem('logisticsTableData') || '[]');
+                const data = currentTrips;
                 
                 list.innerHTML = '';
                 data.slice().reverse().forEach(trip => {
@@ -2426,40 +2559,41 @@
                 }, 500);
             }
 
-            window.updateCalendarFromReceipt = function() {
+            window.updateCalendarFromReceipt = async function() {
                 const id = document.getElementById('u-r-id').value;
                 if(!id) return alert('Select a trip first!');
 
-                const data = JSON.parse(localStorage.getItem('logisticsTableData') || '[]');
-                const idx = data.findIndex(t => t[0] === id);
-                
-                if(idx === -1) return alert('Trip ID not found in database.');
+                const tripIdx = currentTrips.findIndex(t => t[0] === id);
+                if(tripIdx === -1) return alert('Trip ID not found in database.');
 
                 if(!confirm('This will update the main Delivery Calendar with these manual changes. Continue?')) return;
 
-                // Sync Back
-                data[idx][1] = document.getElementById('u-r-date').value;
-                data[idx][34] = document.getElementById('u-r-move').value;
-                data[idx][3] = document.getElementById('u-r-cont').value;
-                data[idx][2] = document.getElementById('u-r-size').value;
-                data[idx][4] = document.getElementById('u-r-rel').value;
-                data[idx][5] = document.getElementById('u-r-order').value;
-                data[idx][11] = document.getElementById('u-r-customer').value;
-                data[idx][25] = document.getElementById('u-r-phone').value;
-                data[idx][8] = document.getElementById('u-r-place').value;
+                // Sync Back to Supabase using proper field names
+                const updates = {
+                    date: document.getElementById('u-r-date').value || null,
+                    n_cont: document.getElementById('u-r-cont').value,
+                    size: document.getElementById('u-r-size').value,
+                    release_no: document.getElementById('u-r-rel').value,
+                    order_no: document.getElementById('u-r-order').value,
+                    customer: document.getElementById('u-r-customer').value,
+                    phone: document.getElementById('u-r-phone').value,
+                    pickup_address: document.getElementById('u-r-pickup').value,
+                    delivery_place: document.getElementById('u-r-place').value,
+                    yard_rate: parseFloat(document.getElementById('u-r-yard').value) || 0,
+                    monthly_rate: parseFloat(document.getElementById('u-r-storage').value) || 0,
+                    sales_price: parseFloat(document.getElementById('u-r-sales').value) || 0,
+                    note: document.getElementById('u-r-notes').value
+                };
                 
-                data[idx][15] = document.getElementById('u-r-yard').value;
-                data[idx][36] = document.getElementById('u-r-storage').value;
-                data[idx][22] = document.getElementById('u-r-sales').value;
-                data[idx][32] = document.getElementById('u-r-notes').value;
-                
-                // Update LocalStorage
-                localStorage.setItem('logisticsTableData', JSON.stringify(data));
-                
-                // Refresh main calendar
-                if(window.loadTableData) window.loadTableData();
-                
-                alert('Success! Calendar and Report Panel have been updated with these values.');
+                try {
+                    await updateTrip(id, updates);
+                    if(window.loadTableData) await window.loadTableData();
+                    await loadDocTrips();
+                    alert('Success! Calendar and Report Panel have been updated with these values.');
+                } catch(err) {
+                    console.error("Sync failed:", err);
+                    alert("Failed to sync calendar with Supabase.");
+                }
             }
 
             // --- AUTO COMMISSION LOGIC ---
@@ -2511,7 +2645,7 @@
                 renderFleetTable();
             };
 
-            window.saveFleetUnit = function() {
+            window.saveFleetUnit = async function() {
                 const id = document.getElementById('f-id').value;
                 const unitData = {
                     id: id || Date.now().toString(),
@@ -2530,23 +2664,20 @@
 
                 if (!unitData.num) return alert('Unit # is required');
 
-                let fleet = JSON.parse(localStorage.getItem('fleetData') || '[]');
-                if (id) {
-                    const idx = fleet.findIndex(u => u.id === id);
-                    if (idx !== -1) fleet[idx] = unitData;
-                } else {
-                    fleet.push(unitData);
+                try {
+                    const dbUnit = mapUIToFleet(unitData);
+                    await saveFleet(dbUnit);
+                    await loadFleetData();
+                    resetFleetForm();
+                    alert('Unit saved successfully!');
+                } catch(err) {
+                    console.error("Error saving fleet unit:", err);
+                    alert("Failed to save unit to Supabase.");
                 }
-
-                localStorage.setItem('fleetData', JSON.stringify(fleet));
-                resetFleetForm();
-                renderFleetTable();
-                updateFleetSelectors();
-                alert('Unit saved successfully!');
             };
 
             window.renderFleetTable = function() {
-                const fleet = JSON.parse(localStorage.getItem('fleetData') || '[]');
+                const fleet = currentFleet;
                 const body = document.getElementById('fleet-table-body');
                 if(!body) return;
                 body.innerHTML = '';
@@ -2582,8 +2713,7 @@
             };
 
             window.editFleetUnit = function(id) {
-                const fleet = JSON.parse(localStorage.getItem('fleetData') || '[]');
-                const unit = fleet.find(u => u.id === id);
+                const unit = currentFleet.find(u => u.id === id);
                 if (!unit) return;
 
                 document.getElementById('f-id').value = unit.id;
@@ -2601,36 +2731,30 @@
                 document.getElementById('fleet-form-title').textContent = 'Edit Unit ' + unit.num;
             };
 
-            window.deleteFleetUnit = function(id) {
+            window.deleteFleetUnit = async function(id) {
                 if (!confirm('Are you sure you want to delete this unit?')) return;
-                let fleet = JSON.parse(localStorage.getItem('fleetData') || '[]');
-                fleet = fleet.filter(u => u.id !== id);
-                localStorage.setItem('fleetData', JSON.stringify(fleet));
-                renderFleetTable();
-                updateFleetSelectors();
+                try {
+                    await deleteFleetUnit(id);
+                    await loadFleetData();
+                } catch(err) {
+                    console.error("Error deleting unit:", err);
+                }
             };
 
-            window.resetFleetForm = function() {
-                document.getElementById('f-id').value = '';
-                document.getElementById('f-unit').value = '';
-                document.getElementById('f-vin').value = '';
-                document.getElementById('f-plate').value = '';
-                document.getElementById('f-year').value = '';
-                document.getElementById('f-miles').value = '';
-                document.getElementById('f-last-date').value = '';
-                document.getElementById('f-last-miles').value = '';
-                document.getElementById('f-due-date').value = '';
-                document.getElementById('f-due-miles').value = '';
-                document.getElementById('f-status').value = 'Available';
-                document.getElementById('fleet-form-title').textContent = 'Add Fleet Unit';
-            };
-
-            window.loadFleetData = function() {
-                renderFleetTable();
-            };
+            async function loadFleetData() {
+                try {
+                    const data = await getFleet();
+                    currentFleet = data.map(mapFleetToUI);
+                    renderFleetTable();
+                    updateFleetSelectors();
+                } catch(err) {
+                    console.error("Error loading fleet:", err);
+                }
+            }
+            window.loadFleetData = loadFleetData;
 
             window.updateFleetSelectors = function() {
-                const fleet = JSON.parse(localStorage.getItem('fleetData') || '[]');
+                const fleet = currentFleet;
                 const truckSel = document.getElementById('in-truck');
                 const trailerSel = document.getElementById('in-trailer');
                 
