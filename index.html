@@ -1873,7 +1873,7 @@
             logisticsBody.innerHTML = '';
 
             // Populating dynamic filters
-            //populateFilterPickers();
+            populateFilterPickers();
 
             // Fetch from Supabase
             const data = await getTrips();
@@ -1925,7 +1925,7 @@
                 logisticsBody.appendChild(tr);
             });
             // Apply existing filters if any (for real-time persistence)
-            //applyAdvancedFilters();
+            applyAdvancedFilters();
         }
 
         let reportShowUnpaidOnly = false;
