@@ -741,6 +741,8 @@
                         </div>
                         <div class="form-group"><label>DEPOT</label><input type="text" id="rel-depot"
                                 placeholder="Depot Name"></div>
+                        <div class="form-group"><label>DEPOT ADDRESS</label><input type="text" id="rel-address"
+                                placeholder="Address"></div>
                         <div class="form-group"><label>SELLER</label><input type="text" id="rel-seller"
                                 placeholder="Seller Name"></div>
                     </div>
@@ -758,6 +760,7 @@
                                     <th>DATE</th>
                                     <th>TYPE</th>
                                     <th>DEPOT</th>
+                                    <th>DEPOT ADDRESS</th>
                                     <th>CITY</th>
                                     <th>20' QTY</th>
                                     <th>20' $</th>
@@ -1287,8 +1290,8 @@
         // --- RELEASE DATA MAPPERS ---
         function mapReleaseToArray(r) {
             return [
-                r.release_no, r.date, r.type || 'EMPTY', r.depot || '---', r.city || '---',
-                r.qty_20 || 0, r.price_20 || 0, r.qty_40 || 0, r.price_40 || 0,
+                r.release_no, r.date, r.type || 'EMPTY', r.depot || '---', r.depot_address || '---',
+                r.city || '---', r.qty_20 || 0, r.price_20 || 0, r.qty_40 || 0, r.price_40 || 0,
                 r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0
             ];
         }
@@ -1299,15 +1302,16 @@
                 date: row[1] === '---' ? null : row[1],
                 type: row[2],
                 depot: row[3],
-                city: row[4],
-                qty_20: parseInt(row[5]) || 0,
-                price_20: parseFloat(row[6]) || 0,
-                qty_40: parseInt(row[7]) || 0,
-                price_40: parseFloat(row[8]) || 0,
-                qty_45: parseInt(row[9]) || 0,
-                price_45: parseFloat(row[10]) || 0,
-                seller: row[11],
-                total_stock: (parseInt(row[5]) || 0) + (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0)
+                depot_address: row[4],
+                city: row[5],
+                qty_20: parseInt(row[6]) || 0,
+                price_20: parseFloat(row[7]) || 0,
+                qty_40: parseInt(row[8]) || 0,
+                price_40: parseFloat(row[9]) || 0,
+                qty_45: parseInt(row[10]) || 0,
+                price_45: parseFloat(row[11]) || 0,
+                seller: row[12],
+                total_stock: (parseInt(row[6]) || 0) + (parseInt(row[8]) || 0) + (parseInt(row[10]) || 0)
             };
         }
 
@@ -2194,6 +2198,7 @@
                     document.getElementById('rel-date').value || '---',
                     document.getElementById('rel-type').value,
                     document.getElementById('rel-depot').value || '---',
+                    document.getElementById('rel-address').value || '---',
                     document.getElementById('rel-city').value || '---',
                     q20, p20,
                     q40, p40,
@@ -2210,7 +2215,7 @@
                     if (window.updateReleaseDatalist) window.updateReleaseDatalist();
 
                     // Clear inputs
-                    ['rel-no-releases', 'rel-qty-20', 'rel-price-20', 'rel-qty-40', 'rel-price-40', 'rel-qty-45', 'rel-price-45', 'rel-depot', 'rel-city', 'rel-seller'].forEach(id => {
+                    ['rel-no-releases', 'rel-qty-20', 'rel-price-20', 'rel-qty-40', 'rel-price-40', 'rel-qty-45', 'rel-price-45', 'rel-depot', 'rel-address', 'rel-city', 'rel-seller'].forEach(id => {
                         const el = document.getElementById(id);
                         if (el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
                     });
