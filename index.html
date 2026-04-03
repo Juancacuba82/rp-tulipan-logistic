@@ -782,7 +782,7 @@
                             <input type="text" id="filter-search" class="form-input" placeholder="Search Driver/Name..." oninput="renderDriverLog()">
                             <input type="date" id="filter-from" class="form-input" onchange="renderDriverLog()">
                             <input type="date" id="filter-to" class="form-input" onchange="renderDriverLog()">
-                            <button id="btn-pending-only" onclick="togglePendingFilter()" class="btn-cancel" style="background: #fff; border: 1px solid #cbd5e1;">Show Unpaid Only</button>
+                            <button onclick="toggleSelectAllDrivers()" class="btn-add-sidebar" style="background: #1e293b; color: white;">SELECT ALL DISPLAYED</button>
                             <button onclick="resetReportFilters()" class="btn-cancel" style="background: #cbd5e1;">Reset Filters</button>
                         </div>
                     </div>
@@ -1688,9 +1688,81 @@
                     return matchesSearch && matchesDate && matchesStatus;
                 });
 
+                // --- DRIVER LOG LOGIC ---
+                let selectedIndices = new Set();
+                let currentFilteredRows = []; // Keep global reference for select all
+
+                window.toggleSelectAllDrivers = function() {
+                    const rows = body.querySelectorAll('tr:not(.selection-summary-row)');
+                    if(selectedIndices.size === currentFilteredRows.length && currentFilteredRows.length > 0) {
+                        // Deselect All
+                        selectedIndices.clear();
+                        rows.forEach(r => r.classList.remove('selected-row'));
+                    } else {
+                        // Select All
+                        currentFilteredRows.forEach((_, idx) => selectedIndices.add(idx));
+                        rows.forEach(r => r.classList.add('selected-row'));
+                    }
+                    updateSelectionSummary();
+                }
+
+                const updateSelectionSummary = () => {
+                    // Remove existing summary row
+                    const existing = document.getElementById('dl-selection-summary');
+                    if(existing) existing.remove();
+                    
+                    if(selectedIndices.size === 0) return;
+
+                    let totalPaidDriver = 0;
+                    let totalCash = 0;
+
+                    selectedIndices.forEach(idx => {
+                        const r = filtered[idx];
+                        totalPaidDriver += parseFloat(r[28]) || 0;
+                        if(r[40] === 'PAID') {
+                            totalCash += parseFloat(r[23]) || 0;
+                        }
+                    });
+
+                    const finalNet = totalPaidDriver - totalCash;
+
+                    // Create Summary Row
+                    const summaryTr = document.createElement('tr');
+                    summaryTr.id = 'dl-selection-summary';
+                    summaryTr.className = 'selection-summary-row';
+                    summaryTr.innerHTML = `
+                        <td colspan="9" style="text-align:right;">Selected Summary (${selectedIndices.size} trips):</td>
+                        <td style="color: #4ade80;">$${finalNet.toFixed(2)}</td>
+                        <td></td>
+                    `;
+                    
+                    // Insert after the last selected actual row in the DOM
+                    let lastSelectedRow = null;
+                    const rows = body.querySelectorAll('tr:not(.selection-summary-row)');
+                    selectedIndices.forEach(idx => {
+                        if (rows[idx]) lastSelectedRow = rows[idx];
+                    });
+
+                    if(lastSelectedRow) {
+                        lastSelectedRow.after(summaryTr);
+                    }
+                };
+
                 // Render simple flat list of 11 columns
-                filtered.forEach(r => {
+                currentFilteredRows = filtered;
+                filtered.forEach((r, idx) => {
                     const tr = document.createElement('tr');
+                    tr.style.cursor = 'pointer';
+                    tr.onclick = (e) => {
+                        if(selectedIndices.has(idx)) {
+                            selectedIndices.delete(idx);
+                            tr.classList.remove('selected-row');
+                        } else {
+                            selectedIndices.add(idx);
+                            tr.classList.add('selected-row');
+                        }
+                        updateSelectionSummary();
+                    };
                     
                     // Columns: DATE(1), SIZE(2), N° CONT(3), ORDER#(5), CITY(6), PICKUP(7), DELIVERY(8), MILES(10), DRIVER(18), PAID DRIVER(28), CASH(23)
                     const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 18, 28, 23];

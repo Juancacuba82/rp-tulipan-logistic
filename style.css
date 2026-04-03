@@ -1391,3 +1391,22 @@ main {
 @media (max-width: 480px) {
     .filter-grid { grid-template-columns: 1fr; }
 }
+
+/* DRIVER REPORT SELECTION LOGIC */
+.selected-row {
+    background-color: #dcfce7 !important;
+    border-left: 6px solid #166534 !important;
+    transition: all 0.2s;
+}
+
+.selection-summary-row {
+    background-color: #0f172a !important;
+    color: white !important;
+    font-weight: 800;
+}
+
+.selection-summary-row td {
+    padding: 15px !important;
+    font-size: 0.9rem !important;
+    border-top: 3px solid #22c55e !important;
+}
