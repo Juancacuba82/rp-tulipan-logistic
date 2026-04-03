@@ -376,6 +376,7 @@
                             </select>
                         </div>
                         <div class="form-group"><label>NOTE</label><input type="text" id="in-note"></div>
+                        <div class="form-group"><label>EMAIL</label><input type="email" id="in-email" placeholder="customer@email.com"></div>
                         <input type="hidden" id="in-mode" value="SALE"> <!-- Fallback if JS missing -->
                         
                         <button onclick="addRow()" class="btn-add-sidebar" style="margin-top: 25px; width: 100%; padding: 15px; font-weight: 900; background: #b91c1c; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm Operation</button>
@@ -496,6 +497,7 @@
                                     <th>INCOME DIS FEE</th>
                                     <th>INVOICE</th>
                                     <th>NOTE</th>
+                                    <th>EMAIL</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body">
@@ -809,6 +811,53 @@
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+                </div>
+            </div>
+                    
+                    <!-- NEW: Weekly Settlement Calculator (Based on Image Reference) -->
+                    <div class="weekly-calculator-container">
+                        <div class="calc-section">
+                            <table class="settlement-calc-table">
+                                <tr>
+                                    <td class="calc-label">CASH COLLECTED</td>
+                                    <td class="calc-input-cell"><input type="number" id="calc-cash-coll" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                </tr>
+                                <tr>
+                                    <td class="calc-label">DRIVER SALARY</td>
+                                    <td class="calc-input-cell"><input type="number" id="calc-driver-deduct" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                </tr>
+                                <tr>
+                                    <td class="calc-label">LAST WEEK BALANCE</td>
+                                    <td class="calc-input-cell"><input type="number" id="calc-last-bal" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                </tr>
+                                <tr>
+                                    <td class="calc-label">CASH BALANCE</td>
+                                    <td class="calc-result-cell yellow-bg" id="res-cash-bal">$0.00</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="calc-section">
+                            <table class="settlement-calc-table">
+                                <tr>
+                                    <td class="calc-label">GROSS</td>
+                                    <td class="calc-input-cell"><input type="number" id="calc-gross" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                </tr>
+                                <tr>
+                                    <td class="calc-label">FACTORY</td>
+                                    <td class="calc-input-cell"><input type="number" id="calc-factory" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                </tr>
+                                <tr>
+                                    <td class="calc-label">WEEKLY PAYMENT</td>
+                                    <td class="calc-input-cell"><input type="number" id="calc-weekly" value="0" step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';" onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                </tr>
+                                <tr>
+                                    <td class="calc-label">DRIVER SALARY</td>
+                                    <td class="calc-result-cell" id="res-driver-salary" style="background:#fbc7a4; color:#000;">$0.00</td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1357,6 +1406,9 @@
             // Index 42: Driver Payout Status
             rowData.push(document.getElementById('in-driverpaid').value || 'PENDING');
 
+            // Index 43: EMAIL
+            rowData.push(document.getElementById('in-email').value || '---');
+
             const saved = localStorage.getItem('logisticsTableData') ? JSON.parse(localStorage.getItem('logisticsTableData')) : [];
             
             if (editingIndex !== null) {
@@ -1509,6 +1561,9 @@
             
             // Driver Paid Status (Index 42)
             document.getElementById('in-driverpaid').value = rowData[42] || 'PENDING';
+            
+            // Email (Index 43)
+            document.getElementById('in-email').value = rowData[43] || '';
 
             // Refresh UI States
             toggleModeFields();
@@ -1562,12 +1617,16 @@
                         if(i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
                         if(i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
                         if(i === 23 && text !== '---') td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        // Note: Monthly Rate (33) and Next Due (35) are no longer visible, 
-                        // but for consistency we could leave the logic if we ever re-enable them.
-                        // However, we skip i === 33 since we sliced to 32.
                         
                         tr.appendChild(td);
                     });
+
+                    // Add EMAIL as the very last visible cell
+                    const tdEmail = document.createElement('td');
+                    tdEmail.textContent = rowData[43] || '---';
+                    tr.appendChild(tdEmail);
+
+                    // Actions Cel (Manual logic omitted as per previous user request for simplicity)
 
                     // EDIT TRIGGER (On Highlight Rows or anywhere in the TR)
                     tr.style.cursor = 'pointer';
@@ -1614,8 +1673,8 @@
             const rows = JSON.parse(saved);
             const rIdx = rows.findIndex(r => r[0] === tripId);
             if(rIdx !== -1) {
-                // Toggle status (Index 43)
-                rows[rIdx][43] = (rows[rIdx][43] === 'PAID') ? 'PENDING' : 'PAID';
+                // Toggle status (Index 42)
+                rows[rIdx][42] = (rows[rIdx][42] === 'PAID') ? 'PENDING' : 'PAID';
                 localStorage.setItem('logisticsTableData', JSON.stringify(rows));
                 renderDriverLog();
                 loadTableData(); // Sync calendar table too
@@ -1631,7 +1690,7 @@
             rows.forEach(r => {
                 const rDriver = r[18] || 'UNASSIGNED';
                 if(rDriver === driverName) {
-                    r[43] = 'PAID';
+                    r[42] = 'PAID';
                 }
             });
             localStorage.setItem('logisticsTableData', JSON.stringify(rows));
@@ -1721,6 +1780,15 @@
                         }
                     });
 
+                    // SYNC WITH CALCULATOR (New Sync Logic)
+                    const calcGross = document.getElementById('calc-gross');
+                    const calcCashColl = document.getElementById('calc-cash-coll');
+                    if(calcGross) calcGross.value = totalPaidDriver.toFixed(2);
+                    if(calcCashColl) calcCashColl.value = totalCash.toFixed(2);
+                    
+                    // Trigger the math for Balance and Driver Salary results
+                    if(window.updateWeeklyCalc) window.updateWeeklyCalc();
+
                     const finalNet = totalPaidDriver - totalCash;
 
                     // Create Summary Row
@@ -1786,6 +1854,24 @@
                 if(footerLabel) footerLabel.textContent = "Report Entries:";
                 if(totalDisplay) totalDisplay.textContent = filtered.length;
             }
+        }
+
+        window.updateWeeklyCalc = function() {
+            // Right Side: Driver Salary Calc
+            const gross = parseFloat(document.getElementById('calc-gross').value) || 0;
+            const factory = parseFloat(document.getElementById('calc-factory').value) || 0;
+            const weekly = parseFloat(document.getElementById('calc-weekly').value) || 0;
+            const salary = gross - factory - weekly;
+            
+            document.getElementById('res-driver-salary').textContent = `$${salary.toLocaleString('de-DE', {minimumFractionDigits: 2})}`;
+
+            // Left Side: Cash Balance Calc
+            const cashColl = parseFloat(document.getElementById('calc-cash-coll').value) || 0;
+            const deduct = parseFloat(document.getElementById('calc-driver-deduct').value) || 0;
+            const lastBal = parseFloat(document.getElementById('calc-last-bal').value) || 0;
+            const cashBal = cashColl - deduct - lastBal;
+
+            document.getElementById('res-cash-bal').textContent = `$${cashBal.toLocaleString('de-DE', {minimumFractionDigits: 2})}`;
         }
 
         // Initialize state on load

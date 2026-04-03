@@ -1404,3 +1404,71 @@ main {
     font-size: 0.9rem !important;
     border-top: 3px solid #22c55e !important;
 }
+
+/* --- WEEKLY SETTLEMENT CALCULATOR (Drivers Reports) --- */
+.weekly-calculator-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    background: #fff;
+    padding: 30px;
+    border-top: 5px solid #1e293b;
+    margin-top: 40px;
+}
+
+.settlement-calc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.settlement-calc-table td {
+    border: 2px solid #166534; /* Green border like image */
+    padding: 10px 15px;
+    font-weight: 800;
+    font-size: 1rem;
+    color: #1a1a1a;
+}
+
+.calc-label {
+    background: #fbc7a4; /* Tan/Peach background from image */
+    width: 250px;
+    text-transform: uppercase;
+}
+
+.calc-input-cell input {
+    width: 100%;
+    border: none;
+    outline: none;
+    text-align: right;
+    font-size: 1.1rem;
+    font-weight: 900;
+    font-family: inherit;
+    background: transparent;
+}
+
+/* Hide numeric spinners fully */
+.calc-input-cell input::-webkit-inner-spin-button, 
+.calc-input-cell input::-webkit-outer-spin-button { 
+    -webkit-appearance: none;
+    margin: 0;
+}
+.calc-input-cell input[type=number] {
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    appearance: none;
+    margin: 0;
+}
+
+.calc-result-cell {
+    text-align: right;
+    font-size: 1.2rem;
+    font-weight: 900;
+}
+
+.calc-result-cell.yellow-bg {
+    background: #ffff00; /* Yellow highlight from image */
+}
+
+@media screen and (max-width: 1024px) {
+    .weekly-calculator-container { grid-template-columns: 1fr; gap: 20px; }
+}
