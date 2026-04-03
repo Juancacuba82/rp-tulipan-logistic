@@ -91,10 +91,6 @@
                     <div class="sidebar-header">
                         <h3>New Trip Entry</h3>
                         <div class="header-actions">
-                            <button onclick="filterTrips('pending')" class="btn-cancel" style="background: #fee2e2; color: #b91c1c;">Show Pending</button>
-                            <button onclick="filterTrips('rentals')" class="btn-cancel" style="background: #ffedd5; color: #9a3412;">Show Rentals</button>
-                            <button onclick="filterTrips('sales')" class="btn-cancel" style="background: #e0f2fe; color: #0369a1;">Show Sales</button>
-                            <button onclick="filterTrips('all')" class="btn-cancel">Show All</button>
                             <button onclick="addRow()" class="btn-add-sidebar">Confirm Operation</button>
                         </div>
                     </div>
@@ -107,9 +103,9 @@
                             </select>
                         </div>
                         <div class="form-group"><label>ID</label><input type="text" id="in-id" placeholder="TRIP-0000" readonly style="background: #f1f5f9; cursor: not-allowed;"></div>
-                        <div class="form-group"><label>2. DATE</label><input type="date" id="in-date"></div>
+                        <div class="form-group"><label>DATE</label><input type="date" id="in-date"></div>
                         <div class="form-group">
-                            <label>3. SIZE</label>
+                            <label>SIZE</label>
                             <select id="in-size" required>
                                 <option value="" disabled selected>Select Size</option>
                                 <option value="40' HC">40' HC</option>
@@ -131,14 +127,14 @@
                                 <option value="TRAILER RENT">TRAILER RENT</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>4. N. CONT</label><input type="text" id="in-ncont" placeholder="N. Cont"></div>
-                        <div class="form-group"><label>5. RELEASE #</label>
+                        <div class="form-group"><label>N. CONT</label><input type="text" id="in-ncont" placeholder="N. Cont"></div>
+                        <div class="form-group"><label>RELEASE #</label>
                             <input type="text" id="in-release" placeholder="Release" list="release-list">
                             <datalist id="release-list"></datalist>
                         </div>
-                        <div class="form-group"><label>6. ORDER - BOL CONT #</label><input type="text" id="in-order" placeholder="ORD-0000" readonly style="background: #f1f5f9; cursor: not-allowed;"></div>
+                        <div class="form-group"><label>ORDER - BOL CONT #</label><input type="text" id="in-order" placeholder="ORD-XXXX"></div>
                         <div class="form-group">
-                            <label>7. CITY</label>
+                            <label>CITY</label>
                             <select id="in-city" required>
                                 <option value="" disabled selected>Select City</option>
                                 <option value="MIAMI">MIAMI</option>
@@ -156,7 +152,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>8. PICK UP ADDRESS</label>
+                            <label>PICK UP ADDRESS</label>
                             <input type="text" id="in-pickup" placeholder="Pick Up Address" list="address-list">
                             <datalist id="address-list">
                                 <option value="10110 NW 95 AVE">
@@ -206,9 +202,9 @@
                                 <option value="TRUCK YARD">
                             </datalist>
                         </div>
-                        <div class="form-group"><label>9. DELIVERY PLACE</label><input type="text" id="in-delivery" placeholder="Delivery"></div>
+                        <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="in-delivery" placeholder="Delivery"></div>
                         <div class="form-group">
-                            <label>10. DOORS DIRECTION</label>
+                            <label>DOORS DIRECTION</label>
                             <select id="in-doors" required>
                                 <option value="" disabled selected>Select Orientation</option>
                                 <option value="FACING CAB">FACING CAB</option>
@@ -217,9 +213,9 @@
                                 <option value="FACING PASSENGER">FACING PASSENGER</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>11. MILES</label><input type="number" id="in-miles" placeholder="0"></div>
+                        <div class="form-group"><label>MILES</label><input type="number" id="in-miles" placeholder="0"></div>
                         <div class="form-group">
-                            <label>12. CUSTOMER</label>
+                            <label>CUSTOMER</label>
                             <select id="in-customer" required>
                                 <option value="" disabled selected>Select Customer</option>
                                 <option value="ANTONIO RENT">ANTONIO RENT</option>
@@ -232,32 +228,21 @@
                                 <option value="ZUM SHIPPING">ZUM SHIPPING</option>
                             </select>
                         </div>
+                        <div class="form-group"><label>PAYMENT DATE</label><input type="date" id="in-paydate"></div>
                         <div class="form-group">
-                            <label>13. PAYMENT STATUS</label>
-                            <select id="in-paystatus" required>
-                                <option value="" disabled selected>Select Status</option>
-                                <option value="PAID">PAID</option>
-                                <option value="PENDING">PENDING</option>
-                                <option value="CANCELED">CANCELED</option>
-                                <option value="PENDING DELIVERY">PENDING DELIVERY</option>
-                                <option value="PENDING CONTAINER">PENDING CONTAINER</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>14. PAYMENT DATE</label><input type="date" id="in-paydate"></div>
-                        <div class="form-group">
-                            <label>15. YARD SERVICES</label>
+                            <label>YARD SERVICES</label>
                             <select id="in-yard" required>
                                 <option value="" disabled selected>Yard Services?</option>
                                 <option value="YES">YES</option>
                                 <option value="NO">NO</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>16. YARD RATE</label>
+                        <div class="form-group"><label>YARD RATE</label>
                             <input type="number" id="in-yardrate" style="flex: 0.6;">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-yardpaid"></label>
                         </div>
-                        <div class="form-group"><label>17. DATE OUT</label><input type="date" id="in-dateout"></div>
-                        <div class="form-group"><label>18. DAY RATE</label><input type="number" id="in-dayrate"></div>
+                        <div class="form-group"><label>DATE OUT</label><input type="date" id="in-dateout"></div>
+                        <div class="form-group"><label>DAY RATE</label><input type="number" id="in-dayrate"></div>
 
                         <!-- RENTAL SPECIFIC FIELDS -->
                         <div id="rental-fields" style="display: none; background: #fff7ed; padding: 10px; border-radius: 8px; border: 1px solid #ffedd5; margin-bottom: 20px;">
@@ -270,7 +255,7 @@
                             <div class="form-group"><label>Next Due Date</label><input type="date" id="in-nextdue" readonly style="background: #fdf2f8;"></div>
                         </div>
                         <div class="form-group">
-                            <label>19. COMPANY</label>
+                            <label>COMPANY</label>
                             <select id="in-company" onchange="updateDriverCommission()" required>
                                 <option value="" disabled selected>Select Company</option>
                                 <option value="RP TULIPAN">RP TULIPAN</option>
@@ -280,7 +265,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>20. DRIVER</label>
+                            <label>DRIVER</label>
                             <select id="in-driver" required>
                                 <option value="" disabled selected>Select Driver</option>
                                 <option value="A & A TOWING">A & A TOWING</option>
@@ -334,35 +319,35 @@
                                 <option value="" disabled selected>Select Trailer</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>21. RATE</label>
+                        <div class="form-group"><label>RATE</label>
                             <input type="number" id="in-rate" style="flex: 0.6;" oninput="updateDriverCommission()">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-ratepaid"></label>
                         </div>
                         <div class="form-group">
-                            <label>22. TYPE OF PAYMENT</label>
+                            <label>TYPE OF PAYMENT</label>
                             <select id="in-paytype" required>
                                 <option value="" disabled selected>Select Payment Type</option>
                                 <option value="CASH">CASH</option>
                                 <option value="ACOUNT BANK">ACOUNT BANK</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>23. SALES PRICE</label>
+                        <div class="form-group"><label>SALES PRICE</label>
                             <input type="number" id="in-sales" style="flex: 0.6;">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox" id="in-salespaid"></label>
                         </div>
                         <div class="form-group">
-                            <label>24. COLLECT PAYMENT</label>
+                            <label>COLLECT PAYMENT</label>
                             <select id="in-collect" required>
                                 <option value="" disabled selected>Collect?</option>
                                 <option value="YES">YES</option>
                                 <option value="NO">NO</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>25. AMOUNT</label><input type="number" id="in-amount" oninput="updateDriverCommission()"></div>
-                        <div class="form-group"><label>26. PHONE #</label><input type="text" id="in-phone"></div>
-                        <div class="form-group"><label>27. PAID DRIVER</label><input type="number" id="in-paiddriver" oninput="updateDriverCommission()"></div>
+                        <div class="form-group"><label>AMOUNT</label><input type="number" id="in-amount" oninput="updateDriverCommission()"></div>
+                        <div class="form-group"><label>PHONE #</label><input type="text" id="in-phone"></div>
+                        <div class="form-group"><label>PAID DRIVER</label><input type="number" id="in-paiddriver" oninput="updateDriverCommission()"></div>
                         <div class="form-group">
-                            <label>28. STATUS</label>
+                            <label>STATUS</label>
                             <select id="in-status" required>
                                 <option value="" disabled selected>Select Status</option>
                                 <option value="DONE">DONE</option>
@@ -373,13 +358,13 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>29. COMISSION</label>
+                            <label>COMISSION</label>
                             <select id="in-comission" onchange="updateDriverCommission()" required>
                                 <option value="30%">30%</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>30. COMISION DRIVER</label>
+                            <label>COMISION DRIVER</label>
                             <input type="text" id="in-comidriver" readonly style="background: #f1f5f9; font-weight: bold; color: #d32f2f;">
                         </div>
                         <div class="form-group">
@@ -389,17 +374,19 @@
                                 <option value="PAID">PAID</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>31. INCOME DIS FEE</label><input type="number" id="in-income"></div>
+                        <div class="form-group"><label>INCOME DIS FEE</label><input type="number" id="in-income"></div>
                         <div class="form-group">
-                            <label>32. INVOICE</label>
+                            <label>INVOICE</label>
                             <select id="in-invoice" required>
                                 <option value="" disabled selected>Invoice?</option>
                                 <option value="YES">YES</option>
                                 <option value="NO">NO</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>33. NOTE</label><input type="text" id="in-note"></div>
+                        <div class="form-group"><label>NOTE</label><input type="text" id="in-note"></div>
                         <input type="hidden" id="in-mode" value="SALE"> <!-- Fallback if JS missing -->
+                        
+                        <button onclick="addRow()" class="btn-add-sidebar" style="margin-top: 25px; width: 100%; padding: 15px; font-weight: 900; background: #b91c1c; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm Operation</button>
                     </div>
                 </aside>
 
@@ -407,6 +394,79 @@
                 <div class="table-area">
                     <div class="table-toolbar">
                         <h2>Trip History / Data grid</h2>
+                    </div>
+                    
+                    <!-- Advanced Filter Panel -->
+                    <div class="advanced-filter-panel">
+                        <div class="filter-grid">
+                            <!-- Select Data Driven Filters -->
+                            <div class="filter-item">
+                                <label>City</label>
+                                <select id="f-city" onchange="applyAdvancedFilters()">
+                                    <option value="">All Cities</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Size</label>
+                                <select id="f-size" onchange="applyAdvancedFilters()">
+                                    <option value="">All Sizes</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Customer</label>
+                                <select id="f-customer" onchange="applyAdvancedFilters()">
+                                    <option value="">All Customers</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Driver</label>
+                                <select id="f-driver" onchange="applyAdvancedFilters()">
+                                    <option value="">All Drivers</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-item">
+                                <label>Company</label>
+                                <select id="f-company" onchange="applyAdvancedFilters()">
+                                    <option value="">All Companies</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Status</label>
+                                <select id="f-status" onchange="applyAdvancedFilters()">
+                                    <option value="">All Statuses</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Collect Payment</label>
+                                <select id="f-collect" onchange="applyAdvancedFilters()">
+                                    <option value="">Any Collect</option>
+                                    <option value="YES">YES</option>
+                                    <option value="NO">NO</option>
+                                </select>
+                            </div>
+
+                            <!-- Text Live Filters -->
+                            <div class="filter-item">
+                                <label>N° Cont</label>
+                                <input type="text" id="f-ncont" placeholder="Search..." oninput="applyAdvancedFilters()">
+                            </div>
+                            <div class="filter-item">
+                                <label>Order - BOL #</label>
+                                <input type="text" id="f-order" placeholder="Search..." oninput="applyAdvancedFilters()">
+                            </div>
+                            <div class="filter-item">
+                                <label>Release #</label>
+                                <input type="text" id="f-release" placeholder="Search..." oninput="applyAdvancedFilters()">
+                            </div>
+                            <div class="filter-item">
+                                <label>Phone #</label>
+                                <input type="text" id="f-phone" placeholder="Search..." oninput="applyAdvancedFilters()">
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button onclick="resetAdvancedFilters()" class="btn-reset-filters">Clear All Filters</button>
+                        </div>
                     </div>
                     <div class="table-scroll-container">
                         <table id="logistics-table">
@@ -424,8 +484,7 @@
                                     <th>10. DOORS DIRECTION</th>
                                     <th>11. MILES</th>
                                     <th>12. CUSTOMER</th>
-                                    <th>13. PAYMENT STATUS</th>
-                                    <th>14. PAYMENT DATE</th>
+                                    <th>13. PAYMENT DATE</th>
                                     <th>15. YARD SERVICES</th>
                                     <th>16. YARD SERVICES RATE</th>
                                     <th>17. DATE OUT</th>
@@ -981,10 +1040,30 @@
                             ];
                             return newRow;
                         });
-                        localStorage.setItem(relKey, JSON.stringify(relRows));
+            localStorage.setItem(relKey, JSON.stringify(relRows));
+                        console.log('Migrated Release structure to support per-size pricing.');
                     }
                 } catch(e) {}
             }
+
+            // --- V2 REMOVE PAYMENT STATUS (INDEX 12) ---
+            try {
+                const dataKey = 'logisticsTableData';
+                const rawData = localStorage.getItem(dataKey);
+                const migratedV2 = localStorage.getItem('v2_paystatus_removed_b'); // Safety flag
+                if (rawData && !migratedV2) {
+                    let rows = JSON.parse(rawData);
+                    if (rows.length > 0 && rows[0].length >= 35) {
+                        rows = rows.map(r => {
+                            if (r.length >= 35) r.splice(12, 1); // Delete PAYMENT STATUS
+                            return r;
+                        });
+                        localStorage.setItem(dataKey, JSON.stringify(rows));
+                        localStorage.setItem('v2_paystatus_removed_b', 'true');
+                        console.log('Successfully removed PAYMENT STATUS column and shifted indices.');
+                    }
+                }
+            } catch(e) {}
         })();
 
         // Robust mobile menu toggle
@@ -1083,26 +1162,123 @@
             document.getElementById('in-nextdue').value = start.toISOString().split('T')[0];
         }
 
-        function filterTrips(type) {
-            const table = document.getElementById('logistics-table');
-            const rows = table.querySelectorAll('tbody tr');
-            rows.forEach(tr => {
-                const modeCell = tr.cells[33]; // Index for MODE
-                const balanceCell = tr.cells[43]; // UPDATED INDEX for BALANCE PENDING
-                const mode = modeCell ? modeCell.textContent : '';
-                const balanceStr = balanceCell ? balanceCell.textContent.replace('$', '').replace(/,/g, '') : '0';
-                const balance = parseFloat(balanceStr) || 0;
+        // --- ADVANCED FILTERING LOGIC ---
+        function populateFilterPickers() {
+            const rawData = localStorage.getItem('logisticsTableData');
+            if (!rawData) return;
+            const rows = JSON.parse(rawData);
+            
+            // Indices: 6:City, 2:Size, 11:Customer, 18:Driver, 17:Company, 26:Status
+            const filters = {
+                'f-city': 6,
+                'f-size': 2,
+                'f-customer': 11,
+                'f-driver': 18,
+                'f-company': 17,
+                'f-status': 26
+            };
 
-                if (type === 'pending') {
-                    tr.style.display = (balance > 0) ? 'table-row' : 'none';
-                } else if (type === 'rentals') {
-                    tr.style.display = (mode === 'RENT') ? 'table-row' : 'none';
-                } else if (type === 'sales') {
-                    tr.style.display = (mode === 'SALE') ? 'table-row' : 'none';
+            for (let id in filters) {
+                const select = document.getElementById(id);
+                if (!select) continue;
+                const columnIdx = filters[id];
+                
+                // Get unique, non-empty, non-dashed values
+                let uniqueValues = [...new Set(rows.map(row => row[columnIdx]))]
+                    .filter(val => val && val !== '---' && val !== '')
+                    .sort();
+                
+                // For City filter specifically, show ALL available cities from the form list
+                if (id === 'f-city') {
+                    uniqueValues = [
+                        "MIAMI", "TAMPA", "JACKSONVILLE", "SAVANNAH", "TITUSVILLE", 
+                        "MASCOTTE", "ORLANDO", "ATLANTA", "CHARLESTON", "NEWARK", 
+                        "SUMMERVILLE", "BALTIMORE"
+                    ].sort();
+                } else if (id === 'f-customer') {
+                    uniqueValues = [
+                        "ANTONIO RENT", "RICHARD HAYNES", "MARK MORRINSON", "KEMOY", 
+                        "GLOBAL CONTAINER & CHASSIS", "PROSTAR GROUP CONTAINER", 
+                        "MAREX ROAD SERVICES", "ZUM SHIPPING"
+                    ].sort();
+                } else if (id === 'f-driver') {
+                    uniqueValues = [
+                        "A & A TOWING", "ANTHONY", "ANTONIO R", "AYG TRANSPORT", "BRUNO", 
+                        "ELIER", "FLCHR", "JAYDEN TRANSPORTATION", "JOHN CARLOS", 
+                        "JORGE ANDY", "JOSE", "JR SUPER CRANE", "JRSC-ROBERT", "JUAN CARLOS", 
+                        "JUSTIN F.H", "JY3 FREIGHT LLC", "KELLY K", "LUIS D", "LUIS DELIVERY", 
+                        "LUIS G", "LUIS SOSA", "MARIO", "MIGUEL LL", "MILAY", 
+                        "MOBILE UNITS TRANSPORT", "PERFECT TOUCH TRANSPORT", "QUALITY CONT", 
+                        "RAMONCITO", "REYNA", "ROBERT", "ROLY", "RONALD", "SIDE LOADER", 
+                        "TRAVIS J", "WS KINGDOM LLC", "YADIER", "YANDY JAX"
+                    ].sort();
+                }
+                
+                // Keep the "All" option
+                const firstOption = select.options[0];
+                select.innerHTML = '';
+                select.appendChild(firstOption);
+                
+                uniqueValues.forEach(val => {
+                    // Only show DONE and PENDING operational statuses
+                    if (id === 'f-status' && val !== 'DONE' && val !== 'PENDING') return;
+
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = val;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        function applyAdvancedFilters() {
+            const filters = {
+                city: document.getElementById('f-city').value.toLowerCase(),
+                size: document.getElementById('f-size').value.toLowerCase(),
+                customer: document.getElementById('f-customer').value.toLowerCase(),
+                driver: document.getElementById('f-driver').value.toLowerCase(),
+                company: document.getElementById('f-company').value.toLowerCase(),
+                status: document.getElementById('f-status').value.toLowerCase(),
+                collect: document.getElementById('f-collect').value.toLowerCase(),
+                ncont: document.getElementById('f-ncont').value.toLowerCase(),
+                order: document.getElementById('f-order').value.toLowerCase(),
+                release: document.getElementById('f-release').value.toLowerCase(),
+                phone: document.getElementById('f-phone').value.toLowerCase()
+            };
+
+            const rows = document.querySelectorAll('#table-body tr');
+            rows.forEach(tr => {
+                const cells = tr.cells;
+                // indices should match rowData used in loadTableData
+                const matchCity = !filters.city || cells[6].textContent.toLowerCase() === filters.city;
+                const matchSize = !filters.size || cells[2].textContent.toLowerCase() === filters.size;
+                const matchCustomer = !filters.customer || cells[11].textContent.toLowerCase() === filters.customer;
+                const matchDriver = !filters.driver || cells[18].textContent.toLowerCase() === filters.driver;
+                const matchCompany = !filters.company || cells[17].textContent.toLowerCase() === filters.company;
+                const matchStatus = (filters.status === 'pending payment') 
+                    ? (cells[38].textContent === 'PEND' || cells[40].textContent === 'PEND' || cells[41].textContent === 'PEND')
+                    : (!filters.status || cells[26].textContent.toLowerCase() === filters.status);
+                const matchCollect = !filters.collect || cells[22].textContent.toLowerCase() === filters.collect;
+                
+                const matchNcont = !filters.ncont || cells[3].textContent.toLowerCase().includes(filters.ncont);
+                const matchOrder = !filters.order || cells[5].textContent.toLowerCase().includes(filters.order);
+                const matchRelease = !filters.release || cells[4].textContent.toLowerCase().includes(filters.release);
+                const matchPhone = !filters.phone || cells[24].textContent.toLowerCase().includes(filters.phone);
+
+                if (matchCity && matchSize && matchCustomer && matchDriver && matchCompany && 
+                    matchStatus && matchCollect && matchNcont && matchOrder && 
+                    matchRelease && matchPhone) {
+                    tr.style.display = '';
                 } else {
-                    tr.style.display = 'table-row';
+                    tr.style.display = 'none';
                 }
             });
+        }
+
+        function resetAdvancedFilters() {
+            const inputs = document.querySelectorAll('.advanced-filter-panel select, .advanced-filter-panel input');
+            inputs.forEach(el => el.value = '');
+            applyAdvancedFilters();
         }
 
         function addRow() {
@@ -1110,14 +1286,19 @@
             if (editingIndex === null) {
                 const nextId = 'TRIP-' + Date.now().toString().slice(-6);
                 document.getElementById('in-id').value = nextId;
-                const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                let ordSuffix = '';
-                for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
-                document.getElementById('in-order').value = 'ORD-' + ordSuffix;
+                
+                // Only auto-generate Order if user hasn't typed one
+                const ordInput = document.getElementById('in-order');
+                if(!ordInput.value || ordInput.value.trim() === '') {
+                    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                    let ordSuffix = '';
+                    for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+                    ordInput.value = 'ORD-' + ordSuffix;
+                }
             }
             const fields = [
                 'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup', 
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paystatus', 'in-paydate', 
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate', 
                 'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver', 
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone', 
                 'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income', 
@@ -1182,18 +1363,18 @@
             const stRent = document.getElementById('in-rentpaid').checked ? 'PAID' : 'PEND';
             const stRate = document.getElementById('in-ratepaid').checked ? 'PAID' : 'PEND';
             const stSales = document.getElementById('in-salespaid').checked ? 'PAID' : 'PEND';
-            rowData.push(stYard, stRent, stRate, stSales); // Indices 39, 40, 41, 42
-
-            // Calculate Balance Pending (Index 43)
+            rowData.push(stYard, stRent, stRate, stSales); // Indices 38, 39, 40, 41
+            
+            // Index 42: Balance Pending
             let pending = 0;
             if(stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate').value) || 0;
             if(stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate').value) || 0;
             if(stSales === 'PEND') pending += parseFloat(document.getElementById('in-sales').value) || 0;
             if(stRent === 'PEND' && document.getElementById('in-mode').value === 'RENT') pending += parseFloat(document.getElementById('in-mrate').value) || 0;
-            rowData.push(`$${pending.toFixed(2)}`); // Index 43
+            rowData.push(`$${pending.toFixed(2)}`); 
 
-            // Index 44: Driver Payout Status
-            rowData.push(document.getElementById('in-driverpaid').value); // Index 44
+            // Index 43: Driver Payout Status
+            rowData.push(document.getElementById('in-driverpaid').value);
 
             const saved = localStorage.getItem('logisticsTableData') ? JSON.parse(localStorage.getItem('logisticsTableData')) : [];
             
@@ -1223,9 +1404,11 @@
 
             // Clear entry fields partially
             ['in-ncont', 'in-release', 'in-delivery', 'in-miles'].forEach(id => {
-               const el = document.getElementById(id);
                if(el) el.value = '';
             });
+            
+            // Re-initialize ID for next entry
+            initNewTripId();
         }
 
         function updateReleaseDatalist() {
@@ -1302,6 +1485,15 @@
             }
         }
 
+        // --- AUTO ID GENERATION ---
+        function initNewTripId() {
+            const idInput = document.getElementById('in-id');
+            if (idInput && (idInput.value === '' || idInput.value === 'TRIP-0000')) {
+                const nextId = 'TRIP-' + Date.now().toString().slice(-6);
+                idInput.value = nextId;
+            }
+        }
+
         function loadTripToEdit(idx) {
             const saved = localStorage.getItem('logisticsTableData');
             if(!saved) return;
@@ -1314,7 +1506,7 @@
             // Populate Fields (Map back from indices 0-38)
             const fields = [
                 'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup', 
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paystatus', 'in-paydate', 
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate', 
                 'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver', 
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone', 
                 'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income', 
@@ -1328,14 +1520,14 @@
                 if(el) el.value = (rowData[i] === '---') ? '' : rowData[i];
             });
 
-            // Set Checkboxes (Indices 39-42)
-            document.getElementById('in-yardpaid').checked = (rowData[39] === 'PAID');
-            document.getElementById('in-rentpaid').checked = (rowData[40] === 'PAID');
-            document.getElementById('in-ratepaid').checked = (rowData[41] === 'PAID');
-            document.getElementById('in-salespaid').checked = (rowData[42] === 'PAID');
+            // Set Checkboxes (Indices 38-41)
+            document.getElementById('in-yardpaid').checked = (rowData[38] === 'PAID');
+            document.getElementById('in-rentpaid').checked = (rowData[39] === 'PAID');
+            document.getElementById('in-ratepaid').checked = (rowData[40] === 'PAID');
+            document.getElementById('in-salespaid').checked = (rowData[41] === 'PAID');
             
-            // Driver Paid Status (Index 44)
-            document.getElementById('in-driverpaid').value = rowData[44] || 'PENDING';
+            // Driver Paid Status (Index 43)
+            document.getElementById('in-driverpaid').value = rowData[43] || 'PENDING';
 
             // Refresh UI States
             toggleModeFields();
@@ -1357,6 +1549,10 @@
             const logisticsBody = document.getElementById('table-body');
             if(!logisticsBody) return;
             logisticsBody.innerHTML = '';
+            
+            // Populating dynamic filters
+            populateFilterPickers();
+
             const saved = localStorage.getItem('logisticsTableData');
             if (saved) {
                 const rows = JSON.parse(saved);
@@ -1368,24 +1564,24 @@
 
                     const tr = document.createElement('tr');
                     
-                    const mode = rowData[33];
-                    const nextDue = rowData[36];
-                    const stYard = rowData[39];
-                    const stRent = rowData[40];
-                    const stRate = rowData[41];
-                    const stSales = rowData[42];
+                    const mode = rowData[32];
+                    const nextDue = rowData[35];
+                    const stYard = rowData[38];
+                    const stRent = rowData[39];
+                    const stRate = rowData[40];
+                    const stSales = rowData[41];
 
                     rowData.forEach((text, i) => {
                         const td = document.createElement('td');
                         td.textContent = text;
                         
-                        // Amount coloring (Indices: 15=Yard, 20=Rate, 22=Sales, 36=Rent)
-                        if(i === 15 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        if(i === 20 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        if(i === 22 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
-                        if(i === 34 && text !== '---') td.style.backgroundColor = (stRent === 'PAID') ? '#dcfce7' : '#fee2e2';
+                        // Amount coloring (Indices: 14=Yard, 19=Rate, 21=Sales, 33=Rent)
+                        if(i === 14 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
+                        if(i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
+                        if(i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
+                        if(i === 33 && text !== '---') td.style.backgroundColor = (stRent === 'PAID') ? '#dcfce7' : '#fee2e2';
                         
-                        if(i === 36 && mode === 'RENT' && text !== '---') {
+                        if(i === 35 && mode === 'RENT' && text !== '---') { // 35: nextDue
                            if(new Date(text + 'T00:00:00') < new Date()) td.style.color = 'red';
                         }
                         tr.appendChild(td);
@@ -1406,6 +1602,8 @@
                     logisticsBody.appendChild(tr);
                 });
             }
+            // Apply existing filters if any (for real-time persistence)
+            applyAdvancedFilters();
         }
 
         let reportShowUnpaidOnly = false;
@@ -1434,8 +1632,8 @@
             const rows = JSON.parse(saved);
             const rIdx = rows.findIndex(r => r[0] === tripId);
             if(rIdx !== -1) {
-                // Toggle status (Index 44)
-                rows[rIdx][44] = (rows[rIdx][44] === 'PAID') ? 'PENDING' : 'PAID';
+                // Toggle status (Index 43)
+                rows[rIdx][43] = (rows[rIdx][43] === 'PAID') ? 'PENDING' : 'PAID';
                 localStorage.setItem('logisticsTableData', JSON.stringify(rows));
                 renderDriverLog();
                 loadTableData(); // Sync calendar table too
@@ -1449,9 +1647,9 @@
             if(!saved) return;
             const rows = JSON.parse(saved);
             rows.forEach(r => {
-                const rDriver = r[19] || 'UNASSIGNED';
+                const rDriver = r[18] || 'UNASSIGNED';
                 if(rDriver === driverName) {
-                    r[44] = 'PAID';
+                    r[43] = 'PAID';
                 }
             });
             localStorage.setItem('logisticsTableData', JSON.stringify(rows));
@@ -1466,9 +1664,9 @@
             if(!saved) return;
             const rows = JSON.parse(saved);
             rows.forEach(r => {
-                const rDriver = r[19] || 'UNASSIGNED';
+                const rDriver = r[18] || 'UNASSIGNED';
                 if(rDriver === driverName) {
-                    r[44] = 'PENDING';
+                    r[43] = 'PENDING';
                 }
             });
             localStorage.setItem('logisticsTableData', JSON.stringify(rows));
@@ -1521,10 +1719,10 @@
                         const tr = document.createElement('tr');
                         const rDate = r[1];
                         const rId = r[0];
-                        const rCompany = r[18];
-                        const rAmount = parseFloat(r[24]) || 0;
-                        const rComi = parseFloat(r[29]) || 0;
-                        const rStatus = r[44] || 'PENDING';
+                        const rCompany = r[17];
+                        const rAmount = parseFloat(r[23]) || 0;
+                        const rComi = parseFloat(r[28]) || 0;
+                        const rStatus = r[43] || 'PENDING';
 
                         const cells = [rDate, rId, driverName, rCompany, `$${rAmount.toLocaleString()}`, `$${rComi.toLocaleString()}`, rStatus];
                         cells.forEach((text, i) => {
@@ -1958,13 +2156,13 @@
                 document.getElementById('u-r-rel').value = trip[4] || '';
                 document.getElementById('u-r-order').value = trip[5] || '';
                 document.getElementById('u-r-customer').value = trip[11] || '';
-                document.getElementById('u-r-phone').value = trip[25] || '';
+                document.getElementById('u-r-phone').value = trip[24] || '';
                 document.getElementById('u-r-place').value = trip[8] || '';
                 
                 // Fees
-                document.getElementById('u-r-yard').value = trip[15] || 0;
-                document.getElementById('u-r-storage').value = trip[36] || 0;
-                document.getElementById('u-r-sales').value = trip[22] || 0;
+                document.getElementById('u-r-yard').value = trip[14] || 0;
+                document.getElementById('u-r-storage').value = trip[35] || 0;
+                document.getElementById('u-r-sales').value = trip[21] || 0;
                 
                 // Conditions (simplified heuristic)
                 const note = (trip[32] || '').toUpperCase();
@@ -2360,6 +2558,14 @@
             // Run initial load
             updateFleetSelectors();
 
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const activeSection = sessionStorage.getItem('activeSection') || 'hero';
+            showView(activeSection);
+            
+            // Ensure ID is generated for initial new trip
+            if (window.initNewTripId) window.initNewTripId();
         });
 
         window.addEventListener('scroll', () => {

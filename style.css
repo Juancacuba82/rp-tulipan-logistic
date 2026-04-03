@@ -458,7 +458,7 @@ main {
 
 /* Left Panel: Form (Fixed width for better side-by-side) */
 .entry-sidebar.primary-entry {
-    flex: 0 0 650px;
+    flex: 0 0 520px;
     background: white;
     border-right: 1px solid #d1d5db;
     display: flex;
@@ -470,10 +470,10 @@ main {
 /* Right Panel: Area (Flexible) */
 .table-area {
     flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: block; /* Change from flex to block to allow natural content scroll */
     padding: 20px;
-    overflow: auto;
+    overflow-y: auto;
+    height: 100%; /* Ensure it fills parent height */
 }
 
 .table-toolbar {
@@ -487,10 +487,9 @@ main {
 }
 
 .table-scroll-container {
-    flex: 1;
-    overflow: auto;
-    border-radius: 8px;
+    /* Container no longer scrolls internally */
     background: white;
+    border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.08);
 }
 
@@ -499,7 +498,7 @@ main {
     min-width: 100%;
     border-collapse: collapse;
     font-family: 'Roboto Condensed', sans-serif;
-    font-size: 11px; /* High density */
+    font-size: 0.8rem; /* Increased for better readability */
 }
 
 .header-row th {
@@ -511,14 +510,15 @@ main {
     border: 1px solid rgba(255, 255, 255, 0.1);
     font-weight: 700;
     position: sticky;
-    top: 0;
+    top: -20px; /* Offset because of parent padding-top 20px */
     z-index: 10;
 }
 
 #table-body td {
     padding: 6px 8px;
     border: 1px solid #dee2e6;
-    color: #444;
+    color: #111827;
+    font-weight: 500; /* Slightly bolder for clarity */
     white-space: nowrap;
 }
 
@@ -588,11 +588,11 @@ main {
 
 .form-group label {
     flex: 0 0 150px; /* Fully visible labels now */
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #1e293b;
     text-transform: uppercase;
-    text-align: right;
+    text-align: left;
 }
 
 .form-group input, .form-group select {
@@ -1300,4 +1300,94 @@ main {
 @media (max-width: 768px) {
     .report-header { flex-direction: column; align-items: flex-start; gap: 20px; }
     .report-details-grid { grid-template-columns: 1fr; }
+}
+
+/* ADVANCED FILTER PANEL */
+.advanced-filter-panel {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Prevents overflow in grid items */
+}
+
+.filter-item label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #1e293b;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    letter-spacing: 0.025em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.filter-item input, .filter-item select {
+    width: 100%;
+    max-width: 100%; /* Important to prevent expansion by long options */
+    height: 32px;
+    padding: 0 8px;
+    font-size: 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background-color: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-item input:focus, .filter-item select:focus {
+    outline: none;
+    border-color: var(--navy-blue);
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
+}
+
+.filter-actions {
+    margin-top: 15px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-reset-filters {
+    background: white;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 6px 15px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-reset-filters:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+/* Mobile responsive filters */
+@media (max-width: 1024px) {
+    .filter-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .filter-grid { grid-template-columns: repeat(2, 1fr); }
+    .filter-panel-toggle { display: block; margin-bottom: 15px; }
+}
+
+@media (max-width: 480px) {
+    .filter-grid { grid-template-columns: 1fr; }
 }
