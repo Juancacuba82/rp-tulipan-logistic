@@ -487,18 +487,20 @@ main {
 }
 
 .table-scroll-container {
-    /* Container no longer scrolls internally */
+    width: 100%;
+    overflow-x: auto;
     background: white;
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    -webkit-overflow-scrolling: touch;
 }
 
 #logistics-table {
-    width: max-content;
-    min-width: 100%;
+    width: 100%;
+    min-width: 3200px; /* Stronger width for 31 columns to ensure no wrapping */
     border-collapse: collapse;
-    font-family: 'Roboto Condensed', sans-serif;
-    font-size: 0.8rem; /* Increased for better readability */
+    font-family: var(--font-main);
+    font-size: 0.72rem;
 }
 
 .header-row th {
@@ -568,6 +570,9 @@ main {
     font-weight: 700;
     cursor: pointer;
     font-size: 0.85rem;
+    font-family: var(--font-main);
+    text-transform: uppercase;
+    letter-spacing: 1px;
     transition: background 0.2s;
 }
 
@@ -587,12 +592,41 @@ main {
 }
 
 .form-group label {
-    flex: 0 0 150px; /* Fully visible labels now */
+    flex: 0 0 160px; /* Adjusted base for button-labels */
     font-size: 0.82rem;
     font-weight: 800;
     color: #1e293b;
-    text-transform: uppercase;
     text-align: left;
+}
+
+/* User Requested: Optimized Button-style labels */
+.sidebar-label-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #b91c1c !important; /* Corporate Red */
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    padding: 3px 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(185, 28, 28, 0.2);
+    font-family: var(--font-main) !important;
+    font-size: 0.75rem !important; 
+    letter-spacing: 0.8px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+    pointer-events: none;
+    text-transform: uppercase !important;
+    width: 145px !important; /* Fixed width to ensure right-column alignment */
+    height: 26px; /* Compact height */
+    flex: 0 0 145px !important; /* Prevents misalignment */
+    margin-right: 12px;
+    border: none;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .form-group input, .form-group select {
@@ -1471,4 +1505,39 @@ main {
 
 @media screen and (max-width: 1024px) {
     .weekly-calculator-container { grid-template-columns: 1fr; gap: 20px; }
+}
+
+/* RELEASES DATA GRID STYLES */
+#releases-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+#releases-table th, 
+#releases-table td {
+    border: 1px solid #dddddd;
+    padding: 10px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 0.8rem;
+}
+
+#releases-table thead th {
+    background-color: var(--navy-blue);
+    color: white;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-color: #475569; /* Slightly darker to maintain symmetry */
+}
+
+#releases-table tbody tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+#releases-table tbody tr:hover {
+    background-color: #f1f5f9;
 }

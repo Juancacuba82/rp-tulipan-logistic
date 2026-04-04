@@ -1,7 +1,7 @@
 -- SQL Schema for RP TULIPAN LOGISTIC
 -- Execute this in your Supabase SQL Editor
 
--- 1. TRIPS TABLE
+-- 1. TRIPS TABLE (v3 Refined Schema)
 CREATE TABLE IF NOT EXISTS trips (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     trip_id TEXT UNIQUE NOT NULL,
@@ -16,20 +16,19 @@ CREATE TABLE IF NOT EXISTS trips (
     doors_direction TEXT,
     miles NUMERIC,
     customer TEXT,
-    payment_date DATE,
     yard_services TEXT,
     yard_rate NUMERIC,
     date_out DATE,
     day_rate NUMERIC,
     company TEXT,
     driver TEXT,
-    rate NUMERIC,
-    pay_type TEXT,
+    trans_pay NUMERIC,      -- Renamed from rate
+    type_payment TEXT,     -- Renamed from pay_type
     sales_price NUMERIC,
     collect_payment TEXT,
     amount NUMERIC,
-    phone TEXT,
-    paid_driver_amount NUMERIC,
+    phone_no TEXT,         -- Renamed from phone
+    paid_driver NUMERIC,    -- Renamed from paid_driver_amount
     status TEXT,
     commission_percent TEXT,
     commission_driver NUMERIC,
@@ -37,7 +36,7 @@ CREATE TABLE IF NOT EXISTS trips (
     invoice TEXT,
     note TEXT,
     email TEXT,
-    mode TEXT,
+    service_mode TEXT,     -- Renamed from mode
     monthly_rate NUMERIC,
     start_date_rent DATE,
     next_due DATE,
@@ -46,6 +45,7 @@ CREATE TABLE IF NOT EXISTS trips (
     st_rate TEXT,
     st_sales TEXT,
     st_amount TEXT,
+    paid BOOLEAN DEFAULT false, -- New: Checkbox state (CASH/PAID)
     pending_balance NUMERIC,
     payout_status TEXT,
     truck_unit TEXT,
@@ -53,13 +53,24 @@ CREATE TABLE IF NOT EXISTS trips (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. RELEASES TABLE
+-- MIGRATION: Add new columns if they don't exist
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS service_mode TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS trans_pay NUMERIC;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS type_payment TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS phone_no TEXT;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS paid_driver NUMERIC;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT false;
+
+-- 2. RELEASES TABLE (MODIFIED for Granular Inventory)
+DROP TABLE IF EXISTS releases;
 CREATE TABLE IF NOT EXISTS releases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    release_no TEXT UNIQUE NOT NULL,
+    release_no TEXT NOT NULL, -- No longer unique to allow (Rel + Type + Cond)
     date DATE,
     type TEXT,
+    condition TEXT,
     depot TEXT,
+    depot_address TEXT,
     city TEXT,
     qty_20 INTEGER DEFAULT 0,
     price_20 NUMERIC DEFAULT 0,
@@ -128,3 +139,36 @@ CREATE POLICY "Allow public select" ON fleet FOR SELECT USING (true);
 CREATE POLICY "Allow public insert" ON fleet FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update" ON fleet FOR UPDATE USING (true);
 CREATE POLICY "Allow public delete" ON fleet FOR DELETE USING (true);
+
+-- 5. SETTLEMENTS TABLE
+CREATE TABLE IF NOT EXISTS settlements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver TEXT,
+    initial_date DATE,
+    final_date DATE,
+    cash_balance NUMERIC,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public select" ON settlements FOR SELECT USING (true);
+CREATE POLICY "Allow public insert" ON settlements FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update" ON settlements FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete" ON settlements FOR DELETE USING (true);
+
+-- Corrected Settlement History Table
+DROP TABLE IF EXISTS settlements;
+CREATE TABLE IF NOT EXISTS settlement_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver_name TEXT,
+    start_date DATE,
+    end_date DATE,
+    cash_balance NUMERIC,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE settlement_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public select settlement_history" ON settlement_history FOR SELECT USING (true);
+CREATE POLICY "Allow public insert settlement_history" ON settlement_history FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update settlement_history" ON settlement_history FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete settlement_history" ON settlement_history FOR DELETE USING (true);

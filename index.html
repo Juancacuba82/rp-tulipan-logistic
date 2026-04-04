@@ -114,48 +114,57 @@
                     </div>
                     <div class="sidebar-form">
                         <div class="form-group">
-                            <label>Service Mode</label>
+                            <label class="sidebar-label-btn">Service Mode</label>
                             <select id="in-mode" onchange="toggleModeFields()">
                                 <option value="SALE">SALE (Venta)</option>
                                 <option value="RENT">RENT (Alquiler)</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>ID</label><input type="text" id="in-id" placeholder="TRIP-0000"
+                        <div class="form-group"><label class="sidebar-label-btn">ID</label><input type="text" id="in-id" placeholder="TRIP-0000"
                                 readonly style="background: #f1f5f9; cursor: not-allowed;"></div>
-                        <div class="form-group"><label>DATE</label><input type="date" id="in-date"></div>
+                        <div class="form-group"><label class="sidebar-label-btn">Date</label><input type="date" id="in-date"></div>
                         <div class="form-group">
-                            <label>SIZE</label>
+                            <label class="sidebar-label-btn">Size</label>
                             <select id="in-size" required>
-                                <option value="" disabled selected>Select Size</option>
                                 <option value="40' HC">40' HC</option>
                                 <option value="40' STD">40' STD</option>
-                                <option value="20' STD">20' STD</option>
-                                <option value="45' HC">45' HC</option>
-                                <option value="40' OS">40' OS</option>
                                 <option value="40' DD">40' DD</option>
+                                <option value="40' OS">40' OS</option>
+                                <option value="45' HC">45' HC</option>
+                                <option value="20' STD">20' STD</option>
+                                <option value="20' HC">20' HC</option>
                                 <option value="20' DD">20' DD</option>
                                 <option value="20' OS">20' OS</option>
-                                <option value="20' HC">20' HC</option>
-                                <option value="2X20' STD">2X20' STD</option>
-                                <option value="2X20' DD">2X20' DD</option>
-                                <option value="HOST SHOT">HOST SHOT</option>
-                                <option value="20' FT">20' FT</option>
-                                <option value="2X20' FT">2X20' FT</option>
-                                <option value="40' FT">40' FT</option>
-                                <option value="45' FT">45' FT</option>
-                                <option value="TRAILER RENT">TRAILER RENT</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>N. CONT</label><input type="text" id="in-ncont"
+                        <div class="form-group"><label class="sidebar-label-btn">N. Cont</label><input type="text" id="in-ncont"
                                 placeholder="N. Cont"></div>
-                        <div class="form-group"><label>RELEASE #</label>
+                        <div class="form-group"><label class="sidebar-label-btn">Release #</label>
                             <input type="text" id="in-release" placeholder="Release" list="release-list">
                             <datalist id="release-list"></datalist>
                         </div>
-                        <div class="form-group"><label>ORDER - BOL CONT #</label><input type="text" id="in-order"
+                        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                            <div>
+                                <label class="sidebar-label-btn">TYPE</label>
+                                <select id="in-rel-type" required>
+                                    <option value="" disabled selected>Select</option>
+                                    <option value="DRY">DRY (Calor 🔥)</option>
+                                    <option value="REEFER">REEFER (Frío ❄️)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="sidebar-label-btn">CONDITION</label>
+                                <select id="in-rel-condition" required>
+                                    <option value="" disabled selected>Select</option>
+                                    <option value="NEW">NEW (Sparkles ✨)</option>
+                                    <option value="USED">USED (Tools 🔧)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group"><label class="sidebar-label-btn">Order - Bol Cont #</label><input type="text" id="in-order"
                                 placeholder="ORD-XXXX"></div>
                         <div class="form-group">
-                            <label>CITY</label>
+                            <label class="sidebar-label-btn">City</label>
                             <select id="in-city" required>
                                 <option value="" disabled selected>Select City</option>
                                 <option value="MIAMI">MIAMI</option>
@@ -173,7 +182,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>PICK UP ADDRESS</label>
+                            <label class="sidebar-label-btn">Pick Up Address</label>
                             <input type="text" id="in-pickup" placeholder="Pick Up Address" list="address-list">
                             <datalist id="address-list">
                                 <option value="10110 NW 95 AVE">
@@ -223,10 +232,10 @@
                                 <option value="TRUCK YARD">
                             </datalist>
                         </div>
-                        <div class="form-group"><label>DELIVERY PLACE</label><input type="text" id="in-delivery"
+                        <div class="form-group"><label class="sidebar-label-btn">Delivery Place</label><input type="text" id="in-delivery"
                                 placeholder="Delivery"></div>
                         <div class="form-group">
-                            <label>DOORS DIRECTION</label>
+                            <label class="sidebar-label-btn">Doors Direction</label>
                             <select id="in-doors" required>
                                 <option value="" disabled selected>Select Orientation</option>
                                 <option value="FACING CAB">FACING CAB</option>
@@ -235,10 +244,10 @@
                                 <option value="FACING PASSENGER">FACING PASSENGER</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>MILES</label><input type="number" id="in-miles" placeholder="0">
+                        <div class="form-group"><label class="sidebar-label-btn">Miles</label><input type="number" id="in-miles" placeholder="0">
                         </div>
                         <div class="form-group">
-                            <label>CUSTOMER</label>
+                            <label class="sidebar-label-btn">Customer</label>
                             <select id="in-customer" required>
                                 <option value="" disabled selected>Select Customer</option>
                                 <option value="ANTONIO RENT">ANTONIO RENT</option>
@@ -251,39 +260,39 @@
                                 <option value="ZUM SHIPPING">ZUM SHIPPING</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>PAYMENT DATE</label><input type="date" id="in-paydate"></div>
+                        <!-- Removed PAYMENT DATE as per user request -->
                         <div class="form-group">
-                            <label>YARD SERVICES</label>
-                            <select id="in-yard" required>
+                            <label class="sidebar-label-btn">Yard Services</label>
+                            <select id="in-yard" onchange="toggleYardRate()" required>
                                 <option value="" disabled selected>Yard Services?</option>
                                 <option value="YES">YES</option>
                                 <option value="NO">NO</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>YARD RATE</label>
+                        <div class="form-group" id="yard-rate-group"><label class="sidebar-label-btn">Yard Rate</label>
                             <input type="number" id="in-yardrate" style="flex: 0.6;">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
                                     id="in-yardpaid"></label>
                         </div>
-                        <div class="form-group"><label>DATE OUT</label><input type="date" id="in-dateout"></div>
-                        <div class="form-group"><label>DAY RATE</label><input type="number" id="in-dayrate"></div>
+                        <div class="form-group"><label class="sidebar-label-btn">Date Out</label><input type="date" id="in-dateout"></div>
+                        <!-- Removed DAY RATE as per user request -->
 
                         <!-- RENTAL SPECIFIC FIELDS -->
                         <div id="rental-fields"
                             style="display: none; background: #fff7ed; padding: 10px; border-radius: 8px; border: 1px solid #ffedd5; margin-bottom: 20px;">
                             <h4 style="font-size: 0.8rem; margin-bottom: 10px; color: #9a3412;">RENTAL DETAILS</h4>
-                            <div class="form-group"><label>Monthly Rate</label>
+                            <div class="form-group"><label class="sidebar-label-btn">Monthly Rate</label>
                                 <input type="number" id="in-mrate" style="flex: 0.6;">
                                 <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
                                         id="in-rentpaid"></label>
                             </div>
-                            <div class="form-group"><label>Start Date</label><input type="date" id="in-sdaterent"
+                            <div class="form-group"><label class="sidebar-label-btn">Start Date</label><input type="date" id="in-sdaterent"
                                     onchange="calcNextDue()"></div>
-                            <div class="form-group"><label>Next Due Date</label><input type="date" id="in-nextdue"
+                            <div class="form-group"><label class="sidebar-label-btn">Next Due Date</label><input type="date" id="in-nextdue"
                                     readonly style="background: #fdf2f8;"></div>
                         </div>
                         <div class="form-group">
-                            <label>COMPANY</label>
+                            <label class="sidebar-label-btn">Company</label>
                             <select id="in-company" onchange="updateDriverCommission()" required>
                                 <option value="" disabled selected>Select Company</option>
                                 <option value="RP TULIPAN">RP TULIPAN</option>
@@ -293,68 +302,38 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>DRIVER</label>
+                            <label class="sidebar-label-btn">Driver</label>
                             <select id="in-driver" required>
                                 <option value="" disabled selected>Select Driver</option>
-                                <option value="A & A TOWING">A & A TOWING</option>
-                                <option value="ANTHONY">ANTHONY</option>
-                                <option value="ANTONIO R">ANTONIO R</option>
-                                <option value="AYG TRANSPORT">AYG TRANSPORT</option>
-                                <option value="BRUNO">BRUNO</option>
-                                <option value="ELIER">ELIER</option>
-                                <option value="FLCHR">FLCHR</option>
-                                <option value="JAYDEN TRANSPORTATION">JAYDEN TRANSPORTATION</option>
-                                <option value="JOHN CARLOS">JOHN CARLOS</option>
-                                <option value="JORGE ANDY">JORGE ANDY</option>
-                                <option value="JOSE">JOSE</option>
-                                <option value="JR SUPER CRANE">JR SUPER CRANE</option>
-                                <option value="JRSC-ROBERT">JRSC-ROBERT</option>
-                                <option value="JUAN CARLOS">JUAN CARLOS</option>
-                                <option value="JUSTIN F.H">JUSTIN F.H</option>
-                                <option value="JY3 FREIGHT LLC">JY3 FREIGHT LLC</option>
-                                <option value="KELLY K">KELLY K</option>
-                                <option value="LUIS D">LUIS D</option>
-                                <option value="LUIS DELIVERY">LUIS DELIVERY</option>
-                                <option value="LUIS G">LUIS G</option>
-                                <option value="LUIS SOSA">LUIS SOSA</option>
-                                <option value="MARIO">MARIO</option>
-                                <option value="MIGUEL LL">MIGUEL LL</option>
-                                <option value="MILAY">MILAY</option>
-                                <option value="MOBILE UNITS TRANSPORT">MOBILE UNITS TRANSPORT</option>
-                                <option value="PERFECT TOUCH TRANSPORT">PERFECT TOUCH TRANSPORT</option>
-                                <option value="QUALITY CONT">QUALITY CONT</option>
-                                <option value="RAMONCITO">RAMONCITO</option>
-                                <option value="REYNA">REYNA</option>
-                                <option value="ROBERT">ROBERT</option>
-                                <option value="ROLY">ROLY</option>
-                                <option value="RONALD">RONALD</option>
-                                <option value="SIDE LOADER">SIDE LOADER</option>
-                                <option value="TRAVIS J">TRAVIS J</option>
-                                <option value="WS KINGDOM LLC">WS KINGDOM LLC</option>
-                                <option value="YADIER">YADIER</option>
-                                <option value="YANDY JAX">YANDY JAX</option>
+                                <option value="LUIS GARRIDO">Luis Garrido</option>
+                                <option value="ROBERT CORTEZ">Robert Cortez</option>
+                                <option value="MILAY MIRANDA">Milay Miranda</option>
+                                <option value="JORGE A RAMIREZ">Jorge A Ramirez</option>
+                                <option value="JOSE">Jose</option>
+                                <option value="ANTONIO R CUBA">Antonio R Cuba</option>
+                                <option value="TRAVIS JOSEY">Travis Josey</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>RATE</label>
+                        <div class="form-group"><label class="sidebar-label-btn">Trans. Pay</label>
                             <input type="number" id="in-rate" style="flex: 0.6;" oninput="updateDriverCommission()">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
                                     id="in-ratepaid"></label>
                         </div>
                         <div class="form-group">
-                            <label>TYPE OF PAYMENT</label>
+                            <label class="sidebar-label-btn">Type Of Payment</label>
                             <select id="in-paytype" required>
                                 <option value="" disabled selected>Select Payment Type</option>
                                 <option value="CASH">CASH</option>
                                 <option value="ACOUNT BANK">ACOUNT BANK</option>
                             </select>
                         </div>
-                        <div class="form-group"><label>SALES PRICE</label>
+                        <div class="form-group"><label class="sidebar-label-btn">Sales Price</label>
                             <input type="number" id="in-sales" style="flex: 0.6;">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
                                     id="in-salespaid"></label>
                         </div>
                         <div class="form-group">
-                            <label>COLLECT PAYMENT</label>
+                            <label class="sidebar-label-btn">Collect Payment</label>
                             <select id="in-collect" required>
                                 <option value="" disabled selected>Collect?</option>
                                 <option value="YES">YES</option>
@@ -362,54 +341,22 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>AMOUNT</label>
+                            <label class="sidebar-label-btn">Amount</label>
                             <input type="number" id="in-amount" style="flex: 0.6;" oninput="updateDriverCommission()">
-                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">CASH <input type="checkbox"
+                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
                                     id="in-amountpaid"></label>
                         </div>
-                        <div class="form-group"><label>PHONE #</label><input type="text" id="in-phone"></div>
-                        <div class="form-group"><label>PAID DRIVER</label><input type="number" id="in-paiddriver"
+                        <div class="form-group"><label class="sidebar-label-btn">Phone #</label><input type="text" id="in-phone"></div>
+                        <div class="form-group"><label class="sidebar-label-btn">Paid Driver</label><input type="number" id="in-paiddriver"
                                 oninput="updateDriverCommission()"></div>
-                        <div class="form-group">
-                            <label>STATUS</label>
-                            <select id="in-status" required>
-                                <option value="" disabled selected>Select Status</option>
-                                <option value="DONE">DONE</option>
-                                <option value="PENDING">PENDING</option>
-                                <option value="CANCELED">CANCELED</option>
-                                <option value="REFUSED">REFUSED</option>
-                                <option value="ON HOLD">ON HOLD</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>COMISSION</label>
-                            <select id="in-comission" onchange="updateDriverCommission()" required>
-                                <option value="30%">30%</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>COMISION DRIVER</label>
-                            <input type="text" id="in-comidriver" readonly
-                                style="background: #f1f5f9; font-weight: bold; color: #d32f2f;">
-                        </div>
-                        <div class="form-group">
-                            <label style="color: #b91c1c; font-weight: 900;">DRIVER Payout Status</label>
-                            <select id="in-driverpaid">
-                                <option value="PENDING">PENDING</option>
-                                <option value="PAID">PAID</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>INCOME DIS FEE</label><input type="number" id="in-income"></div>
-                        <div class="form-group">
-                            <label>INVOICE</label>
-                            <select id="in-invoice" required>
-                                <option value="" disabled selected>Invoice?</option>
-                                <option value="YES">YES</option>
-                                <option value="NO">NO</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>NOTE</label><input type="text" id="in-note"></div>
-                        <div class="form-group"><label>EMAIL</label><input type="email" id="in-email"
+                        <!-- Removed STATUS as per user request -->
+                        <!-- Removed COMISSION as per user request -->
+                        <!-- Removed COMISION DRIVER as per user request -->
+                        <!-- Removed DRIVER Payout Status as per user request -->
+                        <div class="form-group"><label class="sidebar-label-btn">Income Dis Fee</label><input type="number" id="in-income"></div>
+                        <!-- Removed INVOICE as per user request -->
+                        <div class="form-group"><label class="sidebar-label-btn">Note</label><input type="text" id="in-note"></div>
+                        <div class="form-group"><label class="sidebar-label-btn">Email</label><input type="email" id="in-email"
                                 placeholder="customer@email.com"></div>
                         <input type="hidden" id="in-mode" value="SALE"> <!-- Fallback if JS missing -->
 
@@ -450,7 +397,14 @@
                             <div class="filter-item">
                                 <label>Driver</label>
                                 <select id="f-driver" onchange="applyAdvancedFilters()">
-                                    <option value="">All Drivers</option>
+                                    <option value="">Select Driver</option>
+                                    <option value="LUIS GARRIDO">Luis Garrido</option>
+                                    <option value="ROBERT CORTEZ">Robert Cortez</option>
+                                    <option value="MILAY MIRANDA">Milay Miranda</option>
+                                    <option value="JORGE A RAMIREZ">Jorge A Ramirez</option>
+                                    <option value="JOSE">Jose</option>
+                                    <option value="ANTONIO R CUBA">Antonio R Cuba</option>
+                                    <option value="TRAVIS JOSEY">Travis Josey</option>
                                 </select>
                             </div>
 
@@ -460,12 +414,7 @@
                                     <option value="">All Companies</option>
                                 </select>
                             </div>
-                            <div class="filter-item">
-                                <label>Status</label>
-                                <select id="f-status" onchange="applyAdvancedFilters()">
-                                    <option value="">All Statuses</option>
-                                </select>
-                            </div>
+                            <!-- Removed STATUS filter as per user request -->
                             <div class="filter-item">
                                 <label>Collect Payment</label>
                                 <select id="f-collect" onchange="applyAdvancedFilters()">
@@ -515,39 +464,28 @@
                         <table id="logistics-table">
                             <thead>
                                 <tr class="header-row">
+                                    <th>Service Mode</th>
                                     <th>ID</th>
-                                    <th>DATE</th>
-                                    <th>SIZE</th>
-                                    <th>N. CONT</th>
-                                    <th>RELEASE #</th>
-                                    <th>ORDER - BOL CONT #</th>
-                                    <th>CITY</th>
-                                    <th>PICK UP ADDRESS</th>
-                                    <th>DELIVERY PLACE</th>
-                                    <th>DOORS DIRECTION</th>
-                                    <th>MILES</th>
-                                    <th>CUSTOMER</th>
-                                    <th>PAYMENT DATE</th>
-                                    <th>YARD SERVICES</th>
-                                    <th>YARD SERVICES RATE</th>
-                                    <th>DATE OUT</th>
-                                    <th>DAY RATE</th>
-                                    <th>COMPANY</th>
-                                    <th>DRIVER</th>
-                                    <th>RATE</th>
-                                    <th>TYPE OF PAYMENT</th>
-                                    <th>SALES PRICE</th>
-                                    <th>COLLECT PAYMENT</th>
-                                    <th>AMOUNT</th>
-                                    <th>PHONE #</th>
-                                    <th>PAID DRIVER</th>
-                                    <th>STATUS</th>
-                                    <th>COMISSION</th>
-                                    <th>COMISION DRIVER</th>
-                                    <th>INCOME DIS FEE</th>
-                                    <th>INVOICE</th>
-                                    <th>NOTE</th>
-                                    <th>EMAIL</th>
+                                    <th>Date</th>
+                                    <th>Size</th>
+                                    <th>N. Cont</th>
+                                    <th>Release #</th>
+                                    <th>Order - Bol Cont #</th>
+                                    <th>City</th>
+                                    <th>Pick Up Address</th>
+                                    <th>Delivery Place</th>
+                                    <th>Miles</th>
+                                    <th>Driver</th>
+                                    <th>Trans. Pay</th>
+                                    <th>Type of Payment</th>
+                                    <th>Sales Price</th>
+                                    <th>Collect Payment</th>
+                                    <th>Amount (PAID)</th>
+                                    <th>Phone #</th>
+                                    <th>Paid Driver</th>
+                                    <th>Income Dis Fee</th>
+                                    <th>Note</th>
+                                    <th>Email</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body">
@@ -684,48 +622,81 @@
                             <label>RELEASE / BK#</label>
                             <input type="text" id="rel-no-releases" placeholder="Rel # or Booking #">
                         </div>
-                        <div class="form-group">
-                            <label>TYPE</label>
-                            <select id="rel-type">
-                                <option value="DRY">DRY</option>
-                                <option value="REEFER">REEFER</option>
-                            </select>
-                        </div>
                         <div class="form-group"
-                            style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-                            <label
-                                style="color: var(--corporate-red); margin-bottom: 12px; font-weight: 800; font-size: 0.7rem; display: block; letter-spacing: 0.5px;">INVENTORY
-                                & PRICING</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                                <div
-                                    style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                    <label
-                                        style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">20'
-                                        FT</label>
-                                    <input type="number" id="rel-qty-20" placeholder="Qty" value="0" min="0"
-                                        style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
-                                    <input type="number" id="rel-price-20" placeholder="Price $" value="0"
-                                        style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
+                            style="background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                            <label style="color: var(--corporate-red); margin-bottom: 12px; font-weight: 900; font-size: 0.75rem; display: block; letter-spacing: 0.8px; text-transform: uppercase;">
+                                Inventory & Hybrid Pricing
+                            </label>
+                            
+                            <!-- BATCH ENTRY CONTAINER -->
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- 20' FT BLOCK -->
+                                <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span style="font-weight: 900; font-size: 0.8rem; color: #1e293b;">20' FT</span>
+                                        <div style="display: flex; gap: 8px;">
+                                            <input type="number" id="rel-qty-20" placeholder="Qty" value="0" min="0" style="width: 50px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px;">
+                                            <input type="number" id="rel-price-20" placeholder="$ Price" value="0" style="width: 70px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px; color: #16a34a; font-weight: bold;">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
+                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">TYPE</label>
+                                            <input type="radio" name="rel-20-type" id="t20-d" value="DRY" checked> <label for="t20-d">🔥 DRY</label><br>
+                                            <input type="radio" name="rel-20-type" id="t20-r" value="REEFER"> <label for="t20-r">❄️ REF</label>
+                                        </div>
+                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
+                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">COND</label>
+                                            <input type="radio" name="rel-20-cond" id="c20-n" value="NEW" checked> <label for="c20-n">✨ NEW</label><br>
+                                            <input type="radio" name="rel-20-cond" id="c20-u" value="USED"> <label for="c20-u">🔧 USD</label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div
-                                    style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                    <label
-                                        style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">40'
-                                        FT</label>
-                                    <input type="number" id="rel-qty-40" placeholder="Qty" value="0" min="0"
-                                        style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
-                                    <input type="number" id="rel-price-40" placeholder="Price $" value="0"
-                                        style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
+
+                                <!-- 40' FT BLOCK -->
+                                <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span style="font-weight: 900; font-size: 0.8rem; color: #1e293b;">40' FT</span>
+                                        <div style="display: flex; gap: 8px;">
+                                            <input type="number" id="rel-qty-40" placeholder="Qty" value="0" min="0" style="width: 50px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px;">
+                                            <input type="number" id="rel-price-40" placeholder="$ Price" value="0" style="width: 70px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px; color: #16a34a; font-weight: bold;">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
+                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">TYPE</label>
+                                            <input type="radio" name="rel-40-type" id="t40-d" value="DRY" checked> <label for="t40-d">🔥 DRY</label><br>
+                                            <input type="radio" name="rel-40-type" id="t40-r" value="REEFER"> <label for="t40-r">❄️ REF</label>
+                                        </div>
+                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
+                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">COND</label>
+                                            <input type="radio" name="rel-40-cond" id="c40-n" value="NEW" checked> <label for="c40-n">✨ NEW</label><br>
+                                            <input type="radio" name="rel-40-cond" id="c40-u" value="USED"> <label for="c40-u">🔧 USD</label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div
-                                    style="background: white; padding: 6px; border-radius: 6px; border: 1px solid #f1f5f9; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                    <label
-                                        style="font-size: 0.6rem; font-weight: 900; color: #475569; display: block; margin-bottom: 2px;">45'
-                                        FT</label>
-                                    <input type="number" id="rel-qty-45" placeholder="Qty" value="0" min="0"
-                                        style="width: 100%; border:0; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; margin-bottom: 4px;">
-                                    <input type="number" id="rel-price-45" placeholder="Price $" value="0"
-                                        style="width: 100%; border:0; font-size: 0.7rem; color: #16a34a; font-weight: bold;">
+
+                                <!-- 45' FT BLOCK -->
+                                <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span style="font-weight: 900; font-size: 0.8rem; color: #1e293b;">45' FT</span>
+                                        <div style="display: flex; gap: 8px;">
+                                            <input type="number" id="rel-qty-45" placeholder="Qty" value="0" min="0" style="width: 50px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px;">
+                                            <input type="number" id="rel-price-45" placeholder="$ Price" value="0" style="width: 70px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px; color: #16a34a; font-weight: bold;">
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
+                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">TYPE</label>
+                                            <input type="radio" name="rel-45-type" id="t45-d" value="DRY" checked> <label for="t45-d">🔥 DRY</label><br>
+                                            <input type="radio" name="rel-45-type" id="t45-r" value="REEFER"> <label for="t45-r">❄️ REF</label>
+                                        </div>
+                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
+                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">COND</label>
+                                            <input type="radio" name="rel-45-cond" id="c45-n" value="NEW" checked> <label for="c45-n">✨ NEW</label><br>
+                                            <input type="radio" name="rel-45-cond" id="c45-u" value="USED"> <label for="c45-u">🔧 USD</label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -767,18 +738,16 @@
                                 <tr class="header-row">
                                     <th>RELEASE #</th>
                                     <th>DATE</th>
-                                    <th>TYPE</th>
+                                    <th style="width: 60px;">TYPE</th>
+                                    <th style="width: 60px;">COND</th>
+                                    <th>CITY</th>
                                     <th>DEPOT</th>
                                     <th>DEPOT ADDRESS</th>
-                                    <th>CITY</th>
-                                    <th>20' QTY</th>
-                                    <th>20' $</th>
-                                    <th>40' QTY</th>
-                                    <th>40' $</th>
-                                    <th>45' QTY</th>
-                                    <th>45' $</th>
+                                    <th style="background: #fff7ed; color: #9a3412;">20' QTY</th>
+                                    <th style="background: #fff7ed; color: #9a3412;">40' QTY</th>
+                                    <th style="background: #fff7ed; color: #9a3412;">45' QTY</th>
                                     <th>SELLER</th>
-                                    <th>TOTAL STOCK</th>
+                                    <th style="background: #f0fdf4; color: #166534;">TOTAL Units</th>
                                 </tr>
                             </thead>
                             <tbody id="releases-body">
@@ -890,20 +859,81 @@
                                 <h2 style="font-size: 1.8rem; letter-spacing: 1px;">Drivers Settlement Panel</h2>
                                 <p style="color: #64748b; font-size: 0.9rem;">Financial control & weekly payroll</p>
                             </div>
-                            <button onclick="window.print()" class="btn-add-sidebar">Print Payout Report</button>
                         </div>
 
-                        <!-- Filter Panel -->
-                        <div
-                            style="background: #f1f5f9; padding: 15px; border-radius: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; border: 1px solid #e2e8f0;">
-                            <input type="text" id="filter-search" class="form-input" placeholder="Search Driver/Name..."
-                                oninput="renderDriverLog()">
-                            <input type="date" id="filter-from" class="form-input" onchange="renderDriverLog()">
-                            <input type="date" id="filter-to" class="form-input" onchange="renderDriverLog()">
-                            <button onclick="toggleSelectAllDrivers()" class="btn-add-sidebar"
-                                style="background: #1e293b; color: white;">SELECT ALL DISPLAYED</button>
-                            <button onclick="resetReportFilters()" class="btn-cancel" style="background: #cbd5e1;">Reset
-                                Filters</button>
+                        <!-- NEW: Dual-Block Filter Panel (Excel Style) -->
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                            <!-- Block 1: Report Data (Left) -->
+                            <div style="border-right: 1px solid #f1f5f9; padding-right: 20px;">
+                                <h4 style="margin-bottom: 15px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Report Data</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                                    <!-- Driver Group -->
+                                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                                        <label style="font-size: 0.7rem; font-weight: 800; color: #1e293b;">DRIVER</label>
+                                        <select id="filter-search" class="form-input" onchange="syncDriverNames(); renderDriverLog(); fetchHistory();" style="border: 1px solid #cbd5e1; height: 38px; border-radius: 6px; width: 100%;">
+                                            <option value="">Select Driver</option>
+                                            <option value="LUIS GARRIDO">Luis Garrido</option>
+                                            <option value="ROBERT CORTEZ">Robert Cortez</option>
+                                            <option value="MILAY MIRANDA">Milay Miranda</option>
+                                            <option value="JORGE A RAMIREZ">Jorge A Ramirez</option>
+                                            <option value="JOSE">Jose</option>
+                                            <option value="ANTONIO R CUBA">Antonio R Cuba</option>
+                                            <option value="TRAVIS JOSEY">Travis Josey</option>
+                                        </select>
+                                    </div>
+                                    <!-- Initial Date Group -->
+                                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                                        <label style="font-size: 0.7rem; font-weight: 800; color: #1e293b;">INITIAL DATE</label>
+                                        <input type="date" id="filter-from" class="form-input" onchange="renderDriverLog(); fetchHistory();" style="border: 1px solid #cbd5e1; height: 38px; border-radius: 6px; width: 100%;">
+                                    </div>
+                                    <!-- Final Date Group -->
+                                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                                        <label style="font-size: 0.7rem; font-weight: 800; color: #1e293b;">FINAL DATE</label>
+                                        <input type="date" id="filter-to" class="form-input" onchange="renderDriverLog(); fetchHistory();" style="border: 1px solid #cbd5e1; height: 38px; border-radius: 6px; width: 100%;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Block 2: Payment Status (Right) -->
+                            <div style="padding-left: 10px;">
+                                <h4 style="margin-bottom: 15px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Payment Status</h4>
+                                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.8rem;">
+                                    <!-- Status Pair -->
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <label style="font-weight: 700; color: #1e293b; min-width: 80px;">STATUS</label>
+                                        <select id="settlement-status" class="form-input" style="height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 4px; border: 1px solid #e2e8f0; flex: 1;" onchange="renderDriverLog(); fetchHistory();">
+                                            <option value="ALL">ALL STATUS</option>
+                                            <option value="PENDING">PENDING</option>
+                                            <option value="PAID">PAID</option>
+                                            <option value="VOID">VOID</option>
+                                        </select>
+                                    </div>
+                                    <!-- Type Pair -->
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <label style="font-weight: 700; color: #1e293b; min-width: 80px;">METHOD</label>
+                                        <select id="settlement-payment-type" class="form-input" style="height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 4px; border: 1px solid #e2e8f0; flex: 1;" onchange="fetchHistory()">
+                                            <option value="CASH">CASH</option>
+                                            <option value="ZELLE">ZELLE</option>
+                                            <option value="CHECK">CHECK</option>
+                                        </select>
+                                    </div>
+                                    <!-- Driver Sync Pair -->
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <label style="font-weight: 700; color: #1e293b; min-width: 80px;">DRIVER</label>
+                                        <div id="display-driver-sync" style="background: #f8fafc; padding: 6px 12px; border-radius: 4px; color: #b91c1c; font-weight: 900; text-transform: uppercase; flex: 1; text-align: center; font-size: 0.75rem; border: 1px solid #e2e8f0;">UNASSIGNED</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Toolbar (Modified: Reset Filters only here) -->
+                        <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; gap: 10px;">
+                                <button onclick="resetReportFilters()" class="btn-cancel" style="background: #cbd5e1; font-size: 0.8rem;">RESET FILTERS</button>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <button onclick="toggleSelectAllDrivers()" class="btn-add-sidebar" style="background: #1e293b; font-size: 0.8rem; height: 38px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">SELECT ALL DISPLAYED</button>
+                            </div>
                         </div>
                     </div>
 
@@ -911,17 +941,17 @@
                         <table class="drivers-report-table">
                             <thead>
                                 <tr>
-                                    <th>DATE</th>
-                                    <th>SIZE</th>
-                                    <th>N° CONT</th>
-                                    <th>ORDER #</th>
-                                    <th>CITY</th>
-                                    <th>PICK UP ADDRESS</th>
-                                    <th>DELIVERY PLACE</th>
-                                    <th>MILES</th>
-                                    <th>DRIVER</th>
-                                    <th>PAID DRIVER</th>
-                                    <th>CASH</th>
+                                    <th>Date</th>
+                                    <th>Size</th>
+                                    <th>N. Cont</th>
+                                    <th>Order - Bol Cont #</th>
+                                    <th>City</th>
+                                    <th>Pick Up Address</th>
+                                    <th>Delivery Place</th>
+                                    <th>Miles</th>
+                                    <th>Driver</th>
+                                    <th>Paid Driver</th>
+                                    <th>Cash</th>
                                 </tr>
                             </thead>
                             <tbody id="dl-body"></tbody>
@@ -944,25 +974,25 @@
                 <div class="calc-section">
                     <table class="settlement-calc-table">
                         <tr>
-                            <td class="calc-label">CASH COLLECTED</td>
+                            <td class="calc-label">Cash Collected</td>
                             <td class="calc-input-cell"><input type="number" id="calc-cash-coll" value="0" step="0.01"
                                     oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
                                     onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
                         </tr>
                         <tr>
-                            <td class="calc-label">DRIVER SALARY</td>
-                            <td class="calc-input-cell"><input type="number" id="calc-driver-deduct" value="0"
-                                    step="0.01" oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                        </tr>
-                        <tr>
-                            <td class="calc-label">LAST WEEK BALANCE</td>
+                            <td class="calc-label">Last Week Balance</td>
                             <td class="calc-input-cell"><input type="number" id="calc-last-bal" value="0" step="0.01"
                                     oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
                                     onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
                         </tr>
                         <tr>
-                            <td class="calc-label">CASH BALANCE</td>
+                            <td class="calc-label">Driver Salary</td>
+                            <td class="calc-result-cell" id="res-linked-salary" 
+                                style="background: #f8fafc; font-weight: bold; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 4px; padding: 5px 10px; text-align: right;">
+                                $0.00</td>
+                        </tr>
+                        <tr>
+                            <td class="calc-label" style="font-weight: 800;">Cash Balance</td>
                             <td class="calc-result-cell yellow-bg" id="res-cash-bal">$0.00</td>
                         </tr>
                     </table>
@@ -971,25 +1001,31 @@
                 <div class="calc-section">
                     <table class="settlement-calc-table">
                         <tr>
-                            <td class="calc-label">GROSS</td>
+                            <td class="calc-label">Gross</td>
                             <td class="calc-input-cell"><input type="number" id="calc-gross" value="0" step="0.01"
                                     oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
                                     onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
                         </tr>
                         <tr>
-                            <td class="calc-label">FACTORY</td>
-                            <td class="calc-input-cell"><input type="number" id="calc-factory" value="0" step="0.01"
+                            <td class="calc-label">Factory</td>
+                            <td class="calc-input-cell" style="position: relative;">
+                                <input type="number" id="calc-factory" value="0" step="0.5"
                                     oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"
+                                    style="padding-right: 25px;">
+                                <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; color: #64748b; pointer-events: none;">%</span>
+                            </td>
                         </tr>
                         <tr>
-                            <td class="calc-label">WEEKLY PAYMENT</td>
-                            <td class="calc-input-cell"><input type="number" id="calc-weekly" value="0" step="0.01"
+                            <td class="calc-label">Weekly Payment</td>
+                            <td class="calc-input-cell">
+                                <input type="number" id="calc-weekly" value="0" step="0.01"
                                     oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
+                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                            </td>
                         </tr>
                         <tr>
-                            <td class="calc-label">DRIVER SALARY</td>
+                            <td class="calc-label" style="font-weight: 800;">Driver Salary</td>
                             <td class="calc-result-cell" id="res-driver-salary" style="background:#fbc7a4; color:#000;">
                                 $0.00</td>
                         </tr>
@@ -997,6 +1033,41 @@
                 </div>
             </div>
             </div>
+            </div>
+
+            <!-- COMPACT ARCHIVE ACTION (Clean & Professional) -->
+            <div style="text-align: center; margin: 20px 0;">
+                <button onclick="archiveSettlement()" class="btn-add-sidebar" 
+                    style="background: #10b981; font-weight: 800; padding: 12px 40px; font-size: 1rem; width: 300px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-radius: 6px; text-transform: uppercase;">
+                    <i class="fas fa-file-invoice-dollar"></i> ARCHIVE SETTLEMENT
+                </button>
+            </div>
+
+            <div class="table-area" style="margin-top: 40px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0; color: #1e293b; font-size: 1.4rem; border-left: 4px solid #10b981; padding-left: 15px;">Settlement History</h3>
+                    <div style="width: 300px;">
+                        <input type="text" id="history-local-filter" class="form-input" placeholder="Filter by driver..." oninput="renderSettlementHistory()" style="background: #f8fafc; border: 1px solid #e2e8f0; font-size: 0.9rem;">
+                    </div>
+                </div>
+                <div class="table-scroll-container">
+                    <table class="drivers-report-table fleet-table" style="min-width: 100%;">
+                        <thead style="background: #f8fafc;">
+                            <tr>
+                                <th style="color: #64748b;">ID</th>
+                                <th style="color: #64748b;">Driver</th>
+                                <th style="color: #64748b;">Initial Date</th>
+                                <th style="color: #64748b;">Final Date</th>
+                                <th style="color: #64748b;">Aging (Days)</th>
+                                <th style="color: #64748b;">Cash Balance</th>
+                                <th style="width: 100px; color: #64748b;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="settlement-history-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
         <!-- EXPENSE MANAGEMENT View -->
@@ -1132,6 +1203,13 @@
                                 </div>
                                 <div class="item-value" id="val-yard">$0.00</div>
                             </div>
+                            <div class="breakdown-item" style="border-top: 1px dashed #e2e8f0; margin-top: 10px; padding-top: 10px;">
+                                <div class="item-label" style="color: #be185d; font-weight: 700;">
+                                    <span class="dot" style="background: #be185d;"></span>
+                                    Container Purchases
+                                </div>
+                                <div class="item-value" id="val-releases" style="color: #be185d; font-weight: 700;">$0.00</div>
+                            </div>
                         </div>
                     </div>
 
@@ -1165,21 +1243,26 @@
     </main>
 
     <script>
+        // Supabase Instance is already 'db' from supabase-client.js
+        // No redundant initialization needed here.
+
+        // --- TRIP DATA MAPPING HELPERS ---
+
         // --- TRIP DATA MAPPING HELPERS ---
         function mapTripToArray(t) {
             return [
                 t.trip_id || '---', t.date || '---', t.size || '---', t.n_cont || '---', t.release_no || '---',
                 t.order_no || '---', t.city || '---', t.pickup_address || '---', t.delivery_place || '---',
-                t.doors_direction || '---', t.miles || 0, t.customer || '---', t.payment_date || '---',
-                t.yard_services || '---', t.yard_rate || 0, t.date_out || '---', t.day_rate || 0,
-                t.company || '---', t.driver || '---', t.rate || 0, t.pay_type || '---',
-                t.sales_price || 0, t.collect_payment || '---', t.amount || 0, t.phone || '---',
-                t.paid_driver_amount || 0, t.status || '---', t.commission_percent || '---',
-                t.commission_driver || 0, t.income_dis_fee || 0, t.invoice || '---', t.note || '---',
-                t.mode || '---', t.monthly_rate || 0, t.start_date_rent || '---', t.next_due || '---',
+                t.doors_direction || '---', t.miles || 0, t.customer || '---',
+                t.yard_services || '---', t.yard_rate || 0, t.date_out || '---',
+                t.company || '---', t.driver || '---', t.trans_pay || 0, t.type_payment || '---',
+                t.sales_price || 0, t.collect_payment || '---', t.amount || 0, t.phone_no || '---',
+                t.paid_driver || 0,
+                t.income_dis_fee || 0, t.note || '---',
+                t.service_mode || '---', t.monthly_rate || 0, t.start_date_rent || '---', t.next_due || '---',
                 t.st_yard || 'PEND', t.st_rent || 'PEND', t.st_rate || 'PEND', t.st_sales || 'PEND',
-                t.st_amount || 'PEND', `$${(t.pending_balance || 0).toFixed(2)}`,
-                t.payout_status || 'PENDING', t.email || '---',
+                t.st_amount || (t.paid ? 'PAID' : 'PENDING'), `$${(t.pending_balance || 0).toFixed(2)}`,
+                t.email || '---',
                 t.truck_unit || '---', t.trailer_unit || '---'
             ];
         }
@@ -1198,40 +1281,34 @@
                 doors_direction: row[9],
                 miles: parseFloat(row[10]) || 0,
                 customer: row[11],
-                payment_date: row[12] === '---' ? null : row[12],
-                yard_services: row[13],
-                yard_rate: parseFloat(row[14]) || 0,
-                date_out: row[15] === '---' ? null : row[15],
-                day_rate: parseFloat(row[16]) || 0,
-                company: row[17],
-                driver: row[18],
-                rate: parseFloat(row[19]) || 0,
-                pay_type: row[20],
-                sales_price: parseFloat(row[21]) || 0,
-                collect_payment: row[22],
-                amount: parseFloat(row[23]) || 0,
-                phone: row[24],
-                paid_driver_amount: parseFloat(row[25]) || 0,
-                status: row[26],
-                commission_percent: row[27],
-                commission_driver: parseFloat(row[28]) || 0,
-                income_dis_fee: parseFloat(row[29]) || 0,
-                invoice: row[30],
-                note: row[31],
-                mode: row[32],
-                monthly_rate: parseFloat(row[33]) || 0,
-                start_date_rent: row[34] === '---' ? null : row[34],
-                next_due: row[35] === '---' ? null : row[35],
-                st_yard: row[36],
-                st_rent: row[37],
-                st_rate: row[38],
-                st_sales: row[39],
-                st_amount: row[40],
-                pending_balance: parseFloat(row[41].replace('$', '').replace(/,/g, '')) || 0,
-                payout_status: row[42],
-                email: row[43],
-                truck_unit: row[44] || null,
-                trailer_unit: row[45] || null
+                yard_services: row[12],
+                yard_rate: parseFloat(row[13]) || 0,
+                date_out: row[14] === '---' ? null : row[14],
+                company: row[15],
+                driver: row[16],
+                trans_pay: parseFloat(row[17]) || 0,
+                type_payment: row[18],
+                sales_price: parseFloat(row[19]) || 0,
+                collect_payment: row[20],
+                amount: parseFloat(row[21]) || 0,
+                phone_no: row[22],
+                paid_driver: parseFloat(row[23]) || 0,
+                income_dis_fee: parseFloat(row[24]) || 0,
+                note: row[25],
+                service_mode: row[26],
+                monthly_rate: parseFloat(row[27]) || 0,
+                start_date_rent: row[28] === '---' ? null : row[28],
+                next_due: row[29] === '---' ? null : row[29],
+                st_yard: row[30],
+                st_rent: row[31],
+                st_rate: row[32],
+                st_sales: row[33],
+                st_amount: row[34],
+                paid: row[34] === 'PAID',
+                pending_balance: row[35] ? parseFloat(row[35].toString().replace('$', '').replace(/,/g, '')) || 0 : 0,
+                email: row[36],
+                truck_unit: row[37] === '---' ? null : row[37],
+                trailer_unit: row[38] === '---' ? null : row[38]
             };
         }
 
@@ -1299,7 +1376,7 @@
         // --- RELEASE DATA MAPPERS ---
         function mapReleaseToArray(r) {
             return [
-                r.release_no, r.date, r.type || 'EMPTY', r.depot || '---', r.depot_address || '---',
+                r.release_no, r.date, r.type || 'EMPTY', r.condition || 'USED', r.depot || '---', r.depot_address || '---',
                 r.city || '---', r.qty_20 || 0, r.price_20 || 0, r.qty_40 || 0, r.price_40 || 0,
                 r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0
             ];
@@ -1310,17 +1387,18 @@
                 release_no: row[0],
                 date: row[1] === '---' ? null : row[1],
                 type: row[2],
-                depot: row[3],
-                depot_address: row[4],
-                city: row[5],
-                qty_20: parseInt(row[6]) || 0,
-                price_20: parseFloat(row[7]) || 0,
-                qty_40: parseInt(row[8]) || 0,
-                price_40: parseFloat(row[9]) || 0,
-                qty_45: parseInt(row[10]) || 0,
-                price_45: parseFloat(row[11]) || 0,
-                seller: row[12],
-                total_stock: (parseInt(row[6]) || 0) + (parseInt(row[8]) || 0) + (parseInt(row[10]) || 0)
+                condition: row[3],
+                depot: row[4],
+                depot_address: row[5],
+                city: row[6],
+                qty_20: parseInt(row[7]) || 0,
+                price_20: parseFloat(row[8]) || 0,
+                qty_40: parseInt(row[9]) || 0,
+                price_40: parseFloat(row[10]) || 0,
+                qty_45: parseInt(row[11]) || 0,
+                price_45: parseFloat(row[12]) || 0,
+                seller: row[13],
+                total_stock: (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0) + (parseInt(row[11]) || 0)
             };
         }
 
@@ -1458,9 +1536,11 @@
                     if (window.loadDocTrips) window.loadDocTrips();
                 } else if (view === 'reports') {
                     if (window.renderDriverLog) window.renderDriverLog();
+                    if (window.fetchHistory) window.fetchHistory();
                 } else if (view === 'calendar') {
                     if (window.loadTableData) window.loadTableData();
                     if (window.updateFleetSelectors) window.updateFleetSelectors();
+                    if (window.loadReleasesData) window.loadReleasesData();
                 } else if (view === 'fleet') {
                     if (window.loadFleetData) window.loadFleetData();
                 } else if (view === 'profit-report') {
@@ -1489,6 +1569,19 @@
             if (rentalGroup) rentalGroup.style.display = (mode === 'RENT') ? 'block' : 'none';
         }
 
+        function toggleYardRate() {
+            const vy = document.getElementById('in-yard').value;
+            const yr = document.getElementById('yard-rate-group');
+            if (yr) {
+                if (vy === 'NO') {
+                    yr.style.display = 'none';
+                    document.getElementById('in-yardrate').value = 0;
+                } else {
+                    yr.style.display = 'flex';
+                }
+            }
+        }
+
         function calcNextDue() {
             const startStr = document.getElementById('in-sdaterent').value;
             if (!startStr) return;
@@ -1502,14 +1595,13 @@
             if (currentTrips.length === 0) return;
             const rows = currentTrips;
 
-            // Indices: 6:City, 2:Size, 11:Customer, 18:Driver, 17:Company, 26:Status
+            // Indices: 6:City, 2:Size, 11:Customer, 16:Driver, 15:Company
             const filters = {
                 'f-city': 6,
                 'f-size': 2,
                 'f-customer': 11,
-                'f-driver': 18,
-                'f-company': 17,
-                'f-status': 26
+                'f-driver': 16,
+                'f-company': 15
             };
 
             for (let id in filters) {
@@ -1537,14 +1629,8 @@
                     ].sort();
                 } else if (id === 'f-driver') {
                     uniqueValues = [
-                        "A & A TOWING", "ANTHONY", "ANTONIO R", "AYG TRANSPORT", "BRUNO",
-                        "ELIER", "FLCHR", "JAYDEN TRANSPORTATION", "JOHN CARLOS",
-                        "JORGE ANDY", "JOSE", "JR SUPER CRANE", "JRSC-ROBERT", "JUAN CARLOS",
-                        "JUSTIN F.H", "JY3 FREIGHT LLC", "KELLY K", "LUIS D", "LUIS DELIVERY",
-                        "LUIS G", "LUIS SOSA", "MARIO", "MIGUEL LL", "MILAY",
-                        "MOBILE UNITS TRANSPORT", "PERFECT TOUCH TRANSPORT", "QUALITY CONT",
-                        "RAMONCITO", "REYNA", "ROBERT", "ROLY", "RONALD", "SIDE LOADER",
-                        "TRAVIS J", "WS KINGDOM LLC", "YADIER", "YANDY JAX"
+                        "LUIS GARRIDO", "ROBERT CORTEZ", "MILAY MIRANDA", 
+                        "JORGE A RAMIREZ", "JOSE", "ANTONIO R CUBA", "TRAVIS JOSEY"
                     ].sort();
                 }
 
@@ -1564,51 +1650,53 @@
                 });
             }
         }
-
         function applyAdvancedFilters() {
             const filters = {
-                city: document.getElementById('f-city').value.toLowerCase(),
-                size: document.getElementById('f-size').value.toLowerCase(),
-                customer: document.getElementById('f-customer').value.toLowerCase(),
-                driver: document.getElementById('f-driver').value.toLowerCase(),
-                company: document.getElementById('f-company').value.toLowerCase(),
-                status: document.getElementById('f-status').value.toLowerCase(),
-                collect: document.getElementById('f-collect').value.toLowerCase(),
-                ncont: document.getElementById('f-ncont').value.toLowerCase(),
-                order: document.getElementById('f-order').value.toLowerCase(),
-                release: document.getElementById('f-release').value.toLowerCase(),
-                phone: document.getElementById('f-phone').value.toLowerCase(),
-                fromDate: document.getElementById('f-from-date').value,
-                toDate: document.getElementById('f-to-date').value
+                city: document.getElementById('f-city')?.value.toLowerCase() || '',
+                size: document.getElementById('f-size')?.value.toLowerCase() || '',
+                customer: document.getElementById('f-customer')?.value.toLowerCase() || '',
+                driver: document.getElementById('f-driver')?.value.toLowerCase() || '',
+                company: document.getElementById('f-company')?.value.toLowerCase() || '',
+                status: document.getElementById('f-status')?.value.toLowerCase() || '',
+                collect: document.getElementById('f-collect')?.value.toLowerCase() || '',
+                ncont: document.getElementById('f-ncont')?.value.toLowerCase() || '',
+                order: document.getElementById('f-order')?.value.toLowerCase() || '',
+                release: document.getElementById('f-release')?.value.toLowerCase() || '',
+                phone: document.getElementById('f-phone')?.value.toLowerCase() || '',
+                fromDate: document.getElementById('f-from-date')?.value || '',
+                toDate: document.getElementById('f-to-date')?.value || ''
             };
 
             const rows = document.querySelectorAll('#table-body tr');
-            rows.forEach(tr => {
+            rows.forEach((tr, rIdx) => {
                 const cells = tr.cells;
-                // indices should match rowData used in loadTableData
-                const matchCity = !filters.city || cells[6].textContent.toLowerCase() === filters.city;
-                const matchSize = !filters.size || cells[2].textContent.toLowerCase() === filters.size;
-                const matchCustomer = !filters.customer || cells[11].textContent.toLowerCase() === filters.customer;
-                const matchDriver = !filters.driver || cells[18].textContent.toLowerCase() === filters.driver;
-                const matchCompany = !filters.company || cells[17].textContent.toLowerCase() === filters.company;
-                const matchStatus = (filters.status === 'pending payment')
-                    ? (cells[38].textContent === 'PEND' || cells[40].textContent === 'PEND' || cells[41].textContent === 'PEND' || cells[42].textContent === 'PEND')
-                    : (!filters.status || cells[26].textContent.toLowerCase() === filters.status);
-                const matchCollect = !filters.collect || cells[22].textContent.toLowerCase() === filters.collect;
+                if (cells.length < 20) return; 
 
-                const matchNcont = !filters.ncont || cells[3].textContent.toLowerCase().includes(filters.ncont);
-                const matchOrder = !filters.order || cells[5].textContent.toLowerCase().includes(filters.order);
-                const matchRelease = !filters.release || cells[4].textContent.toLowerCase().includes(filters.release);
-                const matchPhone = !filters.phone || cells[24].textContent.toLowerCase().includes(filters.phone);
+                // UPDATED INDICES FOR New 22-Column Structure
+                const valID = (cells[1].textContent || '').toLowerCase();
+                const valDate = (cells[2].textContent || '');
+                const valSize = (cells[3].textContent || '').toLowerCase();
+                const valNcont = (cells[4].textContent || '').toLowerCase();
+                const valRelease = (cells[5].textContent || '').toLowerCase();
+                const valOrder = (cells[6].textContent || '').toLowerCase();
+                const valCity = (cells[7].textContent || '').toLowerCase();
+                const valDriver = (cells[11].textContent || '').toLowerCase();
+                const valPhone = (cells[17].textContent || '').toLowerCase();
                 
-                // Date Range Match
-                const tripDate = cells[1].textContent; // DATE column is at index 1
-                const matchDate = (!filters.fromDate || tripDate >= filters.fromDate) && 
-                                  (!filters.toDate || tripDate <= filters.toDate);
+                const matchCity = !filters.city || valCity === filters.city.toLowerCase();
+                const matchSize = !filters.size || valSize.includes(filters.size);
+                const matchDriver = !filters.driver || valDriver === filters.driver.toLowerCase();
+                
+                const matchNcont = !filters.ncont || valNcont.includes(filters.ncont);
+                const matchOrder = !filters.order || valOrder.includes(filters.order);
+                const matchRelease = !filters.release || valRelease.includes(filters.release);
+                const matchPhone = !filters.phone || valPhone.includes(filters.phone);
+                
+                const matchDate = (!filters.fromDate || valDate >= filters.fromDate) && 
+                                  (!filters.toDate || valDate <= filters.toDate);
 
-                if (matchCity && matchSize && matchCustomer && matchDriver && matchCompany &&
-                    matchStatus && matchCollect && matchNcont && matchOrder &&
-                    matchRelease && matchPhone && matchDate) {
+                if (matchCity && matchSize && matchDriver &&
+                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate) {
                     tr.style.display = '';
                 } else {
                     tr.style.display = 'none';
@@ -1616,10 +1704,41 @@
             });
         }
 
+
         function resetAdvancedFilters() {
             const inputs = document.querySelectorAll('.advanced-filter-panel select, .advanced-filter-panel input');
             inputs.forEach(el => el.value = '');
-            applyAdvancedFilters();
+            if (window.applyAdvancedFilters) applyAdvancedFilters();
+        }
+        window.resetAdvancedFilters = resetAdvancedFilters;
+
+        function resetForm() {
+            editingIndex = null;
+            const fields = [
+                'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer',
+                'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
+                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                'in-paiddriver', 'in-income', 'in-note',
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-email'
+            ];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = (id === 'in-miles' || id.includes('rate') || id === 'in-amount') ? '0' : '';
+            });
+
+            const checks = ['in-yardpaid', 'in-rentpaid', 'in-ratepaid', 'in-salespaid', 'in-amountpaid'];
+            checks.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = false;
+            });
+
+            const btn = document.querySelector('.btn-add-sidebar');
+            if (btn) {
+                btn.textContent = 'Confirm Operation';
+                btn.classList.remove('btn-update');
+            }
+            initNewTripId();
         }
 
         let isSaving = false;
@@ -1651,46 +1770,55 @@
             }
             const fields = [
                 'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate',
-                'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver',
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer',
+                'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
-                'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income',
-                'in-invoice', 'in-note',
+                'in-paiddriver', 'in-income', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
 
-            // Inventory Validation (SUPABASE)
+            // 1. GRANULAR INVENTORY VALIDATION (BLOQUEO POR MEDIDA + TIPO + CONDICIÓN)
             const selectedRelease = document.getElementById('in-release').value;
             const selectedSize = document.getElementById('in-size').value;
+            const selectedRelType = document.getElementById('in-rel-type').value;
+            const selectedRelCond = document.getElementById('in-rel-condition').value;
 
             if (selectedRelease && selectedRelease !== '---' && editingIndex === null) {
+                // Must select type and condition
+                if (!selectedRelType || !selectedRelCond) {
+                    alert("ERROR: Para movimientos con Release, debes seleccionar TIPO y CONDICIÓN para validar stock.");
+                    isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
+                    return;
+                }
+
                 if (currentReleases.length > 0) {
-                    const rIdx = currentReleases.findIndex(r => r[0] === selectedRelease);
-                    if (rIdx !== -1) {
+                    // Match EXACTLY by Release #, Type, and Condition
+                    const rData = currentReleases.find(r => r[0] === selectedRelease && r[2] === selectedRelType && r[3] === selectedRelCond);
+                    
+                    if (rData) {
                         let stockIdx = -1;
                         let dbField = '';
-                        if (selectedSize.includes("20'")) { stockIdx = 5; dbField = 'qty_20'; }
-                        else if (selectedSize.includes("40'")) { stockIdx = 7; dbField = 'qty_40'; }
-                        else if (selectedSize.includes("45'")) { stockIdx = 9; dbField = 'qty_45'; }
+                        if (selectedSize.includes("20'")) { stockIdx = 7; dbField = 'qty_20'; }
+                        else if (selectedSize.includes("40'")) { stockIdx = 9; dbField = 'qty_40'; }
+                        else if (selectedSize.includes("45'")) { stockIdx = 11; dbField = 'qty_45'; }
 
                         if (stockIdx !== -1) {
-                            const currentStock = parseInt(currentReleases[rIdx][stockIdx]) || 0;
+                            const currentStock = parseInt(rData[stockIdx]) || 0;
                             if (currentStock <= 0) {
-                                alert(`STOCK EXHAUSTED for Size ${selectedSize} in Release ${selectedRelease}`);
+                                alert(`STOCK AGOTADO para esta combinación: Release ${selectedRelease} | ${selectedRelType} | ${selectedRelCond} | Medida ${selectedSize}`);
+                                isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
                                 return;
                             }
-                            // Decrement Stock in Supabase
-                            const newStock = currentStock - 1;
-                            const updateObj = {};
-                            updateObj[dbField] = newStock;
-
-                            try {
-                                await updateRelease(selectedRelease, updateObj);
-                                await loadReleasesData(); // Refresh local cache and UI
-                            } catch (e) {
-                                console.error("Inventory update failed:", e);
-                            }
+                            window.calculatedNewStock = currentStock - 1;
+                            window.stockUpdateField = dbField;
+                            window.targetReleaseNo = selectedRelease;
+                            window.targetReleaseType = selectedRelType;
+                            window.targetReleaseCond = selectedRelCond;
                         }
+                    } else {
+                        alert(`ERROR: No existe un Release ${selectedRelease} configurado como ${selectedRelType} / ${selectedRelCond}. Por favor, créalo en la sección Form Releases.`);
+                        isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
+                        return;
                     }
                 }
             }
@@ -1707,10 +1835,10 @@
             const stSales = document.getElementById('in-salespaid').checked ? 'PAID' : 'PEND';
             const stAmount = document.getElementById('in-amountpaid').checked ? 'PAID' : 'PEND';
 
-            // Inserting checkbox states at 36-40
-            rowData.splice(36, 0, stYard, stRent, stRate, stSales, stAmount);
+            // Indices 30-34: Checkbox States
+            rowData.splice(30, 0, stYard, stRent, stRate, stSales, stAmount);
 
-            // Index 41: Balance Pending
+            // Index 35: Balance Pending
             let pending = 0;
             if (stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate').value) || 0;
             if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate').value) || 0;
@@ -1718,12 +1846,11 @@
             if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount').value) || 0;
             if (stRent === 'PEND' && document.getElementById('in-mode').value === 'RENT') pending += parseFloat(document.getElementById('in-mrate').value) || 0;
 
-            rowData.splice(41, 0, `$${pending.toFixed(2)}`); // index 41
-            rowData.splice(42, 0, document.getElementById('in-driverpaid').value || 'PENDING'); // index 42
-            rowData.splice(43, 0, document.getElementById('in-email').value || '---'); // index 43
+            rowData.push(pending.toFixed(2)); // Index 35
 
-            // Fixed placeholders for truck/trailer at 44 and 45
-            rowData.splice(44, 0, '---', '---');
+            // Indices 36-38: Contact & Metadata
+            rowData.push(document.getElementById('in-email').value || '---'); // Index 36
+            rowData.push('---', '---'); // Index 37, 38 Truck/Trailer placeholders
 
             // --- SUPABASE INTEGRATION ---
             const tripObj = mapArrayToTrip(rowData);
@@ -1732,21 +1859,52 @@
                 if (editingIndex !== null) {
                     // UPDATE MODE
                     const tripId = rowData[0];
-                    await updateTrip(tripId, tripObj);
-                    editingIndex = null;
-
-                    const btn = document.querySelector('.btn-add-sidebar');
-                    if (btn) {
-                        btn.textContent = 'Confirm Operation';
-                        btn.classList.remove('btn-update');
+                    const { error } = await db.from('trips').update(tripObj).eq('trip_id', tripId);
+                    if (error) {
+                        console.error("SUPABASE UPDATE ERROR:", error.message, error.details);
+                        alert(`Error actualizando: ${error.message}`);
+                        isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
+                        return;
                     }
+                    editingIndex = null;
                 } else {
                     // NEW MODE
-                    await addTrip(tripObj);
+                    const { error } = await db.from('trips').insert([tripObj]);
+                    if (error) {
+                        console.error("SUPABASE INSERT ERROR:", error.message, error.details, "Data:", tripObj);
+                        alert(`Error insertando en DB: ${error.message}. Revisa consola.`);
+                        isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
+                        return;
+                    }
+                    
+                    // NEW: INVENTORY DEDUCTION ON SUCCESS (SELECTIVE BY TYPE/COND)
+                    if (window.stockUpdateField && window.calculatedNewStock !== undefined) {
+                        const upObj = {};
+                        upObj[window.stockUpdateField] = window.calculatedNewStock;
+                        
+                        await db.from('releases')
+                            .update(upObj)
+                            .eq('release_no', window.targetReleaseNo)
+                            .eq('type', window.targetReleaseType)
+                            .eq('condition', window.targetReleaseCond);
+                            
+                        // Clean up
+                        delete window.stockUpdateField;
+                        delete window.calculatedNewStock;
+                        delete window.targetReleaseNo;
+                        delete window.targetReleaseType;
+                        delete window.targetReleaseCond;
+                    }
                 }
+
+                alert('¡ORDEN CONFIRMADA CORRECTAMENTE!');
+                resetForm();
+                await loadTableData();
+                resetAdvancedFilters();
 
                 // Refresh data from database
                 await loadTableData();
+                if (window.loadReleasesData) window.loadReleasesData(); 
 
                 if (window.updateReleaseDatalist) window.updateReleaseDatalist();
                 if (window.updateAddressDatalist) window.updateAddressDatalist();
@@ -1759,8 +1917,8 @@
                 });
 
                 // Re-initialize ID for next entry
-                initNewTripId();
-                alert("Trip saved successfully in Supabase!");
+                if (window.initNewTripId) window.initNewTripId();
+                alert("Trip saved successfully & Inventory Updated!");
             } catch (err) {
                 console.error("Failed to save trip:", err);
                 alert("DATABASE ERROR: " + (err.message || "Unknown error"));
@@ -1774,16 +1932,12 @@
             }
         }
 
-        function updateReleaseDatalist() {
+        window.updateReleaseDatalist = function() {
             const releaseList = document.getElementById('release-list');
             if (currentReleases.length > 0 && releaseList) {
-                // Filter: Show only releases that have at least 1 unit in total stock
-                const validReleases = currentReleases.filter(r => {
-                    const total = (parseInt(r[5]) || 0) + (parseInt(r[7]) || 0) + (parseInt(r[9]) || 0);
-                    return total > 0;
-                });
+                // Show ALL entered releases as suggestions, as requested
                 releaseList.innerHTML = '';
-                validReleases.forEach(r => {
+                currentReleases.forEach(r => {
                     const opt = document.createElement('option');
                     opt.value = r[0]; // Release # is index 0
                     releaseList.appendChild(opt);
@@ -1861,11 +2015,10 @@
             // Populate Fields (Map back from indices 0-35)
             const fields = [
                 'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer', 'in-paydate',
-                'in-yard', 'in-yardrate', 'in-dateout', 'in-dayrate', 'in-company', 'in-driver',
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer',
+                'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
-                'in-paiddriver', 'in-status', 'in-comission', 'in-comidriver', 'in-income',
-                'in-invoice', 'in-note',
+                'in-paiddriver', 'in-income', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
 
@@ -1874,15 +2027,19 @@
                 if (el) el.value = (rowData[i] === '---') ? '' : rowData[i];
             });
 
-            // Set Checkboxes (Indices 36-40)
-            document.getElementById('in-yardpaid').checked = (rowData[36] === 'PAID');
-            document.getElementById('in-rentpaid').checked = (rowData[37] === 'PAID');
-            document.getElementById('in-ratepaid').checked = (rowData[38] === 'PAID');
-            document.getElementById('in-salespaid').checked = (rowData[39] === 'PAID');
-            document.getElementById('in-amountpaid').checked = (rowData[40] === 'PAID');
+            // Re-trigger Toggles based on values loaded
+            if (window.toggleModeFields) window.toggleModeFields();
+            if (window.toggleYardRate) window.toggleYardRate();
+            else toggleYardRate(); // fallback if not on window
 
-            // Driver Paid Status (Index 42)
-            document.getElementById('in-driverpaid').value = rowData[42] || 'PENDING';
+            // Set Checkboxes (Indices 34-38)
+            document.getElementById('in-yardpaid').checked = (rowData[34] === 'PAID');
+            document.getElementById('in-rentpaid').checked = (rowData[35] === 'PAID');
+            document.getElementById('in-ratepaid').checked = (rowData[36] === 'PAID');
+            document.getElementById('in-salespaid').checked = (rowData[37] === 'PAID');
+            document.getElementById('in-amountpaid').checked = (rowData[38] === 'PAID');
+
+            // Removed DRIVER Payout Status as requested
 
             // Email (Index 43)
             document.getElementById('in-email').value = rowData[43] || '';
@@ -1916,6 +2073,7 @@
             // Fetch from Supabase FIRST
             try {
                 const data = await getTrips();
+                console.log("Calendar View DEBUG: Records from Supabase ->", data ? data.length : 0);
                 
                 // Clear ONLY when data is ready
                 logisticsBody.innerHTML = '';
@@ -1926,50 +2084,77 @@
                 currentTrips = data.map(mapTripToArray);
 
                 currentTrips.forEach((rowData, idx) => {
-                const tr = document.createElement('tr');
+                    try {
+                        const tr = document.createElement('tr');
+                        const mode = rowData[26];
+                        const stYard = rowData[30];
+                        const stRate = rowData[32];
+                        const stSales = rowData[33];
+                        const stAmount = rowData[34];
+                        const nextDueVal = rowData[29]; // Corrected Variable from rowData
+                        const email = rowData[36];
 
-                const mode = rowData[32];
-                const nextDue = rowData[35];
-                const stYard = rowData[36];
-                const stRent = rowData[37];
-                const stRate = rowData[38];
-                const stSales = rowData[39];
-                const stAmount = rowData[40];
+                        // Construct display array (Strict 22-Column Order)
+                        const displayData = [
+                            mode,         // 0: Service Mode (rowData[26])
+                            rowData[0],   // 1: ID
+                            rowData[1],   // 2: Date
+                            rowData[2],   // 3: Size
+                            rowData[3],   // 4: N. Cont
+                            rowData[4],   // 5: Release #
+                            rowData[5],   // 6: Order - Bol Cont #
+                            rowData[6],   // 7: City
+                            rowData[7],   // 8: Pick Up Address
+                            rowData[8],   // 9: Delivery Place
+                            rowData[10],  // 10: Miles (Skip Doors 9)
+                            rowData[16],  // 11: Driver
+                            rowData[17],  // 12: Trans. Pay
+                            rowData[18],  // 13: Type of Payment
+                            rowData[19],  // 14: Sales Price
+                            rowData[20],  // 15: Collect Payment
+                            rowData[21],  // 16: Amount
+                            rowData[22],  // 17: Phone #
+                            rowData[23],  // 18: Paid Driver
+                            rowData[24],  // 19: Income Dis Fee
+                            rowData[25],  // 20: Note
+                            email         // 21: Email
+                        ];
 
-                rowData.slice(0, 32).forEach((text, i) => {
-                    const td = document.createElement('td');
-                    td.textContent = text;
+                        displayData.forEach((text, i) => {
+                            const td = document.createElement('td');
+                            
+                            // Formatting Currency for Financial Columns
+                            if ([12, 14, 16, 18, 19].includes(i)) {
+                                const val = parseFloat(text) || 0;
+                                td.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                                td.style.fontWeight = 'bold';
+                            } else {
+                                td.textContent = text;
+                            }
 
-                    // Amount coloring (Indices: 14=Yard, 19=Rate, 21=Sales, 23=Amount, 33=Rent)
-                    if (i === 14 && text !== '---') td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
-                    if (i === 19 && text !== '---') td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
-                    if (i === 21 && text !== '---') td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
-                    if (i === 23 && text !== '---') td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
+                            // PAID Status Highlighting for Amount Column
+                            if (i === 16 && text !== '---') {
+                                td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
+                                td.style.color = (stAmount === 'PAID') ? '#166534' : '#991b1b';
+                            }
+                            
+                            tr.appendChild(td);
+                        });
 
-                    tr.appendChild(td);
+                        tr.style.cursor = 'pointer';
+                        tr.onclick = () => loadTripToEdit(idx);
+                        if (editingIndex === idx) tr.classList.add('editing-row');
+
+                        // OVERDUE RENT HIGHLIGHTING
+                        if (mode === 'RENT' && nextDueVal !== '---' && new Date(nextDueVal + 'T00:00:00') < new Date()) {
+                            tr.style.backgroundColor = '#fff7ed';
+                            tr.style.border = '2px solid #f97316';
+                        }
+                        logisticsBody.appendChild(tr);
+                    } catch (rowErr) {
+                        console.error("Rendering error for row", idx, rowErr);
+                    }
                 });
-
-                // Add EMAIL as the very last visible cell
-                const tdEmail = document.createElement('td');
-                tdEmail.textContent = rowData[43] || '---';
-                tr.appendChild(tdEmail);
-
-                // Actions Cel (Manual logic omitted as per previous user request for simplicity)
-
-                // EDIT TRIGGER (On Highlight Rows or anywhere in the TR)
-                tr.style.cursor = 'pointer';
-                tr.onclick = () => loadTripToEdit(idx);
-
-                if (editingIndex === idx) {
-                    tr.classList.add('editing-row');
-                }
-
-                if (mode === 'RENT' && nextDue !== '---' && new Date(nextDue + 'T00:00:00') < new Date()) {
-                    tr.style.backgroundColor = '#fff7ed';
-                    tr.style.border = '2px solid #f97316';
-                }
-                logisticsBody.appendChild(tr);
-            });
             // Apply existing filters if any (for real-time persistence)
             applyAdvancedFilters();
             } catch (err) {
@@ -1988,15 +2173,11 @@
             renderDriverLog();
         }
 
-        function resetReportFilters() {
-            document.getElementById('filter-search').value = '';
-            document.getElementById('filter-from').value = '';
-            document.getElementById('filter-to').value = '';
-            reportShowUnpaidOnly = false;
-            const btn = document.getElementById('btn-pending-only');
-            btn.style.background = '#fff';
-            btn.style.borderColor = '#cbd5e1';
-            renderDriverLog();
+        async function resetReportFilters() {
+            // RELOAD AS ULTIMATE RESET:
+            // This clears the manual calculator, JS variables and resets input fields
+            // The app will stay on "reports" view thanks to sessionStorage persistence.
+            window.location.reload();
         }
 
         async function markTripAsPaid(tripId) {
@@ -2064,17 +2245,34 @@
 
                 // 1. Filter the rows first
                 const filtered = allRows.filter(r => {
-                    const rDate = r[1];
-                    const rId = r[0];
-                    const rDriver = (r[18] || 'UNASSIGNED').toString();
-                    const rStatus = r[42] || 'PENDING';
+                    const rDate = r[1]; // DATA
+                    const rId = r[0]; // ID
+                    const rDriver = (r[16] || 'UNASSIGNED').toString(); // Corrected Index for Driver: 16
+                    const rStAmount = r[34]; // Index 34 is st_amount (PAID/PEND)
 
                     const matchesSearch = rDriver.toLowerCase().includes(searchTerm) || rId.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
-                    const matchesStatus = !reportShowUnpaidOnly || rStatus === 'PENDING';
+                    
+                    // STATUS FILTER LOGIC
+                    const statusFilter = document.getElementById('settlement-status')?.value || 'ALL';
+                    let matchesStatus = true;
+                    if (statusFilter === 'PENDING') matchesStatus = (rStAmount !== 'PAID');
+                    else if (statusFilter === 'PAID') matchesStatus = (rStAmount === 'PAID');
+                    else if (statusFilter === 'VOID') matchesStatus = (rStAmount === 'VOID');
 
                     return matchesSearch && matchesDate && matchesStatus;
                 });
+
+                // AUTO-SUM FOR CALCULATOR (Link Amount to Cash Collected)
+                let totalAmountFiltered = 0;
+                filtered.forEach(r => {
+                    totalAmountFiltered += parseFloat(r[21]) || 0; // Index 21 is Amount
+                });
+                const cashCollInput = document.getElementById('calc-cash-coll');
+                if (cashCollInput) {
+                    cashCollInput.value = totalAmountFiltered.toFixed(2);
+                    if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                }
 
                 // --- DRIVER LOG LOGIC ---
                 let selectedIndices = new Set();
@@ -2106,9 +2304,9 @@
 
                     selectedIndices.forEach(idx => {
                         const r = filtered[idx];
-                        totalPaidDriver += parseFloat(r[28]) || 0;
-                        if (r[40] === 'PAID') {
-                            totalCash += parseFloat(r[23]) || 0;
+                        totalPaidDriver += parseFloat(r[23]) || 0; // Paid Driver is Index 23
+                        if (r[34] === 'PAID') { // CASH status for Amount is Index 34
+                            totalCash += parseFloat(r[21]) || 0; // Amount is Index 21
                         }
                     });
 
@@ -2161,17 +2359,17 @@
                         updateSelectionSummary();
                     };
 
-                    // Columns: DATE(1), SIZE(2), N° CONT(3), ORDER#(5), CITY(6), PICKUP(7), DELIVERY(8), MILES(10), DRIVER(18), PAID DRIVER(28), CASH(23)
-                    const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 18, 28, 23];
+                    // Columns Map: Date(1), Size(2), N.Cont(3), Order(5), City(6), PickUp(7), Delivery(8), Miles(10), Driver(16), PaidDriver(23), Cash(21)
+                    const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 16, 23, 21];
 
-                    cellIndices.forEach(idx => {
+                    cellIndices.forEach((idx, i) => {
                         const td = document.createElement('td');
                         let value = r[idx] || '---';
 
-                        // Condition for CASH column (Index 23): Only show if stAmount (Index 40) is PAID
-                        if (idx === 23) {
-                            const isCashMarked = (r[40] === 'PAID');
-                            value = isCashMarked ? (r[23] || '---') : '---';
+                        // Specific logic for the LAST column (Cash): only show if r[34] is PAID
+                        if (i === 10) { // Index of 'Cash' column in cellIndices
+                            const isCashMarked = (r[34] === 'PAID');
+                            value = isCashMarked ? (r[21] || '---') : '---';
                         }
 
                         td.textContent = value;
@@ -2189,22 +2387,222 @@
         }
 
         window.updateWeeklyCalc = function () {
-            // Right Side: Driver Salary Calc
+            // 1. Right Side Calculation (Settlement)
             const gross = parseFloat(document.getElementById('calc-gross').value) || 0;
-            const factory = parseFloat(document.getElementById('calc-factory').value) || 0;
-            const weekly = parseFloat(document.getElementById('calc-weekly').value) || 0;
-            const salary = gross - factory - weekly;
+            const factoryPct = parseFloat(document.getElementById('calc-factory').value) || 0;
+            const weeklyPayment = parseFloat(document.getElementById('calc-weekly').value) || 0;
+            
+            const factoringFee = gross * (factoryPct / 100);
+            const settlementSalary = gross - factoringFee - weeklyPayment;
 
-            document.getElementById('res-driver-salary').textContent = `$${salary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+            // Updated RIGHT result box
+            document.getElementById('res-driver-salary').textContent = `$${settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
 
-            // Left Side: Cash Balance Calc
+            // 2. Link RIGHT result to LEFT 'Driver Salary' display
+            const linkedDisplay = document.getElementById('res-linked-salary');
+            if (linkedDisplay) linkedDisplay.textContent = `$${settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+
+            // 3. Left Side Calculation (Cash Balance)
             const cashColl = parseFloat(document.getElementById('calc-cash-coll').value) || 0;
-            const deduct = parseFloat(document.getElementById('calc-driver-deduct').value) || 0;
             const lastBal = parseFloat(document.getElementById('calc-last-bal').value) || 0;
-            const cashBal = cashColl - deduct - lastBal;
+            
+            // Formula: Cash Balance = (Cash Collected + Last Week Balance) - Driver Salary (Settlement result)
+            const cashTotal = (cashColl + lastBal) - settlementSalary;
 
-            document.getElementById('res-cash-bal').textContent = `$${cashBal.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('res-cash-bal').textContent = `$${cashTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
         }
+
+        // --- settlement ARCHIVING SYSTEM ---
+        let currentSettlements = [];
+
+        async function fetchHistory() {
+            console.log("Attempting to fetch history from Supabase...");
+            try {
+                const { data, error } = await db
+                    .from('settlement_history')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.error("DB Error fetching history:", error.message);
+                    throw error;
+                }
+                
+                console.log(`Success: Fetched ${data ? data.length : 0} settlement records.`);
+                currentSettlements = data || [];
+                
+                if (currentSettlements.length === 0) {
+                    console.log("INFO: No settlement history found in database.");
+                }
+                
+                renderSettlementHistory();
+            } catch (err) {
+                console.error("CRITICAL: fetchHistory failed ->", err);
+            }
+        }
+        window.fetchHistory = fetchHistory;
+        // Alias for backward compatibility if needed
+        window.loadSettlements = fetchHistory;
+
+        function renderSettlementHistory() {
+            const body = document.getElementById('settlement-history-body');
+            const filterValue = (document.getElementById('history-local-filter')?.value || '').toLowerCase();
+            const globalDriver = (document.getElementById('filter-search')?.value || '').toLowerCase();
+            const globalStatus = document.getElementById('settlement-status')?.value || '';
+            const globalType = document.getElementById('settlement-payment-type')?.value || '';
+            
+            if (!body) return;
+            
+            body.innerHTML = '';
+
+            // Filter data locally if a search term exists (Universal Global Filter Logic)
+            const filtered = currentSettlements.filter(s => {
+                const matchLocal = (s.driver_name || '').toLowerCase().includes(filterValue);
+                const matchGlobalDriver = (s.driver_name || '').toLowerCase().includes(globalDriver);
+                // Currently history table only has driver_name filter but we prepare for others
+                return matchLocal && matchGlobalDriver;
+            });
+
+            if (filtered.length === 0) {
+                body.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 30px; color: #64748b; font-style: italic;">No records matching filter.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(s => {
+                const tr = document.createElement('tr');
+                const fDate = (d) => {
+                    if (!d) return '---';
+                    const dateObj = new Date(d + 'T00:00:00');
+                    // Changed to DD/MM/YYYY as requested (Spanish style)
+                    const d1 = dateObj.getDate().toString().padStart(2, '0');
+                    const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                    const y = dateObj.getFullYear();
+                    return `${d1}/${m}/${y}`;
+                };
+
+                // Aging Calculation
+                let agingText = '---';
+                if (s.start_date) {
+                    const start = new Date(s.start_date + 'T00:00:00');
+                    const diff = new Date() - start;
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    agingText = days >= 0 ? `${days} days` : 'Future';
+                }
+                
+                const balance = s.cash_balance || 0;
+                const balanceColor = balance < 0 ? '#ef4444' : '#10b981';
+
+                tr.innerHTML = `
+                    <td style="font-size: 0.75rem; color: #94a3b8;">${(s.id || '---').toString().slice(0, 8).toUpperCase()}</td>
+                    <td style="font-weight: 700; color: #1e293b;">${s.driver_name || 'UNASSIGNED'}</td>
+                    <td style="color: #475569;">${fDate(s.start_date)}</td>
+                    <td style="color: #475569;">${fDate(s.end_date)}</td>
+                    <td style="color: #64748b; font-size: 0.85rem;">${agingText}</td>
+                    <td style="font-weight: 800; color: ${balanceColor}; font-size: 1.1rem;">
+                        $${balance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td style="text-align: center;">
+                        <button onclick="deleteSettlement('${s.id}')" class="btn-cancel" style="padding: 5px 10px; font-size: 0.7rem; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">
+                            <i class="fas fa-trash"></i> DELETE
+                        </button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function syncDriverNames() {
+            const selectEl = document.getElementById('filter-search');
+            let val = 'UNASSIGNED';
+            if (selectEl && selectEl.value) {
+                val = selectEl.options[selectEl.selectedIndex].text;
+            }
+            const display = document.getElementById('display-driver-sync');
+            if (display) display.textContent = val.toUpperCase();
+        }
+
+        async function archiveSettlement() {
+            // SCOPED CAPTURE: Searching specifically within the reports panel to avoid grabbing dates from 'New Trip Entry'
+            const panel = document.getElementById('reports-view');
+            if (!panel) return;
+
+            let fromField = panel.querySelector('#filter-from') || panel.querySelectorAll('input[type="date"]')[0];
+            let toField = panel.querySelector('#filter-to') || panel.querySelectorAll('input[type="date"]')[1];
+            let searchField = panel.querySelector('#filter-search');
+
+            const val_inicio = fromField ? fromField.value : '';
+            const val_final = toField ? toField.value : '';
+            const val_search = searchField ? searchField.value : '';
+            
+            const cashField = document.getElementById('res-cash-bal');
+            const statusField = document.getElementById('settlement-status');
+            const typeField = document.getElementById('settlement-payment-type');
+
+            const val_status = statusField ? statusField.value : 'PENDING';
+            const val_type = typeField ? typeField.value : 'CASH';
+
+            // DIAGNOSTIC LOGGING
+            console.log("Archive CAPTURE Scoped ->", {
+                InitialValue: val_inicio,
+                FinalValue: val_final,
+                DriverSelected: val_search
+            });
+
+            const driverNameFinal = val_search.trim().toUpperCase() || 'UNASSIGNED';
+            
+            // VALIDATION: Dates are mandatory for archiving
+            if (!val_inicio || !val_final) {
+                alert(`Selecciona el rango de fechas antes de archivar.\n(Asegúrate de llenar los campos INITIAL y FINAL DATE arriba)`);
+                return;
+            }
+            
+            const cashText = cashField ? cashField.textContent : '$0,00';
+            const cashAmountFinal = parseFloat(cashText.replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
+
+            if (!confirm(`Are you sure you want to ARCHIVE this settlement for ${driverNameFinal}?`)) return;
+
+            const entry = {
+                driver_name: driverNameFinal,
+                start_date: val_inicio,
+                end_date: val_final,
+                cash_balance: cashAmountFinal,
+                status: val_status,
+                payment_type: val_type
+            };
+
+            try {
+                const { error } = await db.from('settlement_history').insert([entry]);
+                if (error) throw error;
+                
+                alert("Archive Saved Successfully!");
+                
+                // Clear Calculators
+                const ids = ['calc-cash-coll', 'calc-last-bal', 'calc-gross', 'calc-factory', 'calc-weekly'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = 0;
+                });
+                
+                updateWeeklyCalc();
+                if (window.fetchHistory) window.fetchHistory();
+            } catch (err) {
+                console.error("Archive failed:", err);
+                alert("DATABASE ERROR: " + (err.message || "Unknown error"));
+            }
+        }
+        window.archiveSettlement = archiveSettlement;
+
+        async function deleteSettlement(id) {
+            if (!confirm("Are you sure you want to delete this historical record?")) return;
+            try {
+                const { error } = await db.from('settlement_history').delete().eq('id', id);
+                if (error) throw error;
+                fetchHistory();
+            } catch (err) {
+                alert("Delete failed: " + err.message);
+            }
+        }
+        window.deleteSettlement = deleteSettlement;
 
         // Initialize state on load
         window.addEventListener('DOMContentLoaded', () => {
@@ -2232,44 +2630,70 @@
                 const relNo = document.getElementById('rel-no-releases').value;
                 if (!relNo) { alert('Please enter a Release Number'); return; }
 
-                const q20 = parseInt(document.getElementById('rel-qty-20').value) || 0;
-                const p20 = parseFloat(document.getElementById('rel-price-20').value) || 0;
-                const q40 = parseInt(document.getElementById('rel-qty-40').value) || 0;
-                const p40 = parseFloat(document.getElementById('rel-price-40').value) || 0;
-                const q45 = parseInt(document.getElementById('rel-qty-45').value) || 0;
-                const p45 = parseFloat(document.getElementById('rel-price-45').value) || 0;
-                const totalStock = q20 + q40 + q45;
+                const date = document.getElementById('rel-date').value || '---';
+                const city = document.getElementById('rel-city').value || '---';
+                const depot = document.getElementById('rel-depot').value || '---';
+                const address = document.getElementById('rel-address').value || '---';
+                const seller = document.getElementById('rel-seller').value || '---';
 
-                const dataRow = [
-                    relNo,
-                    document.getElementById('rel-date').value || '---',
-                    document.getElementById('rel-type').value,
-                    document.getElementById('rel-depot').value || '---',
-                    document.getElementById('rel-address').value || '---',
-                    document.getElementById('rel-city').value || '---',
-                    q20, p20,
-                    q40, p40,
-                    q45, p45,
-                    document.getElementById('rel-seller').value || '---',
-                    totalStock
+                // We will collect multiple rows if multiple quantities are filled
+                const sizesToProcess = [
+                    { sizeName: "20' FT", qtyId: "rel-qty-20", priceId: "rel-price-20", typeName: "rel-20-type", condName: "rel-20-cond", column: "qty_20" },
+                    { sizeName: "40' FT", qtyId: "rel-qty-40", priceId: "rel-price-40", typeName: "rel-40-type", condName: "rel-40-cond", column: "qty_40" },
+                    { sizeName: "45' FT", qtyId: "rel-qty-45", priceId: "rel-price-45", typeName: "rel-45-type", condName: "rel-45-cond", column: "qty_45" }
                 ];
 
-                const releaseObj = mapArrayToRelease(dataRow);
+                let processedCount = 0;
 
-                try {
-                    await addRelease(releaseObj);
-                    await loadReleasesData(); // Reload Table
+                for (const sz of sizesToProcess) {
+                    const qty = parseInt(document.getElementById(sz.qtyId).value) || 0;
+                    if (qty > 0) {
+                        const price = parseFloat(document.getElementById(sz.priceId).value) || 0;
+                        const type = document.querySelector(`input[name="${sz.typeName}"]:checked`).value;
+                        const condition = document.querySelector(`input[name="${sz.condName}"]:checked`).value;
+
+                        // Build single release object for this specific size category
+                        const relObj = {
+                            release_no: relNo,
+                            date: date === '---' ? null : date,
+                            type: type,
+                            condition: condition,
+                            depot: depot,
+                            depot_address: address,
+                            city: city,
+                            qty_20: sz.column === 'qty_20' ? qty : 0,
+                            price_20: sz.column === 'qty_20' ? price : 0,
+                            qty_40: sz.column === 'qty_40' ? qty : 0,
+                            price_40: sz.column === 'qty_40' ? price : 0,
+                            qty_45: sz.column === 'qty_45' ? qty : 0,
+                            price_45: sz.column === 'qty_45' ? price : 0,
+                            seller: seller,
+                            total_stock: qty
+                        };
+
+                        try {
+                            await addRelease(relObj);
+                            processedCount++;
+                        } catch (err) {
+                            console.error(`Failed to add release for ${sz.sizeName}:`, err);
+                            alert(`Error saving ${sz.sizeName}: ${err.message}`);
+                        }
+                    }
+                }
+
+                if (processedCount > 0) {
+                    await loadReleasesData();
                     if (window.updateReleaseDatalist) window.updateReleaseDatalist();
-
-                    // Clear inputs
-                    ['rel-no-releases', 'rel-qty-20', 'rel-price-20', 'rel-qty-40', 'rel-price-40', 'rel-qty-45', 'rel-price-45', 'rel-depot', 'rel-address', 'rel-city', 'rel-seller'].forEach(id => {
+                    
+                    // Clear fields
+                    ['rel-no-releases', 'rel-qty-20', 'rel-qty-40', 'rel-qty-45'].forEach(id => {
                         const el = document.getElementById(id);
-                        if (el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
+                        if (el) el.value = (id.includes('qty')) ? '0' : '';
                     });
-                    alert("Release saved to Supabase!");
-                } catch (err) {
-                    console.error("Error adding release:", err);
-                    alert("Failed to save release to database.");
+                    
+                    alert(`¡Éxito! Se han creado ${processedCount} variantes de Release correctamente.`);
+                } else {
+                    alert("Por favor, ingresa al menos una cantidad mayor a 0 para guardar.");
                 }
             };
 
@@ -2288,17 +2712,87 @@
                     body.innerHTML = '';
                     currentReleases.forEach(rowData => {
                         const tr = document.createElement('tr');
-                        rowData.forEach(text => {
+                        
+                        // ICONIC ORDER: [0]rel_no, [1]date, [2]type(Icon), [3]cond(Icon), [6]city, [4]depot, [5]depot_address, [7]qty20, [9]qty40, [11]qty45, [13]seller
+                        const displayIndices = [0, 1, 2, 3, 6, 4, 5, 7, 9, 11, 13];
+                        
+                        const q20 = parseInt(rowData[7]) || 0;
+                        const q40 = parseInt(rowData[9]) || 0;
+                        const q45 = parseInt(rowData[11]) || 0;
+                        const sumTotal = q20 + q40 + q45;
+
+                        displayIndices.forEach(idx => {
                             const td = document.createElement('td');
-                            td.textContent = text;
+                            let text = rowData[idx];
+
+                            // Date format DD/MM/YYYY for index 1
+                            if (idx === 1 && text && text !== '---') {
+                                try {
+                                    const d = new Date(text + 'T00:00:00');
+                                    if (!isNaN(d.getTime())) {
+                                        const dd = String(d.getDate()).padStart(2, '0');
+                                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                        const yyyy = d.getFullYear();
+                                        text = `${dd}/${mm}/${yyyy}`;
+                                    }
+                                } catch(e) {}
+                                td.textContent = text;
+                            } 
+                            // ICON LOGIC for TYPE (index 2)
+                            else if (idx === 2) {
+                                td.style.fontSize = '1.4rem';
+                                if (text === 'DRY') {
+                                    td.innerHTML = `<span title="DRY (Calor)">🔥</span>`;
+                                } else if (text === 'REEFER') {
+                                    td.innerHTML = `<span title="REEFER (Frío)">❄️</span>`;
+                                } else {
+                                    td.textContent = text;
+                                }
+                            }
+                            // ICON LOGIC for CONDITION (index 3)
+                            else if (idx === 3) {
+                                td.style.fontSize = '1.4rem';
+                                if (text === 'NEW') {
+                                    td.innerHTML = `<span title="NEW Condition">✨</span>`;
+                                } else {
+                                    td.innerHTML = `<span title="USED Condition">🔧</span>`;
+                                }
+                            }
+                            // Explicit '0' for quantities (7, 9, 11) with RED ALERT
+                            else if ([7, 9, 11].includes(idx)) {
+                                const valStr = text !== undefined ? text : '0';
+                                const valNum = parseInt(valStr) || 0;
+                                td.textContent = valStr;
+                                if (valNum <= 10) {
+                                    td.style.backgroundColor = '#fee2e2';
+                                    td.style.color = '#dc2626';
+                                    td.style.fontWeight = '900';
+                                    td.style.border = '2px solid #ef4444';
+                                }
+                            } else {
+                                td.textContent = text;
+                            }
                             tr.appendChild(td);
                         });
-                        body.appendChild(tr);
+
+                        // Add the Total Stock units cell (Sum)
+                        const tdStock = document.createElement('td');
+                        tdStock.textContent = sumTotal;
+                        tdStock.style.fontWeight = '900';
+                        tdStock.style.color = '#166534';
+                        tr.appendChild(tdStock);
+
+                        if (body) body.appendChild(tr);
                     });
+
+                    // Update suggestions for Delivery Calendar
+                    if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+
                 } catch (err) {
                     console.error("Error loading releases:", err);
                 }
             }
+            window.loadReleasesData = loadReleasesData; // Expose globally
             // Mobile menu behavior is handled by global toggleMobileMenu and closeMenu functions.
 
             // EXPENSE MANAGEMENT LOGIC
@@ -2402,19 +2896,20 @@
                     sales: 0,
                     rentals: 0,
                     yard: 0,
-                    expenses: 0
+                    expenses: 0,
+                    releases: 0
                 };
 
-                // 1. Calculate Revenue from Logistics
+                // 1. Calculate Revenue from Logistics (Fixed Indices matching mapTripToArray)
                 logisticsData.forEach(row => {
                     const rowDate = row[1];
                     if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
-                        totals.sales += parseFloat(row[22]) || 0;
-                        totals.yard += parseFloat(row[15]) || 0;
+                        totals.sales += parseFloat(row[19]) || 0;  // sales_price at index 19
+                        totals.yard += parseFloat(row[13]) || 0;   // yard_rate at index 13
 
-                        // Rentals: Sum Day Rate (17) and Monthly Rate (34)
+                        // Rentals: Sum Day Rate (17) and Monthly Rate (27)
                         const dayRate = parseFloat(row[17]) || 0;
-                        const monthlyRate = parseFloat(row[34]) || 0;
+                        const monthlyRate = parseFloat(row[27]) || 0;
                         totals.rentals += (dayRate + monthlyRate);
                     }
                 });
@@ -2423,18 +2918,32 @@
                 expensesData.forEach(row => {
                     const rowDate = row[0];
                     if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
-                        // Amount is in index 3, format "$1,234.56"
                         const amountStr = row[3] ? row[3].replace('$', '').replace(/,/g, '') : '0';
                         totals.expenses += parseFloat(amountStr) || 0;
                     }
                 });
 
-                const totalRevenue = totals.sales + totals.rentals + totals.yard;
-                const netProfit = totalRevenue - totals.expenses;
+                // 3. New: Calculate Release Costs (Container Purchases)
+                currentReleases.forEach(row => {
+                    const rowDate = row[1];
+                    if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
+                        const q20 = parseFloat(row[6]) || 0;
+                        const p20 = parseFloat(row[7]) || 0;
+                        const q40 = parseFloat(row[8]) || 0;
+                        const p40 = parseFloat(row[9]) || 0;
+                        const q45 = parseFloat(row[10]) || 0;
+                        const p45 = parseFloat(row[11]) || 0;
+                        totals.releases += (q20 * p20) + (q40 * p40) + (q45 * p45);
+                    }
+                });
 
-                // 3. Update Summary Cards
+                const totalRevenue = totals.sales + totals.rentals + totals.yard;
+                const totalGlobalExpenses = totals.expenses + totals.releases;
+                const netProfit = totalRevenue - totalGlobalExpenses;
+
+                // 4. Update Summary Cards
                 document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-                document.getElementById('total-expenses-val').textContent = `$${totals.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                document.getElementById('total-expenses-val').textContent = `$${totalGlobalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
                 const netEl = document.getElementById('net-profit-val');
                 const profitCard = document.getElementById('profit-card-status');
@@ -2448,13 +2957,14 @@
                     profitCard.className = 'summary-card profit negative';
                 }
 
-                // 4. Update Breakdown List
+                // 5. Update Breakdown List
                 document.getElementById('val-sales').textContent = `$${totals.sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                 document.getElementById('val-rentals').textContent = `$${totals.rentals.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                 document.getElementById('val-yard').textContent = `$${totals.yard.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                document.getElementById('val-releases').textContent = `$${totals.releases.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
-                // 5. Update Simple Bar Chart
-                const maxVal = Math.max(totals.sales, totals.rentals, totals.yard, 1);
+                // 6. Update Simple Bar Chart
+                const maxVal = Math.max(totals.sales, totals.rentals, totals.yard, totals.releases, 1);
                 document.getElementById('bar-sales').style.width = `${(totals.sales / maxVal) * 100}%`;
                 document.getElementById('bar-rentals').style.width = `${(totals.rentals / maxVal) * 100}%`;
                 document.getElementById('bar-yard').style.width = `${(totals.yard / maxVal) * 100}%`;
@@ -2571,15 +3081,15 @@
                     order: getV('u-r-order', 5),
                     doors: getV('u-r-doors', 9),
                     cust: getV('u-r-customer', 11),
-                    phone: getV('u-r-phone', 24),
+                    phone: getV('u-r-phone', 23),
                     pickup: getV('u-r-pickup', 7),
                     place: getV('u-r-place', 8),
-                    yard: parseFloat(getV('u-r-yard', 14)) || 0,
-                    storage: parseFloat(getV('u-r-storage', 16)) || 0,
+                    yard: parseFloat(getV('u-r-yard', 13)) || 0,
+                    storage: parseFloat(getV('u-r-storage', 15)) || 0,
                     transp: parseFloat(document.getElementById('u-r-transp')?.value) || 0,
-                    sales: parseFloat(getV('u-r-sales', 21)) || 0,
+                    sales: parseFloat(getV('u-r-sales', 20)) || 0,
                     taxRate: parseFloat(document.getElementById('u-r-tax').value) || 0,
-                    notes: getV('u-r-notes', 31),
+                    notes: getV('u-r-notes', 28),
                     cond: {
                         asis: getB('chk-asis', 'AS IS'),
                         wwt: getB('chk-wwt', 'WWT'),
@@ -2766,7 +3276,7 @@
                     release_no: document.getElementById('u-r-rel').value,
                     order_no: document.getElementById('u-r-order').value,
                     customer: document.getElementById('u-r-customer').value,
-                    phone: document.getElementById('u-r-phone').value,
+                    phone_no: document.getElementById('u-r-phone').value,
                     pickup_address: document.getElementById('u-r-pickup').value,
                     delivery_place: document.getElementById('u-r-place').value,
                     yard_rate: parseFloat(document.getElementById('u-r-yard').value) || 0,
@@ -2984,12 +3494,31 @@
 
         });
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const activeSection = sessionStorage.getItem('activeSection') || 'hero';
-            showView(activeSection);
-
-            // Ensure ID is generated for initial new trip
+            
+            // Generate initial ID
             if (window.initNewTripId) window.initNewTripId();
+            
+            // INITIAL DATA FETCH (Critical for reports persistence)
+            if (window.renderDriverLog) {
+                const logBody = document.getElementById('dl-body');
+                if (logBody) logBody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding: 20px; color: #64748b;">Loading driver data...</td></tr>';
+            }
+            
+            if (window.loadTableData) {
+                await window.loadTableData();
+                // After data is loaded, if we are in reports, re-render
+                if (activeSection === 'reports') {
+                    if (window.renderDriverLog) window.renderDriverLog();
+                    if (window.fetchHistory) window.fetchHistory();
+                }
+            }
+            
+            showView(activeSection);
+            
+            // Forced Initial Fetch (For historical data)
+            if (window.fetchHistory) window.fetchHistory();
         });
 
         window.addEventListener('scroll', () => {
