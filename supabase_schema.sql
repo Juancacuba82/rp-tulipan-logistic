@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS trips (
     payout_status TEXT,
     truck_unit TEXT,
     trailer_unit TEXT,
+    final_driver_pay NUMERIC DEFAULT 0, -- New: Calculated 30% or 100% net pay
+    yard_rate_paid BOOLEAN DEFAULT false, -- New: PAID status for Yard Rate
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -60,6 +62,8 @@ ALTER TABLE trips ADD COLUMN IF NOT EXISTS type_payment TEXT;
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS phone_no TEXT;
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS paid_driver NUMERIC;
 ALTER TABLE trips ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT false;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS final_driver_pay NUMERIC DEFAULT 0;
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS yard_rate_paid BOOLEAN DEFAULT false;
 
 -- 2. RELEASES TABLE (MODIFIED for Granular Inventory)
 DROP TABLE IF EXISTS releases;
