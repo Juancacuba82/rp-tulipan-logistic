@@ -9,12 +9,14 @@ const SUPABASE_KEY = 'sb_publishable_Wt5TmlxBw3FOtZ_L_oWt0Q_RoMMVuni';
 // For browser usage with the CDN, 'supabase' is globally available.
 let db;
 try {
-    db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if (typeof supabase !== 'undefined') {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } else {
+        console.error("Supabase library not loaded. Ensure the CDN script is present.");
+    }
 } catch (e) {
-    console.error("Supabase client failed to initialize. Check if script tag is present.");
+    console.error("Supabase client failed to initialize:", e);
 }
-
-// Localización: c:\Users\Juanca\Desktop\RP tulipan logistic\supabase-client.js
 
 async function getTrips() {
     try {

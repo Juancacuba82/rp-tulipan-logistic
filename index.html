@@ -15,10 +15,10 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./style.css">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-client.js"></script>
+    <script src="./supabase-client.js"></script>
 </head>
 
 <body>
@@ -28,7 +28,7 @@
             <div class="navbar-logo"
                 onclick="closeMenu(); sessionStorage.setItem('activeSection', 'hero'); showView('hero')"
                 style="cursor: pointer; display: flex; align-items: center; gap: 15px;">
-                <img src="assets/logo.png" alt="RP Tulipan Logo" class="navbar-logo-img"
+                <img src="./assets/logo.png" alt="RP Tulipan Logo" class="navbar-logo-img"
                     style="width: 45px; height: auto; object-fit: contain;">
                 <span class="logo-text">RP TULIPAN</span>
             </div>
@@ -1244,6 +1244,10 @@
     </main>
 
     <script>
+        // NOTE: If you experience CORS errors (Unsafe attempt to load script), 
+        // please run this application using a local server (e.g., Live Server in VS Code, 
+        // or 'python -m http.server' in your terminal) instead of opening the file directly.
+        
         // Supabase Instance is already 'db' from supabase-client.js
         // No redundant initialization needed here.
 
@@ -1400,7 +1404,7 @@
             return [
                 r.release_no, r.date, r.type || 'EMPTY', r.condition || 'USED', r.depot || '---', r.depot_address || '---',
                 r.city || '---', r.qty_20 || 0, r.price_20 || 0, r.qty_40 || 0, r.price_40 || 0,
-                r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0
+                r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0, r.id
             ];
         }
 
@@ -1836,28 +1840,36 @@
                 }
 
                 if (currentReleases.length > 0) {
-                    // Match EXACTLY by Release #, Type, and Condition
-                    const rData = currentReleases.find(r => r[0] === selectedRelease && r[2] === selectedRelType && r[3] === selectedRelCond);
+                    // SUM all rows that match Release #, Type, and Condition
+                    const matchingRows = currentReleases.filter(r => r[0] === selectedRelease && r[2] === selectedRelType && r[3] === selectedRelCond);
                     
-                    if (rData) {
-                        let stockIdx = -1;
+                    if (matchingRows.length > 0) {
+                        let totalStockFound = 0;
                         let dbField = '';
-                        if (selectedSize.includes("20'")) { stockIdx = 7; dbField = 'qty_20'; }
-                        else if (selectedSize.includes("40'")) { stockIdx = 9; dbField = 'qty_40'; }
-                        else if (selectedSize.includes("45'")) { stockIdx = 11; dbField = 'qty_45'; }
+                        let sizeBase = '';
+                        let stockIdx = -1;
+                        
+                        if (selectedSize.startsWith("20")) { stockIdx = 7; dbField = 'qty_20'; sizeBase = "20'"; }
+                        else if (selectedSize.startsWith("40")) { stockIdx = 9; dbField = 'qty_40'; sizeBase = "40'"; }
+                        else if (selectedSize.startsWith("45")) { stockIdx = 11; dbField = 'qty_45'; sizeBase = "45'"; }
 
                         if (stockIdx !== -1) {
-                            const currentStock = parseInt(rData[stockIdx]) || 0;
-                            if (currentStock <= 0) {
-                                alert(`STOCK AGOTADO para esta combinación: Release ${selectedRelease} | ${selectedRelType} | ${selectedRelCond} | Medida ${selectedSize}`);
+                            totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[stockIdx]) || 0), 0);
+                            
+                            if (totalStockFound <= 0) {
+                                alert(`Sin stock disponible para contenedores de ${sizeBase}.`);
                                 isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
                                 return;
                             }
-                            window.calculatedNewStock = currentStock - 1;
+
+                            // For deduction, we use the first matching row as the "primary" to update, 
+                            // or ideally would distribute but standard is updating the first valid row for this release variant.
+                            window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) - 1;
                             window.stockUpdateField = dbField;
                             window.targetReleaseNo = selectedRelease;
                             window.targetReleaseType = selectedRelType;
                             window.targetReleaseCond = selectedRelCond;
+                            window.targetReleaseId = matchingRows[0][14]; // Need ID for exact update
                         }
                     } else {
                         alert(`ERROR: No existe un Release ${selectedRelease} configurado como ${selectedRelType} / ${selectedRelCond}. Por favor, créalo en la sección Form Releases.`);
@@ -1930,7 +1942,8 @@
                             .update(upObj)
                             .eq('release_no', window.targetReleaseNo)
                             .eq('type', window.targetReleaseType)
-                            .eq('condition', window.targetReleaseCond);
+                            .eq('condition', window.targetReleaseCond)
+                            .eq('id', window.targetReleaseId);
                             
                         // Clean up
                         delete window.stockUpdateField;
@@ -1994,15 +2007,67 @@
         const inSizeSelect = document.getElementById('in-size');
 
         if (inReleaseInput && inSizeSelect) {
+            const validateStockUI = () => {
+                const selectedRel = inReleaseInput.value;
+                const selectedSize = inSizeSelect.value;
+                const selectedRelType = document.getElementById('in-rel-type').value;
+                const selectedRelCond = document.getElementById('in-rel-condition').value;
+                const btn = document.querySelector('.btn-add-sidebar');
+                
+                if (!selectedRel || selectedRel === '---' || !selectedSize || !selectedRelType || !selectedRelCond) {
+                    if (btn && btn.textContent !== 'Saving... Wait') {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Confirm Operation';
+                    }
+                    return;
+                }
+
+                if (currentReleases.length === 0) return;
+                const matchingRows = currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
+
+                if (matchingRows.length > 0) {
+                    let totalStock = 0;
+                    let sizeBase = '';
+                    let idx = -1;
+                    if (selectedSize.startsWith("20")) { idx = 7; sizeBase = "20'"; }
+                    else if (selectedSize.startsWith("40")) { idx = 9; sizeBase = "40'"; }
+                    else if (selectedSize.startsWith("45")) { idx = 11; sizeBase = "45'"; }
+
+                    if (idx !== -1) {
+                        totalStock = matchingRows.reduce((sum, r) => sum + (parseInt(r[idx]) || 0), 0);
+                    }
+
+                    if (totalStock <= 0) {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.5';
+                        btn.textContent = `Sin stock disponible para contenedores de ${sizeBase}.`;
+                        btn.style.background = '#64748b'; // Gray out
+                    } else {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Confirm Operation';
+                        btn.style.background = editingIndex !== null ? '#0f172a' : '#b91c1c';
+                    }
+                }
+            };
+
+            [inReleaseInput, inSizeSelect, document.getElementById('in-rel-type'), document.getElementById('in-rel-condition')].forEach(el => {
+                if (el) el.addEventListener('change', validateStockUI);
+            });
+
             inReleaseInput.addEventListener('change', () => {
                 const selectedRel = inReleaseInput.value;
+                const selectedRelType = document.getElementById('in-rel-type').value;
+                const selectedRelCond = document.getElementById('in-rel-condition').value;
+                
                 if (currentReleases.length === 0) return;
-                const relData = currentReleases.find(r => r[0] === selectedRel);
+                const relData = currentReleases.find(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
 
                 if (relData) {
-                    const stock20 = parseInt(relData[5]) || 0;
-                    const stock40 = parseInt(relData[7]) || 0;
-                    const stock45 = parseInt(relData[9]) || 0;
+                    const stock20 = parseInt(relData[7]) || 0;
+                    const stock40 = parseInt(relData[9]) || 0;
+                    const stock45 = parseInt(relData[11]) || 0;
 
                     // Filter options based on stock
                     Array.from(inSizeSelect.options).forEach(opt => {
@@ -2010,9 +2075,9 @@
                         if (!val) return; // Leave "Select Size"
 
                         let shouldShow = true;
-                        if (val.includes("20'")) shouldShow = stock20 > 0;
-                        else if (val.includes("40'")) shouldShow = stock40 > 0;
-                        else if (val.includes("45'")) shouldShow = stock45 > 0;
+                        if (val.startsWith("20")) shouldShow = stock20 > 0;
+                        else if (val.startsWith("40")) shouldShow = stock40 > 0;
+                        else if (val.startsWith("45")) shouldShow = stock45 > 0;
 
                         opt.disabled = !shouldShow;
                         opt.style.display = shouldShow ? 'block' : 'none';
@@ -2486,29 +2551,43 @@
         }
 
         window.updateWeeklyCalc = function () {
+            // Safety Check: Avoid breaking if calculator is not in the current view (Mobil/Desktop)
+            const elGross = document.getElementById('calc-gross');
+            const elFactory = document.getElementById('calc-factory');
+            const elWeekly = document.getElementById('calc-weekly');
+            const elCashColl = document.getElementById('calc-cash-coll');
+            const elLastBal = document.getElementById('calc-last-bal');
+            const resSalary = document.getElementById('res-driver-salary');
+            const resCashBal = document.getElementById('res-cash-bal');
+
+            if (!elGross || !elFactory || !elWeekly || !elCashColl || !elLastBal || !resSalary || !resCashBal) {
+                console.log("Calculadora no presente en el DOM. Omitiendo recálculo.");
+                return;
+            }
+
             // 1. Right Side Calculation (Settlement)
-            const gross = parseFloat(document.getElementById('calc-gross').value) || 0;
-            const factoryPct = parseFloat(document.getElementById('calc-factory').value) || 0;
-            const weeklyPayment = parseFloat(document.getElementById('calc-weekly').value) || 0;
+            const gross = parseFloat(elGross.value) || 0;
+            const factoryPct = parseFloat(elFactory.value) || 0;
+            const weeklyPayment = parseFloat(elWeekly.value) || 0;
             
             const factoringFee = gross * (factoryPct / 100);
             const settlementSalary = gross - factoringFee - weeklyPayment;
 
             // Updated RIGHT result box
-            document.getElementById('res-driver-salary').textContent = `$${settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+            resSalary.textContent = `$${settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
 
             // 2. Link RIGHT result to LEFT 'Driver Salary' display
             const linkedDisplay = document.getElementById('res-linked-salary');
             if (linkedDisplay) linkedDisplay.textContent = `$${settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
 
             // 3. Left Side Calculation (Cash Balance)
-            const cashColl = parseFloat(document.getElementById('calc-cash-coll').value) || 0;
-            const lastBal = parseFloat(document.getElementById('calc-last-bal').value) || 0;
+            const cashColl = parseFloat(elCashColl.value) || 0;
+            const lastBal = parseFloat(elLastBal.value) || 0;
             
             // Formula: Cash Balance = (Cash Collected + Last Week Balance) - Driver Salary (Settlement result)
             const cashTotal = (cashColl + lastBal) - settlementSalary;
 
-            document.getElementById('res-cash-bal').textContent = `$${cashTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+            resCashBal.textContent = `$${cashTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
         }
 
         // --- settlement ARCHIVING SYSTEM ---
@@ -3397,10 +3476,20 @@
 
             // --- AUTO COMMISSION LOGIC ---
             window.updateDriverCommission = function () {
-                const company = document.getElementById('in-company').value;
-                const commText = document.getElementById('in-comission').value;
+                const elCompany = document.getElementById('in-company');
+                const elCommText = document.getElementById('in-comission');
+                const elPaidBase = document.getElementById('in-paiddriver');
+                const elCommRes = document.getElementById('in-comidriver');
+
+                // Safety validation: Ensure elements exist before reading .value
+                if (!elCompany || !elCommText || !elPaidBase) {
+                    return; // Silently stop if form is not present (e.g., in other views)
+                }
+
+                const company = elCompany.value;
+                const commText = elCommText.value;
                 const commPercent = parseFloat(commText) || 30;
-                const paidBase = parseFloat(document.getElementById('in-paiddriver').value) || 0;
+                const paidBase = parseFloat(elPaidBase.value) || 0;
 
                 let result = 0;
                 if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
@@ -3409,12 +3498,11 @@
                     result = paidBase;
                 }
 
-                const commEl = document.getElementById('in-comidriver');
-                if (commEl) {
-                    commEl.value = result.toFixed(2);
+                if (elCommRes) {
+                    elCommRes.value = result.toFixed(2);
                 }
             }
-            updateDriverCommission();
+            if (window.updateDriverCommission) updateDriverCommission();
 
             // Init with empty dates to show all by default
             const fromD = document.getElementById('trip-from-date');
