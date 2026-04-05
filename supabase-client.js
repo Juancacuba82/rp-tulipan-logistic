@@ -66,8 +66,8 @@ async function addRelease(releaseData) {
     return data;
 }
 
-async function updateRelease(releaseNo, updateData) {
-    const { data, error } = await db.from('releases').update(updateData).eq('release_no', releaseNo);
+async function updateRelease(id, updateData) {
+    const { data, error } = await db.from('releases').update(updateData).eq('id', id);
     if (error) { console.error('Error updating release:', error); throw error; }
     return data;
 }

@@ -109,7 +109,7 @@
                     <div class="sidebar-header">
                         <h3>New Trip Entry</h3>
                         <div class="header-actions">
-                            <button onclick="addRow()" class="btn-add-sidebar">Confirm Operation</button>
+                            <button onclick="addRow()" class="btn-add-sidebar">Archive Order</button>
                         </div>
                     </div>
                     <div class="sidebar-form">
@@ -314,11 +314,19 @@
                                 <option value="TRAVIS JOSEY">Travis Josey</option>
                             </select>
                         </div>
-                        <div class="form-group"><label class="sidebar-label-btn">Trans. Pay</label>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn">Trans. Pay?</label>
+                            <select id="in-has-trans" onchange="toggleTransPay()" required>
+                                <option value="YES">YES</option>
+                                <option value="NO">NO</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="trans-pay-group"><label class="sidebar-label-btn">Trans. Pay</label>
                             <input type="number" id="in-rate" style="flex: 0.6;" oninput="updateDriverCommission()">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
                                     id="in-ratepaid" onchange="syncImmediate('st_rate', this.checked ? 'PAID' : 'PEND')"></label>
                         </div>
+
                         <div class="form-group">
                             <label class="sidebar-label-btn">Type Of Payment</label>
                             <select id="in-paytype" required>
@@ -327,11 +335,19 @@
                                 <option value="ACOUNT BANK">ACOUNT BANK</option>
                             </select>
                         </div>
-                        <div class="form-group"><label class="sidebar-label-btn">Sales Price</label>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn">Sales Price?</label>
+                            <select id="in-has-sales" onchange="toggleSalesPrice()" required>
+                                <option value="YES">YES</option>
+                                <option value="NO">NO</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="sales-price-group"><label class="sidebar-label-btn">Sales Price</label>
                             <input type="number" id="in-sales" style="flex: 0.6;">
                             <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
                                     id="in-salespaid" onchange="syncImmediate('st_sales', this.checked ? 'PAID' : 'PEND')"></label>
                         </div>
+
                         <div class="form-group">
                             <label class="sidebar-label-btn">Collect Payment</label>
                             <select id="in-collect" required>
@@ -343,7 +359,7 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn">Amount</label>
                             <input type="number" id="in-amount" style="flex: 0.6;" oninput="updateDriverCommission()">
-                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">PAID <input type="checkbox"
+                            <label style="flex: 0.2; font-size: 0.7rem; color: #b91c1c;">CASH <input type="checkbox"
                                     id="in-amountpaid" onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING')"></label>
                         </div>
                         <div class="form-group"><label class="sidebar-label-btn">Phone #</label><input type="text" id="in-phone"></div>
@@ -358,16 +374,11 @@
                         <!-- Removed COMISSION as per user request -->
                         <!-- Removed COMISION DRIVER as per user request -->
                         <!-- Removed DRIVER Payout Status as per user request -->
-                        <div class="form-group"><label class="sidebar-label-btn">Income Dis Fee</label><input type="number" id="in-income"></div>
                         <!-- Removed INVOICE as per user request -->
                         <div class="form-group"><label class="sidebar-label-btn">Note</label><input type="text" id="in-note"></div>
                         <div class="form-group"><label class="sidebar-label-btn">Email</label><input type="email" id="in-email"
                                 placeholder="customer@email.com"></div>
                         <input type="hidden" id="in-mode" value="SALE"> <!-- Fallback if JS missing -->
-
-                        <button onclick="addRow()" class="btn-add-sidebar"
-                            style="margin-top: 25px; width: 100%; padding: 15px; font-weight: 900; background: #b91c1c; color: white; border: none; border-radius: 8px; cursor: pointer;">Confirm
-                            Operation</button>
                     </div>
                 </aside>
 
@@ -421,11 +432,11 @@
                             </div>
                             <!-- Removed STATUS filter as per user request -->
                             <div class="filter-item">
-                                <label>Collect Payment</label>
-                                <select id="f-collect" onchange="applyAdvancedFilters()">
-                                    <option value="">Any Collect</option>
-                                    <option value="YES">YES</option>
-                                    <option value="NO">NO</option>
+                                <label>Pending</label>
+                                <select id="f-pending" onchange="applyAdvancedFilters()">
+                                    <option value="">All</option>
+                                    <option value="YES">Pending Only</option>
+                                    <option value="PAID">Completed / Paid</option>
                                 </select>
                             </div>
 
@@ -491,10 +502,9 @@
                                     <th>Type of Payment</th>
                                     <th>Sales Price</th>
                                     <th>Collect Payment</th>
-                                    <th>Amount (PAID)</th>
+                                    <th>Amount</th>
                                     <th>Phone #</th>
                                     <th>Paid Driver</th>
-                                    <th>Income Dis Fee</th>
                                     <th>Note</th>
                                     <th>Email</th>
                                     <th style="width: 100px;">Actions</th>
@@ -625,7 +635,8 @@
                 <aside class="entry-sidebar primary-entry" style="width: 450px;">
                     <div class="sidebar-header">
                         <h3>Release Management</h3>
-                        <div class="header-actions">
+                        <div class="header-actions" style="display: flex; gap: 8px;">
+                            <button id="btn-reset-release" onclick="resetReleaseForm()" class="btn-cancel" style="padding: 8px 12px; display: none;"><i class="fas fa-plus"></i> NEW</button>
                             <button onclick="addReleaseRow()" class="btn-add-sidebar">Add Release</button>
                         </div>
                     </div>
@@ -920,15 +931,6 @@
                                             <option value="VOID">VOID</option>
                                         </select>
                                     </div>
-                                    <!-- Type Pair -->
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <label style="font-weight: 700; color: #1e293b; min-width: 80px;">METHOD</label>
-                                        <select id="settlement-payment-type" class="form-input" style="height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 4px; border: 1px solid #e2e8f0; flex: 1;" onchange="fetchHistory()">
-                                            <option value="CASH">CASH</option>
-                                            <option value="ZELLE">ZELLE</option>
-                                            <option value="CHECK">CHECK</option>
-                                        </select>
-                                    </div>
                                     <!-- Driver Sync Pair -->
                                     <div style="display: flex; align-items: center; gap: 10px;">
                                         <label style="font-weight: 700; color: #1e293b; min-width: 80px;">DRIVER</label>
@@ -1215,6 +1217,20 @@
                                 </div>
                                 <div class="item-value" id="val-yard">$0.00</div>
                             </div>
+                            <div class="breakdown-item">
+                                <div class="item-label">
+                                    <span class="dot" style="background: #2dd4bf;"></span>
+                                    RP TULIPAN Profit
+                                </div>
+                                <div class="item-value" id="val-tulipan">$0.00</div>
+                            </div>
+                            <div class="breakdown-item">
+                                <div class="item-label">
+                                    <span class="dot" style="background: #a855f7;"></span>
+                                    CONTRACTOR Profit
+                                </div>
+                                <div class="item-value" id="val-contractor">$0.00</div>
+                            </div>
                             <div class="breakdown-item" style="border-top: 1px dashed #e2e8f0; margin-top: 10px; padding-top: 10px;">
                                 <div class="item-label" style="color: #be185d; font-weight: 700;">
                                     <span class="dot" style="background: #be185d;"></span>
@@ -1245,6 +1261,18 @@
                                 <label>Yard</label>
                                 <div class="bar-container">
                                     <div id="bar-yard" class="bar yard" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="bar-group">
+                                <label>RP Tulipan</label>
+                                <div class="bar-container">
+                                    <div id="bar-tulipan" class="bar" style="width: 0%; background: #2dd4bf;"></div>
+                                </div>
+                            </div>
+                            <div class="bar-group">
+                                <label>Contractor</label>
+                                <div class="bar-container">
+                                    <div id="bar-contractor" class="bar" style="width: 0%; background: #a855f7;"></div>
                                 </div>
                             </div>
                         </div>
@@ -1287,6 +1315,8 @@
 
         // --- TRIP DATA MAPPING HELPERS ---
         function mapTripToArray(t) {
+            const normPaid = (val) => (val === true || val === 1 || val === 'PAID' || val === 'true') ? 'PAID' : 'PEND';
+            
             return [
                 t.trip_id || '---', t.date || '---', t.size || '---', t.n_cont || '---', t.release_no || '---',
                 t.order_no || '---', t.city || '---', t.pickup_address || '---', t.delivery_place || '---',
@@ -1295,16 +1325,24 @@
                 t.company || '---', t.driver || '---', t.trans_pay || 0, t.type_payment || '---',
                 t.sales_price || 0, t.collect_payment || '---', t.amount || 0, t.phone_no || '---',
                 t.paid_driver || 0,
-                t.income_dis_fee || 0, t.note || '---',
+                t.note || '---',
                 t.service_mode || '---', t.monthly_rate || 0, t.start_date_rent || '---', t.next_due || '---',
-                t.st_yard || 'PEND', t.st_rent || 'PEND', t.st_rate || 'PEND', t.st_sales || 'PEND',
-                t.st_amount || (t.paid ? 'PAID' : 'PENDING'), `$${(t.pending_balance || 0).toFixed(2)}`,
+                normPaid(t.st_yard), 
+                normPaid(t.st_rent), 
+                normPaid(t.st_rate || t.trans_pay_paid), 
+                normPaid(t.st_sales || t.sales_price_paid),
+                normPaid(t.st_amount || t.amount_paid || t.paid), 
+                `$${(t.pending_balance || 0).toFixed(2)}`,
                 t.email || '---',
                 t.truck_unit || '---', t.trailer_unit || '---',
                 t.final_driver_pay || 0,
-                t.yard_rate_paid || false
+                t.yard_rate_paid || false,
+                t.status || 'PENDING_PAYMENT',
+                t.has_trans || 'YES',
+                t.has_sales || 'YES'
             ];
         }
+
 
         function mapArrayToTrip(row) {
             return {
@@ -1332,24 +1370,25 @@
                 amount: parseFloat(row[21]) || 0,
                 phone_no: row[22],
                 paid_driver: parseFloat(row[23]) || 0,
-                income_dis_fee: parseFloat(row[24]) || 0,
-                note: row[25],
-                service_mode: row[26],
-                monthly_rate: parseFloat(row[27]) || 0,
-                start_date_rent: row[28] === '---' ? null : row[28],
-                next_due: row[29] === '---' ? null : row[29],
-                st_yard: row[30],
-                st_rent: row[31],
-                st_rate: row[32],
-                st_sales: row[33],
-                st_amount: row[34],
-                paid: row[34] === 'PAID',
-                pending_balance: row[35] ? parseFloat(row[35].toString().replace('$', '').replace(/,/g, '')) || 0 : 0,
-                email: row[36],
-                truck_unit: row[37] === '---' ? null : row[37],
-                trailer_unit: row[38] === '---' ? null : row[38],
+                note: row[24],
+                service_mode: row[25],
+                monthly_rate: parseFloat(row[26]) || 0,
+                start_date_rent: row[27] === '---' ? null : row[27],
+                next_due: row[28] === '---' ? null : row[28],
+                st_yard: row[29],
+                st_rent: row[30],
+                st_rate: row[31],
+                st_sales: row[32],
+                st_amount: row[33],
+                pending_balance: row[34] ? parseFloat(row[34].toString().replace('$', '').replace(/,/g, '')) || 0 : 0,
+                email: row[35],
+                truck_unit: row[36] === '---' ? null : row[36],
+                trailer_unit: row[37] === '---' ? null : row[37],
                 final_driver_pay: calculateFinalPay(row[15], parseFloat(row[23]) || 0),
-                yard_rate_paid: row[30] === 'PAID'
+                yard_rate_paid: row[29] === 'PAID',
+                status: row[40] || 'PENDING_PAYMENT',
+                has_trans: row[41] || 'YES',
+                has_sales: row[42] || 'YES'
             };
         }
 
@@ -1366,6 +1405,7 @@
         let currentExpenses = []; // Cache from Supabase
         let currentFleet = []; // Cache from Supabase
         let editingIndex = null;
+        let editingReleaseId = null;
 
         // --- FLEET DATA MAPPERS ---
         function mapFleetToUI(f) {
@@ -1630,6 +1670,34 @@
             }
         }
 
+        function toggleTransPay() {
+            const val = document.getElementById('in-has-trans').value;
+            const group = document.getElementById('trans-pay-group');
+            if (group) {
+                if (val === 'NO') {
+                    group.style.display = 'none';
+                    document.getElementById('in-rate').value = 0;
+                } else {
+                    group.style.display = 'flex';
+                }
+            }
+            if (window.updateDriverCommission) window.updateDriverCommission();
+        }
+
+        function toggleSalesPrice() {
+            const val = document.getElementById('in-has-sales').value;
+            const group = document.getElementById('sales-price-group');
+            if (group) {
+                if (val === 'NO') {
+                    group.style.display = 'none';
+                    document.getElementById('in-sales').value = 0;
+                } else {
+                    group.style.display = 'flex';
+                }
+            }
+        }
+
+
         function calcNextDue() {
             const startStr = document.getElementById('in-sdaterent').value;
             if (!startStr) return;
@@ -1643,7 +1711,7 @@
             if (currentTrips.length === 0) return;
             const rows = currentTrips;
 
-            // Indices: 6:City, 2:Size, 11:Customer, 16:Driver, 15:Company
+            // Indices in rowData (from mapTripToArray): 6:City, 2:Size, 11:Customer, 16:Driver, 15:Company
             const filters = {
                 'f-city': 6,
                 'f-size': 2,
@@ -1657,40 +1725,41 @@
                 if (!select) continue;
                 const columnIdx = filters[id];
 
-                // Get unique, non-empty, non-dashed values
-                let uniqueValues = [...new Set(rows.map(row => row[columnIdx]))]
-                    .filter(val => val && val !== '---' && val !== '')
-                    .sort();
+                // Get dynamic values from data
+                let dynamicValues = [...new Set(rows.map(row => (row[columnIdx] || '').toString().trim()))]
+                    .filter(val => val && val !== '---' && val !== '');
 
-                // For City filter specifically, show ALL available cities from the form list
+                let finalValues = [];
+
+                // Merge with Hardcoded values if applicable
                 if (id === 'f-city') {
-                    uniqueValues = [
-                        "MIAMI", "TAMPA", "JACKSONVILLE", "SAVANNAH", "TITUSVILLE",
-                        "MASCOTTE", "ORLANDO", "ATLANTA", "CHARLESTON", "NEWARK",
-                        "SUMMERVILLE", "BALTIMORE"
-                    ].sort();
+                    const hardcoded = ["MIAMI", "TAMPA", "JACKSONVILLE", "SAVANNAH", "TITUSVILLE", "MASCOTTE", "ORLANDO", "ATLANTA", "CHARLESTON", "NEWARK", "SUMMERVILLE", "BALTIMORE"];
+                    finalValues = [...new Set([...hardcoded, ...dynamicValues])];
+                } else if (id === 'f-size') {
+                    const hardcoded = ["40' HC", "40' STD", "40' DD", "40' OS", "45' HC", "20' STD", "20' HC", "20' DD", "20' OS"];
+                    finalValues = [...new Set([...hardcoded, ...dynamicValues])];
                 } else if (id === 'f-customer') {
-                    uniqueValues = [
-                        "ANTONIO RENT", "RICHARD HAYNES", "MARK MORRINSON", "KEMOY",
-                        "GLOBAL CONTAINER & CHASSIS", "PROSTAR GROUP CONTAINER",
-                        "MAREX ROAD SERVICES", "ZUM SHIPPING"
-                    ].sort();
+
+                    const hardcoded = ["ANTONIO RENT", "RICHARD HAYNES", "MARK MORRINSON", "KEMOY", "GLOBAL CONTAINER & CHASSIS", "PROSTAR GROUP CONTAINER", "MAREX ROAD SERVICES", "ZUM SHIPPING"];
+                    finalValues = [...new Set([...hardcoded, ...dynamicValues])];
                 } else if (id === 'f-driver') {
-                    uniqueValues = [
-                        "LUIS GARRIDO", "ROBERT CORTEZ", "MILAY MIRANDA", 
-                        "JORGE A RAMIREZ", "JOSE", "ANTONIO R CUBA", "TRAVIS JOSEY"
-                    ].sort();
+                    const hardcoded = ["LUIS GARRIDO", "ROBERT CORTEZ", "MILAY MIRANDA", "JORGE A RAMIREZ", "JOSE", "ANTONIO R CUBA", "TRAVIS JOSEY"];
+                    finalValues = [...new Set([...hardcoded, ...dynamicValues])];
+                } else if (id === 'f-company') {
+                    const hardcoded = ["RP TULIPAN", "JR SUPER CRAME", "CONTRACTOR", "ONLY SALES"];
+                    finalValues = [...new Set([...hardcoded, ...dynamicValues])];
+                } else {
+                    finalValues = dynamicValues;
                 }
 
-                // Keep the "All" option
+                finalValues.sort();
+
+                // Build options list
                 const firstOption = select.options[0];
                 select.innerHTML = '';
                 select.appendChild(firstOption);
 
-                uniqueValues.forEach(val => {
-                    // Only show DONE and PENDING operational statuses
-                    if (id === 'f-status' && val !== 'DONE' && val !== 'PENDING') return;
-
+                finalValues.forEach(val => {
                     const opt = document.createElement('option');
                     opt.value = val;
                     opt.textContent = val;
@@ -1706,7 +1775,8 @@
                 driver: document.getElementById('f-driver')?.value.toLowerCase() || '',
                 company: document.getElementById('f-company')?.value.toLowerCase() || '',
                 status: document.getElementById('f-status')?.value.toLowerCase() || '',
-                collect: document.getElementById('f-collect')?.value.toLowerCase() || '',
+                pending: document.getElementById('f-pending')?.value || '',
+
                 ncont: document.getElementById('f-ncont')?.value.toLowerCase() || '',
                 order: document.getElementById('f-order')?.value.toLowerCase() || '',
                 release: document.getElementById('f-release')?.value.toLowerCase() || '',
@@ -1721,29 +1791,49 @@
                 if (cells.length < 20) return; 
 
                 // UPDATED INDICES FOR New 22-Column Structure
-                const valID = (cells[1].textContent || '').toLowerCase();
-                const valDate = (cells[2].textContent || '');
-                const valSize = (cells[3].textContent || '').toLowerCase();
-                const valNcont = (cells[4].textContent || '').toLowerCase();
-                const valRelease = (cells[5].textContent || '').toLowerCase();
-                const valOrder = (cells[6].textContent || '').toLowerCase();
-                const valCity = (cells[7].textContent || '').toLowerCase();
-                const valDriver = (cells[11].textContent || '').toLowerCase();
-                const valPhone = (cells[17].textContent || '').toLowerCase();
-                
-                const matchCity = !filters.city || valCity === filters.city.toLowerCase();
-                const matchSize = !filters.size || valSize.includes(filters.size);
-                const matchDriver = !filters.driver || valDriver === filters.driver.toLowerCase();
-                
-                const matchNcont = !filters.ncont || valNcont.includes(filters.ncont);
-                const matchOrder = !filters.order || valOrder.includes(filters.order);
-                const matchRelease = !filters.release || valRelease.includes(filters.release);
-                const matchPhone = !filters.phone || valPhone.includes(filters.phone);
-                
-                const matchDate = (!filters.fromDate || valDate >= filters.fromDate) && 
+                const valID = (cells[1].textContent || '').toLowerCase().trim();
+                const valDate = (cells[2].textContent || '').trim();
+                const valSize = (cells[3].textContent || '').toLowerCase().trim();
+                const valNcont = (cells[4].textContent || '').toLowerCase().trim();
+                const valRelease = (cells[5].textContent || '').toLowerCase().trim();
+                const valOrder = (cells[6].textContent || '').toLowerCase().trim();
+                const valCity = (cells[7].textContent || '').toLowerCase().trim();
+                const valCustomer = (cells[12].textContent || '').toLowerCase().trim();
+                const valCompany = (cells[16].textContent || '').toLowerCase().trim();
+                const valDriver = (cells[17].textContent || '').toLowerCase().trim();
+                const valCollect = (cells[21].textContent || '').toLowerCase().trim();
+                const valPhone = (cells[23].textContent || '').toLowerCase().trim();
+
+                const matchCity = !filters.city || valCity === filters.city.toLowerCase().trim();
+
+                const matchSize = !filters.size || valSize.includes(filters.size.toLowerCase().trim());
+                const matchCustomer = !filters.customer || valCustomer === filters.customer.toLowerCase().trim();
+                const matchDriver = !filters.driver || valDriver === filters.driver.toLowerCase().trim();
+                const matchCompany = !filters.company || valCompany === filters.company.toLowerCase().trim();
+
+                const matchNcont = !filters.ncont || valNcont.includes(filters.ncont.toLowerCase().trim());
+                const matchOrder = !filters.order || valOrder.includes(filters.order.toLowerCase().trim());
+                const matchRelease = !filters.release || valRelease.includes(filters.release.toLowerCase().trim());
+                const matchPhone = !filters.phone || valPhone.includes(filters.phone.toLowerCase().trim());
+
+                const matchDate = (!filters.fromDate || valDate >= filters.fromDate) &&
                                   (!filters.toDate || valDate <= filters.toDate);
 
-                if (matchCity && matchSize && matchDriver &&
+                // COMPLEX PENDING LOGIC: Show if any of the 3 is PENDING
+                let matchPending = true;
+                const sY = tr.dataset.styard || 'PEND';
+                const sT = tr.dataset.strate || 'PEND';
+                const sS = tr.dataset.stsales || 'PEND';
+
+                if (filters.pending === 'YES') {
+                    // Pending Only: Show if any of the 3 is not PAID
+                    matchPending = (sY !== 'PAID' || sT !== 'PAID' || sS !== 'PAID');
+                } else if (filters.pending === 'PAID') {
+                    // Completed / Paid: Show only if all 3 are PAID
+                    matchPending = (sY === 'PAID' && sT === 'PAID' && sS === 'PAID');
+                }
+
+                if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchPending &&
                     matchNcont && matchOrder && matchRelease && matchPhone && matchDate) {
                     tr.style.display = '';
                 } else {
@@ -1767,7 +1857,7 @@
                 'in-delivery', 'in-doors', 'in-miles', 'in-customer',
                 'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
-                'in-paiddriver', 'in-income', 'in-note',
+                'in-paiddriver', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-email'
             ];
             fields.forEach(id => {
@@ -1783,9 +1873,15 @@
 
             const btn = document.querySelector('.btn-add-sidebar');
             if (btn) {
-                btn.textContent = 'Confirm Operation';
+                btn.textContent = 'Archive Order';
                 btn.classList.remove('btn-update');
             }
+
+            document.getElementById('in-has-trans').value = 'YES';
+            document.getElementById('in-has-sales').value = 'YES';
+            toggleTransPay();
+            toggleSalesPrice();
+
             initNewTripId();
         }
 
@@ -1799,11 +1895,17 @@
             updateData[fieldName] = value;
             if (fieldName === 'st_amount') updateData.paid = (value === 'PAID');
 
+            // --- PAY VALIDATION LOGIC ---
+            if (['st_yard', 'st_rate', 'st_sales'].includes(fieldName)) {
+                const isYard = document.getElementById('in-yardpaid').checked;
+                const isRate = document.getElementById('in-ratepaid').checked;
+                const isSales = document.getElementById('in-salespaid').checked;
+                updateData.status = (isYard && isRate && isSales) ? 'PAID' : 'PENDING_PAYMENT';
+            }
+
             try {
                 console.log(`Syncing ${fieldName} -> ${value} for ${tripId}`);
                 await updateTrip(tripId, updateData);
-                // We don't necessarily need to reload everything if we just want UI feedback,
-                // but loadTableData ensures consistent state across the app.
                 await loadTableData(); 
             } catch (err) {
                 console.error("Immediate sync failed:", err);
@@ -1816,7 +1918,7 @@
             if (isSaving) return;
 
             const btn = document.querySelector('.btn-add-sidebar');
-            const originalText = btn ? btn.textContent : 'Confirm Operation';
+            const originalText = btn ? btn.textContent : 'Archive Order';
             if (btn) {
                 btn.disabled = true;
                 btn.textContent = 'Saving... Wait';
@@ -1853,13 +1955,47 @@
             const selectedRelType = document.getElementById('in-rel-type').value;
             const selectedRelCond = document.getElementById('in-rel-condition').value;
 
-            if (selectedRelease && selectedRelease !== '---' && editingIndex === null) {
-                // Must select type and condition
-                if (!selectedRelType || !selectedRelCond) {
-                    alert("ERROR: Para movimientos con Release, debes seleccionar TIPO y CONDICIÓN para validar stock.");
-                    isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
-                    return;
-                }
+            // STOCK DEDUCTION CRITERIA: SALE/RENT, RELEASE PRESENT, ALL PAID, NOT YARD-SERVICE-ONLY
+            const yardOnly = document.getElementById('in-yard').value === 'YES' && (parseFloat(document.getElementById('in-sales').value) === 0);
+            const isDeductionCandidate = (selectedRelease && selectedRelease !== '---' && !yardOnly && (document.getElementById('in-mode').value === 'SALE' || document.getElementById('in-mode').value === 'RENT'));
+            const isYardPaid = document.getElementById('in-yardpaid').checked;
+            const isRatePaid = document.getElementById('in-ratepaid').checked;
+            const isSalesPaid = document.getElementById('in-salespaid').checked;
+            const isAmountPaid = document.getElementById('in-amountpaid').checked;
+
+            const stYard = isYardPaid ? 'PAID' : 'PEND';
+            const stRent = document.getElementById('in-rentpaid').checked ? 'PAID' : 'PEND';
+            const stRate = isRatePaid ? 'PAID' : 'PEND';
+            const stSales = isSalesPaid ? 'PAID' : 'PEND';
+            const stAmount = isAmountPaid ? 'PAID' : 'PEND';
+
+            const allPaid = (isYardPaid && isRatePaid && isSalesPaid);
+            const globalStatus = allPaid ? 'PAID' : 'PENDING_PAYMENT';
+
+            // newlyPaid logic
+            let newlyPaid = false;
+            if (editingIndex !== null) {
+                const oldRow = currentTrips[editingIndex];
+                const prevAllPaid = (oldRow[30] === 'PAID' && oldRow[32] === 'PAID' && oldRow[33] === 'PAID');
+                if (allPaid && !prevAllPaid) newlyPaid = true;
+            } else {
+                if (allPaid) newlyPaid = true;
+            }
+
+            const triggerStockUpdate = newlyPaid && isDeductionCandidate;
+
+            if (isDeductionCandidate && editingIndex === null) {
+                if (!triggerStockUpdate) {
+                    console.log("Stock deduction pre-validation skipped: Not yet all PAID.");
+                } else {
+                    // Must select type and condition
+                    if (!selectedRelType || !selectedRelCond) {
+                        alert("ERROR: Para movimientos con Release, debes seleccionar TIPO y CONDICIÓN para validar stock.");
+                        isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
+                        return;
+                    }
+
+
 
                 if (currentReleases.length > 0) {
                     // SUM all rows that match Release #, Type, and Condition
@@ -1899,24 +2035,22 @@
                         return;
                     }
                 }
+                }
             }
 
-            const rowData = fields.map(id => {
+            // --- Final Data Construction (Simplified and Fixed Indices) ---
+            const baseValues = fields.map(id => {
                 const el = document.getElementById(id);
                 return el ? el.value || '---' : '---';
             });
 
-            // Add Checkbox States (Indices 36-40)
-            const stYard = document.getElementById('in-yardpaid').checked ? 'PAID' : 'PEND';
-            const stRent = document.getElementById('in-rentpaid').checked ? 'PAID' : 'PEND';
-            const stRate = document.getElementById('in-ratepaid').checked ? 'PAID' : 'PEND';
-            const stSales = document.getElementById('in-salespaid').checked ? 'PAID' : 'PEND';
-            const stAmount = document.getElementById('in-amountpaid').checked ? 'PAID' : 'PEND';
+            // baseValues ends at index 28 (nextdue)
+            const rowData = [...baseValues]; 
+            
+            // Indices 29-33: Checkbox States
+            rowData.splice(29, 0, stYard, stRent, stRate, stSales, stAmount);
 
-            // Indices 30-34: Checkbox States
-            rowData.splice(30, 0, stYard, stRent, stRate, stSales, stAmount);
-
-            // Index 35: Balance Pending
+            // Index 34: Balance Pending
             let pending = 0;
             if (stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate').value) || 0;
             if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate').value) || 0;
@@ -1924,20 +2058,33 @@
             if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount').value) || 0;
             if (stRent === 'PEND' && document.getElementById('in-mode').value === 'RENT') pending += parseFloat(document.getElementById('in-mrate').value) || 0;
 
-            rowData.push(pending.toFixed(2)); // Index 35
+            rowData.push(pending.toFixed(2)); // Index 34
 
-            // Indices 36-38: Contact & Metadata
-            rowData.push(document.getElementById('in-email').value || '---'); // Index 36
-            rowData.push('---', '---'); // Index 37, 38 Truck/Trailer placeholders
+            // Indices 35-37: Contact & Metadata
+            rowData.push(document.getElementById('in-email').value || '---'); // Index 35
+            rowData.push('---', '---'); // Index 36, 37 Truck/Trailer placeholders
+            
+            // Indices 38-40: Extended Metadata
+            rowData.push(0);        // Index 38: Final driver pay placeholder
+            rowData.push(isYardPaid); // Index 39: Yard rate paid bool
+            rowData.push(globalStatus); // Index 40: GLOBAL STATUS (PAID vs PENDING_PAYMENT)
+            rowData.push(document.getElementById('in-has-trans').value); // Index 41
+            rowData.push(document.getElementById('in-has-sales').value); // Index 42
 
             // --- SUPABASE INTEGRATION ---
             const tripObj = mapArrayToTrip(rowData);
+            
+            // Safety Strip: Remove fields not yet in DB schema
+            const dbObj = { ...tripObj };
+            delete dbObj.has_trans;
+            delete dbObj.has_sales;
+            delete dbObj.income_dis_fee; // Ensure it's not sent if present
 
             try {
                 if (editingIndex !== null) {
                     // UPDATE MODE
                     const tripId = rowData[0];
-                    const { error } = await db.from('trips').update(tripObj).eq('trip_id', tripId);
+                    const { error } = await db.from('trips').update(dbObj).eq('trip_id', tripId);
                     if (error) {
                         console.error("SUPABASE UPDATE ERROR:", error.message, error.details);
                         alert(`Error actualizando: ${error.message}`);
@@ -1947,36 +2094,41 @@
                     editingIndex = null;
                 } else {
                     // NEW MODE
-                    const { error } = await db.from('trips').insert([tripObj]);
+                    const { error } = await db.from('trips').insert([dbObj]);
                     if (error) {
-                        console.error("SUPABASE INSERT ERROR:", error.message, error.details, "Data:", tripObj);
-                        alert(`Error insertando en DB: ${error.message}. Revisa consola.`);
+                        console.error("SUPABASE INSERT ERROR:", error.message, error.details);
+                        alert(`Error insertando en DB: ${error.message}.`);
                         isSaving = false; if (btn) { btn.disabled = false; btn.textContent = originalText; btn.style.opacity = '1'; }
                         return;
                     }
+                }
+
+
+                
+                // STOCK DEDUCTION EXECUTION (Triggered only if newlyPaid AND isDeductionCandidate)
+                if (triggerStockUpdate && window.stockUpdateField && window.calculatedNewStock !== undefined) {
+                    const upObj = {};
+                    upObj[window.stockUpdateField] = window.calculatedNewStock;
                     
-                    // NEW: INVENTORY DEDUCTION ON SUCCESS (SELECTIVE BY TYPE/COND)
-                    if (window.stockUpdateField && window.calculatedNewStock !== undefined) {
-                        const upObj = {};
-                        upObj[window.stockUpdateField] = window.calculatedNewStock;
+                    console.log(`Executing Stock Deduction: -1 unit in ${window.stockUpdateField} for release ${window.targetReleaseNo}`);
+                    await db.from('releases')
+                        .update(upObj)
+                        .eq('release_no', window.targetReleaseNo)
+                        .eq('type', window.targetReleaseType)
+                        .eq('condition', window.targetReleaseCond)
+                        .eq('id', window.targetReleaseId);
                         
-                        await db.from('releases')
-                            .update(upObj)
-                            .eq('release_no', window.targetReleaseNo)
-                            .eq('type', window.targetReleaseType)
-                            .eq('condition', window.targetReleaseCond)
-                            .eq('id', window.targetReleaseId);
-                            
-                        // Clean up
-                        delete window.stockUpdateField;
-                        delete window.calculatedNewStock;
-                        delete window.targetReleaseNo;
-                        delete window.targetReleaseType;
-                        delete window.targetReleaseCond;
-                    }
+                    // Clean up
+                    delete window.stockUpdateField;
+                    delete window.calculatedNewStock;
+                    delete window.targetReleaseNo;
+                    delete window.targetReleaseType;
+                    delete window.targetReleaseCond;
+                    delete window.targetReleaseId;
                 }
 
                 alert('¡ORDEN CONFIRMADA CORRECTAMENTE!');
+
                 resetForm();
                 await loadTableData();
                 resetAdvancedFilters();
@@ -2040,7 +2192,7 @@
                     if (btn && btn.textContent !== 'Saving... Wait') {
                         btn.disabled = false;
                         btn.style.opacity = '1';
-                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Confirm Operation';
+                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Archive Order';
                     }
                     return;
                 }
@@ -2068,7 +2220,7 @@
                     } else {
                         btn.disabled = false;
                         btn.style.opacity = '1';
-                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Confirm Operation';
+                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Archive Order';
                         btn.style.background = editingIndex !== null ? '#0f172a' : '#b91c1c';
                     }
                 }
@@ -2163,17 +2315,26 @@
             if (window.toggleYardRate) window.toggleYardRate();
             else toggleYardRate(); // fallback if not on window
 
-            // Set Checkboxes (Indices 34-38)
-            document.getElementById('in-yardpaid').checked = (rowData[34] === 'PAID');
-            document.getElementById('in-rentpaid').checked = (rowData[35] === 'PAID');
-            document.getElementById('in-ratepaid').checked = (rowData[36] === 'PAID');
-            document.getElementById('in-salespaid').checked = (rowData[37] === 'PAID');
-            document.getElementById('in-amountpaid').checked = (rowData[38] === 'PAID');
+            document.getElementById('in-has-trans').value = rowData[41] || 'YES';
+            document.getElementById('in-has-sales').value = rowData[42] || 'YES';
+            toggleTransPay();
+            toggleSalesPrice();
+
+
+            // Set Checkboxes (Indices shifted after Income Dis Fee removal)
+            document.getElementById('in-yardpaid').checked = (rowData[29] === 'PAID');
+            document.getElementById('in-rentpaid').checked = (rowData[30] === 'PAID');
+            document.getElementById('in-ratepaid').checked = (rowData[31] === 'PAID');
+            document.getElementById('in-salespaid').checked = (rowData[32] === 'PAID');
+            document.getElementById('in-amountpaid').checked = (rowData[33] === 'PAID');
 
             // Removed DRIVER Payout Status as requested
 
-            // Email (Index 43)
-            document.getElementById('in-email').value = rowData[43] || '';
+            // Email (Index 36)
+            const emailInput = document.getElementById('in-email');
+            if (emailInput) {
+                emailInput.value = (rowData[36] === '---') ? '' : rowData[36];
+            }
 
             // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
 
@@ -2220,13 +2381,18 @@
                 currentTrips.forEach((rowData, idx) => {
                     try {
                         const tr = document.createElement('tr');
-                        const mode = rowData[26];
-                        const stYard = rowData[30];
-                        const stRate = rowData[32];
-                        const stSales = rowData[33];
-                        const stAmount = rowData[34];
-                        const nextDueVal = rowData[29]; // Corrected Variable from rowData
-                        const email = rowData[36];
+                        const mode = rowData[25];
+                        const stYard = rowData[29];
+                        const stRate = rowData[31];
+                        const stSales = rowData[32];
+                        const stAmount = rowData[33];
+                        const nextDueVal = rowData[28];
+                        const email = rowData[35];
+
+                        tr.dataset.styard = stYard;
+                        tr.dataset.strate = stRate;
+                        tr.dataset.stsales = stSales;
+                        tr.dataset.stamount = stAmount;
 
                         // Construct display array (Exact Load Flow Order - 28 Columns)
                         const displayData = [
@@ -2255,62 +2421,36 @@
                             rowData[21],    // 22: Amount
                             rowData[22],    // 23: Phone #
                             rowData[23],    // 24: Paid Driver
-                            rowData[24],    // 25: Income Fee
-                            rowData[25],    // 26: Note
-                            email,          // 27: Email
+                            rowData[25],    // 25: Note
+                            email,          // 26: Email
                         ];
 
                         displayData.forEach((text, i) => {
                             const td = document.createElement('td');
                             
                             // Formatting Currency for Financial Columns (Corrected Indices for 22-28 scale)
-                            if ([14, 18, 20, 22, 24, 25].includes(i)) {
+                            if ([14, 18, 20, 22, 24].includes(i)) {
                                 const val = parseFloat(text) || 0;
                                 td.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                 td.style.fontWeight = 'bold';
-
-                                // Yard Rate ✅ Icon logic (Index 14 in this new order)
-                                if (i === 14 && stYard === 'PAID') {
-                                    td.innerHTML = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })} <i class="fas fa-check-circle" style="color: #10b981; margin-left: 5px;" title="Yard Fee Paid"></i>`;
+                                // APPLY CONDITIONAL COLORING (User request: RED for Pending, GREEN for Paid/Cash)
+                                if (i === 14) { // Yard Rate
+                                    td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = (stYard === 'PAID') ? '#166534' : '#991b1b';
+                                } else if (i === 18) { // Trans Pay
+                                    td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = (stRate === 'PAID') ? '#166534' : '#991b1b';
+                                } else if (i === 20) { // Sales Price
+                                    td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = (stSales === 'PAID') ? '#166534' : '#991b1b';
+                                } else if (i === 22) { // Amount
+                                    // NO Background color as requested. Just Icons:
+                                    const iconClass = (stAmount === 'PAID') ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                                    const iconColor = (stAmount === 'PAID') ? '#059669' : '#3b82f6'; 
+                                    td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${stAmount === 'PAID' ? 'CASH' : 'BANK TRANSFER'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                 }
                             } else {
                                 td.textContent = text;
-                            }
-
-                            // PAID Status Checkbox for Amount Column (Index 22 in this new order)
-                            if (i === 22) {
-                                td.innerHTML = '';
-                                const container = document.createElement('div');
-                                container.style.display = 'flex';
-                                container.style.alignItems = 'center';
-                                container.style.justifyContent = 'center';
-                                container.style.gap = '8px';
-
-                                const chk = document.createElement('input');
-                                chk.type = 'checkbox';
-                                chk.checked = (stAmount === 'PAID');
-                                chk.onclick = async (e) => {
-                                    e.stopPropagation();
-                                    const newStatus = chk.checked ? 'PAID' : 'PENDING';
-                                    try {
-                                        await updateTrip(rowData[0], { st_amount: newStatus, paid: chk.checked });
-                                        // Update local cache to avoid re-fetch if possible, but loadTableData is safer
-                                        await loadTableData();
-                                    } catch (err) {
-                                        alert("Update failed: " + err.message);
-                                        chk.checked = !chk.checked; // revert
-                                    }
-                                };
-                                container.appendChild(chk);
-                                
-                                const span = document.createElement('span');
-                                const val = parseFloat(text) || 0;
-                                span.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-                                container.appendChild(span);
-                                
-                                td.appendChild(container);
-                                td.style.backgroundColor = (stAmount === 'PAID') ? '#dcfce7' : '#fee2e2';
-                                td.style.color = (stAmount === 'PAID') ? '#166534' : '#991b1b';
                             }
                             
                             tr.appendChild(td);
@@ -2458,25 +2598,6 @@
                     return matchesSearch && matchesDate && matchesStatus;
                 });
 
-                // AUTO-SUM FOR CALCULATOR (Link Amount to Cash Collected)
-                let totalAmountFiltered = 0;
-                let totalGrossFiltered = 0;
-                filtered.forEach(r => {
-                    totalAmountFiltered += parseFloat(r[21]) || 0; // Index 21 is Amount
-                    // Use final_driver_pay (Index 39 in rowData) for calculator with fallback
-                    let finalNetVal = parseFloat(r[39]) || 0;
-                    if (finalNetVal <= 0) {
-                        const comp = r[15] || ''; // Index 15 is Company
-                        const grossPaid = parseFloat(r[23]) || 0; // Index 23 is Gross Driver Pay
-                        finalNetVal = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? grossPaid * 0.3 : grossPaid;
-                    }
-                    totalGrossFiltered += finalNetVal;
-                });
-                const cashCollInput = document.getElementById('calc-cash-coll');
-                const grossInput = document.getElementById('calc-gross');
-                if (cashCollInput) cashCollInput.value = totalAmountFiltered.toFixed(2);
-                if (grossInput) grossInput.value = totalGrossFiltered.toFixed(2);
-                
                 if (window.updateWeeklyCalc) window.updateWeeklyCalc();
 
                 // --- DRIVER LOG LOGIC ---
@@ -2502,7 +2623,16 @@
                     const existing = document.getElementById('dl-selection-summary');
                     if (existing) existing.remove();
 
-                    if (selectedIndices.size === 0) return;
+                    // Elements used by calculator
+                    const cashCollInput = document.getElementById('calc-cash-coll');
+                    const grossInput = document.getElementById('calc-gross');
+
+                    if (selectedIndices.size === 0) {
+                        if (cashCollInput) cashCollInput.value = "0.00";
+                        if (grossInput) grossInput.value = "0.00";
+                        if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                        return;
+                    }
 
                     let totalPaidDriver = 0;
                     let totalCash = 0;
@@ -2543,6 +2673,11 @@
                         <td style="color: #4ade80;">$${finalNet.toFixed(2)}</td>
                         <td></td>
                     `;
+
+                    // Update Main Calculator Inputs
+                    if (cashCollInput) cashCollInput.value = totalCash.toFixed(2);
+                    if (grossInput) grossInput.value = totalPaidDriver.toFixed(2);
+                    if (window.updateWeeklyCalc) window.updateWeeklyCalc();
 
                     // Insert after the last selected actual row in the DOM
                     let lastSelectedRow = null;
@@ -2608,6 +2743,9 @@
                 const totalDisplay = document.getElementById('dl-total-paid');
                 if (footerLabel) footerLabel.textContent = "Report Entries:";
                 if (totalDisplay) totalDisplay.textContent = filtered.length;
+                
+                // Initialize the Selection Summary (Resets calculator to 0 if nothing selected)
+                updateSelectionSummary();
             }
         }
 
@@ -2769,11 +2907,20 @@
         function syncDriverNames() {
             const selectEl = document.getElementById('filter-search');
             let val = 'UNASSIGNED';
+            const display = document.getElementById('display-driver-sync');
+            if (!display) return;
+
             if (selectEl && selectEl.value) {
                 val = selectEl.options[selectEl.selectedIndex].text;
+                display.style.color = '#166534'; // Dark green
+                display.style.background = '#dcfce7'; // Light green
+                display.style.borderColor = '#22c55e';
+            } else {
+                display.style.color = '#b91c1c'; // Dark red
+                display.style.background = '#fee2e2'; // Light red
+                display.style.borderColor = '#ef4444';
             }
-            const display = document.getElementById('display-driver-sync');
-            if (display) display.textContent = val.toUpperCase();
+            display.textContent = val.toUpperCase();
         }
 
         async function archiveSettlement() {
@@ -2902,23 +3049,63 @@
             // New logic for Release Row addition (SUPABASE)
             window.addReleaseRow = async () => {
                 const relNo = document.getElementById('rel-no-releases').value;
+                const dte = document.getElementById('rel-date').value || '---';
+                const cty = document.getElementById('rel-city').value || '---';
+                const dpt = document.getElementById('rel-depot').value || '---';
+                const adr = document.getElementById('rel-address').value || '---';
+                const slr = document.getElementById('rel-seller').value || '---';
+
                 if (!relNo) { alert('Please enter a Release Number'); return; }
 
-                const date = document.getElementById('rel-date').value || '---';
-                const city = document.getElementById('rel-city').value || '---';
-                const depot = document.getElementById('rel-depot').value || '---';
-                const address = document.getElementById('rel-address').value || '---';
-                const seller = document.getElementById('rel-seller').value || '---';
-
-                // We will collect multiple rows if multiple quantities are filled
                 const sizesToProcess = [
-                    { sizeName: "20' FT", qtyId: "rel-qty-20", priceId: "rel-price-20", typeName: "rel-20-type", condName: "rel-20-cond", column: "qty_20" },
-                    { sizeName: "40' FT", qtyId: "rel-qty-40", priceId: "rel-price-40", typeName: "rel-40-type", condName: "rel-40-cond", column: "qty_40" },
-                    { sizeName: "45' FT", qtyId: "rel-qty-45", priceId: "rel-price-45", typeName: "rel-45-type", condName: "rel-45-cond", column: "qty_45" }
+                    { sizeName: "20' FT", qtyId: "rel-qty-20", priceId: "rel-price-20", typeName: "rel-20-type", condName: "rel-20-cond", column: "qty_20", priceCol: "price_20" },
+                    { sizeName: "40' FT", qtyId: "rel-qty-40", priceId: "rel-price-40", typeName: "rel-40-type", condName: "rel-40-cond", column: "qty_40", priceCol: "price_40" },
+                    { sizeName: "45' FT", qtyId: "rel-qty-45", priceId: "rel-price-45", typeName: "rel-45-type", condName: "rel-45-cond", column: "qty_45", priceCol: "price_45" }
                 ];
 
-                let processedCount = 0;
+                if (editingReleaseId) {
+                    // Update Mode: We collect the first size that has Qty > 0 and update THAT record.
+                    const sz = sizesToProcess.find(s => parseInt(document.getElementById(s.qtyId).value) > 0);
+                    if (sz) {
+                        const q = parseInt(document.getElementById(sz.qtyId).value);
+                        const p = parseFloat(document.getElementById(sz.priceId).value) || 0;
+                        const t = document.querySelector(`input[name="${sz.typeName}"]:checked`).value;
+                        const c = document.querySelector(`input[name="${sz.condName}"]:checked`).value;
 
+                        const relObj = {
+                            release_no: relNo,
+                            date: dte === '---' ? null : dte,
+                            type: t,
+                            condition: c,
+                            depot: dpt,
+                            depot_address: adr,
+                            city: cty,
+                            qty_20: sz.column === 'qty_20' ? q : 0,
+                            price_20: sz.column === 'qty_20' ? p : 0,
+                            qty_40: sz.column === 'qty_40' ? q : 0,
+                            price_40: sz.column === 'qty_40' ? p : 0,
+                            qty_45: sz.column === 'qty_45' ? q : 0,
+                            price_45: sz.column === 'qty_45' ? p : 0,
+                            seller: slr,
+                            total_stock: q
+                        };
+
+                        try {
+                            await updateRelease(editingReleaseId, relObj);
+                            alert("Release updated successfully!");
+                            resetReleaseForm();
+                            await loadReleasesData();
+                        } catch (err) {
+                            alert("Update failed: " + err.message);
+                        }
+                    } else {
+                        alert("Please enter a quantity greater than 0 to update.");
+                    }
+                    return;
+                }
+
+                // Normal Mode: Add multiples
+                let processedCount = 0;
                 for (const sz of sizesToProcess) {
                     const qty = parseInt(document.getElementById(sz.qtyId).value) || 0;
                     if (qty > 0) {
@@ -2926,22 +3113,21 @@
                         const type = document.querySelector(`input[name="${sz.typeName}"]:checked`).value;
                         const condition = document.querySelector(`input[name="${sz.condName}"]:checked`).value;
 
-                        // Build single release object for this specific size category
                         const relObj = {
                             release_no: relNo,
-                            date: date === '---' ? null : date,
+                            date: dte === '---' ? null : dte,
                             type: type,
                             condition: condition,
-                            depot: depot,
-                            depot_address: address,
-                            city: city,
+                            depot: dpt,
+                            depot_address: adr,
+                            city: cty,
                             qty_20: sz.column === 'qty_20' ? qty : 0,
                             price_20: sz.column === 'qty_20' ? price : 0,
                             qty_40: sz.column === 'qty_40' ? qty : 0,
                             price_40: sz.column === 'qty_40' ? price : 0,
                             qty_45: sz.column === 'qty_45' ? qty : 0,
                             price_45: sz.column === 'qty_45' ? price : 0,
-                            seller: seller,
+                            seller: slr,
                             total_stock: qty
                         };
 
@@ -2950,7 +3136,6 @@
                             processedCount++;
                         } catch (err) {
                             console.error(`Failed to add release for ${sz.sizeName}:`, err);
-                            alert(`Error saving ${sz.sizeName}: ${err.message}`);
                         }
                     }
                 }
@@ -2958,17 +3143,81 @@
                 if (processedCount > 0) {
                     await loadReleasesData();
                     if (window.updateReleaseDatalist) window.updateReleaseDatalist();
-                    
-                    // Clear fields
-                    ['rel-no-releases', 'rel-qty-20', 'rel-qty-40', 'rel-qty-45'].forEach(id => {
-                        const el = document.getElementById(id);
-                        if (el) el.value = (id.includes('qty')) ? '0' : '';
-                    });
-                    
-                    alert(`¡Éxito! Se han creado ${processedCount} variantes de Release correctamente.`);
+                    resetReleaseForm();
+                    alert(`Success: Created ${processedCount} release variants.`);
                 } else {
-                    alert("Por favor, ingresa al menos una cantidad mayor a 0 para guardar.");
+                    alert("Please enter at least one quantity > 0.");
                 }
+            };
+
+            window.resetReleaseForm = function() {
+                editingReleaseId = null;
+                const btn = document.querySelector('#releases-view .btn-add-sidebar');
+                if (btn) {
+                    btn.textContent = 'Add Release';
+                    btn.classList.remove('btn-update');
+                }
+                const resetBtn = document.getElementById('btn-reset-release');
+                if (resetBtn) resetBtn.style.display = 'none';
+                
+                ['rel-no-releases', 'rel-qty-20', 'rel-qty-40', 'rel-qty-45', 'rel-price-20', 'rel-price-40', 'rel-price-45', 'rel-date', 'rel-city', 'rel-depot', 'rel-address', 'rel-seller'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
+                });
+                
+                ['rel-20-type', 'rel-20-cond', 'rel-40-type', 'rel-40-cond', 'rel-45-type', 'rel-45-cond'].forEach(grp => {
+                    const dry = document.querySelector(`input[name="${grp}"][value="DRY"]`) || document.querySelector(`input[name="${grp}"][value="NEW"]`);
+                    if (dry) dry.checked = true;
+                });
+                // Reload data to clear highlighting
+                loadReleasesData();
+            };
+
+            window.loadReleaseToEdit = function(idx) {
+                if (!currentReleases[idx]) return;
+                const row = currentReleases[idx];
+                editingReleaseId = row[15]; // index 15 is DB UUID
+
+                document.getElementById('rel-no-releases').value = row[0];
+                document.getElementById('rel-date').value = (row[1] === '---' || !row[1]) ? '' : row[1];
+                document.getElementById('rel-city').value = (row[6] === '---') ? '' : row[6];
+                document.getElementById('rel-depot').value = (row[4] === '---') ? '' : row[4];
+                document.getElementById('rel-address').value = (row[5] === '---') ? '' : row[5];
+                document.getElementById('rel-seller').value = (row[13] === '---') ? '' : row[13];
+
+                // Clear all quantities
+                ['rel-qty-20', 'rel-qty-40', 'rel-qty-45'].forEach(id => document.getElementById(id).value = 0);
+                ['rel-price-20', 'rel-price-40', 'rel-price-45'].forEach(id => document.getElementById(id).value = 0);
+
+                // Populate corresponding size
+                if (row[7] > 0) {
+                    document.getElementById('rel-qty-20').value = row[7];
+                    document.getElementById('rel-price-20').value = row[8];
+                    const t = document.querySelector(`input[name="rel-20-type"][value="${row[2]}"]`); if(t) t.checked = true;
+                    const c = document.querySelector(`input[name="rel-20-cond"][value="${row[3]}"]`); if(c) c.checked = true;
+                } else if (row[9] > 0) {
+                    document.getElementById('rel-qty-40').value = row[9];
+                    document.getElementById('rel-price-40').value = row[10];
+                    const t = document.querySelector(`input[name="rel-40-type"][value="${row[2]}"]`); if(t) t.checked = true;
+                    const c = document.querySelector(`input[name="rel-40-cond"][value="${row[3]}"]`); if(c) c.checked = true;
+                } else if (row[11] > 0) {
+                    document.getElementById('rel-qty-45').value = row[11];
+                    document.getElementById('rel-price-45').value = row[12];
+                    const t = document.querySelector(`input[name="rel-45-type"][value="${row[2]}"]`); if(t) t.checked = true;
+                    const c = document.querySelector(`input[name="rel-45-cond"][value="${row[3]}"]`); if(c) c.checked = true;
+                }
+
+                const btn = document.querySelector('#releases-view .btn-add-sidebar');
+                if (btn) {
+                    btn.textContent = 'Update Release';
+                    btn.classList.add('btn-update');
+                }
+                const resetBtn = document.getElementById('btn-reset-release');
+                if (resetBtn) resetBtn.style.display = 'block';
+                
+                // Highlight row
+                loadReleasesData();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
             window.saveReleasesData = function () {
@@ -2984,9 +3233,12 @@
                     currentReleases = data.map(mapReleaseToArray);
 
                     body.innerHTML = '';
-                    currentReleases.forEach(rowData => {
+                    currentReleases.forEach((rowData, idx) => {
                         const tr = document.createElement('tr');
-                        
+                        tr.style.cursor = 'pointer';
+                        tr.onclick = () => window.loadReleaseToEdit(idx);
+                        if (editingReleaseId === rowData[15]) tr.classList.add('editing-row');
+                                                
                         // ICONIC ORDER: [0]rel_no, [1]date, [2]type(Icon), [3]cond(Icon), 'SIZE', [6]city, [4]depot, [5]depot_address, 'IN', 'PICKUP', 'STOCK', 13
                         const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'IN', 'PICKUP', 'STOCK', 13];
                         
@@ -3198,8 +3450,11 @@
                     sales: 0,
                     rentals: 0,
                     yard: 0,
+                    collects: 0,
                     expenses: 0,
-                    releases: 0
+                    releases: 0,
+                    tulipan: 0,
+                    contractor: 0
                 };
 
                 // 1. Calculate Revenue from Logistics (Fixed Indices matching mapTripToArray)
@@ -3209,10 +3464,26 @@
                         totals.sales += parseFloat(row[19]) || 0;  // sales_price at index 19
                         totals.yard += parseFloat(row[13]) || 0;   // yard_rate at index 13
 
+                        // Collections: Only if NOT marked as CASH/PAID (User requested: "cuando no esta tildado va a Profit Report")
+                        if (row[34] !== 'PAID') {
+                            totals.collects += parseFloat(row[21]) || 0; // Index 21 is Amount
+                        }
+
                         // Rentals: Sum Day Rate (17) and Monthly Rate (27)
                         const dayRate = parseFloat(row[17]) || 0;
                         const monthlyRate = parseFloat(row[27]) || 0;
                         totals.rentals += (dayRate + monthlyRate);
+
+                        // NEW: RP TULIPAN Calculation (Trans Pay - Driver Pay)
+                        if (row[15] === 'RP TULIPAN') {
+                            const transPay = parseFloat(row[17]) || 0; // Index 17 is trans_pay
+                            const driverPay = parseFloat(row[23]) || 0; // Index 23 is paid_driver
+                            totals.tulipan += (transPay - driverPay);
+                        } else if (row[15] === 'CONTRACTOR') {
+                            const transPay = parseFloat(row[17]) || 0; 
+                            const driverPay = parseFloat(row[23]) || 0;
+                            totals.contractor += (transPay - driverPay);
+                        }
                     }
                 });
 
@@ -3239,9 +3510,10 @@
                     }
                 });
 
-                const totalRevenue = totals.sales + totals.rentals + totals.yard;
+                const totalRevenue = totals.sales + totals.rentals + totals.yard + totals.collects + totals.tulipan + totals.contractor;
                 const totalGlobalExpenses = totals.expenses + totals.releases;
                 const netProfit = totalRevenue - totalGlobalExpenses;
+
 
                 // 4. Update Summary Cards
                 document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
@@ -3263,13 +3535,19 @@
                 document.getElementById('val-sales').textContent = `$${totals.sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                 document.getElementById('val-rentals').textContent = `$${totals.rentals.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                 document.getElementById('val-yard').textContent = `$${totals.yard.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+                document.getElementById('val-tulipan').textContent = `$${totals.tulipan.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                document.getElementById('val-contractor').textContent = `$${totals.contractor.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
                 document.getElementById('val-releases').textContent = `$${totals.releases.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
                 // 6. Update Simple Bar Chart
-                const maxVal = Math.max(totals.sales, totals.rentals, totals.yard, totals.releases, 1);
+                const maxVal = Math.max(totals.sales, totals.rentals, totals.yard, totals.tulipan, totals.contractor, totals.releases, 1);
                 document.getElementById('bar-sales').style.width = `${(totals.sales / maxVal) * 100}%`;
                 document.getElementById('bar-rentals').style.width = `${(totals.rentals / maxVal) * 100}%`;
                 document.getElementById('bar-yard').style.width = `${(totals.yard / maxVal) * 100}%`;
+                document.getElementById('bar-tulipan').style.width = `${(totals.tulipan / maxVal) * 100}%`;
+                document.getElementById('bar-contractor').style.width = `${(totals.contractor / maxVal) * 100}%`;
             };
 
             window.resetProfitFilters = function () {

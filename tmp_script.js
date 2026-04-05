@@ -529,7 +529,7 @@
 
             const btn = document.querySelector('.btn-add-sidebar');
             if (btn) {
-                btn.textContent = 'Confirm Operation';
+                btn.textContent = 'Archive Order';
                 btn.classList.remove('btn-update');
             }
             initNewTripId();
@@ -560,7 +560,7 @@
             if (isSaving) return;
 
             const btn = document.querySelector('.sidebar-form .btn-add-sidebar');
-            const originalText = btn ? btn.textContent : 'Confirm Operation';
+            const originalText = btn ? btn.textContent : 'Archive Order';
             if (btn) {
                 btn.disabled = true;
                 btn.textContent = 'Saving... Wait';
@@ -714,7 +714,7 @@
                     if (btn && btn.textContent !== 'Saving... Wait') {
                         btn.disabled = false;
                         btn.style.opacity = '1';
-                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Confirm Operation';
+                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Archive Order';
                     }
                     return;
                 }
@@ -742,7 +742,7 @@
                     } else {
                         btn.disabled = false;
                         btn.style.opacity = '1';
-                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Confirm Operation';
+                        btn.textContent = editingIndex !== null ? 'Update Trip' : 'Archive Order';
                         btn.style.background = editingIndex !== null ? '#0f172a' : '#b91c1c';
                     }
                 }
