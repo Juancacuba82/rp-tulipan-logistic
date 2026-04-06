@@ -457,15 +457,21 @@ main {
 }
 
 /* Left Panel: Form (Fixed width for better side-by-side) */
-.entry-sidebar.primary-entry {
-    flex: 0 0 520px;
+.entry-sidebar.primary-entry, .entry-sidebar.primary-entryNarrow {
+    flex: 0 0 420px !important; /* Slightly wider to prevent any wrapping */
+    width: 420px !important;
+    min-width: 420px !important;
+    max-width: 420px !important;
     background: white;
     border-right: 1px solid #d1d5db;
     display: flex;
     flex-direction: column;
     box-shadow: 5px 0 15px rgba(0,0,0,0.05);
     z-index: 5;
+    overflow-y: hidden !important; /* Explicitly remove vertical scrollbar */
 }
+
+
 
 /* Right Panel: Area (Flexible) */
 .table-area {
@@ -622,7 +628,7 @@ main {
     pointer-events: none;
     text-transform: uppercase !important;
     width: 145px !important; /* Fixed width to ensure right-column alignment */
-    height: 26px; /* Compact height */
+    height: 32px; /* Increased for premium feel */
     flex: 0 0 145px !important; /* Prevents misalignment */
     margin-right: 12px;
     border: none;
@@ -632,16 +638,166 @@ main {
     white-space: nowrap;
 }
 
+.sidebar-label-btn-blue {
+    background: #1e40af !important; /* Blue for Transport */
+    box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2) !important;
+}
+
+.sidebar-label-btn-green {
+    background: #059669 !important; /* green for Sales */
+    box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2) !important;
+}
+
+.sidebar-label-btn-orange {
+    background: #f97316 !important; /* Soft Orange for Yard */
+    box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2) !important;
+}
+
+
+
+/* --- Red/Green Status Switch (Custom Slider) --- */
+/* --- Red/Green Status Switch V2 (Custom Slider) --- */
+.v2-status-wrap {
+  position: relative !important;
+  display: inline-block !important;
+  width: 70px !important;
+  max-width: 70px !important;
+  height: 16px !important;
+  min-width: 70px !important;
+  min-height: 16px !important;
+  flex: none !important;
+}
+
+.v2-status-wrap input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.v2-status-slider {
+  position: absolute !important;
+  cursor: pointer !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: #ef4444 !important; /* Default: Red */
+  transition: .3s !important;
+  border-radius: 16px !important;
+}
+
+.v2-status-slider:before {
+  position: absolute !important;
+  content: "" !important;
+  height: 12px !important;
+  width: 12px !important;
+  left: 2px !important;
+  bottom: 2px !important;
+  background-color: white !important;
+  transition: .3s !important;
+  border-radius: 50% !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+.v2-status-wrap input:checked + .v2-status-slider {
+  background-color: #22c55e !important; /* Green */
+}
+
+.v2-status-wrap input:checked + .v2-status-slider:before {
+  transform: translateX(54px) !important;
+}
+
+
+
+/* Sidebar Custom Checkbox Colors */
+
+#in-flag1 { accent-color: #f97316; cursor: pointer; } /* Orange */
+#in-flag2 { accent-color: #1e40af; cursor: pointer; } /* Blue */
+#in-flag3 { accent-color: #059669; cursor: pointer; } /* Green */
+
+/* ── Input with PAID badge floating inside ── */
+.input-paid-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.input-paid-wrap input[type="number"] {
+    width: 100%;
+    height: 32px;
+    padding: 6px 58px 6px 10px; /* Right padding reserves space for badge */
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    background: #f8fafc;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.input-paid-wrap input[type="number"]:focus {
+    border-color: #1e40af;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(10, 25, 47, 0.10);
+}
+
+.input-paid-badge {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    height: 22px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 3px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #dc2626;
+    transition: all 0.2s ease;
+}
+
+.input-paid-badge:has(input:checked) {
+    background: #f0fdf4;
+    border-color: #86efac;
+    color: #15803d;
+}
+
+.input-paid-badge input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: #dc2626;
+    cursor: pointer;
+}
+
+.input-paid-badge:has(input:checked) input[type="checkbox"] {
+    accent-color: #15803d;
+}
+
 .form-group input, .form-group select {
     flex: 1;
-    padding: 6px 10px;
+    height: 30px; /* Reduced to fit without scroll */
+    padding: 4px 12px;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
     font-size: 0.8rem;
     font-family: inherit;
     outline: none;
-    background-color: #fff;
+    background-color: #f8fafc;
+    transition: all 0.2s ease;
 }
+
 
 .form-group input:focus, .form-group select:focus {
     border-color: var(--corporate-red);
@@ -650,9 +806,13 @@ main {
 
 /* --- Delivery Calendar: New Trip Entry (professional form layout) --- */
 #calendar-view .trip-entry-sidebar {
-    flex: 0 0 540px;
+    flex: 0 0 420px !important;
+    width: 420px !important;
+    max-width: 420px !important;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
+    overflow-y: hidden !important;
 }
+
 
 #calendar-view .trip-entry-header {
     flex-wrap: wrap;
@@ -733,44 +893,50 @@ main {
 }
 
 #calendar-view .trip-entry-form {
-    padding: 18px 18px 28px;
+    padding: 10px 15px 15px; /* Compacted padding */
 }
 
-/* Stacked rows: label full width on top, control full width — easier to scan */
-#calendar-view .trip-entry-form > .form-group:not(.trip-pay-row) {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    margin-bottom: 14px;
+
+/* Standardized Sidebar Form Layout: Labels on Left (145px), Controls on Right (flex: 1) */
+#calendar-view .trip-entry-form .form-group {
+    display: flex;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 6px; /* Reduced from 12px to reclaim space */
 }
 
-#calendar-view .trip-entry-form > .form-group:not(.trip-pay-row) .sidebar-label-btn {
-    width: 100% !important;
-    max-width: none;
-    flex: none !important;
-    margin-right: 0;
-    justify-content: flex-start;
-    padding: 8px 12px;
-    min-height: 32px;
-    border-radius: 6px;
-    box-sizing: border-box;
+#calendar-view .trip-entry-form .sidebar-label-btn {
+    width: 145px !important;
+    flex: 0 0 145px !important;
+    margin-right: 12px;
+    height: 30px; /* Reduced to fit */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 0.68rem; /* Slightly smaller to fit */
+    font-weight: 800;
+    text-transform: uppercase;
 }
 
-#calendar-view .trip-entry-form > .form-group:not(.trip-pay-row) input,
-#calendar-view .trip-entry-form > .form-group:not(.trip-pay-row) select {
-    width: 100%;
-    min-height: 38px;
-    padding: 8px 12px;
-    font-size: 0.85rem;
-    border-radius: 6px;
+
+#calendar-view .trip-entry-form .form-group input,
+#calendar-view .trip-entry-form .form-group select {
+    flex: 1;
+    height: 32px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    border-radius: 4px;
     border: 1px solid #cbd5e1;
-    background: #fff;
+    background: #f8fafc;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-#calendar-view .trip-entry-form > .form-group:not(.trip-pay-row) input:focus,
-#calendar-view .trip-entry-form > .form-group:not(.trip-pay-row) select:focus {
+#calendar-view .trip-entry-form .form-group input:focus,
+#calendar-view .trip-entry-form .form-group select:focus {
     border-color: var(--navy-blue);
+    background: #fff;
     box-shadow: 0 0 0 3px rgba(10, 25, 47, 0.12);
 }
 
@@ -828,18 +994,19 @@ main {
 
 #calendar-view .trip-select {
     width: 100%;
-    min-height: 40px;
-    padding: 8px 10px;
+    height: 32px; /* Standardize height */
+    padding: 6px 10px;
     font-size: 0.82rem;
     font-weight: 600;
     font-family: var(--font-main);
     color: #0f172a;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    border-radius: 4px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     cursor: pointer;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
+
 
 #calendar-view .trip-select:focus {
     outline: none;
@@ -849,64 +1016,76 @@ main {
 
 /* Amount rows with PAID / CASH */
 #calendar-view .trip-entry-form .trip-pay-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    margin-bottom: 14px;
+    flex-direction: row !important;
+    align-items: center;
+    margin-bottom: 12px;
 }
 
 #calendar-view .trip-entry-form .trip-pay-row .sidebar-label-btn {
-    width: 100% !important;
-    flex: none !important;
-    margin-right: 0;
-    justify-content: flex-start;
-    padding: 8px 12px;
-    border-radius: 6px;
+    width: 145px !important;
+    flex: 0 0 145px !important;
+    margin-right: 12px;
+    height: 32px;
 }
 
 #calendar-view .trip-pay-controls {
     display: flex;
+    flex: 1 !important; /* Take up all remaining row space */
+    flex-direction: row !important;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 8px;
+    flex-wrap: nowrap !important; /* Ensure everything stays in one line */
 }
+
 
 #calendar-view .trip-pay-input {
     flex: 1;
     min-width: 100px;
-    min-height: 38px;
-    padding: 8px 12px;
-    font-size: 0.85rem;
+    height: 32px; /* Standardize height */
+    padding: 6px 12px;
+    font-size: 0.82rem;
     font-weight: 600;
-    border-radius: 8px;
+    border-radius: 4px;
     border: 1px solid #cbd5e1;
     background: #fff;
 }
 
 #calendar-view .trip-paid-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    font-size: 0.72rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--corporate-red);
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    cursor: pointer;
-    white-space: nowrap;
-    user-select: none;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 0 10px !important;
+    height: 28px !important; /* Slightly larger for better visibility */
+    min-height: 28px !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: var(--corporate-red) !important;
+    background: #fef2f2 !important;
+    border: 1px solid #fecaca !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    user-select: none !important;
+    width: auto !important;
+    flex-shrink: 0 !important; /* Prevent from disappearing */
 }
 
+
+
+
 #calendar-view .trip-paid-toggle input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--corporate-red);
-    cursor: pointer;
+    width: 16px !important; /* Standard size restored */
+    height: 16px !important;
+    accent-color: var(--corporate-red) !important;
+    cursor: pointer !important;
+    margin: 0 !important;
 }
+
+
+
 
 @media screen and (max-width: 768px) {
     #calendar-view .trip-release-grid {

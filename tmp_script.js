@@ -48,7 +48,8 @@
                 t.yard_rate_paid || false, // 36
                 t.status || 'PENDING', // 37
                 t.payout_status || 'PENDING', // 38 (New)
-                t.service_mode || '---', t.monthly_rate || 0, t.start_date_rent || '---', t.next_due || '---' // 39-42
+                t.service_mode || '---', t.monthly_rate || 0, t.start_date_rent || '---', t.next_due || '---', // 39-42
+                t.price_per_day || 0 // 43
             ];
         }
 
@@ -97,7 +98,8 @@
                 service_mode: row[39],
                 monthly_rate: parseFloat(row[40]) || 0,
                 start_date_rent: row[41] === '---' ? null : row[41],
-                next_due: row[42] === '---' ? null : row[42]
+                next_due: row[42] === '---' ? null : row[42],
+                price_per_day: parseFloat(row[43]) || 0
             };
         }
 
@@ -359,17 +361,21 @@
             localStorage.setItem('logisticsTableData', JSON.stringify(rows));
         }
         function toggleYardRate() {
-            const vy = document.getElementById('in-yard').value;
+            const chkYard = document.getElementById('in-flag1');
             const yr = document.getElementById('yard-rate-group');
-            if (yr) {
-                if (vy === 'NO') {
-                    yr.style.display = 'none';
-                    document.getElementById('in-yardrate').value = 0;
-                } else {
-                    yr.style.display = 'flex';
+            const doGroup = document.getElementById('date-out-group');
+            
+            if (chkYard) {
+                const isChecked = chkYard.checked;
+                if (yr) yr.style.display = isChecked ? 'flex' : 'none';
+                if (doGroup) doGroup.style.display = isChecked ? 'flex' : 'none';
+                
+                if (!isChecked) {
+                    if (document.getElementById('in-yardrate')) document.getElementById('in-yardrate').value = 0;
                 }
             }
         }
+        window.toggleYardRate = toggleYardRate;
 
         // --- ADVANCED FILTERING LOGIC ---
         function populateFilterPickers() {
@@ -439,7 +445,6 @@
                 driver: document.getElementById('f-driver')?.value.toLowerCase() || '',
                 company: document.getElementById('f-company')?.value.toLowerCase() || '',
                 status: document.getElementById('f-status')?.value.toLowerCase() || '',
-                collect: document.getElementById('f-collect')?.value.toLowerCase() || '',
                 ncont: document.getElementById('f-ncont')?.value.toLowerCase() || '',
                 order: document.getElementById('f-order')?.value.toLowerCase() || '',
                 release: document.getElementById('f-release')?.value.toLowerCase() || '',
@@ -499,13 +504,17 @@
                 'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
                 'in-delivery', 'in-doors', 'in-miles', 'in-customer',
                 'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
-                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                'in-rate', 'in-paytype', 'in-sales', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-income', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-email'
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-email',
+                'in-flag1', 'in-flag2', 'in-flag3'
             ];
             fields.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.value = (id === 'in-miles' || id.includes('rate') || id === 'in-amount') ? '0' : '';
+                if (el) {
+                    if (el.type === 'checkbox') el.checked = false;
+                    else el.value = (id === 'in-miles' || id.includes('rate') || id === 'in-amount') ? '0' : '';
+                }
             });
 
             const checks = ['in-yardpaid', 'in-rentpaid', 'in-ratepaid', 'in-salespaid', 'in-amountpaid'];
@@ -571,7 +580,7 @@
                 'in-id', 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
                 'in-delivery', 'in-doors', 'in-miles', 'in-customer',
                 'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
-                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                'in-rate', 'in-paytype', 'in-sales', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-income', 'in-note'
                 // indices 0-25: removed legacy 'in-mode','in-mrate','in-sdaterent','in-nextdue'
             ];
@@ -615,7 +624,14 @@
                 }
             }
 
-            const rowData = fields.map(id => document.getElementById(id)?.value || '---');
+            const rowData = fields.map(id => {
+                if (id === 'in-yard') {
+                    const chk = document.getElementById('in-flag1');
+                    return (chk && chk.checked) ? 'YES' : 'NO';
+                }
+                const el = document.getElementById(id);
+                return (el && el.value !== '') ? el.value : '---';
+            });
             const finalStatus = (shouldFinalize || currentlyFinalized) ? 'FINALIZED' : 'PENDING';
 
             const stYard = document.getElementById('in-yardpaid') ? (document.getElementById('in-yardpaid').checked ? 'PAID' : 'PEND') : 'PEND';
@@ -643,6 +659,7 @@
             rowData.push(parseFloat(document.getElementById('in-mrate')?.value || 0)); // 40: monthly_rate
             rowData.push(document.getElementById('in-sdaterent')?.value || '---'); // 41: start_date_rent
             rowData.push(document.getElementById('in-nextdue')?.value || '---'); // 42: next_due
+            rowData.push(parseFloat(document.getElementById('in-priceperday')?.value || 0)); // 43: price_per_day
 
             const tripObj = mapArrayToTrip(rowData);
 
@@ -820,8 +837,20 @@
 
             fields.forEach((id, i) => {
                 const el = document.getElementById(id);
-                if (el) el.value = (rowData[i] === '---') ? '' : rowData[i];
+                if (el) {
+                    if (id === 'in-yard') {
+                        // handled by flag1 check below
+                    } else {
+                        el.value = (rowData[i] === '---') ? '' : rowData[i];
+                    }
+                }
             });
+
+            // Set Yard Services Checkbox
+            const chkYardServices = document.getElementById('in-flag1');
+            if (chkYardServices) {
+                chkYardServices.checked = (rowData[12] === 'YES');
+            }
 
             // Re-trigger Toggles based on values loaded
             if (window.toggleYardRate) window.toggleYardRate();
@@ -841,6 +870,10 @@
             // Email — index 32 in mapTripToArray output
             const elEmail = document.getElementById('in-email');
             if (elEmail) elEmail.value = rowData[32] || '';
+
+            // Price per day — index 43
+            const elPPD = document.getElementById('in-priceperday');
+            if (elPPD) elPPD.value = rowData[43] || '';
 
             // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
 
@@ -908,21 +941,19 @@
                             rowData[9],     // 10: Doors Direction (was 9)
                             rowData[10],    // 11: Miles
                             rowData[11],    // 12: Customer
-                            rowData[12],    // 13: Yard Services
-                            rowData[13],    // 14: Yard Rate (was 13)
+                            rowData[13],    // 13: Yard Rate (Yard Services removed)
+                            rowData[43],    // 14: Price per Day (NEW)
                             rowData[14],    // 15: Date Out
                             rowData[15],    // 16: Company
-                            rowData[16],    // 17: Driver (was 16)
-                            rowData[17],    // 18: Trans Pay (was 17)
-                            rowData[18],    // 19: Type Pay
-                            rowData[19],    // 20: Sales Price (was 19)
-                            rowData[20],    // 21: Collect Pay
-                            rowData[21],    // 22: Amount (was 21)
-                            rowData[22],    // 23: Phone # (was 22)
-                            rowData[23],    // 24: Paid Driver (was 23)
-                            rowData[24],    // 25: Income Fee (was 24)
-                            rowData[25],    // 26: Note
-                            email,          // 27: Email
+                            rowData[16],    // 17: Driver
+                            rowData[17],    // 18: Trans Pay
+                            rowData[19],    // 19: Sales Price (Type Pay removed)
+                            rowData[21],    // 20: Amount
+                            rowData[22],    // 21: Phone #
+                            rowData[23],    // 22: Paid Driver
+                            rowData[24],    // 23: Income Fee
+                            rowData[25],    // 24: Note
+                            email,          // 25: Email
                         ];
 
                         displayData.forEach((text, i) => {
@@ -938,22 +969,22 @@
                                     </div>
                                 `;
                             }
-                            // Formatting Currency for Financial Columns (Indices shifted by 1)
-                            else if ([14, 18, 20, 22, 24, 25].includes(i)) {
+                            // Formatting Currency: Yard Rate(13), PricePerDay(14), TransPay(18), Sales(19), Amount(20), PaidDriver(22), IncomeFee(23)
+                            else if ([13, 14, 18, 19, 20, 22, 23].includes(i)) {
                                 const val = parseFloat(text) || 0;
                                 td.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                 td.style.fontWeight = 'bold';
 
-                                // Yard Rate ✅ Icon logic (Index 14)
-                                if (i === 14 && stYard === 'PAID') {
+                                // Yard Rate ✅ Icon logic (Index 13 after removing Yard Services)
+                                if (i === 13 && stYard === 'PAID') {
                                     td.innerHTML = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })} <i class="fas fa-check-circle" style="color: #10b981; margin-left: 5px;" title="Yard Fee Paid"></i>`;
                                 }
                             } else {
                                 td.textContent = text;
                             }
 
-                            // PAID Status Checkbox for Amount Column (Index 22 Shifted)
-                            if (i === 22) {
+                            // PAID Status Checkbox for Amount Column (Index 21, Collect Pay removed)
+                            if (i === 21) {
                                 td.innerHTML = '';
                                 const container = document.createElement('div');
                                 container.style.display = 'flex';
@@ -1888,7 +1919,7 @@
                     const rowDate = row[1];
                     if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                         totals.sales += parseFloat(row[19]) || 0;  // sales_price at index 19
-                        totals.yard += parseFloat(row[13]) || 0;   // yard_rate at index 13
+                        totals.yard += (parseFloat(row[13]) || 0) + (parseFloat(row[43]) || 0);   // yard_rate (13) + price_per_day (43)
 
                         // Rentals: Sum Trans Pay (17) and Monthly Rate (40)
                         const transPay = parseFloat(row[17]) || 0;

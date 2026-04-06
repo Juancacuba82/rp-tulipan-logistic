@@ -120,6 +120,32 @@
                         </div>
                     </div>
                     <div class="sidebar-form trip-entry-form">
+                        <!-- Yard Services & Status Flags -->
+                        <div class="form-group">
+
+                            <div style="display: flex; gap: 10px; align-items: center; padding: 4px 0; flex-wrap: nowrap;">
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <input type="checkbox" id="in-flag1" onchange="toggleYardRate()" style="width: 18px; height: 18px; accent-color: #f97316;">
+                                    <span style="font-size: 0.65rem; font-weight: 700; color: #f97316;">Yard Services?</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <input type="checkbox" id="in-flag2" onchange="toggleTransport()" style="width: 18px; height: 18px; accent-color: #1e40af;">
+                                    <span style="font-size: 0.65rem; font-weight: 700; color: #1e40af;">Transport</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <input type="checkbox" id="in-flag3" onchange="toggleSalesPrice()" style="width: 18px; height: 18px; accent-color: #059669;">
+                                    <span style="font-size: 0.65rem; font-weight: 700; color: #059669;">Sales?</span>
+                                </div>
+                                
+                                <!-- Compact Status Toggle V2 (Cache Bypass) -->
+                                <div style="display: flex; align-items: center; padding-left: 30px; flex: none !important;">
+                                    <label class="v2-status-wrap" style="flex: none !important; width: 70px !important;">
+                                        <input type="checkbox" id="in-status-toggle">
+                                        <span class="v2-status-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                         <div class="form-group"><label class="sidebar-label-btn">Date</label><input type="date" id="in-date"></div>
                         <div class="form-group">
                             <label class="sidebar-label-btn">Size</label>
@@ -236,38 +262,6 @@
                                 <option value="TRUCK YARD">
                             </datalist>
                         </div>
-                        <!-- New Status Squares Group -->
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Status Flags</label>
-                            <div style="display: flex; gap: 15px; align-items: center; padding: 5px 0;">
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <input type="checkbox" id="in-flag1" style="width: 20px; height: 20px; accent-color: #b91c1c;">
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b;">S1</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <input type="checkbox" id="in-flag2" style="width: 20px; height: 20px; accent-color: #b91c1c;">
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b;">S2</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <input type="checkbox" id="in-flag3" style="width: 20px; height: 20px; accent-color: #b91c1c;">
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b;">S3</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group"><label class="sidebar-label-btn">Delivery Place</label><input type="text" id="in-delivery"
-                                placeholder="Delivery"></div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Doors Direction</label>
-                            <select id="in-doors" required>
-                                <option value="" disabled selected>Select Orientation</option>
-                                <option value="FACING CAB">FACING CAB</option>
-                                <option value="FACING BACK">FACING BACK</option>
-                                <option value="FACING DRIVER">FACING DRIVER</option>
-                                <option value="FACING PASSENGER">FACING PASSENGER</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label class="sidebar-label-btn">Miles</label><input type="number" id="in-miles" placeholder="0">
-                        </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn">Customer</label>
                             <select id="in-customer" required>
@@ -282,28 +276,23 @@
                                 <option value="ZUM SHIPPING">ZUM SHIPPING</option>
                             </select>
                         </div>
-                        <!-- Removed PAYMENT DATE as per user request -->
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Yard Services</label>
-                            <select id="in-yard" onchange="toggleYardRate()" required>
-                                <option value="" disabled selected>Yard Services?</option>
-                                <option value="YES">YES</option>
-                                <option value="NO">NO</option>
+
+                        <div class="form-group" id="transport-delivery-group" style="display:none;"><label class="sidebar-label-btn sidebar-label-btn-blue">Delivery Place</label><input type="text" id="in-delivery"
+                                placeholder="Delivery"></div>
+                        <div class="form-group" id="transport-doors-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-blue">Doors Direction</label>
+                            <select id="in-doors" required>
+                                <option value="" disabled selected>Select Orientation</option>
+                                <option value="FACING CAB">FACING CAB</option>
+                                <option value="FACING BACK">FACING BACK</option>
+                                <option value="FACING DRIVER">FACING DRIVER</option>
+                                <option value="FACING PASSENGER">FACING PASSENGER</option>
                             </select>
                         </div>
-                        <div class="form-group trip-pay-row" id="yard-rate-group">
-                            <label class="sidebar-label-btn">Yard Rate</label>
-                            <div class="trip-pay-controls">
-                                <input type="number" id="in-yardrate" class="trip-pay-input" placeholder="0.00">
-                                <label class="trip-paid-toggle">PAID <input type="checkbox"
-                                        id="in-yardpaid" onchange="syncImmediate('st_yard', this.checked ? 'PAID' : 'PEND')"></label>
-                            </div>
+                        <div class="form-group" id="transport-miles-group" style="display:none;"><label class="sidebar-label-btn sidebar-label-btn-blue">Miles</label><input type="number" id="in-miles" placeholder="0">
                         </div>
-                        <div class="form-group"><label class="sidebar-label-btn">Date Out</label><input type="date" id="in-dateout"></div>
-                        <!-- Removed DAY RATE as per user request -->
-
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Company</label>
+                        <div class="form-group" id="transport-company-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-blue">Company</label>
                             <select id="in-company" onchange="updateDriverCommission(); if(window.updateNetPayInfo) updateNetPayInfo();" required>
                                 <option value="" disabled selected>Select Company</option>
                                 <option value="RP TULIPAN">RP TULIPAN</option>
@@ -312,8 +301,8 @@
                                 <option value="ONLY SALES">ONLY SALES</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Driver</label>
+                        <div class="form-group" id="transport-driver-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-blue">Driver</label>
                             <select id="in-driver" required>
                                 <option value="" disabled selected>Select Driver</option>
                                 <option value="LUIS GARRIDO">Luis Garrido</option>
@@ -325,70 +314,67 @@
                                 <option value="TRAVIS JOSEY">Travis Josey</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Trans. Pay?</label>
-                            <select id="in-has-trans" onchange="toggleTransPay()" required>
-                                <option value="YES">YES</option>
-                                <option value="NO">NO</option>
-                            </select>
-                        </div>
-                        <div class="form-group trip-pay-row" id="trans-pay-group">
-                            <label class="sidebar-label-btn">Trans. Pay</label>
-                            <div class="trip-pay-controls">
-                                <input type="number" id="in-rate" class="trip-pay-input" oninput="updateDriverCommission()" placeholder="0.00">
-                                <label class="trip-paid-toggle">PAID <input type="checkbox"
-                                        id="in-ratepaid" onchange="syncImmediate('st_rate', this.checked ? 'PAID' : 'PEND')"></label>
+                        <div class="form-group" id="trans-pay-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-blue">Trans. Price</label>
+                            <div class="input-paid-wrap">
+                                <input type="number" id="in-rate" oninput="updateDriverCommission()" placeholder="0.00">
+                                <label class="input-paid-badge" title="Mark as paid">
+                                    <input type="checkbox" id="in-ratepaid" onchange="syncImmediate('st_rate', this.checked ? 'PAID' : 'PEND')">
+                                    <span>PAID</span>
+                                </label>
                             </div>
                         </div>
-
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Type Of Payment</label>
-                            <select id="in-paytype" required>
-                                <option value="" disabled selected>Select Payment Type</option>
-                                <option value="CASH">CASH</option>
-                                <option value="ACOUNT BANK">ACOUNT BANK</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Sales Price?</label>
-                            <select id="in-has-sales" onchange="toggleSalesPrice()" required>
-                                <option value="YES">YES</option>
-                                <option value="NO">NO</option>
-                            </select>
-                        </div>
-                        <div class="form-group trip-pay-row" id="sales-price-group">
-                            <label class="sidebar-label-btn">Sales Price</label>
-                            <div class="trip-pay-controls">
-                                <input type="number" id="in-sales" class="trip-pay-input" placeholder="0.00">
-                                <label class="trip-paid-toggle">PAID <input type="checkbox"
-                                        id="in-salespaid" onchange="syncImmediate('st_sales', this.checked ? 'PAID' : 'PEND')"></label>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Collect Payment</label>
-                            <select id="in-collect" required>
-                                <option value="" disabled selected>Collect?</option>
-                                <option value="YES">YES</option>
-                                <option value="NO">NO</option>
-                            </select>
-                        </div>
-                        <div class="form-group trip-pay-row">
-                            <label class="sidebar-label-btn">Amount</label>
-                            <div class="trip-pay-controls">
-                                <input type="number" id="in-amount" class="trip-pay-input" oninput="updateDriverCommission()" placeholder="0.00">
-                                <label class="trip-paid-toggle">CASH <input type="checkbox"
-                                        id="in-amountpaid" onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING')"></label>
-                            </div>
-                        </div>
-                        <div class="form-group"><label class="sidebar-label-btn">Phone #</label><input type="text" id="in-phone"></div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn">Paid Driver</label>
+                        <div class="form-group hidden" id="transport-paiddriver-group" style="display:none !important;">
+                            <label class="sidebar-label-btn sidebar-label-btn-blue">Paid Driver</label>
                             <div style="flex: 1; display: flex; flex-direction: column;">
                                 <input type="number" id="in-paiddriver" oninput="updateDriverCommission(); if(window.updateNetPayInfo) updateNetPayInfo();">
                                 <small id="net-pay-info" style="color: #047857; font-weight: 700; font-size: 0.65rem; margin-top: 2px;"></small>
                             </div>
                         </div>
+
+                        <!-- Removed PAYMENT DATE as per user request -->
+                        <!-- Removed Yard Services dropdown as it is now a checkbox above -->
+                        <div class="form-group" id="yard-rate-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-orange">Yard Rate</label>
+                            <div class="input-paid-wrap">
+                                <input type="number" id="in-yardrate" placeholder="0.00">
+                                <label class="input-paid-badge" title="Mark as paid">
+                                    <input type="checkbox" id="in-yardpaid" onchange="syncImmediate('st_yard', this.checked ? 'PAID' : 'PEND')">
+                                    <span>PAID</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group" id="price-per-day-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-orange">Price per Day</label>
+                            <input type="number" id="in-priceperday" class="trip-pay-input" placeholder="0.00" style="width:100%;">
+                        </div>
+                        <div class="form-group" id="date-out-group" style="display:none;"><label class="sidebar-label-btn sidebar-label-btn-orange">Date Out</label><input type="date" id="in-dateout"></div>
+                        <!-- Removed DAY RATE and consolidated section -->
+
+                        <div class="form-group" id="sales-price-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-green">Sales Price</label>
+                            <div class="input-paid-wrap">
+                                <input type="number" id="in-sales" placeholder="0.00">
+                                <label class="input-paid-badge" title="Mark as paid">
+                                    <input type="checkbox" id="in-salespaid" onchange="syncImmediate('st_sales', this.checked ? 'PAID' : 'PEND')">
+                                    <span>PAID</span>
+                                </label>
+                            </div>
+                        </div>
+
+
+                        <div class="form-group">
+                            <label class="sidebar-label-btn">Amount</label>
+                            <div class="input-paid-wrap">
+                                <input type="number" id="in-amount" oninput="updateDriverCommission()" placeholder="0.00">
+                                <label class="input-paid-badge" title="Mark as cash">
+                                    <input type="checkbox" id="in-amountpaid" onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING')">
+                                    <span>CASH</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group"><label class="sidebar-label-btn">Phone #</label><input type="text" id="in-phone"></div>
+
                         <!-- Removed STATUS as per user request -->
                         <!-- Removed COMISSION as per user request -->
                         <!-- Removed COMISION DRIVER as per user request -->
@@ -516,20 +502,18 @@
                                     <th>Order - Bol Cont #</th>
                                     <th>City</th>
                                     <th>Pick Up Address</th>
-                                    <th>Status Flags</th>
                                     <th>Delivery Place</th>
                                     <th>Doors Direction</th>
                                     <th>Miles</th>
                                     <th>Customer</th>
-                                    <th>Yard Services</th>
                                     <th>Yard Rate</th>
+                                    <th>Price per Day</th>
                                     <th>Date Out</th>
                                     <th>Company</th>
                                     <th>Driver</th>
                                     <th>Trans. Pay</th>
-                                    <th>Type of Payment</th>
                                     <th>Sales Price</th>
-                                    <th>Collect Payment</th>
+
                                     <th>Amount</th>
                                     <th>Phone #</th>
                                     <th>Paid Driver</th>
@@ -658,7 +642,7 @@
         <!-- FORM RELEASES View -->
         <section id="releases-view" class="view-section hidden">
             <div class="dashboard-split-container">
-                <aside class="entry-sidebar primary-entry" style="width: 450px;">
+                <aside class="entry-sidebar primary-entryNarrow">
                     <div class="sidebar-header">
                         <h3>Release Management</h3>
                         <div class="header-actions" style="display: flex; gap: 8px;">
@@ -1112,7 +1096,7 @@
         <!-- EXPENSE MANAGEMENT View -->
         <section id="expenses-view" class="view-section hidden">
             <div class="dashboard-split-container">
-                <aside class="entry-sidebar primary-entry" style="width: 450px;">
+                <aside class="entry-sidebar primary-entryNarrow">
                     <div class="sidebar-header">
                         <h3>Expense Management</h3>
                         <div class="header-actions">
@@ -1363,8 +1347,9 @@
                 t.final_driver_pay || 0,
                 t.yard_rate_paid || false,
                 t.status || 'PENDING_PAYMENT',
-                t.has_trans || 'YES',
-                t.has_sales || 'YES'
+                t.has_trans || 'YES', 
+                t.has_sales || 'YES',
+                t.price_per_day || 0
             ];
         }
 
@@ -1385,16 +1370,17 @@
                 customer: row[10],
                 yard_services: row[11],
                 yard_rate: parseFloat(row[12]) || 0,
-                date_out: row[13] === '---' ? null : row[13],
-                company: row[14],
-                driver: row[15],
-                trans_pay: parseFloat(row[16]) || 0,
-                type_payment: row[17],
-                sales_price: parseFloat(row[18]) || 0,
-                collect_payment: row[19],
-                amount: parseFloat(row[20]) || 0,
-                phone_no: row[21],
-                paid_driver: parseFloat(row[22]) || 0,
+                price_per_day: parseFloat(row[13]) || 0,
+                date_out: row[14] === '---' ? null : row[14],
+                company: row[15],
+                driver: row[16],
+                trans_pay: parseFloat(row[17]) || 0,
+                type_payment: row[18],
+                sales_price: parseFloat(row[19]) || 0,
+                collect_payment: row[20],
+                amount: parseFloat(row[21]) || 0,
+                phone_no: row[22],
+                paid_driver: parseFloat(row[23]) || 0,
                 note: row[24],
                 service_mode: row[25],
                 monthly_rate: parseFloat(row[26]) || 0,
@@ -1413,7 +1399,8 @@
                 yard_rate_paid: row[28] === 'PAID',
                 status: row[40] || 'PENDING_PAYMENT',
                 has_trans: row[41] || 'YES',
-                has_sales: row[42] || 'YES'
+                has_sales: row[42] || 'YES',
+                price_per_day: parseFloat(row[43]) || 0
             };
         }
 
@@ -1719,44 +1706,76 @@
         }
 
         function toggleYardRate() {
-            const vy = document.getElementById('in-yard').value;
+            const chkYard = document.getElementById('in-flag1');
             const yr = document.getElementById('yard-rate-group');
-            if (yr) {
-                if (vy === 'NO') {
-                    yr.style.display = 'none';
+            const doGroup = document.getElementById('date-out-group');
+            const ppd = document.getElementById('price-per-day-group');
+            if (chkYard) {
+                const isChecked = chkYard.checked;
+                if (yr) yr.style.display = isChecked ? 'flex' : 'none';
+                if (doGroup) doGroup.style.display = isChecked ? 'flex' : 'none';
+                if (ppd) ppd.style.display = isChecked ? 'flex' : 'none';
+                if (!isChecked && document.getElementById('in-yardrate')) {
                     document.getElementById('in-yardrate').value = 0;
-                } else {
-                    yr.style.display = 'flex';
                 }
             }
         }
 
-        function toggleTransPay() {
-            const val = document.getElementById('in-has-trans').value;
-            const group = document.getElementById('trans-pay-group');
-            if (group) {
-                if (val === 'NO') {
-                    group.style.display = 'none';
-                    document.getElementById('in-rate').value = 0;
-                } else {
-                    group.style.display = 'flex';
+        function toggleTransport() {
+            const chk = document.getElementById('in-flag2');
+            const show = chk && chk.checked ? true : false;
+            
+            const groups = [
+                'transport-delivery-group',
+                'transport-doors-group',
+                'transport-miles-group',
+                'transport-company-group',
+                'transport-driver-group',
+                // Removed obsolete transport-hastrans-group
+                'trans-pay-group',
+                'transport-paiddriver-group'
+            ];
+            
+            groups.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (show === true) {
+                        el.style.setProperty('display', 'flex', 'important');
+                        el.classList.remove('hidden');
+                    } else {
+                        el.style.setProperty('display', 'none', 'important');
+                        el.classList.add('hidden');
+                    }
                 }
+            });
+            // If hiding, reset trans-pay
+            if (!show) {
+                const rate = document.getElementById('in-rate');
+                if (rate) rate.value = 0;
+                const paidDriver = document.getElementById('in-paiddriver');
+                if (paidDriver) paidDriver.value = 0;
             }
-            if (window.updateDriverCommission) window.updateDriverCommission();
+        }
+        window.toggleTransport = toggleTransport;
+
+
+        function toggleTransPay() {
+            // DEPRECATED: Combined into toggleTransport
         }
 
         function toggleSalesPrice() {
-            const val = document.getElementById('in-has-sales').value;
+            const chk = document.getElementById('in-flag3');
+            const show = chk && chk.checked;
             const group = document.getElementById('sales-price-group');
             if (group) {
-                if (val === 'NO') {
-                    group.style.display = 'none';
-                    document.getElementById('in-sales').value = 0;
-                } else {
-                    group.style.display = 'flex';
+                group.style.display = show ? 'flex' : 'none';
+                if (!show) {
+                    const sales = document.getElementById('in-sales');
+                    if (sales) sales.value = 0;
                 }
             }
         }
+        window.toggleSalesPrice = toggleSalesPrice;
 
 
         function calcNextDue() {
@@ -1938,9 +1957,9 @@
             setTripArchiveButton({ label: 'Archive order', isUpdate: false, disabled: false, opacity: 1, title: 'Save trip to database' });
             if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
 
-            document.getElementById('in-has-trans').value = 'YES';
-            document.getElementById('in-has-sales').value = 'YES';
-            toggleTransPay();
+            document.getElementById('in-flag2').checked = false;
+            document.getElementById('in-flag3').checked = false;
+            toggleTransport();
             toggleSalesPrice();
         }
 
@@ -1998,9 +2017,9 @@
             const fields = [
                 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
                 'in-delivery', 'in-doors', 'in-miles', 'in-customer',
-                'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
+                'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
-                'in-paiddriver', 'in-income', 'in-note',
+                'in-paiddriver', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
 
@@ -2127,8 +2146,9 @@
             rowData.push(0);        // Index 38: Final driver pay placeholder
             rowData.push(isYardPaid); // Index 39: Yard rate paid bool
             rowData.push(globalStatus); // Index 40: GLOBAL STATUS (PAID vs PENDING_PAYMENT)
-            rowData.push(document.getElementById('in-has-trans').value); // Index 41
-            rowData.push(document.getElementById('in-has-sales').value); // Index 42
+            rowData.push(document.getElementById('in-flag2').checked ? 'YES' : 'NO'); // Index 41 (Transport flags)
+            rowData.push(document.getElementById('in-flag3').checked ? 'YES' : 'NO'); // Index 42 (Sales flags)
+            rowData.push(parseFloat(document.getElementById('in-priceperday')?.value) || 0); // Index 43 (Price per Day)
 
             // --- SUPABASE INTEGRATION ---
             const tripObj = mapArrayToTrip(rowData);
@@ -2361,9 +2381,9 @@
             const fields = [
                 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
                 'in-delivery', 'in-doors', 'in-miles', 'in-customer',
-                'in-yard', 'in-yardrate', 'in-dateout', 'in-company', 'in-driver',
+                'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
-                'in-paiddriver', 'in-income', 'in-note',
+                'in-paiddriver', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
             ];
 
@@ -2378,9 +2398,11 @@
             if (window.toggleYardRate) window.toggleYardRate();
             else toggleYardRate(); // fallback if not on window
 
-            document.getElementById('in-has-trans').value = rowData[41] || 'YES';
-            document.getElementById('in-has-sales').value = rowData[42] || 'YES';
-            toggleTransPay();
+            const isTransChecked = (rowData[41] === 'YES');
+            document.getElementById('in-flag2').checked = isTransChecked;
+            const isSalesChecked = (rowData[42] === 'YES');
+            document.getElementById('in-flag3').checked = isSalesChecked;
+            toggleTransport();
             toggleSalesPrice();
 
 
@@ -2397,6 +2419,12 @@
             if (emailInput) {
                 const ev = rowData[35];
                 emailInput.value = (ev === '---' || ev === undefined || ev === null) ? '' : ev;
+            }
+
+            // Price per Day (Index 43 in mapTripToArray)
+            const ppdInput = document.getElementById('in-priceperday');
+            if (ppdInput) {
+                ppdInput.value = (rowData[43] === undefined || rowData[43] === null) ? 0 : rowData[43];
             }
 
             // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
@@ -2468,37 +2496,38 @@
                             rowData[11],    // 10: Customer
                             rowData[12],    // 11: Yard Services
                             rowData[13],    // 12: Yard Rate
-                            rowData[14],    // 13: Date Out
-                            rowData[15],    // 14: Company
-                            rowData[16],    // 15: Driver
-                            rowData[17],    // 16: Trans Pay
-                            rowData[18],    // 17: Type Pay
-                            rowData[19],    // 18: Sales Price
-                            rowData[20],    // 19: Collect Pay
-                            rowData[21],    // 20: Amount
-                            rowData[22],    // 21: Phone #
-                            rowData[23],    // 22: Paid Driver
-                            rowData[25],    // 23: Note
-                            email,          // 24: Email
+                            rowData[43],    // 13: Price per Day (New)
+                            rowData[14],    // 14: Date Out
+                            rowData[15],    // 15: Company
+                            rowData[16],    // 16: Driver
+                            rowData[17],    // 17: Trans Pay
+                            rowData[18],    // 18: Type Pay (Legacy)
+                            rowData[19],    // 19: Sales Price
+                            rowData[20],    // 20: Collect Pay
+                            rowData[21],    // 21: Amount
+                            rowData[22],    // 22: Phone #
+                            rowData[23],    // 23: Paid Driver
+                            rowData[25],    // 24: Note
+                            email           // 25: Email
                         ];
 
                         displayData.forEach((text, i) => {
                             const td = document.createElement('td');
                             
-                            if ([12, 16, 18, 20, 22].includes(i)) {
+                            if ([13, 17, 19, 21, 23].includes(i)) {
                                 const val = parseFloat(text) || 0;
                                 td.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                 td.style.fontWeight = 'bold';
-                                if (i === 12) { // Yard Rate
+                                if (i === 13 || i === 14) { // Yard Rate or Price per Day
                                     td.style.backgroundColor = (stYard === 'PAID') ? '#dcfce7' : '#fee2e2';
                                     td.style.color = (stYard === 'PAID') ? '#166534' : '#991b1b';
-                                } else if (i === 16) { // Trans Pay
+                                } else if (i === 17) { // Trans Pay
                                     td.style.backgroundColor = (stRate === 'PAID') ? '#dcfce7' : '#fee2e2';
                                     td.style.color = (stRate === 'PAID') ? '#166534' : '#991b1b';
-                                } else if (i === 18) { // Sales Price
+                                } else if (i === 19) { // Sales Price
                                     td.style.backgroundColor = (stSales === 'PAID') ? '#dcfce7' : '#fee2e2';
                                     td.style.color = (stSales === 'PAID') ? '#166534' : '#991b1b';
-                                } else if (i === 20) { // Amount
+                                } else if (i === 21) { // Amount
                                     // NO Background color as requested. Just Icons:
                                     const iconClass = (stAmount === 'PAID') ? 'fas fa-money-bill-wave' : 'fas fa-university';
                                     const iconColor = (stAmount === 'PAID') ? '#059669' : '#3b82f6'; 
@@ -3518,6 +3547,15 @@
                     if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                         totals.sales += parseFloat(row[19]) || 0;  // sales_price at index 19
                         totals.yard += parseFloat(row[13]) || 0;   // yard_rate at index 13
+
+                        // Price per day × days (Date Out - Date)
+                        const pricePerDay = parseFloat(row[43]) || 0;
+                        if (pricePerDay > 0 && row[1] && row[14] && row[14] !== '---') {
+                            const dateIn  = new Date(row[1]);
+                            const dateOut = new Date(row[14]);
+                            const days = Math.max(0, Math.round((dateOut - dateIn) / (1000 * 60 * 60 * 24)));
+                            totals.yard += pricePerDay * days;
+                        }
 
                         // Collections: Only if NOT marked as CASH/PAID (User requested: "cuando no esta tildado va a Profit Report")
                         if (row[34] !== 'PAID') {
