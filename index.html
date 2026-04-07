@@ -125,6 +125,7 @@
     .btn-del-driver:hover { background: #fee2e2; }
     .modal-footer { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 15px; }
     .add-driver-input-row { display: flex; gap: 8px; }
+    .add-customer-input-row { display: grid; grid-template-columns: 1fr 1fr 80px; gap: 8px; }
     .add-driver-input-row input { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; text-transform: uppercase; }
     .btn-add-driver-confirm { background: #10b981; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: 700; transition: all 0.2s; }
     .btn-add-driver-confirm:hover { background: #059669; }
@@ -327,9 +328,15 @@
                                  <label class="sidebar-label-btn" style="margin-right: 0 !important;">Pick Up Address</label>
                                  <button onclick="openPickupAddressManager()" class="btn-manage-inline">Manage</button>
                              </div>
-                             <select id="in-pickup" required>
-                                 <option value="" disabled selected>Loading addresses...</option>
-                             </select>
+                            <div class="hybrid-input-wrapper">
+                                <select id="in-pickup-sel">
+                                    <option value="" disabled selected>Loading addresses...</option>
+                                </select>
+                                <input type="text" id="in-pickup" placeholder="Type Address..." style="display:none;">
+                                <button type="button" class="btn-toggle-input" onclick="togglePickupAddressMode()" title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="toggle-icon-pickup"></i>
+                                </button>
+                            </div>
                          </div>
                         <div class="form-group">
                              <div style="display: flex; align-items: center; gap: 5px; flex: 0 0 145px; margin-right: 12px;">
@@ -462,7 +469,8 @@
                             <label class="sidebar-label-btn">Show Tax (%?)</label>
                             <div style="display: flex; gap: 8px; flex: 1; align-items: center;">
                                 <input type="checkbox" id="in-showtax" style="width: 20px; height: 20px; cursor: pointer;">
-                                <input type="number" id="in-taxpercent" placeholder="0" style="flex: 1; height: 32px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc;">
+                                <span style="font-weight: 900; color: #b91c1c; font-size: 1rem; margin-left: 5px;">7% FIXED</span>
+                                <input type="hidden" id="in-taxpercent" value="7">
                             </div>
                         </div>
 
@@ -1599,6 +1607,7 @@
                     const opt = document.createElement('option');
                     opt.value = c.name;
                     opt.textContent = c.name;
+                    opt.dataset.email = c.email || '';
                     sel.appendChild(opt);
                 });
                 if (currentVal) sel.value = currentVal;
@@ -1606,6 +1615,19 @@
             
             populate(sideSel);
             populate(filterSel);
+
+            // Auto-fill email when selecting a customer
+            if (sideSel && !sideSel.dataset.listenerAdded) {
+                sideSel.addEventListener('change', (e) => {
+                    const opt = sideSel.options[sideSel.selectedIndex];
+                    const email = opt.dataset.email;
+                    const emailField = document.getElementById('in-email');
+                    if (emailField) {
+                        emailField.value = email || '';
+                    }
+                });
+                sideSel.dataset.listenerAdded = "true";
+            }
         }
 
         function renderCustomerManagerList() {
@@ -1616,7 +1638,10 @@
                 const item = document.createElement('div');
                 item.className = 'driver-item'; // Reuse same styles
                 item.innerHTML = `
-                    <span>${c.name}</span>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.85rem;">${c.name}</span>
+                        <span style="font-size: 0.7rem; color: #64748b; text-transform: lowercase; font-weight: normal;">${c.email || 'no email'}</span>
+                    </div>
                     <button onclick="deleteCustomer('${c.id}')" class="btn-del-driver" title="Delete Customer">
                         <i class="fas fa-trash-alt"></i>
                     </button>
@@ -1627,16 +1652,19 @@
 
         async function addNewCustomer() {
             const input = document.getElementById('new-customer-name');
+            const emailInput = document.getElementById('new-customer-email');
             const name = input.value.trim().toUpperCase();
+            const email = emailInput ? emailInput.value.trim() : '';
             if (!name) return;
             
             try {
-                const { error } = await db.from('customers').insert([{ name: name }]);
+                const { error } = await db.from('customers').insert([{ name: name, email: email }]);
                 if (error) {
                     if (error.code === '23505') alert("Customer already exists!");
                     else throw error;
                 }
                 input.value = '';
+                if (emailInput) emailInput.value = '';
                 await loadCustomersData();
                 renderCustomerManagerList();
             } catch (err) {
@@ -1705,7 +1733,7 @@
         window.loadPickupAddressesData = loadPickupAddressesData;
 
         function refreshPickupAddressSelects() {
-            const sideSel = document.getElementById('in-pickup');
+            const sideSel = document.getElementById('in-pickup-sel');
             const releaseSel = document.getElementById('rel-address');
             const filterSel = document.getElementById('f-pickup'); 
             
@@ -2659,6 +2687,10 @@
             const custSel = document.getElementById('in-customer-sel');
             const custMan = document.getElementById('in-customer');
             const selectedCustomer = (custMan && custMan.style.display !== 'none') ? custMan.value : (custSel ? custSel.value : '');
+
+            const pickupSel = document.getElementById('in-pickup-sel');
+            const pickupMan = document.getElementById('in-pickup');
+            const selectedPickup = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
             
             const selectedSize = document.getElementById('in-size').value;
             const selectedRelType = document.getElementById('in-rel-type').value;
@@ -2789,8 +2821,9 @@
                  return el ? el.value || '---' : '---';
              });
 
-             // CRITICAL FIX: Ensure hybrid Release # and Customer are correctly captured in baseValues
+             // CRITICAL FIX: Ensure hybrid Release #, Pickup and Customer are correctly captured in baseValues
              baseValues[3] = selectedRelease || '---';
+             baseValues[6] = selectedPickup || '---';
              baseValues[10] = selectedCustomer || '---';
 
             // Calculate Pending Balance (matches logic in report view)
@@ -2929,7 +2962,13 @@
 
             fieldsToClear.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.value = (id.includes('rate') || id === 'in-sales' || id === 'in-amount' || id === 'in-miles' || id === 'in-taxpercent') ? '0' : '';
+                if (el) {
+                    if (id === 'in-taxpercent') {
+                        el.value = '7';
+                    } else {
+                        el.value = (id.includes('rate') || id === 'in-sales' || id === 'in-amount' || id === 'in-miles') ? '0' : '';
+                    }
+                }
             });
 
             // Reset checkboxes
@@ -2940,7 +2979,9 @@
             ];
             checks.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.checked = false;
+                if (el) {
+                    el.checked = false;
+                }
             });
 
             // Reset display states
@@ -2954,6 +2995,7 @@
             if (dt) dt.value = new Date().toISOString().split('T')[0];
 
             if (document.getElementById('in-release-sel')) toggleReleaseMode('list');
+            if (document.getElementById('in-pickup-sel')) togglePickupAddressMode('list');
             if (document.getElementById('in-customer-sel')) toggleCustomerMode('list');
 
             restoreTripArchiveButtonUI();
@@ -3172,6 +3214,22 @@
                             toggleCustomerMode('manual');
                             el.value = (v === '---' || v === undefined || v === null) ? '' : v;
                         }
+                    } else if (id === 'in-pickup') {
+                        // Hybrid Logic for Pickup Address
+                        const sel = document.getElementById('in-pickup-sel');
+                        let exists = false;
+                        if (sel) {
+                            for (let opt of sel.options) {
+                                if (opt.value === v) { exists = true; break; }
+                            }
+                        }
+                        if (exists && v !== '---' && v !== '') {
+                            togglePickupAddressMode('list');
+                            sel.value = v;
+                        } else {
+                            togglePickupAddressMode('manual');
+                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                        }
                     } else {
                         el.value = (v === '---' || v === undefined || v === null) ? '' : v;
                     }
@@ -3223,7 +3281,7 @@
             }
             const taxPerc = document.getElementById('in-taxpercent');
             if (taxPerc) {
-                taxPerc.value = rowData[50] || 0;
+                taxPerc.value = rowData[50] || 7;
             }
 
             // Hide Amounts on Receipt Settings
@@ -4202,6 +4260,29 @@
             }
         }
         window.toggleCustomerMode = toggleCustomerMode;
+        
+        function togglePickupAddressMode(forceMode) {
+            const sel = document.getElementById('in-pickup-sel');
+            const man = document.getElementById('in-pickup');
+            const icon = document.getElementById('toggle-icon-pickup');
+            
+            let isManual = man.style.display !== 'none';
+            if (forceMode === 'manual') isManual = false;
+            if (forceMode === 'list') isManual = true;
+
+            if (isManual) {
+                man.style.display = 'none';
+                sel.style.display = 'block';
+                icon.className = 'fas fa-edit';
+                man.value = '';
+            } else {
+                sel.style.display = 'none';
+                man.style.display = 'block';
+                icon.className = 'fas fa-list';
+                sel.selectedIndex = 0;
+            }
+        }
+        window.togglePickupAddressMode = togglePickupAddressMode;
 
         async function loadReleasesData() {
             const body = document.getElementById('releases-body');
@@ -5123,8 +5204,9 @@
                 <!-- Customers will be listed here -->
             </div>
             <div class="modal-footer">
-                <div class="add-driver-input-row">
-                    <input type="text" id="new-customer-name" placeholder="ENTER NEW CUSTOMER NAME...">
+                <div class="add-customer-input-row">
+                    <input type="text" id="new-customer-name" placeholder="NAME...">
+                    <input type="text" id="new-customer-email" placeholder="EMAIL..." style="text-transform: none;">
                     <button onclick="addNewCustomer()" class="btn-add-driver-confirm" style="background: #3b82f6;">ADD</button>
                 </div>
                 <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting a customer only removes them from future entries.</p>
