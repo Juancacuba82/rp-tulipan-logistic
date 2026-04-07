@@ -323,8 +323,8 @@
                             </select>
                         </div>
                         <div class="form-group">
-                             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                 <label class="sidebar-label-btn">Pick Up Address</label>
+                             <div style="display: flex; align-items: center; gap: 5px; flex: 0 0 145px; margin-right: 12px;">
+                                 <label class="sidebar-label-btn" style="margin-right: 0 !important;">Pick Up Address</label>
                                  <button onclick="openPickupAddressManager()" class="btn-manage-inline">Manage</button>
                              </div>
                              <select id="in-pickup" required>
@@ -332,10 +332,10 @@
                              </select>
                          </div>
                         <div class="form-group">
-                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                <label class="sidebar-label-btn">Customer</label>
-                                <button onclick="openCustomerManager()" class="btn-manage-inline">Manage</button>
-                            </div>
+                             <div style="display: flex; align-items: center; gap: 5px; flex: 0 0 145px; margin-right: 12px;">
+                                 <label class="sidebar-label-btn" style="margin-right: 0 !important;">Customer</label>
+                                 <button onclick="openCustomerManager()" class="btn-manage-inline">Manage</button>
+                             </div>
                             <select id="in-customer" required>
                                 <option value="" disabled selected>Loading customers...</option>
                             </select>
@@ -356,19 +356,19 @@
                         <div class="form-group" id="transport-miles-group" style="display:none;"><label class="sidebar-label-btn sidebar-label-btn-blue">Miles</label><input type="number" id="in-miles" placeholder="0">
                         </div>
                         <div class="form-group" id="transport-company-group" style="display:none;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                <label class="sidebar-label-btn sidebar-label-btn-blue">Company</label>
-                                <button onclick="openCompanyManager()" class="btn-manage-inline">Manage</button>
-                            </div>
+                             <div style="display: flex; align-items: center; gap: 5px; flex: 0 0 145px; margin-right: 12px;">
+                                 <label class="sidebar-label-btn sidebar-label-btn-blue" style="margin-right: 0 !important;">Company</label>
+                                 <button onclick="openCompanyManager()" class="btn-manage-inline">Manage</button>
+                             </div>
                             <select id="in-company" onchange="updateDriverCommission(); if(window.updateNetPayInfo) updateNetPayInfo();" required>
                                 <option value="" disabled selected>Loading companies...</option>
                             </select>
                         </div>
                          <div class="form-group" id="transport-driver-group" style="display:none;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                <label class="sidebar-label-btn sidebar-label-btn-blue">Driver</label>
-                                <button onclick="openDriverManager()" class="btn-manage-inline">Manage</button>
-                            </div>
+                             <div style="display: flex; align-items: center; gap: 5px; flex: 0 0 145px; margin-right: 12px;">
+                                 <label class="sidebar-label-btn sidebar-label-btn-blue" style="margin-right: 0 !important;">Driver</label>
+                                 <button onclick="openDriverManager()" class="btn-manage-inline">Manage</button>
+                             </div>
                             <select id="in-driver" required>
                                 <option value="" disabled selected>Loading drivers...</option>
                             </select>
