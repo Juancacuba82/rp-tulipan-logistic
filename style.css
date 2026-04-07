@@ -2000,3 +2000,55 @@ main {
 #releases-table tbody tr:hover {
     background-color: #f1f5f9;
 }
+
+/* RELEASES FILTER ROW STYLES */
+.releases-filter-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+    align-items: center;
+}
+
+.releases-filter-container .filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 80px;
+}
+
+.releases-filter-container label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+}
+
+.rel-filter-input {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    outline: none;
+    transition: all 0.2s ease;
+    background: white;
+    width: 100%;
+}
+
+.rel-filter-input:focus {
+    border-color: #1e293b;
+    box-shadow: 0 0 0 2px rgba(30, 41, 59, 0.1);
+}
+
+/* Color indicator for active filters */
+.rel-filter-active {
+    background-color: #fef08a !important; /* Light Yellow */
+    border-color: #eab308 !important;
+    color: #854d0e !important;
+    font-weight: 700;
+}

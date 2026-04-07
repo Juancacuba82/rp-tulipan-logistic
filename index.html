@@ -832,6 +832,63 @@
                     <div class="table-toolbar">
                         <h2>Releases Data Grid</h2>
                     </div>
+
+                    <!-- RELEASES FILTER ROW (Added per user request) -->
+                    <div class="releases-filter-container">
+                        <div class="filter-item">
+                            <label>Release #</label>
+                            <input type="text" id="rf-no" class="rel-filter-input" placeholder="Search..." oninput="applyReleasesFilters()">
+                        </div>
+                        <div class="filter-item" style="min-width: 120px;">
+                            <label>Date</label>
+                            <input type="text" id="rf-date" class="rel-filter-input" placeholder="DD/MM/YYYY" oninput="applyReleasesFilters()">
+                        </div>
+                        <div class="filter-item">
+                            <label>Type</label>
+                            <select id="rf-type" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                <option value="">ALL</option>
+                                <option value="DRY">DRY 🔥</option>
+                                <option value="REEFER">REF ❄️</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Cond</label>
+                            <select id="rf-cond" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                <option value="">ALL</option>
+                                <option value="NEW">NEW ✨</option>
+                                <option value="USED">USED 🔧</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Size</label>
+                            <select id="rf-size" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                <option value="">ALL</option>
+                                <option value="20'">20'</option>
+                                <option value="40'">40'</option>
+                                <option value="45'">45'</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label>City</label>
+                            <input type="text" id="rf-city" class="rel-filter-input" placeholder="City..." oninput="applyReleasesFilters()">
+                        </div>
+                        <div class="filter-item">
+                            <label>Depot</label>
+                            <input type="text" id="rf-depot" class="rel-filter-input" placeholder="Depot..." oninput="applyReleasesFilters()">
+                        </div>
+                        <div class="filter-item">
+                            <label>Stock</label>
+                            <input type="number" id="rf-stock" class="rel-filter-input" placeholder="Min..." oninput="applyReleasesFilters()">
+                        </div>
+                        <div class="filter-item">
+                            <label>Seller</label>
+                            <input type="text" id="rf-seller" class="rel-filter-input" placeholder="Seller..." oninput="applyReleasesFilters()">
+                        </div>
+                        <div class="filter-item" style="justify-content: flex-end; flex: 1; align-items: flex-end;">
+                            <button onclick="resetReleasesFilters()" class="btn-cancel" style="height: 30px; font-size: 0.65rem; padding: 0 10px;">RESET</button>
+                        </div>
+                    </div>
+
                     <div class="table-scroll-container">
                         <table id="releases-table">
                             <thead>
@@ -4147,127 +4204,152 @@
         window.toggleCustomerMode = toggleCustomerMode;
 
         async function loadReleasesData() {
-                const body = document.getElementById('releases-body');
-                if (!body) return;
+            const body = document.getElementById('releases-body');
+            if (!body) return;
 
-                try {
-                    const data = await getReleases();
-                    currentReleases = data.map(mapReleaseToArray);
+            try {
+                const data = await getReleases();
+                currentReleases = data.map(mapReleaseToArray);
+                renderReleasesTable();
+            } catch (err) {
+                console.error("Error loading releases:", err);
+            }
+        }
+        window.loadReleasesData = loadReleasesData;
 
-                    body.innerHTML = '';
-                    currentReleases.forEach((rowData, idx) => {
-                        const tr = document.createElement('tr');
-                        tr.style.cursor = 'pointer';
-                        tr.onclick = () => window.loadReleaseToEdit(idx);
-                        if (editingReleaseId === rowData[15]) tr.classList.add('editing-row');
-                                                
-                        // ICONIC ORDER: [0]rel_no, [1]date, [2]type(Icon), [3]cond(Icon), 'SIZE', [6]city, [4]depot, [5]depot_address, 'IN', 'PICKUP', 'STOCK', 13
-                        const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'IN', 'PICKUP', 'STOCK', 13];
-                        
+        function renderReleasesTable(filteredData) {
+            const body = document.getElementById('releases-body');
+            if (!body) return;
+            
+            const dataToRender = filteredData || currentReleases;
+            body.innerHTML = '';
+
+            dataToRender.forEach((rowData, idx) => {
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                const originalIdx = currentReleases.indexOf(rowData);
+                tr.onclick = () => window.loadReleaseToEdit(originalIdx !== -1 ? originalIdx : 0);
+                
+                if (editingReleaseId === rowData[15]) tr.classList.add('editing-row');
+                                        
+                const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'IN', 'PICKUP', 'STOCK', 13];
+                
+                displayIndices.forEach(idx => {
+                    const td = document.createElement('td');
+                    let text = rowData[idx];
+
+                    if (idx === 1 && text && text !== '---') { // DATE
+                        try {
+                            const d = new Date(text + 'T00:00:00');
+                            if (!isNaN(d.getTime())) {
+                                const dd = String(d.getDate()).padStart(2, '0');
+                                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                text = `${dd}/${mm}/${d.getFullYear()}`;
+                            }
+                        } catch(e) {}
+                        td.textContent = text;
+                    } 
+                    else if (idx === 2) { // TYPE
+                        td.style.fontSize = '1.4rem';
+                        if (text === 'DRY') td.innerHTML = `<span title="DRY (Calor)">🔥</span>`;
+                        else if (text === 'REEFER') td.innerHTML = `<span title="REEFER (Frío)">❄️</span>`;
+                        else td.textContent = text;
+                    }
+                    else if (idx === 3) { // COND
+                        td.style.fontSize = '1.4rem';
+                        if (text === 'NEW') td.innerHTML = `<span title="NEW Condition">✨</span>`;
+                        else td.innerHTML = `<span title="USED Condition">🔧</span>`;
+                    }
+                    else if (idx === 'SIZE') {
                         const q20 = parseInt(rowData[7]) || 0;
                         const q40 = parseInt(rowData[9]) || 0;
                         const q45 = parseInt(rowData[11]) || 0;
-                        const sumTotal = q20 + q40 + q45;
+                        let sizeVal = '---';
+                        if (q20 > 0) sizeVal = "20'"; else if (q40 > 0) sizeVal = "40'"; else if (q45 > 0) sizeVal = "45'";
+                        td.textContent = sizeVal;
+                        td.style.fontWeight = '800';
+                    }
+                    else if (idx === 'IN' || idx === 'PICKUP' || idx === 'STOCK') {
+                        const initialIn = parseInt(rowData[14]) || 0;
+                        const currentStock = (parseInt(rowData[7]) || 0) + (parseInt(rowData[9]) || 0) + (parseInt(rowData[11]) || 0);
+                        const pickedUp = initialIn - currentStock;
 
-                        displayIndices.forEach(idx => {
-                            const td = document.createElement('td');
-                            let text = rowData[idx];
+                        let valDisplay = 0;
+                        if (idx === 'IN') valDisplay = initialIn;
+                        else if (idx === 'PICKUP') valDisplay = pickedUp;
+                        else if (idx === 'STOCK') valDisplay = currentStock;
 
-                            // Date format DD/MM/YYYY for index 1
-                            if (idx === 1 && text && text !== '---') {
-                                try {
-                                    const d = new Date(text + 'T00:00:00');
-                                    if (!isNaN(d.getTime())) {
-                                        const dd = String(d.getDate()).padStart(2, '0');
-                                        const mm = String(d.getMonth() + 1).padStart(2, '0');
-                                        const yyyy = d.getFullYear();
-                                        text = `${dd}/${mm}/${yyyy}`;
-                                    }
-                                } catch(e) {}
-                                td.textContent = text;
-                            } 
-                            // ICON LOGIC for TYPE (index 2)
-                            else if (idx === 2) {
-                                td.style.fontSize = '1.4rem';
-                                if (text === 'DRY') {
-                                    td.innerHTML = `<span title="DRY (Calor)">🔥</span>`;
-                                } else if (text === 'REEFER') {
-                                    td.innerHTML = `<span title="REEFER (Frío)">❄️</span>`;
-                                } else {
-                                    td.textContent = text;
-                                }
-                            }
-                            // ICON LOGIC for CONDITION (index 3)
-                            else if (idx === 3) {
-                                td.style.fontSize = '1.4rem';
-                                if (text === 'NEW') {
-                                    td.innerHTML = `<span title="NEW Condition">✨</span>`;
-                                } else {
-                                    td.innerHTML = `<span title="USED Condition">🔧</span>`;
-                                }
-                            }
-                            // NEW: SIZE Logic
-                            else if (idx === 'SIZE') {
-                                const q20 = parseInt(rowData[7]) || 0;
-                                const q40 = parseInt(rowData[9]) || 0;
-                                const q45 = parseInt(rowData[11]) || 0;
-                                let sizeVal = '---';
-                                if (q20 > 0) sizeVal = "20'";
-                                else if (q40 > 0) sizeVal = "40'";
-                                else if (q45 > 0) sizeVal = "45'";
-                                td.textContent = sizeVal;
-                                td.style.fontWeight = '800';
-                            }
-                            // NEW: Metrics Logic (IN, PICK UP, STOCK)
-                            else if (idx === 'IN' || idx === 'PICKUP' || idx === 'STOCK') {
-                                const initialIn = parseInt(rowData[14]) || 0; // total_stock
-                                const currentStock = (parseInt(rowData[7]) || 0) + (parseInt(rowData[9]) || 0) + (parseInt(rowData[11]) || 0);
-                                const pickedUp = initialIn - currentStock;
+                        td.textContent = valDisplay;
+                        td.style.fontWeight = '900';
+                        if (idx === 'STOCK' && valDisplay <= 5) {
+                            td.style.backgroundColor = '#fee2e2'; td.style.color = '#dc2626'; td.style.border = '2px solid #ef4444';
+                        }
+                    } else {
+                        td.textContent = text;
+                    }
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+            if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+        }
+        window.renderReleasesTable = renderReleasesTable;
 
-                                let valDisplay = 0;
-                                if (idx === 'IN') valDisplay = initialIn;
-                                else if (idx === 'PICKUP') valDisplay = pickedUp;
-                                else if (idx === 'STOCK') valDisplay = currentStock;
+        function applyReleasesFilters() {
+            const fNo = document.getElementById('rf-no').value.toLowerCase();
+            const fDate = document.getElementById('rf-date').value.toLowerCase();
+            const fType = document.getElementById('rf-type').value;
+            const fCond = document.getElementById('rf-cond').value;
+            const fSize = document.getElementById('rf-size').value;
+            const fCity = document.getElementById('rf-city').value.toLowerCase();
+            const fDepot = document.getElementById('rf-depot').value.toLowerCase();
+            const fStock = parseInt(document.getElementById('rf-stock').value) || 0;
+            const fSeller = document.getElementById('rf-seller').value.toLowerCase();
 
-                                td.textContent = valDisplay;
-                                td.style.fontWeight = '900';
+            const ids = ['rf-no', 'rf-date', 'rf-type', 'rf-cond', 'rf-size', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el.value !== '') el.classList.add('rel-filter-active');
+                else el.classList.remove('rel-filter-active');
+            });
 
-                                if (idx === 'STOCK' && valDisplay <= 5) {
-                                    td.style.backgroundColor = '#fee2e2';
-                                    td.style.color = '#dc2626';
-                                    td.style.border = '2px solid #ef4444';
-                                }
-                                // Removed specific PICKUP and IN colors to match other columns as requested
-                            }
-                            // Explicit '0' for legacy indices if any remain (7, 9, 11) with RED ALERT
-                            else if ([7, 9, 11].includes(idx)) {
-                                const valStr = text !== undefined ? text : '0';
-                                const valNum = parseInt(valStr) || 0;
-                                td.textContent = valStr;
-                                if (valNum <= 5) {
-                                    td.style.backgroundColor = '#fee2e2';
-                                    td.style.color = '#dc2626';
-                                    td.style.fontWeight = '900';
-                                    td.style.border = '2px solid #ef4444';
-                                }
-                            } else {
-                                td.textContent = text;
-                            }
-                            tr.appendChild(td);
-                        });
-
-
-
-                        if (body) body.appendChild(tr);
-                    });
-
-                    // Update suggestions for Delivery Calendar
-                    if (window.updateReleaseDatalist) window.updateReleaseDatalist();
-
-                } catch (err) {
-                    console.error("Error loading releases:", err);
+            const filtered = currentReleases.filter(r => {
+                let match = true;
+                let rowDteStr = '---';
+                if (r[1] && r[1] !== '---') {
+                    const d = new Date(r[1] + 'T00:00:00');
+                    if (!isNaN(d.getTime())) {
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        rowDteStr = `${dd}/${mm}/${d.getFullYear()}`;
+                    }
                 }
-            }
+                const curStock = (parseInt(r[7])||0)+(parseInt(r[9])||0)+(parseInt(r[11])||0);
+                let rowSize = '---';
+                if (r[7]>0) rowSize = "20'"; else if (r[9]>0) rowSize = "40'"; else if (r[11]>0) rowSize = "45'";
+
+                if (fNo && !r[0].toLowerCase().includes(fNo)) match = false;
+                if (fDate && !rowDteStr.includes(fDate)) match = false;
+                if (fType && r[2] !== fType) match = false;
+                if (fCond && r[3] !== fCond) match = false;
+                if (fSize && rowSize !== fSize) match = false;
+                if (fCity && !r[6].toLowerCase().includes(fCity)) match = false;
+                if (fDepot && !r[4].toLowerCase().includes(fDepot)) match = false;
+                if (fStock && curStock < fStock) match = false;
+                if (fSeller && !r[13].toLowerCase().includes(fSeller)) match = false;
+                return match;
+            });
+            renderReleasesTable(filtered);
+        }
+        window.applyReleasesFilters = applyReleasesFilters;
+
+        window.resetReleasesFilters = function() {
+            ['rf-no', 'rf-date', 'rf-type', 'rf-cond', 'rf-size', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.value = ''; el.classList.remove('rel-filter-active'); }
+            });
+            renderReleasesTable();
+        };
             window.loadReleasesData = loadReleasesData; // Expose globally
             // Mobile menu behavior is handled by global toggleMobileMenu and closeMenu functions.
 
