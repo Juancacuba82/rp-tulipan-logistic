@@ -336,9 +336,15 @@
                                  <label class="sidebar-label-btn" style="margin-right: 0 !important;">Customer</label>
                                  <button onclick="openCustomerManager()" class="btn-manage-inline">Manage</button>
                              </div>
-                            <select id="in-customer" required>
-                                <option value="" disabled selected>Loading customers...</option>
-                            </select>
+                            <div class="hybrid-input-wrapper">
+                                <select id="in-customer-sel">
+                                    <option value="" disabled selected>Loading customers...</option>
+                                </select>
+                                <input type="text" id="in-customer" placeholder="Type Customer..." style="display:none;">
+                                <button type="button" class="btn-toggle-input" onclick="toggleCustomerMode()" title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="toggle-icon-customer"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="form-group" id="transport-delivery-group" style="display:none;"><label class="sidebar-label-btn sidebar-label-btn-blue">Delivery Place</label><input type="text" id="in-delivery"
@@ -1525,7 +1531,7 @@
         window.loadCustomersData = loadCustomersData;
 
         function refreshCustomerSelects() {
-            const sideSel = document.getElementById('in-customer');
+            const sideSel = document.getElementById('in-customer-sel');
             const filterSel = document.getElementById('f-customer');
             
             const populate = (sel) => {
@@ -2572,10 +2578,31 @@
                 'in-showtax', 'in-taxpercent', 'in-hideamounts'
             ];
 
+            // 0. UNIQUE CONTAINER VALIDATION
+            const ncontRaw = document.getElementById('in-ncont')?.value || '';
+            const ncontTrim = ncontRaw.trim().toUpperCase();
+            if (ncontTrim && ncontTrim !== '---' && ncontTrim !== '') {
+                const isDuplicate = currentTrips.some((t, idx) => {
+                    const existingNcont = (t[3] || '').toString().trim().toUpperCase();
+                    return existingNcont === ncontTrim && (editingIndex === null || idx !== editingIndex);
+                });
+                if (isDuplicate) {
+                    alert(`¡ERROR: El contenedor ${ncontTrim} ya existe en otra orden! No se permiten duplicados.`);
+                    isSaving = false;
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
+            }
+
             // 1. GRANULAR INVENTORY VALIDATION (BLOQUEO POR MEDIDA + TIPO + CONDICIÓN)
             const relSel = document.getElementById('in-release-sel');
             const relMan = document.getElementById('in-release');
             const selectedRelease = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
+            
+            const custSel = document.getElementById('in-customer-sel');
+            const custMan = document.getElementById('in-customer');
+            const selectedCustomer = (custMan && custMan.style.display !== 'none') ? custMan.value : (custSel ? custSel.value : '');
+            
             const selectedSize = document.getElementById('in-size').value;
             const selectedRelType = document.getElementById('in-rel-type').value;
             const selectedRelCond = document.getElementById('in-rel-condition').value;
@@ -2604,20 +2631,24 @@
             const isFinalized = finalizeVal === 'PAID';
             const globalStatus = isFinalized ? 'PAID' : 'PENDING_PAYMENT';
 
-            // Stock deduction only triggers when the toggle is switched TO green AND
-            // it is a new order or was previously not finalized
-            let newlyFinalized = false;
-            if (editingIndex !== null) {
-                const oldRow = currentTrips[editingIndex];
-                if (oldRow) {
-                    const wasFinalized = (oldRow[41] === 'PAID');
-                    if (isFinalized && !wasFinalized) newlyFinalized = true;
-                }
-            } else {
-                if (isFinalized) newlyFinalized = true;
-            }
+             // Stock deduction only triggers when the toggle is switched TO green AND
+             // it is a new order or was previously not finalized
+             let newlyFinalized = false;
+             let newlyPending = false;
 
-            const triggerStockUpdate = newlyFinalized && isDeductionCandidate;
+             if (editingIndex !== null) {
+                 const oldRow = currentTrips[editingIndex];
+                 if (oldRow) {
+                     const wasFinalized = (oldRow[41] === 'PAID');
+                     if (isFinalized && !wasFinalized) newlyFinalized = true;
+                     if (!isFinalized && wasFinalized) newlyPending = true;
+                 }
+             } else {
+                 if (isFinalized) newlyFinalized = true;
+             }
+
+             const triggerStockUpdate = newlyFinalized && isDeductionCandidate;
+             const triggerStockRevert = newlyPending && isDeductionCandidate;
 
             // Stock validation: run whenever an order involves a Release
             if (isDeductionCandidate) {
@@ -2665,16 +2696,26 @@
                                 return;
                             }
 
-                            // Preparation for actual deduction: only if newly green toggle
-                            if (triggerStockUpdate) {
-                                window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) - 1;
-                                window.stockUpdateField = dbField;
-                                window.targetReleaseNo = selectedRelease;
-                                window.targetReleaseType = selectedRelType;
-                                window.targetReleaseCond = selectedRelCond;
-                                window.targetReleaseId = matchingRows[0][15]; // id is at index 15
-                            }
-                        }
+                             // Preparation for actual deduction: only if newly green toggle
+                             if (triggerStockUpdate) {
+                                 window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) - 1;
+                                 window.stockUpdateField = dbField;
+                                 window.targetReleaseNo = selectedRelease;
+                                 window.targetReleaseType = selectedRelType;
+                                 window.targetReleaseCond = selectedRelCond;
+                                 window.targetReleaseId = matchingRows[0][15]; // id is at index 15
+                             }
+
+                             // Preparation for reversion (+1): only if swish moved from GREEN to RED
+                             if (triggerStockRevert) {
+                                 window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) + 1;
+                                 window.stockUpdateField = dbField;
+                                 window.targetReleaseNo = selectedRelease;
+                                 window.targetReleaseType = selectedRelType;
+                                 window.targetReleaseCond = selectedRelCond;
+                                 window.targetReleaseId = matchingRows[0][15];
+                             }
+                         }
                     } else {
                         // Manual release entry: proceed without stock deduction
                         console.log("Saving order with manual/external release (no stock sync).");
@@ -2691,8 +2732,9 @@
                  return el ? el.value || '---' : '---';
              });
 
-             // CRITICAL FIX: Ensure hybrid Release # is correctly captured in baseValues[3]
+             // CRITICAL FIX: Ensure hybrid Release # and Customer are correctly captured in baseValues
              baseValues[3] = selectedRelease || '---';
+             baseValues[10] = selectedCustomer || '---';
 
             // Calculate Pending Balance (matches logic in report view)
             let pending = 0;
@@ -2773,27 +2815,29 @@
 
 
                 
-                // STOCK DEDUCTION EXECUTION (Triggered only if newlyPaid AND isDeductionCandidate)
-                if (triggerStockUpdate && window.stockUpdateField && window.calculatedNewStock !== undefined) {
-                    const upObj = {};
-                    upObj[window.stockUpdateField] = window.calculatedNewStock;
-                    
-                    console.log(`Executing Stock Deduction: -1 unit in ${window.stockUpdateField} for release ${window.targetReleaseNo}`);
-                    await db.from('releases')
-                        .update(upObj)
-                        .eq('release_no', window.targetReleaseNo)
-                        .eq('type', window.targetReleaseType)
-                        .eq('condition', window.targetReleaseCond)
-                        .eq('id', window.targetReleaseId);
-                        
-                    // Clean up
-                    delete window.stockUpdateField;
-                    delete window.calculatedNewStock;
-                    delete window.targetReleaseNo;
-                    delete window.targetReleaseType;
-                    delete window.targetReleaseCond;
-                    delete window.targetReleaseId;
-                }
+                 // STOCK UPDATE EXECUTION (Deduction OR Reversion)
+                 if ((triggerStockUpdate || triggerStockRevert) && window.stockUpdateField && window.calculatedNewStock !== undefined) {
+                     const upObj = {};
+                     upObj[window.stockUpdateField] = window.calculatedNewStock;
+                     
+                     const logMsg = triggerStockUpdate ? `Executing Stock Deduction (-1)` : `Executing Stock Reversion (+1)`;
+                     console.log(`${logMsg} in ${window.stockUpdateField} for release ${window.targetReleaseNo}`);
+                     
+                     await db.from('releases')
+                         .update(upObj)
+                         .eq('release_no', window.targetReleaseNo)
+                         .eq('type', window.targetReleaseType)
+                         .eq('condition', window.targetReleaseCond)
+                         .eq('id', window.targetReleaseId);
+                         
+                     // Clean up
+                     delete window.stockUpdateField;
+                     delete window.calculatedNewStock;
+                     delete window.targetReleaseNo;
+                     delete window.targetReleaseType;
+                     delete window.targetReleaseCond;
+                     delete window.targetReleaseId;
+                 }
 
                 alert('¡ORDEN CONFIRMADA CORRECTAMENTE!');
 
@@ -2851,6 +2895,9 @@
             // Set default date to today
             const dt = document.getElementById('in-date');
             if (dt) dt.value = new Date().toISOString().split('T')[0];
+
+            if (document.getElementById('in-release-sel')) toggleReleaseMode('list');
+            if (document.getElementById('in-customer-sel')) toggleCustomerMode('list');
 
             restoreTripArchiveButtonUI();
         }
@@ -3050,6 +3097,22 @@
                             sel.value = v;
                         } else {
                             toggleReleaseMode('manual');
+                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                        }
+                    } else if (id === 'in-customer') {
+                        // Hybrid Logic for Customer
+                        const sel = document.getElementById('in-customer-sel');
+                        let exists = false;
+                        if (sel) {
+                            for (let opt of sel.options) {
+                                if (opt.value === v) { exists = true; break; }
+                            }
+                        }
+                        if (exists && v !== '---' && v !== '') {
+                            toggleCustomerMode('list');
+                            sel.value = v;
+                        } else {
+                            toggleCustomerMode('manual');
                             el.value = (v === '---' || v === undefined || v === null) ? '' : v;
                         }
                     } else {
@@ -4057,6 +4120,31 @@
             }
         }
         window.toggleReleaseMode = toggleReleaseMode;
+
+        function toggleCustomerMode(forceMode) {
+            const sel = document.getElementById('in-customer-sel');
+            const man = document.getElementById('in-customer');
+            const icon = document.getElementById('toggle-icon-customer');
+            
+            let isManual = man.style.display !== 'none';
+            if (forceMode === 'manual') isManual = false;
+            if (forceMode === 'list') isManual = true;
+
+            if (isManual) {
+                // Switch to List
+                man.style.display = 'none';
+                sel.style.display = 'block';
+                icon.className = 'fas fa-edit';
+                man.value = '';
+            } else {
+                // Switch to Manual
+                sel.style.display = 'none';
+                man.style.display = 'block';
+                icon.className = 'fas fa-list';
+                sel.selectedIndex = 0;
+            }
+        }
+        window.toggleCustomerMode = toggleCustomerMode;
 
         async function loadReleasesData() {
                 const body = document.getElementById('releases-body');
