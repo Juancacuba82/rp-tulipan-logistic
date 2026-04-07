@@ -2685,11 +2685,14 @@
             }
 
 
-            // --- Final Data Construction (Fixed Absolute 44-Index Map) ---
-            const baseValues = fields.map(id => {
-                const el = document.getElementById(id);
-                return el ? el.value || '---' : '---';
-            });
+             // --- Final Data Construction (Fixed Absolute 44-Index Map) ---
+             const baseValues = fields.map(id => {
+                 const el = document.getElementById(id);
+                 return el ? el.value || '---' : '---';
+             });
+
+             // CRITICAL FIX: Ensure hybrid Release # is correctly captured in baseValues[3]
+             baseValues[3] = selectedRelease || '---';
 
             // Calculate Pending Balance (matches logic in report view)
             let pending = 0;
