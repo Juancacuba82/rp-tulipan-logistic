@@ -489,7 +489,7 @@ main {
 
 /* Left Panel: Form (Fixed width for better side-by-side) */
 .entry-sidebar.primary-entry, .entry-sidebar.primary-entryNarrow {
-    flex: 0 0 420px !important; /* Slightly wider to prevent any wrapping */
+    flex: 0 0 420px !important;
     width: 420px !important;
     min-width: 420px !important;
     max-width: 420px !important;
@@ -499,7 +499,7 @@ main {
     flex-direction: column;
     box-shadow: 5px 0 15px rgba(0,0,0,0.05);
     z-index: 5;
-    overflow-y: hidden !important; /* Explicitly remove vertical scrollbar */
+    overflow-y: auto !important; /* Fixed: Allow scroll if form is long */
 }
 
 
@@ -631,12 +631,21 @@ main {
     gap: 10px;
 }
 
-.form-group label {
-    flex: 0 0 160px; /* Adjusted base for button-labels */
+/* Primary Sidebar Labels (e.g. Date, City, Depot) */
+.sidebar-form .form-group label {
+    flex: 0 0 160px;
     font-size: 0.82rem;
     font-weight: 800;
     color: #1e293b;
     text-align: left;
+    display: flex;
+    align-items: center;
+}
+
+/* Override for small labels inside the Red Inventory box */
+.inventory-entry-box label {
+    flex: none !important;
+    width: auto !important;
 }
 
 /* User Requested: Optimized Button-style labels */

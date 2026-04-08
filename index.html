@@ -292,6 +292,7 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn">Size</label>
                             <select id="in-size" required>
+                                <option value="" disabled selected>Choose Size...</option>
                                 <option value="40' HC">40' HC</option>
                                 <option value="40' STD">40' STD</option>
                                 <option value="40' DD">40' DD</option>
@@ -748,7 +749,7 @@
         <!-- FORM RELEASES View -->
         <section id="releases-view" class="view-section hidden">
             <div class="dashboard-split-container">
-                <aside class="entry-sidebar primary-entryNarrow">
+                <aside class="entry-sidebar primary-entry">
                     <div class="sidebar-header">
                         <h3>Release Management</h3>
                         <div class="header-actions" style="display: flex; gap: 8px;">
@@ -761,82 +762,78 @@
                             <label>RELEASE / BK#</label>
                             <input type="text" id="rel-no-releases" placeholder="Rel # or Booking #">
                         </div>
-                        <div class="form-group"
-                            style="background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
-                            <label style="color: var(--corporate-red); margin-bottom: 12px; font-weight: 900; font-size: 0.75rem; display: block; letter-spacing: 0.8px; text-transform: uppercase;">
+                        <div class="inventory-entry-box"
+                            style="background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                            <label style="color: var(--corporate-red); margin-bottom: 8px; font-weight: 900; font-size: 0.75rem; display: block; letter-spacing: 0.8px; text-transform: uppercase;">
                                 Inventory & Hybrid Pricing
                             </label>
                             
-                            <!-- BATCH ENTRY CONTAINER -->
-                            <div style="display: flex; flex-direction: column; gap: 12px;">
-                                <!-- 20' FT BLOCK -->
-                                <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <span style="font-weight: 900; font-size: 0.8rem; color: #1e293b;">20' FT</span>
-                                        <div style="display: flex; gap: 8px;">
-                                            <input type="number" id="rel-qty-20" placeholder="0" value="0" min="0" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 50px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px;">
-                                            <input type="number" id="rel-price-20" placeholder="0.00" value="0" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 70px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px; color: #16a34a; font-weight: bold;">
+                            <!-- SINGLE ITEM ENTRY FORM -->
+                            <div style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 8px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; width: auto; flex: none;">SIZE DETAIL</label>
+                                    <select id="rel-size-detail" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem;">
+                                        <option value="" disabled selected>Choose Size...</option>
+                                        <option value="40' HC">40' HC</option>
+                                        <option value="40' STD">40' STD</option>
+                                        <option value="40' DD">40' DD</option>
+                                        <option value="40' OS">40' OS</option>
+                                        <option value="45' HC">45' HC</option>
+                                        <option value="20' STD">20' STD</option>
+                                        <option value="20' HC">20' HC</option>
+                                        <option value="20' DD">20' DD</option>
+                                        <option value="20' OS">20' OS</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <div class="form-group" style="flex: 1; margin: 0;">
+                                        <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; width: auto; flex: none;">QUANTITY</label>
+                                        <input type="number" id="rel-qty-unified" value="0" min="0" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.85rem;">
+                                    </div>
+                                    <div class="form-group" style="flex: 1.5; margin: 0;">
+                                        <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; width: auto; flex: none;">PRICE PER UNIT ($)</label>
+                                        <input type="number" id="rel-price-unified" value="0" step="0.01" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; color: #16a34a; font-weight: bold; font-size: 0.85rem;">
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px;">
+                                    <div style="font-size: 0.7rem; border: 1px solid #f1f5f9; padding: 8px; border-radius:6px; background: #f8fafc;">
+                                        <label style="display:block; margin-bottom:6px; font-weight:900; color:#475569; text-transform:uppercase;">Container Type</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <label style="cursor: pointer;"><input type="radio" name="rel-uni-type" value="DRY" checked> DRY 🔥</label>
+                                            <label style="cursor: pointer;"><input type="radio" name="rel-uni-type" value="REEFER"> REF ❄️</label>
                                         </div>
                                     </div>
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
-                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">TYPE</label>
-                                            <input type="radio" name="rel-20-type" id="t20-d" value="DRY" checked> <label for="t20-d">🔥 DRY</label><br>
-                                            <input type="radio" name="rel-20-type" id="t20-r" value="REEFER"> <label for="t20-r">❄️ REF</label>
-                                        </div>
-                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
-                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">COND</label>
-                                            <input type="radio" name="rel-20-cond" id="c20-n" value="NEW" checked> <label for="c20-n">✨ NEW</label><br>
-                                            <input type="radio" name="rel-20-cond" id="c20-u" value="USED"> <label for="c20-u">🔧 USD</label>
+                                    <div style="font-size: 0.7rem; border: 1px solid #f1f5f9; padding: 8px; border-radius:6px; background: #f8fafc;">
+                                        <label style="display:block; margin-bottom:6px; font-weight:900; color:#475569; text-transform:uppercase;">Condition</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <label style="cursor: pointer;"><input type="radio" name="rel-uni-cond" value="NEW" checked> NEW ✨</label>
+                                            <label style="cursor: pointer;"><input type="radio" name="rel-uni-cond" value="USED"> USD 🔧</label>
                                         </div>
                                     </div>
                                 </div>
+                                <!-- SIMPLIFIED PAYMENT STATUS BADGE -->
+                                <label for="rel-paid" style="margin-top: 10px; padding: 12px 15px; background: #fef2f2; border: 2px solid #fecaca; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.3s ease;" id="rel-paid-container">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 0.6rem; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Payment Status</span>
+                                        <span id="rel-paid-text" style="font-size: 0.85rem; font-weight: 900; color: #b91c1c;">PENDING PURCHASE ⏳</span>
+                                    </div>
+                                    <input type="checkbox" id="rel-paid" style="width: 24px; height: 24px; cursor: pointer; accent-color: #10b981;" onchange="updatePaidBadgeStyle(this.checked)">
+                                </label>
 
-                                <!-- 40' FT BLOCK -->
-                                <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <span style="font-weight: 900; font-size: 0.8rem; color: #1e293b;">40' FT</span>
-                                        <div style="display: flex; gap: 8px;">
-                                            <input type="number" id="rel-qty-40" placeholder="0" value="0" min="0" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 50px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px;">
-                                            <input type="number" id="rel-price-40" placeholder="0.00" value="0" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 70px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px; color: #16a34a; font-weight: bold;">
-                                        </div>
-                                    </div>
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
-                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">TYPE</label>
-                                            <input type="radio" name="rel-40-type" id="t40-d" value="DRY" checked> <label for="t40-d">🔥 DRY</label><br>
-                                            <input type="radio" name="rel-40-type" id="t40-r" value="REEFER"> <label for="t40-r">❄️ REF</label>
-                                        </div>
-                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
-                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">COND</label>
-                                            <input type="radio" name="rel-40-cond" id="c40-n" value="NEW" checked> <label for="c40-n">✨ NEW</label><br>
-                                            <input type="radio" name="rel-40-cond" id="c40-u" value="USED"> <label for="c40-u">🔧 USD</label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- 45' FT BLOCK -->
-                                <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <span style="font-weight: 900; font-size: 0.8rem; color: #1e293b;">45' FT</span>
-                                        <div style="display: flex; gap: 8px;">
-                                            <input type="number" id="rel-qty-45" placeholder="0" value="0" min="0" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 50px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px;">
-                                            <input type="number" id="rel-price-45" placeholder="0.00" value="0" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" style="width: 70px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.8rem; padding: 2px 4px; color: #16a34a; font-weight: bold;">
-                                        </div>
-                                    </div>
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
-                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">TYPE</label>
-                                            <input type="radio" name="rel-45-type" id="t45-d" value="DRY" checked> <label for="t45-d">🔥 DRY</label><br>
-                                            <input type="radio" name="rel-45-type" id="t45-r" value="REEFER"> <label for="t45-r">❄️ REF</label>
-                                        </div>
-                                        <div style="font-size: 0.65rem; border: 1px solid #f1f5f9; padding: 4px; border-radius:4px;">
-                                            <label style="display:block; margin-bottom:4px; font-weight:bold; color:#475569;">COND</label>
-                                            <input type="radio" name="rel-45-cond" id="c45-n" value="NEW" checked> <label for="c45-n">✨ NEW</label><br>
-                                            <input type="radio" name="rel-45-cond" id="c45-u" value="USED"> <label for="c45-u">🔧 USD</label>
-                                        </div>
-                                    </div>
-                                </div>
+                                <script>
+                                    function updatePaidBadgeStyle(isPaid) {
+                                        const container = document.getElementById('rel-paid-container');
+                                        const text = document.getElementById('rel-paid-text');
+                                        if (isPaid) {
+                                            if(container) { container.style.background = '#f0fdf4'; container.style.borderColor = '#86efac'; }
+                                            if(text) { text.textContent = 'PURCHASE PAID ✅'; text.style.color = '#15803d'; }
+                                        } else {
+                                            if(container) { container.style.background = '#fef2f2'; container.style.borderColor = '#fecaca'; }
+                                            if(text) { text.textContent = 'PENDING PURCHASE ⏳'; text.style.color = '#b91c1c'; }
+                                        }
+                                    }
+                                    window.updatePaidBadgeStyle = updatePaidBadgeStyle;
+                                </script>
                             </div>
                         </div>
                         <div class="form-group"><label>DATE</label><input type="date" id="rel-date"></div>
@@ -861,12 +858,12 @@
                         <div class="form-group"><label>DEPOT</label><input type="text" id="rel-depot"
                                 placeholder="Depot Name"></div>
                         <div class="form-group">
-                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                <label>DEPOT ADDRESS</label>
-                                <button onclick="openPickupAddressManager()" class="btn-manage-inline">Manage</button>
-                            </div>
+                            <label style="display: flex; justify-content: space-between; align-items: center;">
+                                DEPOT ADDRESS
+                                <button onclick="openPickupAddressManager()" class="btn-manage-inline" style="font-size: 0.6rem; padding: 2px 5px;">Manage</button>
+                            </label>
                             <select id="rel-address">
-                                <option value="" disabled selected>Loading addresses...</option>
+                                <option value="" disabled selected>Select Depot Address</option>
                             </select>
                         </div>
                         <div class="form-group"><label>SELLER</label><input type="text" id="rel-seller"
@@ -874,64 +871,103 @@
                     </div>
                 </aside>
 
-                <div class="table-area">
+                        <div class="table-area">
                     <div class="table-toolbar">
                         <h2>Releases Data Grid</h2>
                     </div>
 
-                    <!-- RELEASES FILTER ROW (Added per user request) -->
-                    <div class="releases-filter-container">
-                        <div class="filter-item">
-                            <label>Release #</label>
-                            <input type="text" id="rf-no" class="rel-filter-input" placeholder="Search..." oninput="applyReleasesFilters()">
+                    <!-- RELEASES FILTER ROW -->
+                    <div class="releases-filter-bar" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; background: #f8fafc; padding: 18px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                        <!-- TOP: Search Inputs Grid -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; width: 100%;">
+                            <div class="filter-item">
+                                <label>Release #</label>
+                                <input type="text" id="rf-no" class="rel-filter-input" placeholder="Search..." oninput="applyReleasesFilters()">
+                            </div>
+                            <div class="filter-item">
+                                <label>Date From</label>
+                                <input type="date" id="rf-date-from" class="rel-filter-input" onchange="applyReleasesFilters()">
+                            </div>
+                            <div class="filter-item">
+                                <label>Date To</label>
+                                <input type="date" id="rf-date-to" class="rel-filter-input" onchange="applyReleasesFilters()">
+                            </div>
+                            <div class="filter-item">
+                                <label>Type</label>
+                                <select id="rf-type" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                    <option value="">ALL</option>
+                                    <option value="DRY">DRY 🔥</option>
+                                    <option value="REEFER">REF ❄️</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Cond</label>
+                                <select id="rf-cond" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                    <option value="">ALL</option>
+                                    <option value="NEW">NEW ✨</option>
+                                    <option value="USED">USD 🔧</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Size</label>
+                                <select id="rf-size" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                    <option value="">ALL</option>
+                                    <option value="20' STD">20' STD</option>
+                                    <option value="20' HC">20' HC</option>
+                                    <option value="20' DD">20' DD</option>
+                                    <option value="20' OS">20' OS</option>
+                                    <option value="40' STD">40' STD</option>
+                                    <option value="40' HC">40' HC</option>
+                                    <option value="40' DD">40' DD</option>
+                                    <option value="40' OS">40' OS</option>
+                                    <option value="45' HC">45' HC</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Payment</label>
+                                <select id="rf-paid" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                    <option value="">ALL</option>
+                                    <option value="PAID">PAID ✅</option>
+                                    <option value="PENDING">PENDING ⏳</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="filter-item" style="min-width: 120px;">
-                            <label>Date</label>
-                            <input type="text" id="rf-date" class="rel-filter-input" placeholder="DD/MM/YYYY" oninput="applyReleasesFilters()">
+
+                        <!-- MIDDLE: Second line of filters -->
+                        <div style="display: flex; gap: 12px; width: 100%; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="filter-item" style="flex: 1; min-width: 130px;">
+                                <label>City</label>
+                                <input type="text" id="rf-city" class="rel-filter-input" placeholder="City..." oninput="applyReleasesFilters()">
+                            </div>
+                            <div class="filter-item" style="flex: 1; min-width: 130px;">
+                                <label>Depot</label>
+                                <input type="text" id="rf-depot" class="rel-filter-input" placeholder="Depot..." oninput="applyReleasesFilters()">
+                            </div>
+                            <div class="filter-item" style="flex: 0.5; min-width: 80px;">
+                                <label>Stock</label>
+                                <input type="number" id="rf-stock" class="rel-filter-input" placeholder="Min..." oninput="applyReleasesFilters()">
+                            </div>
+                            <div class="filter-item" style="flex: 1; min-width: 130px;">
+                                <label>Seller</label>
+                                <input type="text" id="rf-seller" class="rel-filter-input" placeholder="Seller..." oninput="applyReleasesFilters()">
+                            </div>
+                            <button onclick="resetReleasesFilters()" class="btn-cancel" style="height: 32px; font-size: 0.7rem; padding: 0 20px; border-radius: 6px;">RESET</button>
                         </div>
-                        <div class="filter-item">
-                            <label>Type</label>
-                            <select id="rf-type" class="rel-filter-input" onchange="applyReleasesFilters()">
-                                <option value="">ALL</option>
-                                <option value="DRY">DRY 🔥</option>
-                                <option value="REEFER">REF ❄️</option>
-                            </select>
-                        </div>
-                        <div class="filter-item">
-                            <label>Cond</label>
-                            <select id="rf-cond" class="rel-filter-input" onchange="applyReleasesFilters()">
-                                <option value="">ALL</option>
-                                <option value="NEW">NEW ✨</option>
-                                <option value="USED">USED 🔧</option>
-                            </select>
-                        </div>
-                        <div class="filter-item">
-                            <label>Size</label>
-                            <select id="rf-size" class="rel-filter-input" onchange="applyReleasesFilters()">
-                                <option value="">ALL</option>
-                                <option value="20'">20'</option>
-                                <option value="40'">40'</option>
-                                <option value="45'">45'</option>
-                            </select>
-                        </div>
-                        <div class="filter-item">
-                            <label>City</label>
-                            <input type="text" id="rf-city" class="rel-filter-input" placeholder="City..." oninput="applyReleasesFilters()">
-                        </div>
-                        <div class="filter-item">
-                            <label>Depot</label>
-                            <input type="text" id="rf-depot" class="rel-filter-input" placeholder="Depot..." oninput="applyReleasesFilters()">
-                        </div>
-                        <div class="filter-item">
-                            <label>Stock</label>
-                            <input type="number" id="rf-stock" class="rel-filter-input" placeholder="Min..." oninput="applyReleasesFilters()">
-                        </div>
-                        <div class="filter-item">
-                            <label>Seller</label>
-                            <input type="text" id="rf-seller" class="rel-filter-input" placeholder="Seller..." oninput="applyReleasesFilters()">
-                        </div>
-                        <div class="filter-item" style="justify-content: flex-end; flex: 1; align-items: flex-end;">
-                            <button onclick="resetReleasesFilters()" class="btn-cancel" style="height: 30px; font-size: 0.65rem; padding: 0 10px;">RESET</button>
+
+                        <!-- BOTTOM: Stats Row (Moved here per user request) -->
+                        <div style="display: flex; gap: 15px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid #e2e8f0; margin-top: 5px;">
+                            <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+                                <label style="display: block; font-size: 0.65rem; color: #64748b; font-weight: 800; margin-bottom: 3px; text-transform: uppercase;">Initial Totals</label>
+                                <span id="rel-stats-initial" style="font-size: 1.15rem; font-weight: 900; color: #1e293b;">$0.00</span>
+                            </div>
+                            <div style="background: #eff6ff; border: 1px solid #3b82f6; border-radius: 8px; padding: 8px 20px; text-align: center; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.08);">
+                                <label style="display: block; font-size: 0.65rem; color: #3b82f6; font-weight: 800; margin-bottom: 3px; text-transform: uppercase;">Stock Value</label>
+                                <span id="rel-stats-remaining" style="font-size: 1.15rem; font-weight: 900; color: #2563eb;">$0.00</span>
+                            </div>
+                            <div style="background: #fff1f2; border: 1px solid #f43f5e; border-radius: 8px; padding: 8px 20px; text-align: center; box-shadow: 0 2px 4px rgba(244, 63, 94, 0.08);">
+                                <label style="display: block; font-size: 0.65rem; color: #f43f5e; font-weight: 800; margin-bottom: 3px; text-transform: uppercase;">Pending</label>
+                                <span id="rel-stats-pending" style="font-size: 1.15rem; font-weight: 900; color: #e11d48;">$0.00</span>
+                            </div>
                         </div>
                     </div>
 
@@ -947,6 +983,9 @@
                                     <th>CITY</th>
                                     <th>DEPOT</th>
                                     <th>DEPOT ADDRESS</th>
+                                    <th style="background: #f8fafc; color: #1e293b; border-left: 2px solid #e2e8f0;">PRICE</th>
+                                    <th style="background: #f8fafc; color: #1e293b;">TOTAL</th>
+                                    <th style="background: #f8fafc; color: #1e293b;">PAID</th>
                                     <th>IN</th>
                                     <th>PICK UP</th>
                                     <th>STOCK</th>
@@ -1497,6 +1536,9 @@
             try {
                 await signOut();
                 window.currentUserRole = null;
+                // Clear login fields for security
+                document.getElementById('auth-email').value = '';
+                document.getElementById('auth-password').value = '';
                 showView('auth');
             } catch (err) {
                 console.error("Logout error:", err);
@@ -1921,6 +1963,20 @@
             populate(sideSel);
             populate(releaseSel);
             populate(filterSel);
+
+            // AUTO-SYNC DEPOT NAME: When selecting an address, show it in the DEPOT text field
+            if (releaseSel && !releaseSel.dataset.listener) {
+                releaseSel.addEventListener('change', () => {
+                    const depotInput = document.getElementById('rel-depot');
+                    if (depotInput) {
+                        depotInput.value = releaseSel.value;
+                        // trigger animation or highlight to show it was updated
+                        depotInput.style.backgroundColor = '#fff7ed';
+                        setTimeout(() => depotInput.style.backgroundColor = '', 500);
+                    }
+                });
+                releaseSel.dataset.listener = "true";
+            }
         }
 
         function renderPickupAddressManagerList() {
@@ -2215,7 +2271,7 @@
         let editingReleaseId = null;
 
         function getTripArchiveButton() {
-            return document.getElementById('btn-archive-trip');
+            return document.getElementById('btn-archive-order');
         }
 
         function setTripArchiveButton(opts) {
@@ -2235,7 +2291,7 @@
             setTripArchiveButton({
                 disabled: false,
                 opacity: 1,
-                label: isEdit ? 'Update order' : 'Archive order',
+                label: isEdit ? 'Update order' : 'Archive Order',
                 isUpdate: isEdit,
                 title: isEdit ? 'Save changes to this trip' : 'Save trip to database'
             });
@@ -2304,8 +2360,33 @@
             return [
                 r.release_no, r.date, r.type || 'EMPTY', r.condition || 'USED', r.depot || '---', r.depot_address || '---',
                 r.city || '---', r.qty_20 || 0, r.price_20 || 0, r.qty_40 || 0, r.price_40 || 0,
-                r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0, r.id
+                r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0, r.id,
+                r.container_size || '---',
+                r.paid || false // Index 17
             ];
+        }
+
+        function mapArrayToRelease(row) {
+            return {
+                id: row[15],
+                release_no: row[0],
+                date: row[1],
+                type: row[2],
+                condition: row[3],
+                depot: row[4],
+                depot_address: row[5],
+                city: row[6],
+                qty_20: row[7],
+                price_20: row[8],
+                qty_40: row[9],
+                price_40: row[10],
+                qty_45: row[11],
+                price_45: row[12],
+                seller: row[13],
+                total_stock: row[14],
+                container_size: row[16],
+                paid: row[17] || false
+            };
         }
 
         function mapArrayToRelease(row) {
@@ -2324,7 +2405,8 @@
                 qty_45: parseInt(row[11]) || 0,
                 price_45: parseFloat(row[12]) || 0,
                 seller: row[13],
-                total_stock: (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0) + (parseInt(row[11]) || 0)
+                total_stock: (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0) + (parseInt(row[11]) || 0),
+                container_size: row[16] || '---'
             };
         }
 
@@ -2943,7 +3025,27 @@
                 }
 
                 if (currentReleases && currentReleases.length > 0) {
-                    const matchingRows = currentReleases.filter(r => r[0] === selectedRelease && r[2] === selectedRelType && r[3] === selectedRelCond);
+                    // Try to find an EXACT MATCH for Release, Type, Condition, and SPECIFIC SIZE (Index 16)
+                    let matchingRows = currentReleases.filter(r => 
+                        r[0] === selectedRelease && 
+                        r[2] === selectedRelType && 
+                        r[3] === selectedRelCond &&
+                        (r[16] || '').trim() === selectedSize.trim()
+                    );
+
+                    // Fallback for older data that doesn't have index 16 populated
+                    if (matchingRows.length === 0) {
+                        matchingRows = currentReleases.filter(r => 
+                            r[0] === selectedRelease && 
+                            r[2] === selectedRelType && 
+                            r[3] === selectedRelCond &&
+                            (!r[16] || r[16] === '---' || r[16] === '') // No specific size set
+                        );
+                        // Filter matchingRows further to ensure the base size matches
+                        if (selectedSize.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
+                        else if (selectedSize.startsWith("40")) matchingRows = matchingRows.filter(r => (parseInt(r[9]) > 0));
+                        else if (selectedSize.startsWith("45")) matchingRows = matchingRows.filter(r => (parseInt(r[11]) > 0));
+                    }
 
                     if (matchingRows.length > 0) {
                         let totalStockFound = 0;
@@ -2958,7 +3060,7 @@
                         if (stockIdx !== -1) {
                             totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[stockIdx]) || 0), 0);
 
-                            // Check if we are editing and haven't changed the Release details for THIS order
+                            // Bypass for editing same order
                             let bypassStockCheck = false;
                             if (editingIndex !== null) {
                                 const old = currentTrips[editingIndex];
@@ -2968,35 +3070,25 @@
                             }
 
                             if (totalStockFound <= 0 && !bypassStockCheck) {
-                                alert(`Sin stock disponible para contenedores de ${sizeBase} en la combinación ${selectedRelType}/${selectedRelCond}.`);
+                                alert(`Sin stock disponible para contenedores de ${selectedSize} en la combinación ${selectedRelType}/${selectedRelCond}.`);
                                 isSaving = false;
                                 restoreTripArchiveButtonUI();
                                 return;
                             }
 
-                             // Preparation for actual deduction: only if newly green toggle
-                             if (triggerStockUpdate) {
-                                 window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) - 1;
-                                 window.stockUpdateField = dbField;
-                                 window.targetReleaseNo = selectedRelease;
-                                 window.targetReleaseType = selectedRelType;
-                                 window.targetReleaseCond = selectedRelCond;
-                                 window.targetReleaseId = matchingRows[0][15]; // id is at index 15
-                             }
-
-                             // Preparation for reversion (+1): only if swish moved from GREEN to RED
-                             if (triggerStockRevert) {
-                                 window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) + 1;
-                                 window.stockUpdateField = dbField;
-                                 window.targetReleaseNo = selectedRelease;
-                                 window.targetReleaseType = selectedRelType;
-                                 window.targetReleaseCond = selectedRelCond;
-                                 window.targetReleaseId = matchingRows[0][15];
-                             }
-                         }
+                            // Preparation for actual deduction/reversion
+                            if (triggerStockUpdate || triggerStockRevert) {
+                                const change = triggerStockUpdate ? -1 : 1;
+                                window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) + change;
+                                window.stockUpdateField = dbField;
+                                window.targetReleaseNo = selectedRelease;
+                                window.targetReleaseType = selectedRelType;
+                                window.targetReleaseCond = selectedRelCond;
+                                window.targetReleaseId = matchingRows[0][15]; // DB UUID
+                            }
+                        }
                     } else {
-                        // Manual release entry: proceed without stock deduction
-                        console.log("Saving order with manual/external release (no stock sync).");
+                        console.log("Saving order with manual/external release (no exact stock match found).");
                     }
                 }
             } else if (isDeductionCandidate && !isFinalized) {
@@ -3258,6 +3350,7 @@
                     return;
                 }
 
+                // Filter rows by Release No, Type, and Condition
                 const matchingRows = currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
                 if (matchingRows.length === 0) {
                     restoreTripArchiveButtonUI();
@@ -3265,14 +3358,18 @@
                     return;
                 }
 
-                let totalStock = 0;
-                let sizeBase = '';
+                // Match exact specific size (Index 16)
+                const exactSizeRows = matchingRows.filter(r => (r[16] || '').trim() === selectedSize.trim());
+                
                 let idx = -1;
                 if (selectedSize.startsWith("20")) { idx = 7; sizeBase = "20'"; }
                 else if (selectedSize.startsWith("40")) { idx = 9; sizeBase = "40'"; }
                 else if (selectedSize.startsWith("45")) { idx = 11; sizeBase = "45'"; }
 
-                if (idx !== -1) {
+                if (exactSizeRows.length > 0) {
+                    totalStock = exactSizeRows.reduce((sum, r) => sum + (parseInt(r[idx]) || 0), 0);
+                } else if (idx !== -1) {
+                    // Fallback to generic matching if no specific size records exist yet
                     totalStock = matchingRows.reduce((sum, r) => sum + (parseInt(r[idx]) || 0), 0);
                 }
 
@@ -3311,29 +3408,35 @@
                 const selectedRelCond = relCond?.value;
                 
                 if (currentReleases.length === 0) return;
-                const relData = currentReleases.find(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
+                
+                // Get all rows matching this release #, type, and condition
+                const matchingRows = currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
 
-                if (relData) {
-                    const s20 = parseInt(relData[7]) || 0;
-                    const s40 = parseInt(relData[9]) || 0;
-                    const s45 = parseInt(relData[11]) || 0;
+                Array.from(inSizeSelect.options).forEach(opt => {
+                    const val = opt.value;
+                    if (!val) return;
+                    
+                    // Check if there is ANY stock for this specific variant
+                    const specificRows = matchingRows.filter(r => (r[16] || '').trim() === val.trim());
+                    let hasStock = false;
 
-                    Array.from(inSizeSelect.options).forEach(opt => {
-                        const val = opt.value;
-                        if (!val) return;
-                        let show = true;
-                        if (val.startsWith("20")) show = s20 > 0;
-                        else if (val.startsWith("40")) show = s40 > 0;
-                        else if (val.startsWith("45")) show = s45 > 0;
-                        opt.disabled = !show;
-                        opt.style.display = show ? 'block' : 'none';
-                    });
-                } else {
-                    Array.from(inSizeSelect.options).forEach(opt => {
-                        opt.disabled = false;
-                        opt.style.display = 'block';
-                    });
-                }
+                    if (specificRows.length > 0) {
+                        hasStock = specificRows.some(r => (parseInt(r[7]) || parseInt(r[9]) || parseInt(r[11])) > 0);
+                    } else {
+                        // Fallback: Check base size stock if no specific record exists
+                        let idx = -1;
+                        if (val.startsWith("20")) idx = 7;
+                        else if (val.startsWith("40")) idx = 9;
+                        else if (val.startsWith("45")) idx = 11;
+                        
+                        if (idx !== -1) {
+                            hasStock = matchingRows.some(r => (parseInt(r[idx]) || 0) > 0);
+                        }
+                    }
+
+                    opt.disabled = !hasStock;
+                    opt.style.display = hasStock ? 'block' : 'none';
+                });
             };
 
             if (relSel) relSel.addEventListener('change', updateReleaseSizes);
@@ -4241,98 +4344,70 @@
                 const adr = document.getElementById('rel-address').value || '---';
                 const slr = document.getElementById('rel-seller').value || '---';
 
+                // Unified Inputs
+                const fullSize = document.getElementById('rel-size-detail').value;
+                const qty = parseInt(document.getElementById('rel-qty-unified').value) || 0;
+                const price = parseFloat(document.getElementById('rel-price-unified').value) || 0;
+                const type = document.querySelector('input[name="rel-uni-type"]:checked').value;
+                const condition = document.querySelector('input[name="rel-uni-cond"]:checked').value;
+
                 if (!relNo) { alert('Please enter a Release Number'); return; }
+                if (!fullSize) { alert('Please select a container size'); return; }
+                if (qty <= 0 && !editingReleaseId) { alert('Please enter a quantity greater than 0'); return; }
 
-                const sizesToProcess = [
-                    { sizeName: "20' FT", qtyId: "rel-qty-20", priceId: "rel-price-20", typeName: "rel-20-type", condName: "rel-20-cond", column: "qty_20", priceCol: "price_20" },
-                    { sizeName: "40' FT", qtyId: "rel-qty-40", priceId: "rel-price-40", typeName: "rel-40-type", condName: "rel-40-cond", column: "qty_40", priceCol: "price_40" },
-                    { sizeName: "45' FT", qtyId: "rel-qty-45", priceId: "rel-price-45", typeName: "rel-45-type", condName: "rel-45-cond", column: "qty_45", priceCol: "price_45" }
-                ];
+                // Map specific size to the old base columns for backward compatibility
+                let q20 = 0, q40 = 0, q45 = 0;
+                let p20 = 0, p40 = 0, p45 = 0;
+                
+                if (fullSize.startsWith("20")) { q20 = qty; p20 = price; }
+                else if (fullSize.startsWith("40")) { q40 = qty; p40 = price; }
+                else if (fullSize.startsWith("45")) { q45 = qty; p45 = price; }
 
+                // STOCK PRESERVATION LOGIC (for edits)
+                let finalStock = qty;
                 if (editingReleaseId) {
-                    // Update Mode: We collect the first size that has Qty > 0 and update THAT record.
-                    const sz = sizesToProcess.find(s => parseInt(document.getElementById(s.qtyId).value) > 0);
-                    if (sz) {
-                        const q = parseInt(document.getElementById(sz.qtyId).value);
-                        const p = parseFloat(document.getElementById(sz.priceId).value) || 0;
-                        const t = document.querySelector(`input[name="${sz.typeName}"]:checked`).value;
-                        const c = document.querySelector(`input[name="${sz.condName}"]:checked`).value;
+                    const oldRel = currentReleases.find(r => r[15] === editingReleaseId);
+                    if (oldRel) {
+                        const oldInitial = (parseInt(oldRel[7])||0)+(parseInt(oldRel[9])||0)+(parseInt(oldRel[11])||0);
+                        const oldStock = parseInt(oldRel[14])||0;
+                        const sold = Math.max(0, oldInitial - oldStock);
+                        finalStock = Math.max(0, qty - sold);
+                    }
+                }
 
-                        const relObj = {
-                            release_no: relNo,
-                            date: dte === '---' ? null : dte,
-                            type: t,
-                            condition: c,
-                            depot: dpt,
-                            depot_address: adr,
-                            city: cty,
-                            qty_20: sz.column === 'qty_20' ? q : 0,
-                            price_20: sz.column === 'qty_20' ? p : 0,
-                            qty_40: sz.column === 'qty_40' ? q : 0,
-                            price_40: sz.column === 'qty_40' ? p : 0,
-                            qty_45: sz.column === 'qty_45' ? q : 0,
-                            price_45: sz.column === 'qty_45' ? p : 0,
-                            seller: slr,
-                            total_stock: q
-                        };
+                const relObj = {
+                    release_no: relNo,
+                    date: dte === '---' ? null : dte,
+                    type: type,
+                    condition: condition,
+                    depot: dpt,
+                    depot_address: adr,
+                    city: cty,
+                    qty_20: q20,
+                    price_20: p20,
+                    qty_40: q40,
+                    price_40: p40,
+                    qty_45: q45,
+                    price_45: p45,
+                    seller: slr,
+                    total_stock: finalStock,
+                    container_size: fullSize,
+                    paid: document.getElementById('rel-paid').checked
+                };
 
-                        try {
-                            await updateRelease(editingReleaseId, relObj);
-                            alert("Release updated successfully!");
-                            resetReleaseForm();
-                            await loadReleasesData();
-                        } catch (err) {
-                            alert("Update failed: " + err.message);
-                        }
+                try {
+                    if (editingReleaseId) {
+                        await updateRelease(editingReleaseId, relObj);
+                        alert("Release updated successfully!");
                     } else {
-                        alert("Please enter a quantity greater than 0 to update.");
+                        await addRelease(relObj);
+                        alert("Release added successfully!");
                     }
-                    return;
-                }
-
-                // Normal Mode: Add multiples
-                let processedCount = 0;
-                for (const sz of sizesToProcess) {
-                    const qty = parseInt(document.getElementById(sz.qtyId).value) || 0;
-                    if (qty > 0) {
-                        const price = parseFloat(document.getElementById(sz.priceId).value) || 0;
-                        const type = document.querySelector(`input[name="${sz.typeName}"]:checked`).value;
-                        const condition = document.querySelector(`input[name="${sz.condName}"]:checked`).value;
-
-                        const relObj = {
-                            release_no: relNo,
-                            date: dte === '---' ? null : dte,
-                            type: type,
-                            condition: condition,
-                            depot: dpt,
-                            depot_address: adr,
-                            city: cty,
-                            qty_20: sz.column === 'qty_20' ? qty : 0,
-                            price_20: sz.column === 'qty_20' ? price : 0,
-                            qty_40: sz.column === 'qty_40' ? qty : 0,
-                            price_40: sz.column === 'qty_40' ? price : 0,
-                            qty_45: sz.column === 'qty_45' ? qty : 0,
-                            price_45: sz.column === 'qty_45' ? price : 0,
-                            seller: slr,
-                            total_stock: qty
-                        };
-
-                        try {
-                            await addRelease(relObj);
-                            processedCount++;
-                        } catch (err) {
-                            console.error(`Failed to add release for ${sz.sizeName}:`, err);
-                        }
-                    }
-                }
-
-                if (processedCount > 0) {
+                    resetReleaseForm();
                     await loadReleasesData();
                     if (window.updateReleaseDatalist) window.updateReleaseDatalist();
-                    resetReleaseForm();
-                    alert(`Success: Created ${processedCount} release variants.`);
-                } else {
-                    alert("Please enter at least one quantity > 0.");
+                } catch (err) {
+                    alert("Operation failed: " + err.message);
                 }
             };
 
@@ -4346,23 +4421,29 @@
                 const resetBtn = document.getElementById('btn-reset-release');
                 if (resetBtn) resetBtn.style.display = 'none';
                 
-                ['rel-no-releases', 'rel-qty-20', 'rel-qty-40', 'rel-qty-45', 'rel-price-20', 'rel-price-40', 'rel-price-45', 'rel-date', 'rel-city', 'rel-depot', 'rel-address', 'rel-seller'].forEach(id => {
+                ['rel-no-releases', 'rel-size-detail', 'rel-qty-unified', 'rel-price-unified', 'rel-date', 'rel-city', 'rel-depot', 'rel-address', 'rel-seller'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
                 });
                 
-                ['rel-20-type', 'rel-20-cond', 'rel-40-type', 'rel-40-cond', 'rel-45-type', 'rel-45-cond'].forEach(grp => {
-                    const dry = document.querySelector(`input[name="${grp}"][value="DRY"]`) || document.querySelector(`input[name="${grp}"][value="NEW"]`);
-                    if (dry) dry.checked = true;
-                });
-                // Reload data to clear highlighting
+                // Reset radios
+                const dry = document.querySelector('input[name="rel-uni-type"][value="DRY"]');
+                const used = document.querySelector('input[name="rel-uni-cond"][value="NEW"]');
+                if (dry) dry.checked = true;
+                if (used) used.checked = true;
+                const paid = document.getElementById('rel-paid');
+                if (paid) {
+                    paid.checked = false;
+                    if (window.updatePaidBadgeStyle) window.updatePaidBadgeStyle(false);
+                }
+
                 loadReleasesData();
             };
 
             window.loadReleaseToEdit = function(idx) {
                 if (!currentReleases[idx]) return;
                 const row = currentReleases[idx];
-                editingReleaseId = row[15]; // index 15 is DB UUID
+                editingReleaseId = row[15]; // DB UUID
 
                 document.getElementById('rel-no-releases').value = row[0];
                 document.getElementById('rel-date').value = (row[1] === '---' || !row[1]) ? '' : row[1];
@@ -4371,26 +4452,24 @@
                 document.getElementById('rel-address').value = (row[5] === '---') ? '' : row[5];
                 document.getElementById('rel-seller').value = (row[13] === '---') ? '' : row[13];
 
-                // Clear all quantities
-                ['rel-qty-20', 'rel-qty-40', 'rel-qty-45'].forEach(id => document.getElementById(id).value = 0);
-                ['rel-price-20', 'rel-price-40', 'rel-price-45'].forEach(id => document.getElementById(id).value = 0);
+                // Populate Unified Size/Qty/Price
+                const sizeDetail = document.getElementById('rel-size-detail');
+                if (sizeDetail) sizeDetail.value = row[16] || '---';
 
-                // Populate corresponding size
-                if (row[7] > 0) {
-                    document.getElementById('rel-qty-20').value = row[7];
-                    document.getElementById('rel-price-20').value = row[8];
-                    const t = document.querySelector(`input[name="rel-20-type"][value="${row[2]}"]`); if(t) t.checked = true;
-                    const c = document.querySelector(`input[name="rel-20-cond"][value="${row[3]}"]`); if(c) c.checked = true;
-                } else if (row[9] > 0) {
-                    document.getElementById('rel-qty-40').value = row[9];
-                    document.getElementById('rel-price-40').value = row[10];
-                    const t = document.querySelector(`input[name="rel-40-type"][value="${row[2]}"]`); if(t) t.checked = true;
-                    const c = document.querySelector(`input[name="rel-40-cond"][value="${row[3]}"]`); if(c) c.checked = true;
-                } else if (row[11] > 0) {
-                    document.getElementById('rel-qty-45').value = row[11];
-                    document.getElementById('rel-price-45').value = row[12];
-                    const t = document.querySelector(`input[name="rel-45-type"][value="${row[2]}"]`); if(t) t.checked = true;
-                    const c = document.querySelector(`input[name="rel-45-cond"][value="${row[3]}"]`); if(c) c.checked = true;
+                // We get the quantity from the first non-zero base column
+                const qtyVal = parseInt(row[7]) || parseInt(row[9]) || parseInt(row[11]) || 0;
+                document.getElementById('rel-qty-unified').value = qtyVal;
+
+                const priceVal = parseFloat(row[8]) || parseFloat(row[10]) || parseFloat(row[12]) || 0;
+                document.getElementById('rel-price-unified').value = priceVal;
+
+                // Type & Cond
+                const t = document.querySelector(`input[name="rel-uni-type"][value="${row[2]}"]`); if(t) t.checked = true;
+                const c = document.querySelector(`input[name="rel-uni-cond"][value="${row[3]}"]`); if(c) c.checked = true;
+                const paid = document.getElementById('rel-paid');
+                if (paid) {
+                    paid.checked = !!row[17];
+                    if (window.updatePaidBadgeStyle) window.updatePaidBadgeStyle(paid.checked);
                 }
 
                 const btn = document.querySelector('#releases-view .btn-add-sidebar');
@@ -4401,7 +4480,6 @@
                 const resetBtn = document.getElementById('btn-reset-release');
                 if (resetBtn) resetBtn.style.display = 'block';
                 
-                // Highlight row
                 loadReleasesData();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
@@ -4506,6 +4584,11 @@
             const dataToRender = filteredData || currentReleases;
             body.innerHTML = '';
 
+            // Total Stats Accumulators
+            let globalInitialTotal = 0;
+            let globalRemainingTotal = 0;
+            let globalPendingTotal = 0;
+
             dataToRender.forEach((rowData, idx) => {
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
@@ -4513,8 +4596,22 @@
                 tr.onclick = () => window.loadReleaseToEdit(originalIdx !== -1 ? originalIdx : 0);
                 
                 if (editingReleaseId === rowData[15]) tr.classList.add('editing-row');
+                
+                // DATA EXTRACTION
+                const initialQty = (parseInt(rowData[7]) || 0) + (parseInt(rowData[9]) || 0) + (parseInt(rowData[11]) || 0);
+                const unitPrice = parseFloat(rowData[8]) || parseFloat(rowData[10]) || parseFloat(rowData[12]) || 0;
+                const remainingQty = Math.min(parseInt(rowData[14]) || 0, initialQty); // SECURITY CAP
+                const pickedUpQty = Math.max(0, initialQty - remainingQty);
+                const isPaid = rowData[17] || false;
+                
+                const lineInitialTotal = initialQty * unitPrice;
+                const lineRemainingTotal = remainingQty * unitPrice;
+                
+                globalInitialTotal += lineInitialTotal;
+                globalRemainingTotal += lineRemainingTotal;
+                if (!isPaid) globalPendingTotal += lineInitialTotal;
                                         
-                const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'IN', 'PICKUP', 'STOCK', 13];
+                const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'PRICE', 'TOTAL', 'PAID', 'IN', 'PICKUP', 'STOCK', 13];
                 
                 displayIndices.forEach(idx => {
                     const td = document.createElement('td');
@@ -4543,52 +4640,79 @@
                         else td.innerHTML = `<span title="USED Condition">🔧</span>`;
                     }
                     else if (idx === 'SIZE') {
-                        const q20 = parseInt(rowData[7]) || 0;
-                        const q40 = parseInt(rowData[9]) || 0;
-                        const q45 = parseInt(rowData[11]) || 0;
-                        let sizeVal = '---';
-                        if (q20 > 0) sizeVal = "20'"; else if (q40 > 0) sizeVal = "40'"; else if (q45 > 0) sizeVal = "45'";
+                        let sizeVal = rowData[16] || '---';
+                        if (sizeVal === '---' || !sizeVal) {
+                            if (parseInt(rowData[7]) > 0) sizeVal = "20'"; else if (parseInt(rowData[9]) > 0) sizeVal = "40'"; else if (parseInt(rowData[11]) > 0) sizeVal = "45'";
+                        }
                         td.textContent = sizeVal;
                         td.style.fontWeight = '800';
                     }
+                    else if (idx === 'PRICE') {
+                        td.textContent = `$${unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                        td.style.fontWeight = '700';
+                        td.style.color = '#1e293b';
+                        td.style.borderLeft = '2px solid #e2e8f0';
+                        td.style.background = '#f8fafc';
+                    }
+                    else if (idx === 'TOTAL') {
+                        td.textContent = `$${lineInitialTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                        td.style.fontWeight = '900';
+                        td.style.color = '#1e293b';
+                        td.style.background = '#f8fafc';
+                    }
+                    else if (idx === 'PAID') {
+                        td.innerHTML = isPaid ? '<span style="color: #10b981; font-size: 1.2rem;">✅</span>' : '<span style="color: #ef4444; font-size: 1.2rem;">⏳</span>';
+                        td.style.textAlign = 'center';
+                        td.style.background = '#f8fafc';
+                    }
                     else if (idx === 'IN' || idx === 'PICKUP' || idx === 'STOCK') {
-                        const initialIn = parseInt(rowData[14]) || 0;
-                        const currentStock = (parseInt(rowData[7]) || 0) + (parseInt(rowData[9]) || 0) + (parseInt(rowData[11]) || 0);
-                        const pickedUp = initialIn - currentStock;
-
                         let valDisplay = 0;
-                        if (idx === 'IN') valDisplay = initialIn;
-                        else if (idx === 'PICKUP') valDisplay = pickedUp;
-                        else if (idx === 'STOCK') valDisplay = currentStock;
+                        if (idx === 'IN') valDisplay = initialQty;
+                        else if (idx === 'PICKUP') valDisplay = pickedUpQty;
+                        else if (idx === 'STOCK') valDisplay = remainingQty;
 
                         td.textContent = valDisplay;
                         td.style.fontWeight = '900';
-                        if (idx === 'STOCK' && valDisplay <= 5) {
-                            td.style.backgroundColor = '#fee2e2'; td.style.color = '#dc2626'; td.style.border = '2px solid #ef4444';
+                        if (idx === 'STOCK') {
+                            if (valDisplay <= 0) td.style.color = '#ef4444';
+                            else if (valDisplay <= 5) td.style.color = '#f59e0b';
+                            else td.style.color = '#10b981';
                         }
                     } else {
                         td.textContent = text;
                     }
+                    
                     tr.appendChild(td);
                 });
                 body.appendChild(tr);
             });
+
+            // Update Global Stats
+            const elInitial = document.getElementById('rel-stats-initial');
+            const elRemaining = document.getElementById('rel-stats-remaining');
+            const elPending = document.getElementById('rel-stats-pending');
+            if (elInitial) elInitial.textContent = `$${globalInitialTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            if (elRemaining) elRemaining.textContent = `$${globalRemainingTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            if (elPending) elPending.textContent = `$${globalPendingTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            
             if (window.updateReleaseDatalist) window.updateReleaseDatalist();
         }
         window.renderReleasesTable = renderReleasesTable;
 
         function applyReleasesFilters() {
             const fNo = document.getElementById('rf-no').value.toLowerCase();
-            const fDate = document.getElementById('rf-date').value.toLowerCase();
+            const fDateFrom = document.getElementById('rf-date-from').value;
+            const fDateTo = document.getElementById('rf-date-to').value;
             const fType = document.getElementById('rf-type').value;
             const fCond = document.getElementById('rf-cond').value;
             const fSize = document.getElementById('rf-size').value;
+            const fPaid = document.getElementById('rf-paid').value;
             const fCity = document.getElementById('rf-city').value.toLowerCase();
             const fDepot = document.getElementById('rf-depot').value.toLowerCase();
             const fStock = parseInt(document.getElementById('rf-stock').value) || 0;
             const fSeller = document.getElementById('rf-seller').value.toLowerCase();
 
-            const ids = ['rf-no', 'rf-date', 'rf-type', 'rf-cond', 'rf-size', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'];
+            const ids = ['rf-no', 'rf-date-from', 'rf-date-to', 'rf-type', 'rf-cond', 'rf-size', 'rf-paid', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'];
             ids.forEach(id => {
                 const el = document.getElementById(id);
                 if (el.value !== '') el.classList.add('rel-filter-active');
@@ -4597,24 +4721,42 @@
 
             const filtered = currentReleases.filter(r => {
                 let match = true;
-                let rowDteStr = '---';
-                if (r[1] && r[1] !== '---') {
-                    const d = new Date(r[1] + 'T00:00:00');
-                    if (!isNaN(d.getTime())) {
-                        const dd = String(d.getDate()).padStart(2, '0');
-                        const mm = String(d.getMonth() + 1).padStart(2, '0');
-                        rowDteStr = `${dd}/${mm}/${d.getFullYear()}`;
-                    }
-                }
                 const curStock = (parseInt(r[7])||0)+(parseInt(r[9])||0)+(parseInt(r[11])||0);
-                let rowSize = '---';
-                if (r[7]>0) rowSize = "20'"; else if (r[9]>0) rowSize = "40'"; else if (r[11]>0) rowSize = "45'";
+                
+                // Use detailed size (index 16) for filtering
+                let rowSize = (r[16] || '---').trim();
+                
+                if (rowSize === '---' || !rowSize) {
+                    // Fallback for legacy data
+                    if (r[7]>0) rowSize = "20' STD"; 
+                    else if (r[9]>0) rowSize = "40' HC"; 
+                    else if (r[11]>0) rowSize = "45' HC";
+                }
 
                 if (fNo && !r[0].toLowerCase().includes(fNo)) match = false;
-                if (fDate && !rowDteStr.includes(fDate)) match = false;
+                
+                if (r[1] && r[1] !== '---') {
+                    const rowD = new Date(r[1] + 'T00:00:00');
+                    if (fDateFrom) {
+                        const fromD = new Date(fDateFrom + 'T00:00:00');
+                        if (rowD < fromD) match = false;
+                    }
+                    if (fDateTo) {
+                        const toD = new Date(fDateTo + 'T00:00:00');
+                        if (rowD > toD) match = false;
+                    }
+                } else if (fDateFrom || fDateTo) {
+                    match = false;
+                }
+
                 if (fType && r[2] !== fType) match = false;
                 if (fCond && r[3] !== fCond) match = false;
                 if (fSize && rowSize !== fSize) match = false;
+                if (fPaid) {
+                    const isRowPaid = r[17] || false;
+                    if (fPaid === 'PAID' && !isRowPaid) match = false;
+                    if (fPaid === 'PENDING' && isRowPaid) match = false;
+                }
                 if (fCity && !r[6].toLowerCase().includes(fCity)) match = false;
                 if (fDepot && !r[4].toLowerCase().includes(fDepot)) match = false;
                 if (fStock && curStock < fStock) match = false;
@@ -4626,7 +4768,7 @@
         window.applyReleasesFilters = applyReleasesFilters;
 
         window.resetReleasesFilters = function() {
-            ['rf-no', 'rf-date', 'rf-type', 'rf-cond', 'rf-size', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'].forEach(id => {
+            ['rf-no', 'rf-date-from', 'rf-date-to', 'rf-type', 'rf-cond', 'rf-size', 'rf-paid', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) { el.value = ''; el.classList.remove('rel-filter-active'); }
             });
@@ -5594,7 +5736,7 @@
     </div>
 
     <!-- Email JS Settings Modal -->
-    <div id="email-settings-modal" class="modal">
+    <div id="email-settings-modal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width:400px;">
             <div class="modal-header">
                 <h3><i class="fas fa-envelope-config"></i> EMAILJS CONFIG</h3>
