@@ -937,7 +937,20 @@
                         <div style="display: flex; gap: 12px; width: 100%; flex-wrap: wrap; align-items: flex-end;">
                             <div class="filter-item" style="flex: 1; min-width: 130px;">
                                 <label>City</label>
-                                <input type="text" id="rf-city" class="rel-filter-input" placeholder="City..." oninput="applyReleasesFilters()">
+                                <select id="rf-city" class="rel-filter-input" onchange="applyReleasesFilters()">
+                                    <option value="">ALL</option>
+                                    <option value="MIAMI">MIAMI</option>
+                                    <option value="MEDLEY">MEDLEY</option>
+                                    <option value="TAMPA">TAMPA</option>
+                                    <option value="JACKSONVILLE">JACKSONVILLE</option>
+                                    <option value="SAVANNAH">SAVANNAH</option>
+                                    <option value="ORLANDO">ORLANDO</option>
+                                    <option value="ATLANTA">ATLANTA</option>
+                                    <option value="CHARLESTON">CHARLESTON</option>
+                                    <option value="NEWARK">NEWARK</option>
+                                    <option value="SUMMERVILLE">SUMMERVILLE</option>
+                                    <option value="BALTIMORE">BALTIMORE</option>
+                                </select>
                             </div>
                             <div class="filter-item" style="flex: 1; min-width: 130px;">
                                 <label>Depot</label>
@@ -990,6 +1003,7 @@
                                     <th>PICK UP</th>
                                     <th>STOCK</th>
                                     <th>SELLER</th>
+                                    <th style="width: 50px;">ACTION</th>
                                 </tr>
                             </thead>
                             <tbody id="releases-body">
@@ -2376,28 +2390,6 @@
                 depot: row[4],
                 depot_address: row[5],
                 city: row[6],
-                qty_20: row[7],
-                price_20: row[8],
-                qty_40: row[9],
-                price_40: row[10],
-                qty_45: row[11],
-                price_45: row[12],
-                seller: row[13],
-                total_stock: row[14],
-                container_size: row[16],
-                paid: row[17] || false
-            };
-        }
-
-        function mapArrayToRelease(row) {
-            return {
-                release_no: row[0],
-                date: row[1] === '---' ? null : row[1],
-                type: row[2],
-                condition: row[3],
-                depot: row[4],
-                depot_address: row[5],
-                city: row[6],
                 qty_20: parseInt(row[7]) || 0,
                 price_20: parseFloat(row[8]) || 0,
                 qty_40: parseInt(row[9]) || 0,
@@ -2405,8 +2397,9 @@
                 qty_45: parseInt(row[11]) || 0,
                 price_45: parseFloat(row[12]) || 0,
                 seller: row[13],
-                total_stock: (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0) + (parseInt(row[11]) || 0),
-                container_size: row[16] || '---'
+                total_stock: parseInt(row[14]) || 0,
+                container_size: row[16] || '---',
+                paid: row[17] || false
             };
         }
 
@@ -3007,7 +3000,10 @@
                  if (isFinalized) newlyFinalized = true;
              }
 
-             const triggerStockUpdate = newlyFinalized && isDeductionCandidate;
+             // TRIGGER LOGIC: Deduct on NEW trip if deduction candidate.
+             // On EDITS, only trigger if status changes to PAID (newlyFinalized) or reverts (newlyPending).
+             // But for simplicity and consistency, let's deduct whenever a release is used.
+             const triggerStockUpdate = (editingIndex === null && isDeductionCandidate) || (newlyFinalized && isDeductionCandidate);
              const triggerStockRevert = newlyPending && isDeductionCandidate;
 
             // Stock validation: run whenever an order involves a Release
@@ -3025,23 +3021,15 @@
                 }
 
                 if (currentReleases && currentReleases.length > 0) {
-                    // Try to find an EXACT MATCH for Release, Type, Condition, and SPECIFIC SIZE (Index 16)
+                    // SIMPLIFIED MATCHING: Just use Release # and Exact Size
                     let matchingRows = currentReleases.filter(r => 
                         r[0] === selectedRelease && 
-                        r[2] === selectedRelType && 
-                        r[3] === selectedRelCond &&
                         (r[16] || '').trim() === selectedSize.trim()
                     );
 
-                    // Fallback for older data that doesn't have index 16 populated
+                    // Fallback to size-based heuristic if no specific size match
                     if (matchingRows.length === 0) {
-                        matchingRows = currentReleases.filter(r => 
-                            r[0] === selectedRelease && 
-                            r[2] === selectedRelType && 
-                            r[3] === selectedRelCond &&
-                            (!r[16] || r[16] === '---' || r[16] === '') // No specific size set
-                        );
-                        // Filter matchingRows further to ensure the base size matches
+                        matchingRows = currentReleases.filter(r => r[0] === selectedRelease);
                         if (selectedSize.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
                         else if (selectedSize.startsWith("40")) matchingRows = matchingRows.filter(r => (parseInt(r[9]) > 0));
                         else if (selectedSize.startsWith("45")) matchingRows = matchingRows.filter(r => (parseInt(r[11]) > 0));
@@ -3058,7 +3046,8 @@
                         else if (selectedSize.startsWith("45")) { stockIdx = 11; dbField = 'qty_45'; sizeBase = "45'"; }
 
                         if (stockIdx !== -1) {
-                            totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[stockIdx]) || 0), 0);
+                            // VALIDATION: Check total_stock (index 14) instead of initial investment columns
+                            totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[14]) || 0), 0);
 
                             // Bypass for editing same order
                             let bypassStockCheck = false;
@@ -3079,11 +3068,10 @@
                             // Preparation for actual deduction/reversion
                             if (triggerStockUpdate || triggerStockRevert) {
                                 const change = triggerStockUpdate ? -1 : 1;
-                                window.calculatedNewStock = (parseInt(matchingRows[0][stockIdx]) || 0) + change;
-                                window.stockUpdateField = dbField;
+                                // ALWAYS update total_stock, NEVER touch the initial investment columns (qty_20, etc)
+                                window.calculatedNewStock = (parseInt(matchingRows[0][14]) || 0) + change;
+                                window.stockUpdateField = 'total_stock';
                                 window.targetReleaseNo = selectedRelease;
-                                window.targetReleaseType = selectedRelType;
-                                window.targetReleaseCond = selectedRelCond;
                                 window.targetReleaseId = matchingRows[0][15]; // DB UUID
                             }
                         }
@@ -3196,9 +3184,6 @@
                      
                      await db.from('releases')
                          .update(upObj)
-                         .eq('release_no', window.targetReleaseNo)
-                         .eq('type', window.targetReleaseType)
-                         .eq('condition', window.targetReleaseCond)
                          .eq('id', window.targetReleaseId);
                          
                      // Clean up
@@ -4611,7 +4596,7 @@
                 globalRemainingTotal += lineRemainingTotal;
                 if (!isPaid) globalPendingTotal += lineInitialTotal;
                                         
-                const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'PRICE', 'TOTAL', 'PAID', 'IN', 'PICKUP', 'STOCK', 13];
+                const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'PRICE', 'TOTAL', 'PAID', 'IN', 'PICKUP', 'STOCK', 13, 'ACTION'];
                 
                 displayIndices.forEach(idx => {
                     const td = document.createElement('td');
@@ -4678,7 +4663,18 @@
                             else if (valDisplay <= 5) td.style.color = '#f59e0b';
                             else td.style.color = '#10b981';
                         }
-                    } else {
+                    } 
+                    else if (idx === 'ACTION') {
+                        td.innerHTML = `
+                            <button onclick="event.stopPropagation(); window.deleteRelease('${rowData[15]}', '${rowData[0]}')" 
+                                    style="background: #fee2e2; border: none; color: #ef4444; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        `;
+                        td.style.textAlign = 'center';
+                        td.style.background = '#f8fafc';
+                    }
+                    else {
                         td.textContent = text;
                     }
                     
@@ -4698,6 +4694,26 @@
             if (window.updateReleaseDatalist) window.updateReleaseDatalist();
         }
         window.renderReleasesTable = renderReleasesTable;
+
+        async function deleteRelease(id, relNo) {
+            if (!id || id === 'undefined') {
+                alert("Error: No se puede borrar un release sin ID (posiblemente no se guardó en la base de datos).");
+                return;
+            }
+            if (!confirm(`¿Estás seguro de que quieres eliminar el Release #${relNo}? Esta acción no se puede deshacer.`)) return;
+            
+            try {
+                const { error } = await db.from('releases').delete().eq('id', id);
+                if (error) throw error;
+                
+                alert("Release eliminado correctamente.");
+                await loadReleasesData();
+            } catch (err) {
+                console.error("Error deleting release:", err);
+                alert("Error al eliminar de la base de datos.");
+            }
+        }
+        window.deleteRelease = deleteRelease;
 
         function applyReleasesFilters() {
             const fNo = document.getElementById('rf-no').value.toLowerCase();
