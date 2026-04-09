@@ -44,6 +44,15 @@ body {
     cursor: pointer;
 }
 
+.selected-row {
+    background-color: #e0f2fe !important; /* light blue */
+    border: 1px solid #0ea5e9 !important;
+}
+
+.selected-row td {
+    background-color: transparent !important;
+}
+
 .btn-update {
     background: #f59e0b !important; /* Amber Orange */
     color: white !important;

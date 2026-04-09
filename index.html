@@ -829,23 +829,27 @@
                             <!-- Text Live Filters -->
                             <div class="filter-item">
                                 <label>N° Cont</label>
-                                <input type="text" id="f-ncont" placeholder="Search..."
-                                    oninput="applyAdvancedFilters()">
+                                <select id="f-ncont" onchange="applyAdvancedFilters()" style="padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                    <option value="">ALL</option>
+                                </select>
                             </div>
                             <div class="filter-item">
                                 <label>Order - BOL #</label>
-                                <input type="text" id="f-order" placeholder="Search..."
-                                    oninput="applyAdvancedFilters()">
+                                <select id="f-order" onchange="applyAdvancedFilters()" style="padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                    <option value="">ALL</option>
+                                </select>
                             </div>
                             <div class="filter-item">
                                 <label>Release #</label>
-                                <input type="text" id="f-release" placeholder="Search..."
-                                    oninput="applyAdvancedFilters()">
+                                <select id="f-release" onchange="applyAdvancedFilters()" style="padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                    <option value="">ALL</option>
+                                </select>
                             </div>
                             <div class="filter-item">
                                 <label>Phone #</label>
-                                <input type="text" id="f-phone" placeholder="Search..."
-                                    oninput="applyAdvancedFilters()">
+                                <select id="f-phone" onchange="applyAdvancedFilters()" style="padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+                                    <option value="">ALL</option>
+                                </select>
                             </div>
                             <!-- Date Range Filters -->
                             <div class="filter-item" style="border-left: 2px solid #e2e8f0; padding-left: 15px;">
@@ -984,24 +988,14 @@
                             <!-- SINGLE ITEM ENTRY FORM -->
                             <div
                                 style="background: white; padding: 8px; border-radius: 8px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 8px;">
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <label
-                                        style="font-size: 0.65rem; font-weight: 800; color: #64748b; width: auto; flex: none;">SIZE
-                                        DETAIL</label>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 2px;">
+                                        <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin: 0;">SIZE DETAIL</label>
+                                        <button onclick="openSizeManager()" class="btn-manage-inline" style="font-size: 0.6rem; padding: 2px 5px; margin: 0;">Manage</button>
+                                    </div>
                                     <select id="rel-size-detail"
                                         style="width: 100%; padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem;">
-                                        <option value="" disabled selected>Choose Size...</option>
-                                        <option value="40' HC">40' HC</option>
-                                        <option value="40' STD">40' STD</option>
-                                        <option value="40' DD">40' DD</option>
-                                        <option value="40' OS">40' OS</option>
-                                        <option value="45' HC">45' HC</option>
-                                        <option value="20' STD">20' STD</option>
-                                        <option value="20' HC">20' HC</option>
-                                        <option value="20' DD">20' DD</option>
-                                        <option value="20' OS">20' OS</option>
+                                        <option value="" disabled selected>Loading sizes...</option>
                                     </select>
-                                </div>
                                 <div style="display: flex; gap: 8px;">
                                     <div class="form-group" style="flex: 1; margin: 0;">
                                         <label
@@ -1825,6 +1819,9 @@
             return false;
         };
 
+        window.selectedReleaseIds = []; // Tracks multiple selected releases
+        window.selectedTripIds = [];    // Tracks multiple selected trips
+
         // --- AUTHENTICATION & RBAC LOGIC ---
         async function handleLogin(e) {
             if (e) e.preventDefault();
@@ -1926,7 +1923,7 @@
             const adminOnlySelectors = [
                 'button[onclick*="profit-report"]',
                 '#nav-actions-container button[onclick*="profit-report"]',
-                '#btn-email-settings'
+                //'#btn-email-settings' // <--- BORRA LOS // AL PRINCIPIO DE ESTA LÍNEA PARA MOSTRAR EL BOTÓN
             ];
 
             const staffOnlySelectors = [
@@ -2705,6 +2702,114 @@
         window.deleteCompany = deleteCompany;
 
 
+        // --- CONTAINER SIZE MANAGEMENT LOGIC ---
+        let currentContainerSizes = [];
+        window.loadContainerSizesData = async function () {
+            try {
+                // Hardcoded defaults to ensure the user never sees an empty list
+                const defaults = ["20' STD", "20' HC", "20' DD", "20' OS", "40' STD", "40' HC", "40' DD", "40' OS", "45' HC"];
+                
+                const { data, error } = await db.from('container_sizes').select('*').order('name', { ascending: true });
+                
+                if (error) {
+                    console.error("Supabase error loading sizes:", error);
+                    // Fallback to defaults on error
+                    currentContainerSizes = defaults.map((s, i) => ({ id: i, name: s }));
+                } else if (!data || data.length === 0) {
+                    // Table is empty, seed it
+                    const seedObjs = defaults.map(s => ({ name: s }));
+                    await db.from('container_sizes').insert(seedObjs);
+                    // Reload to get real IDs
+                    const { data: freshData } = await db.from('container_sizes').select('*').order('name', { ascending: true });
+                    currentContainerSizes = (freshData && freshData.length > 0) ? freshData : defaults.map((s, i) => ({ id: i, name: s }));
+                } else {
+                    currentContainerSizes = data;
+                }
+                
+                updateSizeDropdowns();
+            } catch (err) {
+                console.error("Critical error in loadContainerSizesData:", err);
+            }
+        };
+
+        function updateSizeDropdowns() {
+            const relSide = document.getElementById('rel-size-detail');
+            const relFilt = document.getElementById('rf-size');
+            const tripSide = document.getElementById('in-size');
+            const tripFilt = document.getElementById('f-size');
+            
+            const populate = (sel, isFilter) => {
+                if (!sel) return;
+                const currentVal = sel.value;
+                sel.innerHTML = isFilter ? '<option value="">ALL SIZES</option>' : '<option value="" disabled selected>Choose Size...</option>';
+                currentContainerSizes.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.name;
+                    opt.textContent = s.name;
+                    sel.appendChild(opt);
+                });
+                if (currentVal) sel.value = currentVal;
+            };
+
+            populate(relSide, false);
+            populate(relFilt, true);
+            populate(tripSide, false);
+            populate(tripFilt, true);
+        }
+
+        window.openSizeManager = function () {
+            document.getElementById('size-manager-modal').style.display = 'flex';
+            renderSizeManagerList();
+        };
+        window.closeSizeManager = function () {
+            document.getElementById('size-manager-modal').style.display = 'none';
+        };
+
+        function renderSizeManagerList() {
+            const container = document.getElementById('size-list-body');
+            if (!container) return;
+            container.innerHTML = '';
+            currentContainerSizes.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'driver-item';
+                item.innerHTML = `
+                    <span>${s.name}</span>
+                    <button onclick="deleteContainerSize('${s.id}')" class="btn-del-driver" title="Delete Size">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        window.addNewContainerSize = async function () {
+            const input = document.getElementById('new-size-name');
+            const name = input.value.trim().toUpperCase();
+            if (!name) return;
+            try {
+                const { error } = await db.from('container_sizes').insert([{ name: name }]);
+                if (error) throw error;
+                input.value = '';
+                await loadContainerSizesData();
+                renderSizeManagerList();
+            } catch (err) {
+                alert("Error adding size: " + err.message);
+            }
+        };
+
+        window.deleteContainerSize = async function (id) {
+            if (!confirm("Are you sure you want to delete this size option?")) return;
+            try {
+                const { error } = await db.from('container_sizes').delete().eq('id', id);
+                if (error) throw error;
+                await loadContainerSizesData();
+                renderSizeManagerList();
+            } catch (err) {
+                console.error("Delete err:", err);
+            }
+        };
+
+
 
 
         function mapTripToArray(t) {
@@ -3243,7 +3348,11 @@
                 'f-size': 2,
                 'f-customer': 11,
                 'f-driver': 16,
-                'f-company': 15
+                'f-company': 15,
+                'f-ncont': 3,
+                'f-order': 5,
+                'f-release': 4,
+                'f-phone': 23
             };
 
             for (let id in filters) {
@@ -3272,6 +3381,36 @@
                 } else if (id === 'f-company') {
                     const dynamicCompanies = currentCompanies.map(c => c.name);
                     finalValues = [...new Set([...dynamicCompanies, ...dynamicValues])];
+                } else if (id === 'f-release') {
+                    // Populate from official list with Size and City info (matching the sidebar style)
+                    const releaseLabelsMap = new Map();
+                    currentReleases.forEach(r => {
+                        const relNo = (r[0] || '').trim();
+                        if (relNo && relNo !== '---') {
+                            const size = r[16] || '---';
+                            const city = r[6] || '---';
+                            releaseLabelsMap.set(relNo, `${relNo} - ${size} - ${city}`);
+                        }
+                    });
+
+                    // Preservation logic
+                    const currentVal = select.value;
+                    const firstOption = select.options[0];
+                    select.innerHTML = '';
+                    select.appendChild(firstOption);
+
+                    // Combine official keys with any dynamic ones found in trips
+                    const allKeys = [...new Set([...releaseLabelsMap.keys(), ...dynamicValues])].sort();
+
+                    allKeys.forEach(val => {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = releaseLabelsMap.get(val) || `${val} - ? - ?`;
+                        select.appendChild(opt);
+                    });
+
+                    if (currentVal) select.value = currentVal;
+                    continue; // Skip the default population loop below
                 } else {
                     finalValues = dynamicValues;
                 }
@@ -3678,27 +3817,24 @@
             // --- SUPABASE INTEGRATION ---
             try {
                 if (editingIndex !== null) {
-                    if (!editingTripDbId) {
-                        // Fallback: try to recover TRIP_ID from cache if global variable was cleared
-                        if (currentTrips[editingIndex] && currentTrips[editingIndex][0]) {
-                            editingTripDbId = currentTrips[editingIndex][0];
-                        } else {
-                            alert('Error: no se pudo identificar la orden (TRIP_ID) para actualizar.');
+                    const targets = (window.selectedTripIds && window.selectedTripIds.length > 1) ? window.selectedTripIds : [editingTripDbId];
+                    if (targets.length > 1) {
+                        if (!confirm(`¿Deseas aplicar estos cambios a los ${targets.length} viajes seleccionados?`)) {
                             isSaving = false;
                             restoreTripArchiveButtonUI();
                             return;
                         }
                     }
-                    const { error } = await db.from('trips').update(dbObj).eq('trip_id', editingTripDbId);
-                    if (error) {
-                        console.error("SUPABASE UPDATE ERROR:", error.message, error.details);
-                        alert(`Error actualizando: ${error.message}`);
-                        isSaving = false;
-                        restoreTripArchiveButtonUI();
-                        return;
+
+                    for (const idToUp of targets) {
+                        const { error } = await db.from('trips').update(dbObj).eq('trip_id', idToUp);
+                        if (error) {
+                            console.error(`Error updating trip ${idToUp}:`, error.message);
+                        }
                     }
                     editingIndex = null;
                     editingTripDbId = null;
+                    window.selectedTripIds = []; // Clear selection after bulk update
                 } else {
                     const newId = newTripIdForDb();
                     dbObj.trip_id = newId;
@@ -4337,8 +4473,44 @@
                         tr.appendChild(actionTd);
 
                         tr.style.cursor = 'pointer';
-                        tr.onclick = () => loadTripToEdit(idx);
-                        if (editingIndex === idx) tr.classList.add('editing-row');
+                        tr.onclick = (e) => {
+                            const tripId = rowData[0];
+                            const isAlreadySelected = window.selectedTripIds.includes(tripId);
+                            const isOnlySelected = window.selectedTripIds.length === 1 && isAlreadySelected;
+
+                            if (e.ctrlKey) {
+                                if (isAlreadySelected) {
+                                    window.selectedTripIds = window.selectedTripIds.filter(id => id !== tripId);
+                                } else {
+                                    window.selectedTripIds.push(tripId);
+                                }
+                            } else {
+                                if (isOnlySelected) {
+                                    window.selectedTripIds = [];
+                                } else {
+                                    window.selectedTripIds = [tripId];
+                                }
+                            }
+
+                            if (window.selectedTripIds.length > 0) {
+                                loadTripToEdit(idx);
+                            } else {
+                                editingIndex = null;
+                                editingTripDbId = null;
+                                if (window.resetForm) window.resetForm();
+                            }
+
+                            // Dynamic Highlighting Refresh
+                            document.querySelectorAll('#table-body tr').forEach((row, rIdx) => {
+                                const rData = currentTrips[rIdx];
+                                row.classList.remove('editing-row', 'selected-row');
+                                if (editingIndex === rIdx) row.classList.add('editing-row');
+                                else if (window.selectedTripIds.includes(rData?.[0])) row.classList.add('selected-row');
+                            });
+                        };
+                        if (editingIndex === idx || window.selectedTripIds.includes(rowData[0])) {
+                            tr.classList.add(editingIndex === idx ? 'editing-row' : 'selected-row');
+                        }
 
                         // OVERDUE RENT HIGHLIGHTING
                         if (mode === 'RENT' && nextDueVal !== '---' && new Date(nextDueVal + 'T00:00:00') < new Date()) {
@@ -4441,7 +4613,7 @@
                 // 1. Filter the rows first
                 const filtered = allRows.filter(r => {
                     const rDate = r[1];
-                    const rDriver = (r[16] || 'UNASSIGNED').toString();
+                    const rDriver = (r[17] || 'UNASSIGNED').toString();
                     const rStAmount = r[34];
                     const rCont = (r[3] || '').toString();
                     const rOrder = (r[5] || '').toString();
@@ -4506,13 +4678,13 @@
                         let netVal = parseFloat(r[39]) || 0;
                         if (netVal <= 0) {
                             const comp = r[15] || '';
-                            const grossPaid = parseFloat(r[23]) || 0;
+                            const grossPaid = parseFloat(r[24]) || 0; // Changed from 23 to 24
                             netVal = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? grossPaid * 0.3 : grossPaid;
                         }
                         totalPaidDriver += netVal;
 
-                        if (r[34] === 'PAID') { // CASH status for Amount is Index 34
-                            totalCash += parseFloat(r[21]) || 0; // Amount is Index 21
+                        if (r[34] === 'PAID' && r[41] === 'COMPLETED') { 
+                            totalCash += parseFloat(r[22]) || 0; // Amount is Index 22
                         }
                     });
 
@@ -4570,29 +4742,30 @@
                         updateSelectionSummary();
                     };
 
-                    // Columns Map: Date(1), Size(2), N.Cont(3), Order(5), City(6), PickUp(7), Delivery(8), Miles(10), Driver(16), PaidDriver(23), Cash(21)
-                    const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 16, 23, 21];
+                    // Columns Map: Date(1), Size(2), N.Cont(3), Order(5), City(6), PickUp(7), Delivery(8), Miles(10), Driver(17), PaidDriver(24), Cash(22)
+                    const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 17, 24, 22];
 
                     cellIndices.forEach((idx, i) => {
                         const td = document.createElement('td');
                         let value = r[idx] || '---';
 
                         // Specific logic for 'Paid Driver' column in Reports: show FINAL NET PAY (Index 39) with fallback
-                        if (idx === 23) {
+                        if (idx === 24) { // Changed from 23 to 24 (Paid Driver Gross)
                             let finalNet = parseFloat(r[39]) || 0;
                             // Fallback calculation in real-time if DB value is 0
                             if (finalNet <= 0) {
                                 const comp = r[15] || ''; // rowData index 15: Company
-                                const gross = parseFloat(r[23]) || 0; // rowData index 23: Paid Driver Gross
+                                const gross = parseFloat(r[24]) || 0; // Changed from 23 to 24
                                 finalNet = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? gross * 0.3 : gross;
                             }
                             value = finalNet;
                         }
 
-                        // Specific logic for the LAST column (Cash): only show if r[34] is PAID
+                        // Specific logic for the LAST column (Cash): only show if r[34] is PAID AND status is COMPLETED
                         if (i === 10) { // Index of 'Cash' column in cellIndices
                             const isCashMarked = (r[34] === 'PAID');
-                            value = isCashMarked ? (r[21] || '---') : '---';
+                            const isCompleted = (r[41] === 'COMPLETED');
+                            value = (isCashMarked && isCompleted) ? (r[22] || '---') : '---';
                         }
 
                         td.textContent = value;
@@ -4950,8 +5123,27 @@
 
             try {
                 if (editingReleaseId) {
-                    await updateRelease(editingReleaseId, relObj);
-                    alert("Release updated successfully!");
+                    const targets = (window.selectedReleaseIds && window.selectedReleaseIds.length > 1) ? window.selectedReleaseIds : [editingReleaseId];
+                    if (targets.length > 1) {
+                        if (!confirm(`¿Actualizar estos ${targets.length} releases con la nueva información?`)) return;
+                    }
+
+                    for (const targetId of targets) {
+                        let finalRelObj = { ...relObj };
+
+                        // Recalculate stock specifically for each release in the selection
+                        const targetRel = currentReleases.find(r => r[15] === targetId);
+                        if (targetRel) {
+                            const oldInitial = (parseInt(targetRel[7]) || 0) + (parseInt(targetRel[9]) || 0) + (parseInt(targetRel[11]) || 0);
+                            const oldStock = parseInt(targetRel[14]) || 0;
+                            const sold = Math.max(0, oldInitial - oldStock);
+                            finalRelObj.total_stock = Math.max(0, qty - sold);
+                        }
+
+                        await updateRelease(targetId, finalRelObj);
+                    }
+                    alert("Releases actualizados correctamente.");
+                    window.selectedReleaseIds = []; // Clear selection after update
                 } else {
                     await addRelease(relObj);
                     alert("Release added successfully!");
@@ -5033,7 +5225,7 @@
             const resetBtn = document.getElementById('btn-reset-release');
             if (resetBtn) resetBtn.style.display = 'block';
 
-            loadReleasesData();
+            applyReleasesFilters();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
@@ -5124,7 +5316,7 @@
             try {
                 const data = await getReleases();
                 currentReleases = data.map(mapReleaseToArray);
-                renderReleasesTable();
+                applyReleasesFilters();
                 refreshReleaseNoFilter(); // Update the filter dropdown
             } catch (err) {
                 console.error("Error loading releases:", err);
@@ -5148,9 +5340,35 @@
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
                 const originalIdx = currentReleases.indexOf(rowData);
-                tr.onclick = () => window.loadReleaseToEdit(originalIdx !== -1 ? originalIdx : 0);
+                tr.onclick = (e) => {
+                    const relId = rowData[15];
+                    const isAlreadySelected = window.selectedReleaseIds.includes(relId);
+                    const isOnlySelected = window.selectedReleaseIds.length === 1 && isAlreadySelected;
+
+                    if (e.ctrlKey) {
+                        if (isAlreadySelected) {
+                            window.selectedReleaseIds = window.selectedReleaseIds.filter(id => id !== relId);
+                        } else {
+                            window.selectedReleaseIds.push(relId);
+                        }
+                    } else {
+                        if (isOnlySelected) {
+                            window.selectedReleaseIds = [];
+                        } else {
+                            window.selectedReleaseIds = [relId];
+                        }
+                    }
+
+                    if (window.selectedReleaseIds.length > 0) {
+                        window.loadReleaseToEdit(originalIdx !== -1 ? originalIdx : 0);
+                    } else {
+                        window.resetReleaseForm();
+                        applyReleasesFilters(); // Re-render to clear highlights
+                    }
+                };
 
                 if (editingReleaseId === rowData[15]) tr.classList.add('editing-row');
+                else if (window.selectedReleaseIds.includes(rowData[15])) tr.classList.add('selected-row');
 
                 // DATA EXTRACTION
                 const initialQty = (parseInt(rowData[7]) || 0) + (parseInt(rowData[9]) || 0) + (parseInt(rowData[11]) || 0);
@@ -6399,7 +6617,8 @@
                 () => window.loadDepotsData?.(),
                 () => window.loadSellersData?.(),
                 () => window.loadFleetData?.(),
-                () => window.loadReleasesData?.()
+                () => window.loadReleasesData?.(),
+                () => window.loadContainerSizesData?.()
             ];
 
             // Run loaders all at once for maximum speed
@@ -6554,6 +6773,28 @@
                         style="background: #1e40af;">ADD</button>
                 </div>
                 <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting a company only removes it from
+                    future entries.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIZE MANAGEMENT MODAL -->
+    <div id="size-manager-modal" class="simple-modal" style="display: none;">
+        <div class="modal-content" style="max-width:350px; border-top-color: #3b82f6;">
+            <div class="modal-header">
+                <h3>Manage Sizes List</h3>
+                <button onclick="closeSizeManager()" class="btn-close-modal">&times;</button>
+            </div>
+            <div id="size-list-body" class="manager-list">
+                <!-- Sizes will be listed here -->
+            </div>
+            <div class="modal-footer">
+                <div class="add-driver-input-row">
+                    <input type="text" id="new-size-name" placeholder="E.G. 53' HC...">
+                    <button onclick="addNewContainerSize()" class="btn-add-driver-confirm"
+                        style="background: #3b82f6;">ADD</button>
+                </div>
+                <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting a size only removes it from
                     future entries.</p>
             </div>
         </div>
