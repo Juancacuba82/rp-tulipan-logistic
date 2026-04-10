@@ -87,7 +87,7 @@
                             totalAdjustedCommission += grossVal; // Contractors get 100%
                         }
 
-                        if (r[34] === 'PAID' && r[41] === 'PAID') { 
+                        if (r[34] === 'PAID') { 
                             totalCash += parseFloat(r[22]) || 0; // Amount is Index 22
                         }
                     });
@@ -163,11 +163,10 @@
                             value = parseFloat(r[24]) || 0;
                         }
 
-                        // Specific logic for the LAST column (Cash): only show if 'CASH' was checked AND Order is Complete (r[41] === 'PAID')
+                        // Specific logic for the LAST column (Cash): only show if 'CASH' was checked (r[34] === 'PAID')
                         if (i === 10) { 
                             const isCashMarked = (r[34] === 'PAID');
-                            const isCompleted = (r[41] === 'PAID'); 
-                            value = (isCashMarked && isCompleted) ? (r[22] || '0.00') : '---';
+                            value = isCashMarked ? (r[22] || '0.00') : '---';
                         }
 
                         td.textContent = value;
