@@ -14,6 +14,13 @@
                 const filtered = allRows.filter(r => {
                     const rDate = r[1];
                     const rDriver = (r[17] || 'UNASSIGNED').toString();
+                    
+                    // ROLE SECURITY: Driver ONLY sees their own name
+                    if (window.currentUserRole === 'driver') {
+                        const drvRef = (window.currentDriverNameRef || '').toLowerCase();
+                        if (rDriver.toLowerCase() !== drvRef) return false;
+                    }
+
                     const rStAmount = r[34];
                     const rCont = (r[3] || '').toString();
                     const rOrder = (r[5] || '').toString();
@@ -23,14 +30,7 @@
                         || rOrder.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
 
-                    // STATUS FILTER LOGIC
-                    const statusFilter = document.getElementById('settlement-status')?.value || 'ALL';
-                    let matchesStatus = true;
-                    if (statusFilter === 'PENDING') matchesStatus = (rStAmount !== 'PAID');
-                    else if (statusFilter === 'PAID') matchesStatus = (rStAmount === 'PAID');
-                    else if (statusFilter === 'VOID') matchesStatus = (rStAmount === 'VOID');
-
-                    return matchesSearch && matchesDate && matchesStatus;
+                    return matchesSearch && matchesDate;
                 });
 
                 if (window.updateWeeklyCalc) window.updateWeeklyCalc();
@@ -281,7 +281,6 @@
             const body = document.getElementById('settlement-history-body');
             const filterValue = (document.getElementById('history-local-filter')?.value || '').toLowerCase();
             const globalDriver = (document.getElementById('filter-search')?.value || '').toLowerCase();
-            const globalStatus = document.getElementById('settlement-status')?.value || '';
             const globalType = document.getElementById('settlement-payment-type')?.value || '';
 
             if (!body) return;
@@ -290,8 +289,16 @@
 
             // Filter data locally if a search term exists (Universal Global Filter Logic)
             const filtered = currentSettlements.filter(s => {
-                const matchLocal = (s.driver_name || '').toLowerCase().includes(filterValue);
-                const matchGlobalDriver = (s.driver_name || '').toLowerCase().includes(globalDriver);
+                const sDrv = (s.driver_name || '').toLowerCase();
+                
+                // ROLE SECURITY: Driver ONLY sees their own history
+                if (window.currentUserRole === 'driver') {
+                    const drvRef = (window.currentDriverNameRef || '').toLowerCase();
+                    if (sDrv !== drvRef) return false;
+                }
+
+                const matchLocal = sDrv.includes(filterValue);
+                const matchGlobalDriver = sDrv.includes(globalDriver);
                 // Currently history table only has driver_name filter but we prepare for others
                 return matchLocal && matchGlobalDriver;
             });
@@ -333,12 +340,13 @@
                     <td style="font-weight: 800; color: ${balanceColor}; font-size: 1.1rem;">
                         $${balance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
                     </td>
+                    ${window.currentUserRole !== 'driver' ? `
                     <td style="text-align: center;">
                         ${window.currentUserRole === 'admin' ? `
                         <button onclick="deleteSettlement('${s.id}')" class="btn-cancel" style="padding: 5px 10px; font-size: 0.7rem; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">
                             <i class="fas fa-trash"></i> DELETE
                         </button>` : '---'}
-                    </td>
+                    </td>` : ''}
                 `;
                 body.appendChild(tr);
             });

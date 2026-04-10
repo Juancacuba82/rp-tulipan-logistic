@@ -1594,6 +1594,151 @@ main {
     .receipt-grid-3 {
         grid-template-columns: 1fr; /* Stack fields on mobile */
     }
+
+    /* Responsive Toolbar for Receipts */
+    .receipt-preview-toolbar {
+        flex-direction: column !important;
+        gap: 15px !important;
+        padding: 15px !important;
+        height: auto !important;
+    }
+    
+    .receipt-preview-toolbar > div {
+        width: 100% !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+    }
+
+    .receipt-preview-toolbar button {
+        width: 100% !important;
+        margin-top: 5px;
+    }
+
+    /* Filters stacking in grid */
+    .docs-filters-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    .date-range-compact {
+        grid-column: span 2 !important;
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    .filter-sel-docs {
+        width: 100% !important;
+        font-size: 0.8rem !important;
+        height: 40px !important;
+    }
+
+    /* Report Filters Responsive */
+    .report-filters-main-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+        padding: 15px !important;
+    }
+    .report-block-left {
+        border-right: none !important;
+        padding-right: 0 !important;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 15px;
+    }
+    .report-block-right {
+        padding-left: 0 !important;
+    }
+
+    /* Settlement History Responsive Fixes */
+    .table-area {
+        padding: 10px !important;
+        margin-top: 20px !important;
+    }
+
+    .table-header-modern {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+
+    .table-search-wrap-modern {
+        width: 100% !important;
+    }
+
+    .drivers-report-table {
+        min-width: 650px !important;
+    }
+}
+
+/* Global Filter Helpers (New Classes) */
+.docs-filters-grid {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.date-range-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+.filter-mini-label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+}
+.date-inputs-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.date-inputs-wrap input[type="date"] {
+    border: none;
+    background: transparent;
+    font-size: 0.75rem;
+    padding: 2px;
+    color: #1e293b;
+    font-weight: 700;
+    width: 110px;
+}
+.date-sep {
+    color: #cbd5e1;
+}
+.filter-sel-docs {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+/* Global Table Area Helpers (New Classes) */
+.table-header-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.table-title-modern {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.4rem;
+    border-left: 4px solid #10b981;
+    padding-left: 15px;
+}
+.table-search-wrap-modern {
+    width: 300px;
+}
+.table-search-wrap-modern input {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-size: 0.9rem;
+    width: 100%;
 }
 
 @media print {

@@ -944,27 +944,29 @@
                         </div>
 
                         <!-- Top Toolbar Filters -->
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; justify-content: center; padding: 0 15px;">
-                            <div style="display:flex; gap:120px; align-items:center; justify-content: center; width: 100%;">
-                                <div style="display:flex; gap:12px; align-items:center;">
-                                    <div style="display: flex; align-items: center; gap: 5px; background: #f8fafc; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                                        <span style="font-size: 0.6rem; font-weight: 800; color: #64748b;">DATES:</span>
-                                        <input type="date" id="trip-from-date" class="form-input" style="padding: 2px 4px; font-size: 0.7rem; width: 105px; border:none; background:transparent;" onchange="loadDocTrips()">
-                                        <span style="color: #cbd5e1;">-</span>
-                                        <input type="date" id="trip-to-date" class="form-input" style="padding: 2px 4px; font-size: 0.7rem; width: 105px; border:none; background:transparent;" onchange="loadDocTrips()">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; justify-content: center; padding: 0 10px;">
+                            <div style="display:flex; gap:15px; align-items:center; justify-content: center; width: 100%; flex-wrap: wrap;">
+                                <div class="docs-filters-grid">
+                                    <div class="date-range-compact">
+                                        <span class="filter-mini-label">DATES:</span>
+                                        <div class="date-inputs-wrap">
+                                            <input type="date" id="trip-from-date" class="form-input" onchange="loadDocTrips()">
+                                            <span class="date-sep">-</span>
+                                            <input type="date" id="trip-to-date" class="form-input" onchange="loadDocTrips()">
+                                        </div>
                                     </div>
                                     
-                                    <select id="docs-driver-dropdown" class="form-input" style="padding: 5px; font-size: 0.75rem; width: 140px; background: #f8fafc;" onchange="loadDocTrips()">
+                                    <select id="docs-driver-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
                                         <option value="">All Drivers</option>
                                     </select>
 
-                                    <select id="docs-status-dropdown" class="form-input" style="padding: 5px; font-size: 0.75rem; width: 120px; background: #f8fafc;" onchange="loadDocTrips()">
+                                    <select id="docs-status-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
                                         <option value="">Status: All</option>
                                         <option value="PENDING_PAYMENT">Pending</option>
                                         <option value="PAID">Complete</option>
                                     </select>
 
-                                    <select id="docs-payment-dropdown" class="form-input" style="padding: 5px; font-size: 0.75rem; width: 125px; background: #f8fafc;" onchange="loadDocTrips()">
+                                    <select id="docs-payment-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
                                         <option value="">Payment: All</option>
                                         <option value="PENDING">Pending</option>
                                         <option value="PAID">Paid</option>
@@ -1437,10 +1439,10 @@
                         </div>
 
                         <!-- NEW: Dual-Block Filter Panel (Excel Style) -->
-                        <div
+                        <div class="report-filters-main-grid"
                             style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                             <!-- Block 1: Report Data (Left) -->
-                            <div style="border-right: 1px solid #f1f5f9; padding-right: 20px;">
+                            <div class="report-block-left" style="border-right: 1px solid #f1f5f9; padding-right: 20px;">
                                 <h4
                                     style="margin-bottom: 15px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
                                     Report Data</h4>
@@ -1475,23 +1477,9 @@
                             </div>
 
                             <!-- Block 2: Payment Status (Right) -->
-                            <div style="padding-left: 10px;">
-                                <h4
-                                    style="margin-bottom: 15px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
-                                    Payment Status</h4>
+                            <div class="report-block-right" style="padding-left: 10px;">
                                 <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.8rem;">
-                                    <!-- Status Pair -->
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <label style="font-weight: 700; color: #1e293b; min-width: 80px;">STATUS</label>
-                                        <select id="settlement-status" class="form-input"
-                                            style="height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 4px; border: 1px solid #e2e8f0; flex: 1;"
-                                            onchange="renderDriverLog(); fetchHistory();">
-                                            <option value="ALL">ALL STATUS</option>
-                                            <option value="PENDING">PENDING</option>
-                                            <option value="PAID">PAID</option>
-                                            <option value="VOID">VOID</option>
-                                        </select>
-                                    </div>
+                                    <!-- Driver Sync Pair -->
                                     <!-- Driver Sync Pair -->
                                     <div style="display: flex; align-items: center; gap: 10px;">
                                         <label style="font-weight: 700; color: #1e293b; min-width: 80px;">DRIVER</label>
@@ -1631,14 +1619,11 @@
 
             <div class="table-area"
                 style="margin-top: 40px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3
-                        style="margin: 0; color: #1e293b; font-size: 1.4rem; border-left: 4px solid #10b981; padding-left: 15px;">
-                        Settlement History</h3>
-                    <div style="width: 300px;">
+                <div class="table-header-modern">
+                    <h3 class="table-title-modern">Settlement History</h3>
+                    <div class="table-search-wrap-modern">
                         <input type="text" id="history-local-filter" class="form-input"
-                            placeholder="Filter by driver..." oninput="renderSettlementHistory()"
-                            style="background: #f8fafc; border: 1px solid #e2e8f0; font-size: 0.9rem;">
+                            placeholder="Filter by driver..." oninput="renderSettlementHistory()">
                     </div>
                 </div>
                 <div class="table-scroll-container">
@@ -1971,11 +1956,9 @@
             const staffOnlySelectors = [
                 'button[onclick*="fleet"]',
                 'button[onclick*="expenses"]',
-                'button[onclick*="reports"]',
                 'button[onclick*="releases"]',
                 'button[onclick*="calendar"]',
                 '#nav-actions-container button[onclick*="fleet"]',
-                '#nav-actions-container button[onclick*="reports"]',
                 '#nav-actions-container button[onclick*="releases"]',
                 '#nav-actions-container button[onclick*="calendar"]'
             ];
@@ -1987,11 +1970,32 @@
                     els.forEach(el => el.style.display = '');
                 });
             } else if (isDriver) {
-                // Driver ONLY sees Docs & Receipts
+                // Driver ONLY sees Docs & Receipts AND Drivers Reports
                 [...adminOnlySelectors, ...staffOnlySelectors].forEach(sel => {
                     const els = document.querySelectorAll(sel);
                     els.forEach(el => el.style.display = 'none');
                 });
+                // Driver should NOT see the driver picker in Docs view
+                const docsDrvSel = document.getElementById('docs-driver-dropdown');
+                if (docsDrvSel) docsDrvSel.style.display = 'none';
+
+                // RESTRICTIONS inside Reports view for Drivers:
+                const archiveBtn = document.querySelector('button[onclick*="archiveSettlement"]');
+                if (archiveBtn) archiveBtn.style.display = 'none';
+                
+                const historyThs = document.querySelectorAll('.drivers-report-table th');
+                if (historyThs.length > 0) historyThs[historyThs.length - 1].style.display = 'none';
+
+                const reportDrvFilterSel = document.getElementById('filter-search');
+                if (reportDrvFilterSel && window.currentDriverNameRef) {
+                    reportDrvFilterSel.value = window.currentDriverNameRef;
+                    if (reportDrvFilterSel.parentElement) reportDrvFilterSel.parentElement.style.display = 'none';
+                    // Trigger internal refreshes to load their data immediately
+                    if (window.syncDriverNames) window.syncDriverNames();
+                    if (window.renderDriverLog) window.renderDriverLog();
+                    if (window.fetchHistory) window.fetchHistory();
+                }
+                
             } else {
                 // Staff (employee/user) sees everything except Profit
                 adminOnlySelectors.forEach(sel => {
@@ -2002,6 +2006,22 @@
                     const els = document.querySelectorAll(sel);
                     els.forEach(el => el.style.display = '');
                 });
+                // Ensure Reports is visible for Staff
+                const reportBtns = document.querySelectorAll('button[onclick*="reports"]');
+                reportBtns.forEach(b => b.style.display = '');
+
+                // Restore items hidden from drivers
+                const archiveBtn = document.querySelector('button[onclick*="archiveSettlement"]');
+                if (archiveBtn) archiveBtn.style.display = '';
+                
+                const historyThs = document.querySelectorAll('.drivers-report-table th');
+                if (historyThs.length > 0) historyThs[historyThs.length - 1].style.display = '';
+
+                const reportDrvFilter = document.getElementById('filter-search')?.parentElement;
+                if (reportDrvFilter) reportDrvFilter.style.display = '';
+
+                const docsDrvSel = document.getElementById('docs-driver-dropdown');
+                if (docsDrvSel) docsDrvSel.style.display = '';
             }
 
             // Toggle Logout button visibility (hidden on auth view)
@@ -2148,6 +2168,11 @@
             if (!window.currentUserRole && finalView !== 'auth') {
                 console.log("Forcing Auth view.");
                 finalView = 'auth';
+            }
+            
+            // Driver Redirection (Hero is too empty for them, go straight to Docs)
+            if (window.currentUserRole === 'driver' && finalView === 'hero') {
+                finalView = 'docs';
             }
 
             // 2. Hide ALL sections
