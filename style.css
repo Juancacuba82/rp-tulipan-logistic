@@ -1955,72 +1955,138 @@ main {
     border-top: 3px solid #22c55e !important;
 }
 
-/* --- WEEKLY SETTLEMENT CALCULATOR (Drivers Reports) --- */
+/* --- MODERN WEEKLY SETTLEMENT CALCULATOR (Drivers Reports) --- */
 .weekly-calculator-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 40px;
-    background: #fff;
-    padding: 30px;
-    border-top: 5px solid #1e293b;
+    gap: 30px;
     margin-top: 40px;
-}
-
-.settlement-calc-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.settlement-calc-table td {
-    border: 2px solid #166534; /* Green border like image */
-    padding: 10px 15px;
-    font-weight: 800;
-    font-size: 1rem;
-    color: #1a1a1a;
-}
-
-.calc-label {
-    background: #fbc7a4; /* Tan/Peach background from image */
-    width: 250px;
-    text-transform: uppercase;
-}
-
-.calc-input-cell input {
-    width: 100%;
-    border: none;
-    outline: none;
-    text-align: right;
-    font-size: 1.1rem;
-    font-weight: 900;
-    font-family: inherit;
     background: transparent;
+    padding: 0;
 }
 
-/* Hide numeric spinners fully */
-.calc-input-cell input::-webkit-inner-spin-button, 
-.calc-input-cell input::-webkit-outer-spin-button { 
-    -webkit-appearance: none;
-    margin: 0;
-}
-.calc-input-cell input[type=number] {
-    -webkit-appearance: none;
-    -moz-appearance: textfield;
-    appearance: none;
-    margin: 0;
+.modern-calc-card {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f1f5f9;
+    position: relative;
+    overflow: hidden;
 }
 
-.calc-result-cell {
-    text-align: right;
+.modern-calc-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+}
+
+.card-blue::before { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+.card-green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-title i {
     font-size: 1.2rem;
+    opacity: 0.8;
+}
+
+.calc-row-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.calc-row-modern:last-of-type { border-bottom: none; }
+
+.calc-label-modern {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.calc-input-modern {
+    width: 140px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: right;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #0f172a;
+    transition: all 0.2s;
+    outline: none;
+}
+
+.calc-input-modern:focus {
+    border-color: #3b82f6;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.calc-result-modern {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: right;
+}
+
+.final-result-box {
+    margin-top: 25px;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.card-blue .final-result-box { background: #eff6ff; border: 1px solid #dbeafe; }
+.card-green .final-result-box { background: #ecfdf5; border: 1px solid #d1fae5; }
+
+.final-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+}
+
+.final-value {
+    font-size: 1.8rem;
     font-weight: 900;
+    letter-spacing: -1px;
 }
 
-.calc-result-cell.yellow-bg {
-    background: #ffff00; /* Yellow highlight from image */
-}
+.card-blue .final-value { color: #1e40af; }
+.card-green .final-value { color: #065f46; }
 
-@media screen and (max-width: 1024px) {
-    .weekly-calculator-container { grid-template-columns: 1fr; gap: 20px; }
+@media (max-width: 1024px) {
+    .weekly-calculator-container { grid-template-columns: 1fr; }
 }
 
 /* RELEASES DATA GRID STYLES */

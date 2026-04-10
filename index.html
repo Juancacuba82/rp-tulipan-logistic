@@ -1057,9 +1057,9 @@
                                             Type</label>
                                         <div style="display: flex; gap: 10px;">
                                             <label style="cursor: pointer;"><input type="radio" name="rel-uni-type"
-                                                    value="DRY" checked> DRY ðŸ”¥</label>
+                                                    value="DRY" checked> DRY <i class="fas fa-fire" style="color: #f59e0b; margin-left: 5px;"></i></label>
                                             <label style="cursor: pointer;"><input type="radio" name="rel-uni-type"
-                                                    value="REEFER"> REF â „ï¸ </label>
+                                                    value="REEFER"> REF <i class="fas fa-snowflake" style="color: #3b82f6; margin-left: 5px;"></i></label>
                                         </div>
                                     </div>
                                     <div
@@ -1068,9 +1068,9 @@
                                             style="display:block; margin-bottom:6px; font-weight:900; color:#475569; text-transform:uppercase;">Condition</label>
                                         <div style="display: flex; gap: 10px;">
                                             <label style="cursor: pointer;"><input type="radio" name="rel-uni-cond"
-                                                    value="NEW" checked> NEW âœ¨</label>
+                                                    value="NEW" checked> NEW <i class="fas fa-star" style="color: #f59e0b; margin-left: 5px;"></i></label>
                                             <label style="cursor: pointer;"><input type="radio" name="rel-uni-cond"
-                                                    value="USED"> USD ðŸ”§</label>
+                                                    value="USED"> USED <i class="fas fa-tools" style="color: #64748b; margin-left: 5px;"></i></label>
                                         </div>
                                     </div>
                                 </div>
@@ -1084,7 +1084,7 @@
                                             Status</span>
                                         <span id="rel-paid-text"
                                             style="font-size: 0.85rem; font-weight: 900; color: #b91c1c;">PENDING
-                                            PURCHASE â ³</span>
+                                            PURCHASE <i class="fas fa-hourglass-half" style="margin-left: 5px;"></i></span>
                                     </div>
                                     <input type="checkbox" id="rel-paid"
                                         style="width: 24px; height: 24px; cursor: pointer; accent-color: #10b981;"
@@ -1097,10 +1097,10 @@
                                         const text = document.getElementById('rel-paid-text');
                                         if (isPaid) {
                                             if (container) { container.style.background = '#f0fdf4'; container.style.borderColor = '#86efac'; }
-                                            if (text) { text.textContent = 'PURCHASE PAID âœ…'; text.style.color = '#15803d'; }
+                                            if (text) { text.innerHTML = 'PURCHASE PAID <i class="fas fa-check-circle" style="color: #15803d; margin-left: 5px;"></i>'; text.style.color = '#15803d'; }
                                         } else {
                                             if (container) { container.style.background = '#fef2f2'; container.style.borderColor = '#fecaca'; }
-                                            if (text) { text.textContent = 'PENDING PURCHASE â ³'; text.style.color = '#b91c1c'; }
+                                            if (text) { text.innerHTML = 'PENDING PURCHASE <i class="fas fa-hourglass-half" style="margin-left: 5px;"></i>'; text.style.color = '#b91c1c'; }
                                         }
                                     }
                                     window.updatePaidBadgeStyle = updatePaidBadgeStyle;
@@ -1173,9 +1173,7 @@
                             style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; width: 100%;">
                             <div class="filter-item">
                                 <label>Release #</label>
-                                <select id="rf-no" class="rel-filter-input" onchange="applyReleasesFilters()">
-                                    <option value="">Loading...</option>
-                                </select>
+                                <input type="text" id="rf-no" class="rel-filter-input" placeholder="Release # or Booking" oninput="applyReleasesFilters()">
                             </div>
                             <div class="filter-item">
                                 <label>Date From</label>
@@ -1191,16 +1189,16 @@
                                 <label>Type</label>
                                 <select id="rf-type" class="rel-filter-input" onchange="applyReleasesFilters()">
                                     <option value="">ALL</option>
-                                    <option value="DRY">DRY ðŸ”¥</option>
-                                    <option value="REEFER">REF â „ï¸ </option>
+                                    <option value="DRY">DRY &#x1F525;</option>
+                                    <option value="REEFER">REF &#x2744;</option>
                                 </select>
                             </div>
                             <div class="filter-item">
                                 <label>Cond</label>
                                 <select id="rf-cond" class="rel-filter-input" onchange="applyReleasesFilters()">
                                     <option value="">ALL</option>
-                                    <option value="NEW">NEW âœ¨</option>
-                                    <option value="USED">USD ðŸ”§</option>
+                                    <option value="NEW">NEW &#x2728;</option>
+                                    <option value="USED">USED &#x1F527;</option>
                                 </select>
                             </div>
                             <div class="filter-item">
@@ -1222,8 +1220,8 @@
                                 <label>Payment</label>
                                 <select id="rf-paid" class="rel-filter-input" onchange="applyReleasesFilters()">
                                     <option value="">ALL</option>
-                                    <option value="PAID">PAID âœ…</option>
-                                    <option value="PENDING">PENDING â ³</option>
+                                    <option value="PAID">PAID &#x2705;</option>
+                                    <option value="PENDING">PENDING &#x23F3;</option>
                                 </select>
                             </div>
                         </div>
@@ -1265,6 +1263,10 @@
                                 <select id="rf-seller" class="rel-filter-input" onchange="applyReleasesFilters()">
                                     <option value="">ALL</option>
                                 </select>
+                            </div>
+                            <div class="filter-item" style="flex: 1; min-width: 130px; display: flex; flex-direction: row; align-items: center; gap: 8px; background: white; padding: 0 10px; border-radius: 6px; border: 1px solid #cbd5e1; height: 32px;">
+                                <input type="checkbox" id="rf-show-zero" onchange="applyReleasesFilters()" style="cursor:pointer; width: 16px; height: 16px;">
+                                <label for="rf-show-zero" style="margin: 0; font-size: 0.65rem; color: #1e293b; font-weight: 800; cursor:pointer;">SHOW EMPTY STOCK</label>
                             </div>
                             <button onclick="resetReleasesFilters()" class="btn-cancel"
                                 style="height: 32px; font-size: 0.7rem; padding: 0 20px; border-radius: 6px;">Clear All
@@ -1548,68 +1550,74 @@
                 </div>
             </div>
 
-            <!-- NEW: Weekly Settlement Calculator (Based on Image Reference) -->
+            <!-- MODERN: Weekly Settlement Calculator -->
             <div class="weekly-calculator-container">
-                <div class="calc-section">
-                    <table class="settlement-calc-table">
-                        <tr>
-                            <td class="calc-label">Cash Collected</td>
-                            <td class="calc-input-cell"><input type="number" id="calc-cash-coll" value="0" step="0.01"
-                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                        </tr>
-                        <tr>
-                            <td class="calc-label">Last Week Balance</td>
-                            <td class="calc-input-cell"><input type="number" id="calc-last-bal" value="0" step="0.01"
-                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                        </tr>
-                        <tr>
-                            <td class="calc-label">Driver Salary</td>
-                            <td class="calc-result-cell" id="res-linked-salary"
-                                style="background: #f8fafc; font-weight: bold; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 4px; padding: 5px 10px; text-align: right;">
-                                $0.00</td>
-                        </tr>
-                        <tr>
-                            <td class="calc-label" style="font-weight: 800;">Cash Balance</td>
-                            <td class="calc-result-cell yellow-bg" id="res-cash-bal">$0.00</td>
-                        </tr>
-                    </table>
+                <!-- Card 1: Balance Summary -->
+                <div class="modern-calc-card card-blue">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-balance-scale"></i> Balance Summary</h3>
+                    </div>
+                    
+                    <div class="calc-row-modern">
+                        <span class="calc-label-modern"><i class="fas fa-hand-holding-usd"></i> Cash Collected</span>
+                        <input type="number" id="calc-cash-coll" class="calc-input-modern" value="0" step="0.01"
+                               oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                               onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                    </div>
+                    
+                    <div class="calc-row-modern">
+                        <span class="calc-label-modern"><i class="fas fa-history"></i> Last Week Balance</span>
+                        <input type="number" id="calc-last-bal" class="calc-input-modern" value="0" step="0.01"
+                               oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                               onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                    </div>
+                    
+                    <div class="calc-row-modern">
+                        <span class="calc-label-modern"><i class="fas fa-wallet"></i> Driver Salary (Deducted)</span>
+                        <span id="res-linked-salary" class="calc-result-modern">$0.00</span>
+                    </div>
+
+                    <div class="final-result-box">
+                        <span class="final-label">Final Cash Balance</span>
+                        <div id="res-cash-bal" class="final-value">$0.00</div>
+                    </div>
                 </div>
 
-                <div class="calc-section">
-                    <table class="settlement-calc-table">
-                        <tr>
-                            <td class="calc-label">Gross</td>
-                            <td class="calc-input-cell"><input type="number" id="calc-gross" value="0" step="0.01"
-                                    oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"></td>
-                        </tr>
-                        <tr>
-                            <td class="calc-label">Factory</td>
-                            <td class="calc-input-cell" style="position: relative;">
-                                <input type="number" id="calc-factory" value="0" step="0.5" oninput="updateWeeklyCalc()"
-                                    onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()"
-                                    style="padding-right: 25px;">
-                                <span
-                                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; color: #64748b; pointer-events: none;">%</span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="calc-label">Weekly Payment</td>
-                            <td class="calc-input-cell">
-                                <input type="number" id="calc-weekly" value="0" step="0.01" oninput="updateWeeklyCalc()"
-                                    onfocus="if(this.value=='0')this.value='';"
-                                    onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="calc-label" style="font-weight: 800;">Driver Salary</td>
-                            <td class="calc-result-cell" id="res-driver-salary" style="background:#fbc7a4; color:#000;">
-                                $0.00</td>
-                        </tr>
-                    </table>
+                <!-- Card 2: Earnings & Deductions -->
+                <div class="modern-calc-card card-green">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-chart-line"></i> Earnings & Deductions</h3>
+                    </div>
+                    
+                    <div class="calc-row-modern">
+                        <span class="calc-label-modern"><i class="fas fa-file-invoice-dollar"></i> Gross Amount</span>
+                        <input type="number" id="calc-gross" class="calc-input-modern" value="0" step="0.01"
+                               oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                               onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                    </div>
+                    
+                    <div class="calc-row-modern">
+                        <span class="calc-label-modern"><i class="fas fa-percentage"></i> Factory Fee</span>
+                        <div style="position: relative; width: 140px;">
+                            <input type="number" id="calc-factory" class="calc-input-modern" style="width: 100%; padding-right: 30px;" 
+                                   value="0" step="0.5" oninput="updateWeeklyCalc()"
+                                   onfocus="if(this.value=='0')this.value='';"
+                                   onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                            <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-weight: 700; color: #64748b;">%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="calc-row-modern">
+                        <span class="calc-label-modern"><i class="fas fa-money-check-alt"></i> Weekly Payment</span>
+                        <input type="number" id="calc-weekly" class="calc-input-modern" value="0" step="0.01" 
+                               oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                               onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                    </div>
+
+                    <div class="final-result-box">
+                        <span class="final-label">Net Driver Salary</span>
+                        <div id="res-driver-salary" class="final-value">$0.00</div>
+                    </div>
                 </div>
             </div>
 

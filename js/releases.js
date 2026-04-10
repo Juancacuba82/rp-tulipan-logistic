@@ -244,15 +244,15 @@
                         td.textContent = text;
                     }
                     else if (idx === 2) { // TYPE
-                        td.style.fontSize = '1.4rem';
-                        if (text === 'DRY') td.innerHTML = `<span title="DRY (Calor)">🔥</span>`;
-                        else if (text === 'REEFER') td.innerHTML = `<span title="REEFER (Frío)">❄️</span>`;
+                        td.style.textAlign = 'center';
+                        if (text === 'DRY') td.innerHTML = `<i class="fas fa-fire" title="DRY" style="color: #f59e0b; font-size: 1.2rem;"></i>`;
+                        else if (text === 'REEFER') td.innerHTML = `<i class="fas fa-snowflake" title="REEFER" style="color: #3b82f6; font-size: 1.2rem;"></i>`;
                         else td.textContent = text;
                     }
                     else if (idx === 3) { // COND
-                        td.style.fontSize = '1.4rem';
-                        if (text === 'NEW') td.innerHTML = `<span title="NEW Condition">✨</span>`;
-                        else td.innerHTML = `<span title="USED Condition">🔧</span>`;
+                        td.style.textAlign = 'center';
+                        if (text === 'NEW') td.innerHTML = `<i class="fas fa-star" title="NEW Condition" style="color: #f59e0b; font-size: 1.2rem;"></i>`;
+                        else td.innerHTML = `<i class="fas fa-tools" title="USED Condition" style="color: #64748b; font-size: 1.2rem;"></i>`;
                     }
                     else if (idx === 'SIZE') {
                         let sizeVal = rowData[16] || '---';
@@ -276,7 +276,7 @@
                         td.style.background = '#f8fafc';
                     }
                     else if (idx === 'PAID') {
-                        td.innerHTML = isPaid ? '<span style="color: #10b981; font-size: 1.2rem;">✅</span>' : '<span style="color: #ef4444; font-size: 1.2rem;">⏳</span>';
+                        td.innerHTML = isPaid ? '<i class="fas fa-check-circle" style="color: #10b981; font-size: 1.2rem;"></i>' : '<i class="fas fa-hourglass-half" style="color: #ef4444; font-size: 1.2rem;"></i>';
                         td.style.textAlign = 'center';
                         td.style.background = '#f8fafc';
                     }
@@ -357,17 +357,20 @@
             const fDepot = document.getElementById('rf-depot').value.toLowerCase();
             const fStock = parseInt(document.getElementById('rf-stock').value) || 0;
             const fSeller = document.getElementById('rf-seller').value.toLowerCase();
+            const fShowZero = document.getElementById('rf-show-zero')?.checked || false;
 
             const ids = ['rf-no', 'rf-date-from', 'rf-date-to', 'rf-type', 'rf-cond', 'rf-size', 'rf-paid', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'];
             ids.forEach(id => {
                 const el = document.getElementById(id);
-                if (el.value !== '') el.classList.add('rel-filter-active');
-                else el.classList.remove('rel-filter-active');
+                if (el && el.value !== '') el.classList.add('rel-filter-active');
+                else if (el) el.classList.remove('rel-filter-active');
             });
 
             const filtered = currentReleases.filter(r => {
                 let match = true;
-                const curStock = (parseInt(r[7]) || 0) + (parseInt(r[9]) || 0) + (parseInt(r[11]) || 0);
+                const curStock = parseInt(r[14]) || 0; // Use total_stock column
+
+                if (!fShowZero && curStock <= 0) match = false;
 
                 // Use detailed size (index 16) for filtering
                 let rowSize = (r[16] || '---').trim();
@@ -414,26 +417,7 @@
         window.applyReleasesFilters = applyReleasesFilters;
 
         function refreshReleaseNoFilter() {
-            const sel = document.getElementById('rf-no');
-            if (!sel || !currentReleases) return;
-            const currentVal = sel.value;
-
-            // Get unique Release Numbers from index 0
-            const uniqueReleases = [...new Set(currentReleases.map(r => (r[0] || '').trim()))]
-                .filter(r => r !== '' && r !== '---')
-                .sort();
-
-            sel.innerHTML = '<option value="">ALL</option>';
-            uniqueReleases.forEach(rel => {
-                const opt = document.createElement('option');
-                opt.value = rel;
-                opt.textContent = rel;
-                sel.appendChild(opt);
-            });
-
-            if (currentVal && uniqueReleases.includes(currentVal)) {
-                sel.value = currentVal;
-            }
+            // Function logic removed: rf-no is now a manual text input instead of a dropdown.
         }
         window.refreshReleaseNoFilter = refreshReleaseNoFilter;
 
@@ -442,7 +426,9 @@
                 const el = document.getElementById(id);
                 if (el) { el.value = ''; el.classList.remove('rel-filter-active'); }
             });
-            renderReleasesTable();
+            const zeroCheck = document.getElementById('rf-show-zero');
+            if (zeroCheck) zeroCheck.checked = false;
+            applyReleasesFilters();
         };
         window.loadReleasesData = loadReleasesData; // Expose globally
         // Mobile menu behavior is handled by global toggleMobileMenu and closeMenu functions.

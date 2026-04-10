@@ -69,49 +69,58 @@
                         return;
                     }
 
-                    let totalPaidDriver = 0;
+                    let totalPaidDriverGross = 0; // Sum of raw Paid Driver (Index 24)
+                    let totalAdjustedCommission = 0; // Contractor (100%) or RP/JR (30%)
                     let totalCash = 0;
 
                     selectedIndices.forEach(idx => {
                         const r = filtered[idx];
-                        // Use final_driver_pay (Index 39) with fallback for calculation
-                        let netVal = parseFloat(r[39]) || 0;
-                        if (netVal <= 0) {
-                            const comp = r[15] || '';
-                            const grossPaid = parseFloat(r[24]) || 0; // Changed from 23 to 24
-                            netVal = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? grossPaid * 0.3 : grossPaid;
-                        }
-                        totalPaidDriver += netVal;
+                        const grossVal = parseFloat(r[24]) || 0;
+                        const company = (r[16] || '').trim().toUpperCase(); // CORRECT INDEX: baseValues[15] is rowData[16]
 
-                        if (r[34] === 'PAID' && r[41] === 'COMPLETED') { 
+                        totalPaidDriverGross += grossVal;
+
+                        // Apply 30% logic based on Company
+                        if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+                            totalAdjustedCommission += grossVal * 0.3;
+                        } else {
+                            totalAdjustedCommission += grossVal; // Contractors get 100%
+                        }
+
+                        if (r[34] === 'PAID' && r[41] === 'PAID') { 
                             totalCash += parseFloat(r[22]) || 0; // Amount is Index 22
                         }
                     });
 
-                    // SYNC WITH CALCULATOR (New Sync Logic)
+                    // SYNC WITH CALCULATOR
                     const calcGross = document.getElementById('calc-gross');
                     const calcCashColl = document.getElementById('calc-cash-coll');
-                    if (calcGross) calcGross.value = totalPaidDriver.toFixed(2);
+                    
+                    if (calcGross) {
+                        // REQUIREMENT: Gross Amount field shows 100% of the sum
+                        calcGross.value = totalPaidDriverGross.toFixed(2);
+                        // We store the Adjusted Commission base as a hidden attribute for math
+                        calcGross.dataset.adjusted = totalAdjustedCommission.toFixed(2);
+                    }
                     if (calcCashColl) calcCashColl.value = totalCash.toFixed(2);
 
                     // Trigger the math for Balance and Driver Salary results
                     if (window.updateWeeklyCalc) window.updateWeeklyCalc();
 
-                    const finalNet = totalPaidDriver - totalCash;
+                    const finalNet = totalPaidDriverGross - totalCash;
 
                     // Create Summary Row
                     const summaryTr = document.createElement('tr');
                     summaryTr.id = 'dl-selection-summary';
                     summaryTr.className = 'selection-summary-row';
                     summaryTr.innerHTML = `
-                        <td colspan="9" style="text-align:right;">Selected Summary (${selectedIndices.size} trips):</td>
-                        <td style="color: #4ade80;">$${finalNet.toFixed(2)}</td>
-                        <td></td>
+                        <td colspan="9" style="text-align:right;">Selected Gross Summary (${selectedIndices.size} trips):</td>
+                        <td style="color: #4ade80;">$${totalPaidDriverGross.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td>$${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     `;
 
                     // Update Main Calculator Inputs
                     if (cashCollInput) cashCollInput.value = totalCash.toFixed(2);
-                    if (grossInput) grossInput.value = totalPaidDriver.toFixed(2);
                     if (window.updateWeeklyCalc) window.updateWeeklyCalc();
 
                     // Insert after the last selected actual row in the DOM
@@ -149,23 +158,16 @@
                         const td = document.createElement('td');
                         let value = r[idx] || '---';
 
-                        // Specific logic for 'Paid Driver' column in Reports: show FINAL NET PAY (Index 39) with fallback
-                        if (idx === 24) { // Changed from 23 to 24 (Paid Driver Gross)
-                            let finalNet = parseFloat(r[39]) || 0;
-                            // Fallback calculation in real-time if DB value is 0
-                            if (finalNet <= 0) {
-                                const comp = r[15] || ''; // rowData index 15: Company
-                                const gross = parseFloat(r[24]) || 0; // Changed from 23 to 24
-                                finalNet = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? gross * 0.3 : gross;
-                            }
-                            value = finalNet;
+                        // Specific logic for 'Paid Driver' column in Reports: show raw Paid Driver (Index 24)
+                        if (idx === 24) { 
+                            value = parseFloat(r[24]) || 0;
                         }
 
-                        // Specific logic for the LAST column (Cash): only show if r[34] is PAID AND status is COMPLETED
-                        if (i === 10) { // Index of 'Cash' column in cellIndices
+                        // Specific logic for the LAST column (Cash): only show if 'CASH' was checked AND Order is Complete (r[41] === 'PAID')
+                        if (i === 10) { 
                             const isCashMarked = (r[34] === 'PAID');
-                            const isCompleted = (r[41] === 'COMPLETED');
-                            value = (isCashMarked && isCompleted) ? (r[22] || '---') : '---';
+                            const isCompleted = (r[41] === 'PAID'); 
+                            value = (isCashMarked && isCompleted) ? (r[22] || '0.00') : '---';
                         }
 
                         td.textContent = value;
@@ -217,15 +219,18 @@
             }
 
             // 1. Right Side Calculation (Settlement)
-            const gross = parseFloat(elGross.value) || 0;
+            const displayGross = parseFloat(elGross.value) || 0;
+            // Requirement: Math base is the adjusted commission (30% logic) if present, else fallback to displayed gross
+            const mathGross = parseFloat(elGross.dataset.adjusted) || displayGross;
+            
             const factoryPct = parseFloat(elFactory.value) || 0;
             const weeklyPayment = parseFloat(elWeekly.value) || 0;
 
-            const factoringFee = gross * (factoryPct / 100);
-            const settlementSalary = gross - factoringFee - weeklyPayment;
+            const factoringFee = mathGross * (factoryPct / 100);
+            const settlementSalary = mathGross - factoringFee - weeklyPayment;
 
             // Updated RIGHT result box
-            resSalary.textContent = `$${settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+            resSalary.textContent = `$${settlementSalary.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
             // 2. Link RIGHT result to LEFT 'Driver Salary' display
             const linkedDisplay = document.getElementById('res-linked-salary');

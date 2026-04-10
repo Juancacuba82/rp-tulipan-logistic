@@ -414,8 +414,10 @@
                     const currentVal = relSel.value;
                     relSel.innerHTML = '<option value="" disabled selected>Select Release...</option>';
 
-                    // Sort releases by number before displaying
-                    const sortedReleases = [...currentReleases].sort((a, b) => (a[0] || '').localeCompare(b[0] || ''));
+                    // REQUIREMENT: Filter ONLY releases with stock > 0 and sort
+                    const sortedReleases = currentReleases
+                        .filter(r => (parseInt(r[14]) || 0) > 0) // Index 14 is total_stock
+                        .sort((a, b) => (a[0] || '').localeCompare(b[0] || ''));
 
                     sortedReleases.forEach(r => {
                         const relNo = r[0] || '---';
