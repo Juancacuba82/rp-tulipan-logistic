@@ -25,12 +25,15 @@
                     const rCont = (r[3] || '').toString();
                     const rOrder = (r[5] || '').toString();
 
+                    const rStatus = r[41];
+
                     const matchesSearch = !searchTerm || rDriver.toLowerCase().includes(searchTerm)
                         || rCont.toLowerCase().includes(searchTerm)
                         || rOrder.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
+                    const isComplete = (rStatus === 'PAID');
 
-                    return matchesSearch && matchesDate;
+                    return matchesSearch && matchesDate && isComplete;
                 });
 
                 if (window.updateWeeklyCalc) window.updateWeeklyCalc();
