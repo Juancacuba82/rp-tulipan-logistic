@@ -1,0 +1,1057 @@
+// --- IMMEDIATE SYNC FOR EDIT MODE ---
+        async function syncImmediate(fieldName, value) {
+            if (editingIndex === null) return;
+            const tripId = editingTripDbId;
+            if (!tripId) return;
+
+            const updateData = {};
+            updateData[fieldName] = value;
+            if (fieldName === 'st_amount') updateData.paid = (value === 'PAID');
+
+            // --- PAY VALIDATION LOGIC ---
+            if (['st_yard', 'st_rate', 'st_sales'].includes(fieldName)) {
+                const isYard = document.getElementById('in-yardpaid').checked;
+                const isRate = document.getElementById('in-ratepaid').checked;
+                const isSales = document.getElementById('in-salespaid').checked;
+                updateData.status = (isYard && isRate && isSales) ? 'PAID' : 'PENDING_PAYMENT';
+            }
+
+            try {
+                console.log(`Syncing ${fieldName} -> ${value} for ${tripId}`);
+                await updateTrip(tripId, updateData);
+                await loadTableData();
+                
+                // --- DOCUMENT PREVIEW SYNC ---
+                if (window.currentDocTrip && window.currentDocTrip[0] === tripId) {
+                    const updatedTrip = currentTrips.find(t => t[0] === tripId);
+                    if (updatedTrip) {
+                        window.currentDocTrip = updatedTrip;
+                        if (window.drawReceipt) window.drawReceipt();
+                    }
+                }
+            } catch (err) {
+                console.error("Immediate sync failed:", err);
+                alert("DATABASE ERROR: " + (err.message || "Failed to sync field " + fieldName));
+            }
+        }
+        window.syncImmediate = syncImmediate;
+
+        let isSaving = false;
+        async function addRow() {
+            if (isSaving) return;
+
+            const tripBtn = getTripArchiveButton();
+            const labelSpan = tripBtn?.querySelector('.btn-archive-order-label');
+            if (tripBtn) {
+                tripBtn.disabled = true;
+                if (labelSpan) labelSpan.textContent = 'Saving…';
+                tripBtn.style.opacity = '0.7';
+            }
+            isSaving = true;
+
+            if (editingIndex === null) {
+                // Only auto-generate Order if user hasn't typed one
+                const ordInput = document.getElementById('in-order');
+                if (!ordInput.value || ordInput.value.trim() === '') {
+                    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                    let ordSuffix = '';
+                    for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+                    ordInput.value = 'ORD-' + ordSuffix;
+                }
+            }
+            const fields = [
+                'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer',
+                'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
+                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                'in-paiddriver', 'in-note',
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
+            ];
+
+            // 0. UNIQUE CONTAINER VALIDATION REMOVED
+
+
+            // 1. GRANULAR INVENTORY VALIDATION (BLOQUEO POR MEDIDA + TIPO + CONDICIÓN)
+            const relSel = document.getElementById('in-release-sel');
+            const relMan = document.getElementById('in-release');
+            const selectedRelease = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
+
+            const custSel = document.getElementById('in-customer-sel');
+            const custMan = document.getElementById('in-customer');
+            const selectedCustomer = (custMan && custMan.style.display !== 'none') ? custMan.value : (custSel ? custSel.value : '');
+
+            const pickupSel = document.getElementById('in-pickup-sel');
+            const pickupMan = document.getElementById('in-pickup');
+            const selectedPickup = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
+
+            const selectedSize = document.getElementById('in-size').value;
+            const selectedRelType = document.getElementById('in-rel-type').value;
+            const selectedRelCond = document.getElementById('in-rel-condition').value;
+
+            // STOCK DEDUCTION CRITERIA: SALE/RENT, RELEASE PRESENT, ALL PAID, NOT YARD-SERVICE-ONLY
+            const yardEl = document.getElementById('in-yard');
+            const yardVal = yardEl ? yardEl.value : (document.getElementById('in-flag1')?.checked ? 'YES' : 'NO');
+            const yardOnly = yardVal === 'YES' && (parseFloat(document.getElementById('in-sales')?.value || '0') === 0);
+            const modeVal = document.getElementById('in-mode')?.value || 'SALE';
+            const isDeductionCandidate = (selectedRelease && selectedRelease !== '---' && !yardOnly && (modeVal === 'SALE' || modeVal === 'RENT'));
+            const isYardPaid = document.getElementById('in-yardpaid').checked;
+            const isRatePaid = document.getElementById('in-ratepaid').checked;
+            const isSalesPaid = document.getElementById('in-salespaid').checked;
+            const isAmountPaid = document.getElementById('in-amountpaid').checked;
+
+            const stYard = isYardPaid ? 'PAID' : 'PEND';
+            const stRent = document.getElementById('in-rentpaid')?.checked ? 'PAID' : 'PEND';
+            const stRate = isRatePaid ? 'PAID' : 'PEND';
+            const stSales = isSalesPaid ? 'PAID' : 'PEND';
+            const stAmount = (document.getElementById('in-amountpaid') && document.getElementById('in-amountpaid').checked) ? 'PAID' : 'PEND';
+
+            // The status toggle (swish) is the MASTER finalization flag.
+            // Green = order finalized (money visible in Profit Report, stock deducted if sale)
+            // Red  = order pending  (money hidden from Profit Report, no stock deduction)
+            const finalizeVal = document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT';
+            const isFinalized = finalizeVal === 'PAID';
+            const globalStatus = isFinalized ? 'PAID' : 'PENDING_PAYMENT';
+
+            // Stock deduction only triggers when the toggle is switched TO green AND
+            // it is a new order or was previously not finalized
+            let newlyFinalized = false;
+            let newlyPending = false;
+
+            if (editingIndex !== null) {
+                const oldRow = currentTrips[editingIndex];
+                if (oldRow) {
+                    const wasFinalized = (oldRow[41] === 'PAID');
+                    if (isFinalized && !wasFinalized) newlyFinalized = true;
+                    if (!isFinalized && wasFinalized) newlyPending = true;
+                }
+            } else {
+                if (isFinalized) newlyFinalized = true;
+            }
+
+            // TRIGGER LOGIC: Deduct on NEW trip if deduction candidate.
+            // On EDITS, only trigger if status changes to PAID (newlyFinalized) or reverts (newlyPending).
+            // But for simplicity and consistency, let's deduct whenever a release is used.
+            const triggerStockUpdate = (editingIndex === null && isDeductionCandidate) || (newlyFinalized && isDeductionCandidate);
+            const triggerStockRevert = newlyPending && isDeductionCandidate;
+
+            // Stock validation: run whenever an order involves a Release
+            if (isDeductionCandidate) {
+                if (!selectedRelType || !selectedRelCond) {
+                    alert("ERROR: Para movimientos con Release, debes seleccionar TIPO y CONDICIÓN para validar stock.");
+                    isSaving = false;
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
+
+                // Ensure releases are loaded
+                if (!currentReleases || currentReleases.length === 0) {
+                    if (window.loadReleasesData) await loadReleasesData();
+                }
+
+                if (currentReleases && currentReleases.length > 0) {
+                    // SIMPLIFIED MATCHING: Just use Release # and Exact Size
+                    let matchingRows = currentReleases.filter(r =>
+                        r[0] === selectedRelease &&
+                        (r[16] || '').trim() === selectedSize.trim()
+                    );
+
+                    // Fallback to size-based heuristic if no specific size match
+                    if (matchingRows.length === 0) {
+                        matchingRows = currentReleases.filter(r => r[0] === selectedRelease);
+                        if (selectedSize.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
+                        else if (selectedSize.startsWith("40")) matchingRows = matchingRows.filter(r => (parseInt(r[9]) > 0));
+                        else if (selectedSize.startsWith("45")) matchingRows = matchingRows.filter(r => (parseInt(r[11]) > 0));
+                    }
+
+                    if (matchingRows.length > 0) {
+                        let totalStockFound = 0;
+                        let dbField = '';
+                        let sizeBase = '';
+                        let stockIdx = -1;
+
+                        if (selectedSize.startsWith("20")) { stockIdx = 7; dbField = 'qty_20'; sizeBase = "20'"; }
+                        else if (selectedSize.startsWith("40")) { stockIdx = 9; dbField = 'qty_40'; sizeBase = "40'"; }
+                        else if (selectedSize.startsWith("45")) { stockIdx = 11; dbField = 'qty_45'; sizeBase = "45'"; }
+
+                        if (stockIdx !== -1) {
+                            // VALIDATION: Check total_stock (index 14) instead of initial investment columns
+                            totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[14]) || 0), 0);
+
+                            // Bypass for editing same order
+                            let bypassStockCheck = false;
+                            if (editingIndex !== null) {
+                                const old = currentTrips[editingIndex];
+                                if (old && old[4] === selectedRelease && old[2] === selectedSize && old[44] === selectedRelType && old[45] === selectedRelCond) {
+                                    bypassStockCheck = true;
+                                }
+                            }
+
+                            if (totalStockFound <= 0 && !bypassStockCheck) {
+                                alert(`Sin stock disponible para contenedores de ${selectedSize} en la combinación ${selectedRelType}/${selectedRelCond}.`);
+                                isSaving = false;
+                                restoreTripArchiveButtonUI();
+                                return;
+                            }
+
+                            // Preparation for actual deduction/reversion
+                            if (triggerStockUpdate || triggerStockRevert) {
+                                const change = triggerStockUpdate ? -1 : 1;
+                                // ALWAYS update total_stock, NEVER touch the initial investment columns (qty_20, etc)
+                                window.calculatedNewStock = (parseInt(matchingRows[0][14]) || 0) + change;
+                                window.stockUpdateField = 'total_stock';
+                                window.targetReleaseNo = selectedRelease;
+                                window.targetReleaseId = matchingRows[0][15]; // DB UUID
+                            }
+                        }
+                    } else {
+                        console.log("Saving order with manual/external release (no exact stock match found).");
+                    }
+                }
+            } else if (isDeductionCandidate && !isFinalized) {
+                console.log("Stock deduction skipped: swish is RED (order not finalized).");
+            }
+
+
+            // --- Final Data Construction (Fixed Absolute 44-Index Map) ---
+            const baseValues = fields.map(id => {
+                const el = document.getElementById(id);
+                return el ? el.value || '---' : '---';
+            });
+
+            // CRITICAL FIX: Ensure hybrid Release #, Pickup and Customer are correctly captured in baseValues
+            baseValues[3] = selectedRelease || '---';
+            baseValues[6] = selectedPickup || '---';
+            baseValues[10] = selectedCustomer || '---';
+
+            // Calculate Pending Balance (matches logic in report view)
+            let pending = 0;
+            if (stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0;
+            if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate')?.value || '0') || 0;
+            if (stSales === 'PEND') pending += parseFloat(document.getElementById('in-sales')?.value || '0') || 0;
+            if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount')?.value || '0') || 0;
+            if (stRent === 'PEND' && (document.getElementById('in-mode')?.value || '') === 'RENT') {
+                pending += parseFloat(document.getElementById('in-mrate')?.value || '0') || 0;
+            }
+
+            const rowData = [
+                editingTripDbId || '',                  // 0: trip_id
+                ...baseValues.slice(0, 28),             // 1-28: Fields 0-27 (Date to StartDateRent)
+                baseValues[28],                          // 29: Next Due (Fields[28])
+                stYard,                                  // 30
+                stRent,                                  // 31
+                stRate,                                  // 32
+                stSales,                                 // 33
+                stAmount,                                // 34
+                pending.toFixed(2),                      // 35: Pending Balance
+                document.getElementById('in-email')?.value || '---',  // 36
+                document.getElementById('in-truck')?.value || '---',  // 37
+                document.getElementById('in-trailer')?.value || '---',// 38
+                calculateFinalPay(baseValues[15], parseFloat(baseValues[23]) || 0), // 39 (Company at fields[15], Gross at fields[23])
+                isYardPaid,                              // 40
+                globalStatus,                            // 41
+                document.getElementById('in-flag2').checked ? 'YES' : 'NO', // 42
+                document.getElementById('in-flag3').checked ? 'YES' : 'NO', // 43
+                document.getElementById('in-rel-type')?.value || '---',    // 44
+                document.getElementById('in-rel-condition')?.value || '---',// 45
+                document.getElementById('in-yard-cash').checked,          // 46
+                document.getElementById('in-rate-cash').checked,          // 47
+                document.getElementById('in-sales-cash').checked,         // 48
+                document.getElementById('in-showtax')?.checked || false,   // 49
+                parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0, // 50
+                document.getElementById('in-hideamounts')?.checked || false, // 51
+                document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND' // 52
+            ];
+
+            const dbObj = mapArrayToTrip(rowData);
+
+            // --- SUPABASE INTEGRATION ---
+            try {
+                if (editingIndex !== null) {
+                    const targets = (window.selectedTripIds && window.selectedTripIds.length > 1) ? window.selectedTripIds : [editingTripDbId];
+                    if (targets.length > 1) {
+                        if (!confirm(`¿Deseas aplicar estos cambios a los ${targets.length} viajes seleccionados?`)) {
+                            isSaving = false;
+                            restoreTripArchiveButtonUI();
+                            return;
+                        }
+                    }
+
+                    for (const idToUp of targets) {
+                        const { error } = await db.from('trips').update(dbObj).eq('trip_id', idToUp);
+                        if (error) {
+                            console.error(`Error updating trip ${idToUp}:`, error.message);
+                        }
+                    }
+                    editingIndex = null;
+                    editingTripDbId = null;
+                    window.selectedTripIds = []; // Clear selection after bulk update
+                } else {
+                    const newId = newTripIdForDb();
+                    dbObj.trip_id = newId;
+                    const { error } = await db.from('trips').insert([dbObj]);
+                    if (error) {
+                        console.error("SUPABASE INSERT ERROR:", error.message, error.details);
+                        alert(`Error insertando en DB: ${error.message}.`);
+                        isSaving = false;
+                        restoreTripArchiveButtonUI();
+                        return;
+                    }
+                }
+
+
+
+                // STOCK UPDATE EXECUTION (Deduction OR Reversion)
+                if ((triggerStockUpdate || triggerStockRevert) && window.stockUpdateField && window.calculatedNewStock !== undefined) {
+                    const upObj = {};
+                    upObj[window.stockUpdateField] = window.calculatedNewStock;
+
+                    const logMsg = triggerStockUpdate ? `Executing Stock Deduction (-1)` : `Executing Stock Reversion (+1)`;
+                    console.log(`${logMsg} in ${window.stockUpdateField} for release ${window.targetReleaseNo}`);
+
+                    await db.from('releases')
+                        .update(upObj)
+                        .eq('id', window.targetReleaseId);
+
+                    // Clean up
+                    delete window.stockUpdateField;
+                    delete window.calculatedNewStock;
+                    delete window.targetReleaseNo;
+                    delete window.targetReleaseType;
+                    delete window.targetReleaseCond;
+                    delete window.targetReleaseId;
+                }
+
+                alert('¡ORDEN CONFIRMADA CORRECTAMENTE!');
+                console.log("Trip saved successfully to Supabase.");
+
+                // --- AUTOMATED EMAIL TRIGGER ---
+                const sendChecked = document.getElementById('in-sendemail')?.checked;
+                if (sendChecked) {
+                    if (window.generatePDFFromData) {
+                        window.generatePDFFromData(rowData).then(blob => {
+                            if (blob) window.sendReceiptEmail(rowData, blob);
+                        }).catch(e => console.error("Email trigger err:", e));
+                    }
+                }
+
+                resetForm();
+                await loadTableData();
+                if (window.loadReleasesData) await window.loadReleasesData();
+                if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+                if (window.updateAddressDatalist) window.updateAddressDatalist();
+                if (window.renderDriverLog) window.renderDriverLog();
+
+                alert("¡ORDEN GUARDADA CORRECTAMENTE!");
+            } catch (err) {
+                console.error("Failed to save trip:", err);
+                alert("DATABASE ERROR: " + (err.message || "Unknown error"));
+            } finally {
+                isSaving = false;
+                restoreTripArchiveButtonUI();
+            }
+        }
+
+        function resetForm() {
+            editingIndex = null;
+            editingTripDbId = null;
+
+            const fieldsToClear = [
+                'in-ncont', 'in-release', 'in-order', 'in-delivery', 'in-miles',
+                'in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount',
+                'in-phone', 'in-note', 'in-mrate', 'in-taxpercent'
+            ];
+
+            fieldsToClear.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (id === 'in-taxpercent') {
+                        el.value = '7';
+                    } else {
+                        el.value = (id.includes('rate') || id === 'in-sales' || id === 'in-amount' || id === 'in-miles') ? '0' : '';
+                    }
+                }
+            });
+
+            // Reset checkboxes
+            const checks = [
+                'in-flag1', 'in-flag2', 'in-flag3', 'in-yardpaid', 'in-rentpaid',
+                'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-yard-cash',
+                'in-rate-cash', 'in-sales-cash', 'in-showtax', 'in-hideamounts', 'in-taxpaid'
+            ];
+            checks.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.checked = false;
+                }
+            });
+
+            // Reset display states
+            toggleYardRate();
+            toggleTransport();
+            toggleSalesPrice();
+            updateStatusColor('PEND');
+
+            // Set default date to today
+            const dt = document.getElementById('in-date');
+            if (dt) dt.value = new Date().toISOString().split('T')[0];
+
+            if (document.getElementById('in-release-sel')) toggleReleaseMode('list');
+            if (document.getElementById('in-pickup-sel')) togglePickupAddressMode('list');
+            if (document.getElementById('in-customer-sel')) toggleCustomerMode('list');
+
+            restoreTripArchiveButtonUI();
+        }
+        window.resetForm = resetForm;
+
+        window.addRow = addRow;
+
+        window.updateReleaseDatalist = function () {
+            const relSel = document.getElementById('in-release-sel');
+            const relList = document.getElementById('release-list');
+            if (currentReleases.length > 0) {
+                // Populate Hybrid Select (Design matches CITY)
+                if (relSel) {
+                    const currentVal = relSel.value;
+                    relSel.innerHTML = '<option value="" disabled selected>Select Release...</option>';
+
+                    // Sort releases by number before displaying
+                    const sortedReleases = [...currentReleases].sort((a, b) => (a[0] || '').localeCompare(b[0] || ''));
+
+                    sortedReleases.forEach(r => {
+                        const relNo = r[0] || '---';
+                        const city = r[6] || '---';
+                        const size = r[16] || '---';
+                        const displayText = `${relNo} - ${size} - ${city}`;
+
+                        const opt = document.createElement('option');
+                        opt.value = relNo;
+                        opt.textContent = displayText;
+                        relSel.appendChild(opt);
+                    });
+                    if (currentVal) relSel.value = currentVal;
+                }
+                // Fallback datalist for manual mode or other views
+                if (relList) {
+                    relList.innerHTML = '';
+                    currentReleases.forEach(r => {
+                        const opt = document.createElement('option');
+                        opt.value = r[0]; // Release # is index 0
+                        relList.appendChild(opt);
+                    });
+                }
+            }
+        }
+
+        // --- DYNAMIC SIZE FILTER BASED ON RELEASE STOCK ---
+        const setupReleaseValidation = () => {
+            const relSel = document.getElementById('in-release-sel');
+            const relMan = document.getElementById('in-release');
+            const inSizeSelect = document.getElementById('in-size');
+            const relType = document.getElementById('in-rel-type');
+            const relCond = document.getElementById('in-rel-condition');
+
+            const validateStockUI = () => {
+                const selectedRel = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
+                const selectedSize = inSizeSelect ? inSizeSelect.value : '';
+                const selectedRelType = relType?.value;
+                const selectedRelCond = relCond?.value;
+                const tripBtn = getTripArchiveButton();
+                const labelSpan = tripBtn?.querySelector('.btn-archive-order-label');
+
+                if (!tripBtn || (labelSpan && labelSpan.textContent === 'Saving…')) return;
+
+                if (!selectedRel || selectedRel === '---' || !selectedSize || !selectedRelType || !selectedRelCond) {
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
+                if (currentReleases.length === 0) {
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
+
+                // Filter rows by Release No, Type, and Condition
+                const matchingRows = currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
+                if (matchingRows.length === 0) {
+                    restoreTripArchiveButtonUI();
+                    tripBtn.title = 'Entrada de Release externa (no registrada en Form Releases).';
+                    return;
+                }
+
+                // Match exact specific size (Index 16)
+                const exactSizeRows = matchingRows.filter(r => (r[16] || '').trim() === selectedSize.trim());
+
+                let idx = -1;
+                if (selectedSize.startsWith("20")) { idx = 7; sizeBase = "20'"; }
+                else if (selectedSize.startsWith("40")) { idx = 9; sizeBase = "40'"; }
+                else if (selectedSize.startsWith("45")) { idx = 11; sizeBase = "45'"; }
+
+                if (exactSizeRows.length > 0) {
+                    totalStock = exactSizeRows.reduce((sum, r) => sum + (parseInt(r[idx]) || 0), 0);
+                } else if (idx !== -1) {
+                    // Fallback to generic matching if no specific size records exist yet
+                    totalStock = matchingRows.reduce((sum, r) => sum + (parseInt(r[idx]) || 0), 0);
+                }
+
+                let bypass = false;
+                if (editingIndex !== null) {
+                    const oldTripData = currentTrips[editingIndex];
+                    if (oldTripData && oldTripData[4] === selectedRel && oldTripData[2] === selectedSize && oldTripData[44] === selectedRelType && oldTripData[45] === selectedRelCond) {
+                        bypass = true;
+                    }
+                }
+
+                if (totalStock <= 0 && !bypass) {
+                    tripBtn.disabled = true;
+                    tripBtn.style.opacity = '0.5';
+                    if (labelSpan) labelSpan.textContent = 'No stock';
+                    tripBtn.title = `Sin stock para ${sizeBase || 'esta medida'}.`;
+                    if (editingIndex !== null) tripBtn.classList.add('btn-update');
+                } else {
+                    tripBtn.disabled = false;
+                    tripBtn.style.opacity = '1';
+                    tripBtn.title = editingIndex !== null ? 'Save changes to this trip' : 'Save trip to database';
+                    restoreTripArchiveButtonUI();
+                }
+            };
+
+            window.refreshTripArchiveStockUi = validateStockUI;
+
+            const autoPopulateFromRelease = () => {
+                const selectedRel = relSel.value;
+                if (!selectedRel || selectedRel === '---') return;
+
+                // Find the first matching release to pull data from
+                const matchingRow = currentReleases.find(r => r[0] === selectedRel);
+                if (matchingRow) {
+                    // 1. Auto-fill City (index 6)
+                    const inCity = document.getElementById('in-city');
+                    if (inCity) inCity.value = matchingRow[6] || '';
+
+                    // 2. Auto-fill Size (index 16)
+                    const inSize = document.getElementById('in-size');
+                    if (inSize && matchingRow[16] && matchingRow[16] !== '---') {
+                        inSize.value = matchingRow[16];
+                    }
+
+                    // 3. Auto-fill Pickup From (index 4 - Depot Name)
+                    const inPickup = document.getElementById('in-pickup');
+                    if (inPickup) inPickup.value = matchingRow[4] || '';
+
+                    // 5. Auto-fill Type (index 2)
+                    const inType = document.getElementById('in-rel-type');
+                    if (inType) inType.value = matchingRow[2] || 'DRY';
+
+                    // 6. Auto-fill Condition (index 3)
+                    const inCond = document.getElementById('in-rel-condition');
+                    if (inCond) inCond.value = matchingRow[3] || 'USED';
+                }
+                // Trigger stock validation after auto-filling
+                validateStockUI();
+            };
+
+            const changeElements = [relSel, relMan, inSizeSelect, relType, relCond];
+            changeElements.forEach(el => {
+                if (el) {
+                    el.addEventListener('change', (e) => {
+                        if (el === relSel) autoPopulateFromRelease();
+                        else validateStockUI();
+                    });
+                }
+            });
+
+            const updateReleaseSizes = () => {
+                const selectedRel = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
+                const selectedRelType = relType?.value;
+                const selectedRelCond = relCond?.value;
+
+                if (currentReleases.length === 0) return;
+
+                // Get all rows matching this release #, type, and condition
+                const matchingRows = currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
+
+                Array.from(inSizeSelect.options).forEach(opt => {
+                    const val = opt.value;
+                    if (!val) return;
+
+                    // Check if there is ANY stock for this specific variant
+                    const specificRows = matchingRows.filter(r => (r[16] || '').trim() === val.trim());
+                    let hasStock = false;
+
+                    if (specificRows.length > 0) {
+                        hasStock = specificRows.some(r => (parseInt(r[7]) || parseInt(r[9]) || parseInt(r[11])) > 0);
+                    } else {
+                        // Fallback: Check base size stock if no specific record exists
+                        let idx = -1;
+                        if (val.startsWith("20")) idx = 7;
+                        else if (val.startsWith("40")) idx = 9;
+                        else if (val.startsWith("45")) idx = 11;
+
+                        if (idx !== -1) {
+                            hasStock = matchingRows.some(r => (parseInt(r[idx]) || 0) > 0);
+                        }
+                    }
+
+                    opt.disabled = !hasStock;
+                    opt.style.display = hasStock ? 'block' : 'none';
+                });
+            };
+
+            if (relSel) relSel.addEventListener('change', updateReleaseSizes);
+            if (relMan) relMan.addEventListener('input', updateReleaseSizes);
+        };
+        setupReleaseValidation();
+
+        function updateAddressDatalist() {
+            const addressList = document.getElementById('address-list');
+            if (currentTrips.length > 0 && addressList) {
+                const rows = currentTrips;
+                const storedValues = rows.map(r => r[7]).filter(val => val && val !== '---');
+                const existingOptions = Array.from(addressList.options).map(opt => opt.value);
+                const uniqueNewOnes = [...new Set(storedValues)].filter(val => !existingOptions.includes(val));
+                uniqueNewOnes.forEach(addr => {
+                    const opt = document.createElement('option'); opt.value = addr;
+                    addressList.appendChild(opt);
+                });
+            }
+        }
+
+        function loadTripToEdit(idx) {
+            if (!currentTrips[idx]) return;
+            const rowData = currentTrips[idx];
+
+            editingIndex = idx;
+            const tripId = rowData[0];
+            if (!tripId || tripId === '---') {
+                console.error("CRITICAL: Selected trip row is missing its TRIP_ID at index 0.", rowData);
+            }
+            editingTripDbId = tripId || null;
+
+            const fields = [
+                'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
+                'in-delivery', 'in-doors', 'in-miles', 'in-customer',
+                'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
+                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                'in-paiddriver', 'in-note',
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
+            ];
+
+            fields.forEach((id, i) => {
+                const el = document.getElementById(id);
+                const v = rowData[i + 1];
+                if (el) {
+                    if (id === 'in-release') {
+                        // Hybrid Logic: Check if value exists in Select
+                        const sel = document.getElementById('in-release-sel');
+                        let exists = false;
+                        if (sel) {
+                            for (let opt of sel.options) {
+                                if (opt.value === v) { exists = true; break; }
+                            }
+                        }
+                        if (exists && v !== '---' && v !== '') {
+                            toggleReleaseMode('list');
+                            sel.value = v;
+                        } else {
+                            toggleReleaseMode('manual');
+                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                        }
+                    } else if (id === 'in-customer') {
+                        // Hybrid Logic for Customer
+                        const sel = document.getElementById('in-customer-sel');
+                        let exists = false;
+                        if (sel) {
+                            for (let opt of sel.options) {
+                                if (opt.value === v) { exists = true; break; }
+                            }
+                        }
+                        if (exists && v !== '---' && v !== '') {
+                            toggleCustomerMode('list');
+                            sel.value = v;
+                        } else {
+                            toggleCustomerMode('manual');
+                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                        }
+                    } else if (id === 'in-pickup') {
+                        // Hybrid Logic for Pickup Address
+                        const sel = document.getElementById('in-pickup-sel');
+                        let exists = false;
+                        if (sel) {
+                            for (let opt of sel.options) {
+                                if (opt.value === v) { exists = true; break; }
+                            }
+                        }
+                        if (exists && v !== '---' && v !== '') {
+                            togglePickupAddressMode('list');
+                            sel.value = v;
+                        } else {
+                            togglePickupAddressMode('manual');
+                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                        }
+                    } else {
+                        el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                    }
+                }
+            });
+            // Final check to ensure stock label updates
+            if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
+
+            // Set Additional Fields (rel_type, rel_condition)
+            if (document.getElementById('in-rel-type')) document.getElementById('in-rel-type').value = rowData[44] === '---' ? '' : (rowData[44] || '');
+            if (document.getElementById('in-rel-condition')) document.getElementById('in-rel-condition').value = rowData[45] === '---' ? '' : (rowData[45] || '');
+
+            // Re-trigger Toggles based on values loaded (Fixed Absolute Indices)
+            const isYardChecked = (rowData[12] === 'YES');
+            const isTransChecked = (rowData[42] === 'YES');
+            const isSalesChecked = (rowData[43] === 'YES');
+
+            document.getElementById('in-flag1').checked = isYardChecked;
+            document.getElementById('in-flag2').checked = isTransChecked;
+            document.getElementById('in-flag3').checked = isSalesChecked;
+
+            toggleYardRate();
+            toggleTransport();
+            toggleSalesPrice();
+
+
+            // Set Checkboxes (Fixed Absolute Indices)
+            if (document.getElementById('in-status-toggle')) {
+                const sval = rowData[41] || 'PENDING_PAYMENT';
+                document.getElementById('in-status-toggle').value = sval;
+                updateStatusColor(sval);
+            }
+
+            document.getElementById('in-yardpaid').checked = (rowData[30] === 'PAID');
+            document.getElementById('in-rentpaid').checked = (rowData[31] === 'PAID');
+            document.getElementById('in-ratepaid').checked = (rowData[32] === 'PAID');
+            document.getElementById('in-salespaid').checked = (rowData[33] === 'PAID');
+            document.getElementById('in-amountpaid').checked = (rowData[34] === 'PAID');
+
+            // Set Cash Method Flags
+            document.getElementById('in-yard-cash').checked = (rowData[46] === true || rowData[46] === 'true');
+            document.getElementById('in-rate-cash').checked = (rowData[47] === true || rowData[47] === 'true');
+            document.getElementById('in-sales-cash').checked = (rowData[48] === true || rowData[48] === 'true');
+
+            // Tax Settings
+            const showTax = document.getElementById('in-showtax');
+            if (showTax) {
+                const tv = rowData[49];
+                showTax.checked = (tv === true || tv === 'true' || tv === 'YES' || tv === 'on' || tv === 1);
+            }
+            const taxPerc = document.getElementById('in-taxpercent');
+            if (taxPerc) {
+                taxPerc.value = rowData[50] || 7;
+            }
+
+            // Hide Amounts on Receipt Settings
+            const hideAmts = document.getElementById('in-hideamounts');
+            if (hideAmts) {
+                const hv = rowData[51];
+                hideAmts.checked = (hv === true || hv === 'true' || hv === 'YES' || hv === 'on' || hv === 1);
+            }
+
+            // Set Tax Paid Checkbox (Index 52)
+            const taxPaid = document.getElementById('in-taxpaid');
+            if (taxPaid) {
+                taxPaid.checked = (rowData[52] === 'PAID');
+            }
+
+            // Removed DRIVER Payout Status as requested
+
+            const emailInput = document.getElementById('in-email');
+            if (emailInput) {
+                const ev = rowData[36]; // Correctly mapped to index 36 from mapTripToArray
+                emailInput.value = (ev === '---' || ev === undefined || ev === null) ? '' : ev;
+            }
+
+            // Price per Day (Index 43 in mapTripToArray)
+            const ppdInput = document.getElementById('in-priceperday');
+            if (ppdInput) {
+                ppdInput.value = (rowData[43] === undefined || rowData[43] === null) ? 0 : rowData[43];
+            }
+
+            // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
+
+            // Refresh UI States
+            toggleModeFields();
+            updateDriverCommission();
+
+            setTripArchiveButton({ label: 'Update order', isUpdate: true, disabled: false, opacity: 1, title: 'Save changes to this trip' });
+            if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
+
+            // Highlighting Row (Removing redundant loadTableData call)
+            // loadTableData();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        let isLoadingTable = false;
+        async function loadTableData() {
+            window.loadTableData = loadTableData;
+            if (isLoadingTable) return;
+            isLoadingTable = true;
+
+            const logisticsBody = document.getElementById('table-body');
+            if (!logisticsBody) { isLoadingTable = false; return; }
+
+            // Fetch from Supabase FIRST
+            try {
+                const data = await getTrips();
+                console.log("Calendar View DEBUG: Records from Supabase ->", data ? data.length : 0);
+
+                // Clear ONLY when data is ready
+                logisticsBody.innerHTML = '';
+
+                // Populating dynamic filters
+                populateFilterPickers();
+
+                currentTrips = data.map(mapTripToArray);
+
+                // --- CALC SYNC: Recalculate based on ALL Trips loaded (Initial Load) ---
+                if (window.renderDriverLog) window.renderDriverLog();
+
+                currentTrips.forEach((rowData, idx) => {
+                    try {
+                        const tr = document.createElement('tr');
+                        const mode = rowData[26];
+                        const stYard = rowData[30];
+                        const stRate = rowData[32];
+                        const stSales = rowData[33];
+                        const stAmount = rowData[34];
+                        const nextDueVal = rowData[29];
+                        const email = rowData[36];
+
+                        tr.dataset.styard = stYard || 'PEND';
+                        tr.dataset.strent = rowData[31] || 'PEND';
+                        tr.dataset.strate = stRate || 'PEND';
+                        tr.dataset.stsales = stSales || 'PEND';
+                        tr.dataset.stamount = stAmount || 'PEND';
+                        tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
+
+                        // Numerical values to handle $0.00 entries in filters
+                        tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
+                        tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;
+                        tr.dataset.rateval = parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0;
+                        tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
+                        tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
+
+                        // Display columns (DB UUID at rowData[0] omitted; no Mode column — starts with Date)
+                        const displayData = [
+                            rowData[1],     // 0: Date
+                            rowData[2],     // 1: Size
+                            rowData[3],     // 2: N. Cont
+                            rowData[4],     // 3: Release #
+                            rowData[5],     // 4: Order
+                            rowData[6],     // 5: City
+                            rowData[7],     // 6: Pick Up Address
+                            rowData[8],     // 7: Delivery Place
+                            rowData[9],     // 8: Doors Direction
+                            rowData[10],    // 9: Miles
+                            rowData[11],    // 10: Customer
+                            rowData[13],    // 11: Yard Rate
+                            rowData[14],    // 12: Price per Day
+                            rowData[15],    // 13: Date Out
+                            rowData[16],    // 14: Company
+                            rowData[17],    // 15: Driver
+                            rowData[18],    // 16: Trans. Pay
+                            rowData[20],    // 17: Sales Price
+                            rowData[22],    // 18: Amount
+                            rowData[23],    // 19: Phone #
+                            rowData[24],    // 20: Paid Driver
+                            rowData[25],    // 21: Note
+                            email           // 22: Email
+                        ];
+
+                        displayData.forEach((text, i) => {
+                            const td = document.createElement('td');
+
+                            // Money formatting for specific columns: [11-YardRate, 12-PricePerDay, 16-TransPay, 17-SalesPrice, 18-Amount, 20-PaidDriver]
+                            if ([11, 12, 16, 17, 18, 20].includes(i)) {
+                                const val = parseFloat(text) || 0;
+                                td.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                                td.style.fontWeight = 'bold';
+                                if (i === 11) { // Yard Rate
+                                    const isClear = (stYard === 'PAID' || val <= 0.01);
+                                    const isCash = !!rowData[46];
+                                    const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                                    const iconColor = isCash ? '#059669' : '#3b82f6';
+                                    td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = isClear ? '#166534' : '#991b1b';
+                                } else if (i === 12) { // Price per Day
+                                    const isClear = (rowData[31] === 'PAID' || val <= 0.01);
+                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = isClear ? '#166534' : '#991b1b';
+                                } else if (i === 16) { // Trans Pay
+                                    const isClear = (stRate === 'PAID' || val <= 0.01);
+                                    const isCash = !!rowData[47];
+                                    const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                                    const iconColor = isCash ? '#059669' : '#3b82f6';
+                                    td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = isClear ? '#166534' : '#991b1b';
+                                } else if (i === 17) { // Sales Price
+                                    const isClear = (stSales === 'PAID' || val <= 0.01);
+                                    const isCash = !!rowData[48];
+                                    const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                                    const iconColor = isCash ? '#059669' : '#3b82f6';
+                                    td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = isClear ? '#166534' : '#991b1b';
+                                } else if (i === 18) { // Amount
+                                    // NO Background color as requested. Just Icons:
+                                    const iconClass = (stAmount === 'PAID') ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                                    const iconColor = (stAmount === 'PAID') ? '#059669' : '#3b82f6';
+                                    td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${stAmount === 'PAID' ? 'CASH' : 'BANK TRANSFER'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                                }
+                            } else {
+                                td.textContent = text;
+                            }
+
+                            tr.appendChild(td);
+                        });
+
+                        // Action Column: Delete button
+                        const actionTd = document.createElement('td');
+                        const delBtn = document.createElement('button');
+                        delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        delBtn.className = 'btn-cancel';
+                        delBtn.style.padding = '4px 8px';
+                        delBtn.onclick = async (e) => {
+                            e.stopPropagation();
+                            if (!confirm('¿Seguro que quieres borrar este viaje? Esta acción no se puede deshacer.')) return;
+                            try {
+                                await deleteTrip(rowData[0]); // This is trip_id
+                                alert("Viaje eliminado");
+                                await loadTableData();
+                            } catch (err) {
+                                alert("Error al borrar: " + err.message);
+                            }
+                        };
+                        actionTd.appendChild(delBtn);
+                        tr.appendChild(actionTd);
+
+                        tr.style.cursor = 'pointer';
+                        tr.onclick = (e) => {
+                            const tripId = rowData[0];
+                            const isAlreadySelected = window.selectedTripIds.includes(tripId);
+                            const isOnlySelected = window.selectedTripIds.length === 1 && isAlreadySelected;
+
+                            if (e.ctrlKey) {
+                                if (isAlreadySelected) {
+                                    window.selectedTripIds = window.selectedTripIds.filter(id => id !== tripId);
+                                } else {
+                                    window.selectedTripIds.push(tripId);
+                                }
+                            } else {
+                                if (isOnlySelected) {
+                                    window.selectedTripIds = [];
+                                } else {
+                                    window.selectedTripIds = [tripId];
+                                }
+                            }
+
+                            if (window.selectedTripIds.length > 0) {
+                                loadTripToEdit(idx);
+                            } else {
+                                editingIndex = null;
+                                editingTripDbId = null;
+                                if (window.resetForm) window.resetForm();
+                            }
+
+                            // Dynamic Highlighting Refresh
+                            document.querySelectorAll('#table-body tr').forEach((row, rIdx) => {
+                                const rData = currentTrips[rIdx];
+                                row.classList.remove('editing-row', 'selected-row');
+                                if (editingIndex === rIdx) row.classList.add('editing-row');
+                                else if (window.selectedTripIds.includes(rData?.[0])) row.classList.add('selected-row');
+                            });
+                        };
+                        if (editingIndex === idx || window.selectedTripIds.includes(rowData[0])) {
+                            tr.classList.add(editingIndex === idx ? 'editing-row' : 'selected-row');
+                        }
+
+                        // OVERDUE RENT HIGHLIGHTING
+                        if (mode === 'RENT' && nextDueVal !== '---' && new Date(nextDueVal + 'T00:00:00') < new Date()) {
+                            tr.style.backgroundColor = '#fff7ed';
+                            tr.style.border = '2px solid #f97316';
+                        }
+                        logisticsBody.appendChild(tr);
+                    } catch (rowErr) {
+                        console.error("Rendering error for row", idx, rowErr);
+                    }
+                });
+                // Apply existing filters if any (for real-time persistence)
+                applyAdvancedFilters();
+            } catch (err) {
+                console.error("Error loading table:", err);
+            } finally {
+                isLoadingTable = false;
+            }
+        }
+
+        let reportShowUnpaidOnly = false;
+        function togglePendingFilter() {
+            reportShowUnpaidOnly = !reportShowUnpaidOnly;
+            const btn = document.getElementById('btn-pending-only');
+            btn.style.background = reportShowUnpaidOnly ? '#fee2e2' : '#fff';
+            btn.style.borderColor = reportShowUnpaidOnly ? '#ef4444' : '#cbd5e1';
+            renderDriverLog();
+        }
+
+        async function resetReportFilters() {
+            // RELOAD AS ULTIMATE RESET:
+            // This clears the manual calculator, JS variables and resets input fields
+            // The app will stay on "reports" view thanks to localStorage persistence.
+            window.location.reload();
+        }
+
+        async function markTripAsPaid(tripId) {
+            const tripIdx = currentTrips.findIndex(r => r[0] === tripId);
+            if (tripIdx !== -1) {
+                // Toggle status (Index 42)
+                const newStatus = (currentTrips[tripIdx][42] === 'PAID') ? 'PENDING' : 'PAID';
+
+                try {
+                    await updateTrip(tripId, { payout_status: newStatus });
+                    await loadTableData(); // Sync calendar table and local cache
+                    renderDriverLog();
+                } catch (e) {
+                    console.error("Payout toggle failed:", e);
+                    alert("Failed to update payout status in database.");
+                }
+            }
+        }
+
+        async function settleDriverGroup(driverName) {
+            if (!confirm(`Are you sure you want to mark ALL pending trips for ${driverName} as PAID?`)) return;
+
+            const toUpdate = currentTrips.filter(r => (r[16] || 'UNASSIGNED') === driverName && r[42] !== 'PAID');
+
+            try {
+                // Bulk update logic: Sequential for safety or Promise.all
+                const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PAID' }));
+                await Promise.all(promises);
+                await loadTableData();
+                renderDriverLog();
+                alert(`Settled ${toUpdate.length} trips for ${driverName}`);
+            } catch (e) {
+                console.error("Group settlement failed:", e);
+                alert("Some trips failed to update. Check console.");
+            }
+        }
+
+        async function revertDriverGroup(driverName) {
+            if (!confirm(`Do you want to REVERT all trips for ${driverName} back to PENDING?`)) return;
+
+            const toUpdate = currentTrips.filter(r => (r[16] || 'UNASSIGNED') === driverName && r[42] === 'PAID');
+
+            try {
+                const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PENDING' }));
+                await Promise.all(promises);
+                await loadTableData();
+                renderDriverLog();
+                alert(`Reverted ${toUpdate.length} trips to pending.`);
+            } catch (e) {
+                console.error("Group revert failed:", e);
+            }
+        }
+
