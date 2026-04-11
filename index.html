@@ -2223,9 +2223,15 @@
                 target.style.setProperty('display', displayType, 'important');
 
                 // Navbar styling
+                const navActions = document.getElementById('nav-actions-container');
                 if (header) {
-                    if (finalView === 'hero') header.classList.remove('navbar-fixed-solid');
-                    else header.classList.add('navbar-fixed-solid');
+                    if (finalView === 'hero') {
+                        header.classList.remove('navbar-fixed-solid');
+                        if (navActions) navActions.style.display = 'none';
+                    } else {
+                        header.classList.add('navbar-fixed-solid');
+                        if (navActions) navActions.style.display = (finalView === 'auth') ? 'none' : 'flex';
+                    }
                 }
 
                 if (finalView !== 'auth') localStorage.setItem('activeSection', finalView);
