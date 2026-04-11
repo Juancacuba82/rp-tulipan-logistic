@@ -23,6 +23,11 @@
                 paid.checked = false;
                 if (window.updatePaidBadgeStyle) window.updatePaidBadgeStyle(false);
             }
+            const isCash = document.getElementById('rel-is-cash');
+            if (isCash) {
+                isCash.checked = false;
+                if (window.updateCashBadgeStyle) window.updateCashBadgeStyle(false);
+            }
 
             loadReleasesData();
         };
@@ -37,7 +42,19 @@
             document.getElementById('rel-city').value = (row[6] === '---') ? '' : row[6];
             document.getElementById('rel-depot').value = (row[4] === '---') ? '' : row[4];
             document.getElementById('rel-address').value = (row[5] === '---') ? '' : row[5];
-            document.getElementById('rel-seller').value = (row[13] === '---') ? '' : row[13];
+            // Seller Loading Logic (Robust)
+            const sellerSel = document.getElementById('rel-seller');
+            const sellerVal = (row[13] === '---' || !row[13]) ? '' : row[13].toString().trim();
+            if (sellerSel) {
+                let exists = Array.from(sellerSel.options).some(opt => opt.value === sellerVal);
+                if (!exists && sellerVal) {
+                    const opt = document.createElement('option');
+                    opt.value = sellerVal;
+                    opt.textContent = sellerVal;
+                    sellerSel.appendChild(opt);
+                }
+                sellerSel.value = sellerVal;
+            }
 
             // Populate Unified Size/Qty/Price
             const sizeDetail = document.getElementById('rel-size-detail');
@@ -57,6 +74,11 @@
             if (paid) {
                 paid.checked = !!row[17];
                 if (window.updatePaidBadgeStyle) window.updatePaidBadgeStyle(paid.checked);
+            }
+            const isCash = document.getElementById('rel-is-cash');
+            if (isCash) {
+                isCash.checked = !!row[18];
+                if (window.updateCashBadgeStyle) window.updateCashBadgeStyle(isCash.checked);
             }
 
             const btn = document.querySelector('#releases-view .btn-add-sidebar');
@@ -157,7 +179,12 @@
 
             try {
                 const data = await getReleases();
-                currentReleases = data.map(mapReleaseToArray);
+                const sorted = (data || []).sort((a, b) => {
+                    const dateA = new Date(a.date || '1970-01-01');
+                    const dateB = new Date(b.date || '1970-01-01');
+                    return dateB - dateA;
+                });
+                currentReleases = sorted.map(mapReleaseToArray);
                 applyReleasesFilters();
                 refreshReleaseNoFilter(); // Update the filter dropdown
             } catch (err) {
@@ -232,7 +259,14 @@
                     const td = document.createElement('td');
                     let text = rowData[idx];
 
-                    if (idx === 1 && text && text !== '---') { // DATE
+                    if (idx === 0) { // RELEASE NO with icon
+                        const isCash = rowData[18] || false;
+                        const iconHtml = isCash 
+                            ? `<i class="fas fa-money-bill-wave" style="color: #059669; margin-right: 8px;"></i>` 
+                            : `<i class="fas fa-university" style="color: #3b82f6; margin-right: 8px;"></i>`;
+                        td.innerHTML = `${iconHtml} <span style="font-weight: 700;">${text}</span>`;
+                    }
+                    else if (idx === 1 && text && text !== '---') { // DATE
                         try {
                             const d = new Date(text + 'T00:00:00');
                             if (!isNaN(d.getTime())) {

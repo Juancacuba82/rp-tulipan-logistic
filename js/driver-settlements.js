@@ -533,7 +533,8 @@
                 seller: slr,
                 total_stock: finalStock,
                 container_size: fullSize,
-                paid: document.getElementById('rel-paid').checked
+                paid: document.getElementById('rel-paid').checked,
+                is_cash: document.getElementById('rel-is-cash').checked
             };
 
             try {

@@ -936,7 +936,8 @@
                 r.city || '---', r.qty_20 || 0, r.price_20 || 0, r.qty_40 || 0, r.price_40 || 0,
                 r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0, r.id,
                 r.container_size || '---',
-                r.paid || false // Index 17
+                r.paid || false, // Index 17
+                r.is_cash || false // Index 18
             ];
         }
 
@@ -959,7 +960,7 @@
                 seller: row[13],
                 total_stock: parseInt(row[14]) || 0,
                 container_size: row[16] || '---',
-                paid: row[17] || false
+                paid: row[17] || false,
+                is_cash: row[18] || false
             };
         }
-

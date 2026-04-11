@@ -846,7 +846,7 @@
 
                             <!-- Text Live Filters -->
                             <div class="filter-item">
-                                <label>NÂ° Cont</label>
+                                <label>N. CONT</label>
                                 <input type="text" id="f-ncont" oninput="applyAdvancedFilters()" placeholder="Search Cont..." 
                                     style="padding: 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; font-weight: 600; width: 100%;">
                             </div>
@@ -1077,35 +1077,65 @@
                                     </div>
                                 </div>
                                 <!-- SIMPLIFIED PAYMENT STATUS BADGE -->
-                                <label for="rel-paid"
-                                    style="margin-top: 10px; padding: 12px 15px; background: #fef2f2; border: 2px solid #fecaca; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.3s ease;"
-                                    id="rel-paid-container">
-                                    <div style="display: flex; flex-direction: column;">
-                                        <span
-                                            style="font-size: 0.6rem; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Payment
-                                            Status</span>
-                                        <span id="rel-paid-text"
-                                            style="font-size: 0.85rem; font-weight: 900; color: #b91c1c;">PENDING
-                                            PURCHASE <i class="fas fa-hourglass-half" style="margin-left: 5px;"></i></span>
-                                    </div>
-                                    <input type="checkbox" id="rel-paid"
-                                        style="width: 24px; height: 24px; cursor: pointer; accent-color: #10b981;"
-                                        onchange="updatePaidBadgeStyle(this.checked)">
-                                </label>
+                                <!-- SIMPLIFIED PAYMENT & METHOD BADGES -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
+                                    <label for="rel-paid"
+                                        style="padding: 10px; background: #fef2f2; border: 2px solid #fecaca; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.3s ease;"
+                                        id="rel-paid-container">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 0.55rem; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Payment</span>
+                                            <span id="rel-paid-text" style="font-size: 0.75rem; font-weight: 900; color: #b91c1c;">PENDING <i class="fas fa-hourglass-half"></i></span>
+                                        </div>
+                                        <input type="checkbox" id="rel-paid" style="width: 20px; height: 20px; cursor: pointer; accent-color: #10b981;" onchange="updatePaidBadgeStyle(this.checked)">
+                                    </label>
+
+                                    <label for="rel-is-cash"
+                                        style="padding: 10px; background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.3s ease;"
+                                        id="rel-cash-container">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Method</span>
+                                            <span id="rel-cash-text" style="font-size: 0.75rem; font-weight: 900; color: #475569;">ONLINE <i class="fas fa-university"></i></span>
+                                        </div>
+                                        <input type="checkbox" id="rel-is-cash" style="width: 20px; height: 20px; cursor: pointer; accent-color: #f59e0b;" onchange="updateCashBadgeStyle(this.checked)">
+                                    </label>
+                                </div>
 
                                 <script>
                                     function updatePaidBadgeStyle(isPaid) {
                                         const container = document.getElementById('rel-paid-container');
                                         const text = document.getElementById('rel-paid-text');
+                                        if (!container || !text) return;
                                         if (isPaid) {
-                                            if (container) { container.style.background = '#f0fdf4'; container.style.borderColor = '#86efac'; }
-                                            if (text) { text.innerHTML = 'PURCHASE PAID <i class="fas fa-check-circle" style="color: #15803d; margin-left: 5px;"></i>'; text.style.color = '#15803d'; }
+                                            container.style.background = '#f0fdf4';
+                                            container.style.borderColor = '#bbf7d0';
+                                            text.style.color = '#166534';
+                                            text.innerHTML = 'PURCHASED <i class="fas fa-check-circle"></i>';
                                         } else {
-                                            if (container) { container.style.background = '#fef2f2'; container.style.borderColor = '#fecaca'; }
-                                            if (text) { text.innerHTML = 'PENDING PURCHASE <i class="fas fa-hourglass-half" style="margin-left: 5px;"></i>'; text.style.color = '#b91c1c'; }
+                                            container.style.background = '#fef2f2';
+                                            container.style.borderColor = '#fecaca';
+                                            text.style.color = '#b91c1c';
+                                            text.innerHTML = 'PENDING <i class="fas fa-hourglass-half"></i>';
+                                        }
+                                    }
+                                    
+                                    function updateCashBadgeStyle(isCash) {
+                                        const container = document.getElementById('rel-cash-container');
+                                        const text = document.getElementById('rel-cash-text');
+                                        if (!container || !text) return;
+                                        if (isCash) {
+                                            container.style.background = '#fffbeb';
+                                            container.style.borderColor = '#fef3c7';
+                                            text.style.color = '#92400e';
+                                            text.innerHTML = 'CASH <i class="fas fa-money-bill-wave"></i>';
+                                        } else {
+                                            container.style.background = '#f1f5f9';
+                                            container.style.borderColor = '#e2e8f0';
+                                            text.style.color = '#475569';
+                                            text.innerHTML = 'ONLINE <i class="fas fa-university"></i>';
                                         }
                                     }
                                     window.updatePaidBadgeStyle = updatePaidBadgeStyle;
+                                    window.updateCashBadgeStyle = updateCashBadgeStyle;
                                 </script>
                             </div>
                         </div>

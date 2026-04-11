@@ -554,7 +554,7 @@ main {
     min-width: 3000px; /* Wide logistics table */
     border-collapse: collapse;
     font-family: var(--font-main);
-    font-size: 0.72rem;
+    font-size: 0.8rem;
 }
 
 .header-row th {
@@ -574,8 +574,8 @@ main {
 #table-body td {
     padding: 10px 14px;
     border: 1px solid #dee2e6;
-    color: #111827;
-    font-weight: 500;
+    color: #000000;
+    font-weight: 700;
     text-align: center;
     vertical-align: middle;
     white-space: nowrap;
@@ -651,9 +651,9 @@ main {
 /* Primary Sidebar Labels (e.g. Date, City, Depot) */
 .sidebar-form .form-group label {
     flex: 0 0 160px;
-    font-size: 0.82rem;
-    font-weight: 800;
-    color: #1e293b;
+    font-size: 0.85rem;
+    font-weight: 900;
+    color: #000000;
     text-align: left;
     display: flex;
     align-items: center;
@@ -859,12 +859,14 @@ main {
     min-width: 0; /* Allow shrinking in flex containers */
     height: 30px;
     padding: 4px 12px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #94a3b8;
     border-radius: 4px;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-family: inherit;
     outline: none;
-    background-color: #f8fafc;
+    background-color: #ffffff;
+    color: #000000;
+    font-weight: 700;
     transition: all 0.2s ease;
     box-sizing: border-box !important; /* Critical for alignment */
 }
@@ -1437,7 +1439,8 @@ main {
     border: 1px solid #84cc16; /* Light green border as in image */
     text-align: center;
     white-space: nowrap;
-    color: #000;
+    color: #000000;
+    font-weight: 700;
 }
 
 .drivers-report-table tr:nth-child(even) td {
@@ -1878,13 +1881,16 @@ main {
 
 .fleet-table th {
     background-color: #f1f5f9;
-    color: #475569;
+    color: #1e293b;
     font-size: 0.75rem;
     text-transform: uppercase;
+    font-weight: 900;
 }
 
 .fleet-table td {
     font-size: 0.8rem;
+    color: #000000;
+    font-weight: 700;
     border-bottom: 1px solid #f1f5f9;
 }
 
@@ -2250,6 +2256,8 @@ main {
     text-align: center;
     vertical-align: middle;
     font-size: 0.8rem;
+    color: #000000;
+    font-weight: 700;
 }
 
 #releases-table thead th {
