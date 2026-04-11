@@ -49,9 +49,12 @@
             }
             isSaving = true;
 
+            const isTransport = document.getElementById('in-flag2').checked;
             const compVal = document.getElementById('in-company').value;
-            if (!compVal || compVal === '---') {
-                alert("ERROR: Debes seleccionar una compañía para poder crear o guardar la orden.");
+
+            // Company is only MANDATORY if it's a transport-related order
+            if (isTransport && (!compVal || compVal === '---')) {
+                alert("ERROR: Debes seleccionar una compañía para órdenes que incluyan servicios de transporte.");
                 isSaving = false;
                 restoreTripArchiveButtonUI();
                 return;
@@ -366,7 +369,7 @@
             const fieldsToClear = [
                 'in-ncont', 'in-release', 'in-order', 'in-delivery', 'in-miles',
                 'in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount',
-                'in-phone', 'in-note', 'in-mrate', 'in-taxpercent'
+                'in-phone', 'in-note', 'in-mrate', 'in-taxpercent', 'in-company'
             ];
 
             fieldsToClear.forEach(id => {
@@ -845,6 +848,17 @@
             // Fetch from Supabase FIRST
             try {
                 const data = await getTrips();
+                
+                // --- Priority Sorting: TODAY first, then Chronological (Ascending) ---
+                const todayStr = new Date().toISOString().split('T')[0];
+                data.sort((a, b) => {
+                    const isTodayA = (a.date === todayStr);
+                    const isTodayB = (b.date === todayStr);
+                    if (isTodayA && !isTodayB) return -1;
+                    if (!isTodayA && isTodayB) return 1;
+                    return (a.date || '').localeCompare(b.date || '');
+                });
+
                 console.log("Calendar View DEBUG: Records from Supabase ->", data ? data.length : 0);
 
                 // Clear ONLY when data is ready
@@ -861,6 +875,7 @@
                 currentTrips.forEach((rowData, idx) => {
                     try {
                         const tr = document.createElement('tr');
+                        const isTodayEntry = (rowData[1] === todayStr);
                         const mode = rowData[26];
                         const stYard = rowData[30];
                         const stRate = rowData[32];
@@ -876,6 +891,12 @@
                         tr.dataset.stamount = stAmount || 'PEND';
                         tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
 
+                        // Priority Highlight for Today
+                        if (isTodayEntry) {
+                            tr.style.backgroundColor = '#fefce8'; // Light Amber
+                            tr.style.border = '2px solid #f59e0b'; // Amber Priority
+                        }
+
                         // Numerical values to handle $0.00 entries in filters
                         tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;
@@ -883,31 +904,39 @@
                         tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
 
-                        // Display columns (DB UUID at rowData[0] omitted; no Mode column — starts with Date)
+                        // Display helper
+                        const fmtDate = (ds) => {
+                            if (!ds || ds === '---') return '---';
+                            const [y, m, d] = ds.split('-');
+                            if (!y || !m || !d) return ds;
+                            return `${m}/${d}/${y}`;
+                        };
+
+                        // Display columns
                         const displayData = [
-                            rowData[1],     // 0: Date
-                            rowData[2],     // 1: Size
-                            rowData[3],     // 2: N. Cont
-                            rowData[4],     // 3: Release #
-                            rowData[5],     // 4: Order
-                            rowData[6],     // 5: City
-                            rowData[7],     // 6: Pick Up Address
-                            rowData[8],     // 7: Delivery Place
-                            rowData[9],     // 8: Doors Direction
-                            rowData[10],    // 9: Miles
-                            rowData[11],    // 10: Customer
-                            rowData[13],    // 11: Yard Rate
-                            rowData[14],    // 12: Price per Day
-                            rowData[15],    // 13: Date Out
-                            rowData[16],    // 14: Company
-                            rowData[17],    // 15: Driver
-                            rowData[18],    // 16: Trans. Pay
-                            rowData[20],    // 17: Sales Price
-                            rowData[22],    // 18: Amount
-                            rowData[23],    // 19: Phone #
-                            rowData[24],    // 20: Paid Driver
-                            rowData[25],    // 21: Note
-                            email           // 22: Email
+                            fmtDate(rowData[1]),  // 0: Date (MM/DD/YYYY)
+                            rowData[2],           // 1: Size
+                            rowData[3],           // 2: N. Cont
+                            rowData[4],           // 3: Release #
+                            rowData[5],           // 4: Order
+                            rowData[6],           // 5: City
+                            rowData[7],           // 6: Pick Up Address
+                            rowData[8],           // 7: Delivery Place
+                            rowData[9],           // 8: Doors Direction
+                            rowData[10],          // 9: Miles
+                            rowData[11],          // 10: Customer
+                            rowData[13],          // 11: Yard Rate
+                            rowData[14],          // 12: Price per Day
+                            fmtDate(rowData[15]), // 13: Date Out (MM/DD/YYYY)
+                            rowData[16],          // 14: Company
+                            rowData[17],          // 15: Driver
+                            rowData[18],          // 16: Trans. Pay
+                            rowData[20],          // 17: Sales Price
+                            rowData[22],          // 18: Amount
+                            rowData[23],          // 19: Phone #
+                            rowData[24],          // 20: Paid Driver
+                            rowData[25],          // 21: Note
+                            email                 // 22: Email
                         ];
 
                         displayData.forEach((text, i) => {

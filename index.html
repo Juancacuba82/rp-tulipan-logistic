@@ -427,10 +427,18 @@
                                 </label>
                             </div>
 
-                            <button onclick="addRow()" class="btn-add-sidebar" id="btn-archive-order"
-                                style="margin-top: 15px;">
-                                <span class="btn-archive-order-label">Archive Order</span>
-                            </button>
+                            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                                <button onclick="addRow()" class="btn-add-sidebar" id="btn-archive-order"
+                                    style="margin-top: 15px;">
+                                    <span class="btn-archive-order-label">Archive Order</span>
+                                </button>
+                                <button onclick="resetForm()" class="btn-add-sidebar" 
+                                    style="margin-top: 15px; background: #64748b; color: white; box-shadow: none;" 
+                                    onmouseover="this.style.background='#475569'" 
+                                    onmouseout="this.style.background='#64748b'">
+                                    NEW ORDER
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="sidebar-form trip-entry-form">

@@ -37,16 +37,16 @@ body {
 }
 
 .editing-row {
-    background-color: #fef3c7 !important; /* Soft Amber Highlight */
-    border: 2px solid #f59e0b !important;
+    background-color: #dcfce7 !important; /* Soft Green Highlight */
+    border: 2px solid #166534 !important;
     transform: scale(1.005);
     transition: all 0.2s ease;
     cursor: pointer;
 }
 
 .selected-row {
-    background-color: #e0f2fe !important; /* light blue */
-    border: 1px solid #0ea5e9 !important;
+    background-color: #dcfce7 !important; /* light green */
+    border: 1px solid #166534 !important;
 }
 
 .selected-row td {
@@ -54,9 +54,9 @@ body {
 }
 
 .btn-update {
-    background: #f59e0b !important; /* Amber Orange */
+    background: #10b981 !important; /* Professional Green */
     color: white !important;
-    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
 }
 
 main {
