@@ -103,7 +103,7 @@
                     const orderLabel = match ? `[${match[1]}] ` : '';
 
                     div.innerHTML = `
-                            <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${trip[1] || '—'}</h4>
+                            <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}</h4>
                             <p style="font-weight:bold; color:#1e293b;">${trip[17] || 'No Driver'}</p>
                             <p>${trip[3] || 'No Cont'} | ${trip[11] || 'No Cust'}</p>
                             <p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>
@@ -135,7 +135,7 @@
             const showBilling = (trip[51] === true || trip[51] === 'true' || trip[51] === 'YES' || trip[51] === 'on' || trip[51] === 1);
 
             const data = {
-                date: (trip[1] && trip[1] !== '---') ? trip[1] : '',
+                date: window.formatDateMMDDYYYY(trip[1]),
                 cont: (trip[3] && trip[3] !== '---') ? trip[3] : '',
                 size: (trip[2] && trip[2] !== '---') ? trip[2] : '',
                 rel: (trip[4] && trip[4] !== '---') ? trip[4] : '',

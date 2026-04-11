@@ -10,9 +10,9 @@
                 body.innerHTML = '';
                 currentExpenses.forEach((rowData) => {
                     const tr = document.createElement('tr');
-                    rowData.slice(0, 5).forEach(text => { // Show first 5 columns
+                    rowData.slice(0, 5).forEach((text, i) => { // Show first 5 columns
                         const td = document.createElement('td');
-                        td.textContent = text;
+                        td.textContent = (i === 0) ? window.formatDateMMDDYYYY(text) : text;
                         tr.appendChild(td);
                     });
 
@@ -97,21 +97,6 @@
                 const rowDate = row[1];
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                     const salesPrice = parseFloat(row[20]) || 0;
-                    const relNo = row[4];
-                    let unitCost = 0;
-
-                    // Calculate the purchase cost (Investment)
-                    if (relNo && relNo !== '---') {
-                        const cleanRelNo = relNo.toString().trim();
-                        const relData = relMap.get(cleanRelNo);
-                        if (relData) {
-                            const sizeStr = (row[2] || '').toString();
-                            if (sizeStr.startsWith('20')) unitCost = relData.p20;
-                            else if (sizeStr.startsWith('40')) unitCost = relData.p40;
-                            else if (sizeStr.startsWith('45')) unitCost = relData.p45;
-                        }
-                    }
-
                     const isSalesPaid = (row[33] === 'PAID'); 
                     const isYardPaid = (row[30] === 'PAID');
                     const isRatePaid = (row[32] === 'PAID'); 
@@ -124,11 +109,6 @@
                         orderProfit += salesPrice;  // Gross goes to company
                     }
                     
-                    // Track unitCost as a purchase/expense regardless of sales payment status
-                    if (unitCost > 0) {
-                        totals.releases += unitCost;
-                    }
-
                     // B. Yard Component
                     if (isYardPaid) {
                         const yardVal = parseFloat(row[13]) || 0; 
@@ -159,24 +139,33 @@
                 }
             });
 
-            // 2. Process Business Expenses
-            expensesData.forEach(row => {
-                const rowDate = row[0];
-                const category = row[1];
+            // 2. Process Releases (Investments / Purchases)
+            currentReleases.forEach(row => {
+                const rowDate = row[1];
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
-                    const amountStr = row[3] ? row[3].replace('$', '').replace(/,/g, '') : '0';
-                    const amount = parseFloat(amountStr) || 0;
-                    if (category === 'Payments to Drivers') totals.payouts += amount;
-                    else totals.expenses += amount;
+                    const initialQty = (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0) + (parseInt(row[11]) || 0);
+                    const unitPrice = parseFloat(row[8]) || parseFloat(row[10]) || parseFloat(row[12]) || 0;
+                    const releaseTotal = initialQty * unitPrice;
+                    totals.releases += releaseTotal;
                 }
             });
 
-            // 3. Final Summaries
+            // 3. Process Business Expenses (Includes Driver Payouts)
+            expensesData.forEach(row => {
+                const rowDate = row[0];
+                if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
+                    const amountStr = row[3] ? row[3].replace('$', '').replace(/,/g, '') : '0';
+                    const amount = parseFloat(amountStr) || 0;
+                    totals.expenses += amount;
+                }
+            });
+
+            // 4. Final Summaries
             const totalRevenue = totals.tulipan + totals.jr + totals.contractor;
-            const totalGlobalExpenses = totals.expenses + totals.releases + totals.payouts;
+            const totalGlobalExpenses = totals.expenses + totals.releases;
             const netProfit = totalRevenue - totalGlobalExpenses;
 
-            // 4. Update Summary Cards
+            // 4. Update Summary Cards (Note: indexing shifted in original code)
             document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('total-expenses-val').textContent = `$${totalGlobalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
@@ -202,7 +191,6 @@
             
             // Costs
             document.getElementById('val-expenses').textContent = `$${totals.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            document.getElementById('val-payouts').textContent = `$${totals.payouts.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-releases').textContent = `$${totals.releases.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
             // 6. Update Simple Bar Chart

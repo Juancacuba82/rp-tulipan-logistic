@@ -161,8 +161,11 @@
                         const td = document.createElement('td');
                         let value = r[idx] || '---';
 
+                        if (idx === 1) {
+                            value = window.formatDateMMDDYYYY(value);
+                        }
                         // Specific logic for 'Paid Driver' column in Reports: show raw Paid Driver (Index 24)
-                        if (idx === 24) { 
+                        else if (idx === 24) { 
                             value = parseFloat(r[24]) || 0;
                         }
 
@@ -313,15 +316,7 @@
 
             filtered.forEach(s => {
                 const tr = document.createElement('tr');
-                const fDate = (d) => {
-                    if (!d) return '---';
-                    const dateObj = new Date(d + 'T00:00:00');
-                    // Changed to DD/MM/YYYY as requested (Spanish style)
-                    const d1 = dateObj.getDate().toString().padStart(2, '0');
-                    const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-                    const y = dateObj.getFullYear();
-                    return `${d1}/${m}/${y}`;
-                };
+                const fDate = (d) => window.formatDateMMDDYYYY(d);
 
                 // Aging Calculation
                 let agingText = '---';

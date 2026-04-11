@@ -59,7 +59,7 @@
                 if (u.dueDate && u.dueDate <= today) isOverdue = true;
                 if (u.type === 'truck' && u.dueMiles && parseInt(u.miles) >= parseInt(u.dueMiles)) isOverdue = true;
 
-                const nextServiceText = (u.dueDate || u.dueMiles) ? `${u.dueDate || 'N/A'}${u.dueMiles ? ' / ' + u.dueMiles + ' mi' : ''}` : 'No Due Set';
+                const nextServiceText = (u.dueDate || u.dueMiles) ? `${window.formatDateMMDDYYYY(u.dueDate)}${u.dueMiles ? ' / ' + u.dueMiles + ' mi' : ''}` : 'No Due Set';
                 const statusClass = (u.status === 'Available') ? 'status-paid' : 'status-pending';
 
                 tr.innerHTML = `

@@ -974,12 +974,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
 
                         // Display helper
-                        const fmtDate = (ds) => {
-                            if (!ds || ds === '---') return '---';
-                            const [y, m, d] = ds.split('-');
-                            if (!y || !m || !d) return ds;
-                            return `${m}/${d}/${y}`;
-                        };
+                        const fmtDate = (ds) => window.formatDateMMDDYYYY(ds);
 
                         // Display columns
                         const displayData = [

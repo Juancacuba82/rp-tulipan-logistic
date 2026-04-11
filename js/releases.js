@@ -267,15 +267,7 @@
                         td.innerHTML = `${iconHtml} <span style="font-weight: 700;">${text}</span>`;
                     }
                     else if (idx === 1 && text && text !== '---') { // DATE
-                        try {
-                            const d = new Date(text + 'T00:00:00');
-                            if (!isNaN(d.getTime())) {
-                                const dd = String(d.getDate()).padStart(2, '0');
-                                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                                text = `${dd}/${mm}/${d.getFullYear()}`;
-                            }
-                        } catch (e) { }
-                        td.textContent = text;
+                        td.textContent = window.formatDateMMDDYYYY(text);
                     }
                     else if (idx === 2) { // TYPE
                         td.style.textAlign = 'center';
