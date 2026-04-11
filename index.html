@@ -2286,8 +2286,11 @@
                     if (finalView === 'docs') {
                         if (window.loadDocTrips) window.loadDocTrips();
                     } else if (finalView === 'reports') {
-                        if (window.renderDriverLog) window.renderDriverLog();
-                        if (window.fetchHistory) window.fetchHistory();
+                        (async () => {
+                            if (window.loadTableData) await window.loadTableData();
+                            if (window.renderDriverLog) window.renderDriverLog();
+                            if (window.fetchHistory) window.fetchHistory();
+                        })();
                     } else if (finalView === 'calendar') {
                         if (window.loadTableData) window.loadTableData();
                         if (window.updateFleetSelectors) window.updateFleetSelectors();

@@ -356,8 +356,12 @@
             const display = document.getElementById('display-driver-sync');
             if (!display) return;
 
-            if (selectEl && selectEl.value) {
-                val = selectEl.options[selectEl.selectedIndex].text;
+            if (selectEl && selectEl.value && selectEl.selectedIndex !== -1) {
+                const opt = selectEl.options[selectEl.selectedIndex];
+                if (opt) val = opt.text;
+            }
+
+            if (val !== 'UNASSIGNED' && val !== 'All Drivers') {
                 display.style.color = '#166534'; // Dark green
                 display.style.background = '#dcfce7'; // Light green
                 display.style.borderColor = '#22c55e';

@@ -65,7 +65,13 @@
                     opt.textContent = d.name;
                     sel.appendChild(opt);
                 });
-                if (currentVal) sel.value = currentVal;
+                
+                // If it's a driver logged in, force their value
+                if (isFilter && sel.id === 'filter-search' && window.currentDriverNameRef) {
+                    sel.value = window.currentDriverNameRef;
+                } else if (currentVal) {
+                    sel.value = currentVal;
+                }
             };
 
             populate(sideSel, false);
@@ -84,6 +90,10 @@
                 });
                 if (currentVal) docsFilterSel.value = currentVal;
             }
+
+            // TRIGGER SYNC: This fixes the "UNASSIGNED" lag on startup
+            if (window.syncDriverNames) window.syncDriverNames();
+            if (window.renderDriverLog) window.renderDriverLog();
         }
 
         function renderDriverManagerList() {
