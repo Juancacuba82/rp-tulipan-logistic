@@ -871,11 +871,11 @@
                             </div>
                             <!-- Date Range Filters -->
                             <div class="filter-item" style="border-left: 2px solid #e2e8f0; padding-left: 15px;">
-                                <label style="color: #b91c1c;">FROM Date</label>
+                                <label style="color: #b91c1c;">FROM Date (MM/DD/YYYY)</label>
                                 <input type="date" id="f-from-date" onchange="applyAdvancedFilters()">
                             </div>
                             <div class="filter-item">
-                                <label style="color: #b91c1c;">TO Date</label>
+                                <label style="color: #b91c1c;">TO Date (MM/DD/YYYY)</label>
                                 <input type="date" id="f-to-date" onchange="applyAdvancedFilters()">
                             </div>
                         </div>
@@ -952,7 +952,7 @@
                             <div style="display:flex; gap:15px; align-items:center; justify-content: center; width: 100%; flex-wrap: wrap;">
                                 <div class="docs-filters-grid">
                                     <div class="date-range-compact">
-                                        <span class="filter-mini-label">DATES:</span>
+                                        <span class="filter-mini-label">DATES (MM/DD/YYYY):</span>
                                         <div class="date-inputs-wrap">
                                             <input type="date" id="trip-from-date" class="form-input" onchange="loadDocTrips()">
                                             <span class="date-sep">-</span>
@@ -1493,16 +1493,14 @@
                                     </div>
                                     <!-- Initial Date Group -->
                                     <div style="display: flex; flex-direction: column; gap: 5px;">
-                                        <label style="font-size: 0.7rem; font-weight: 800; color: #1e293b;">INITIAL
-                                            DATE</label>
+                                        <label style="font-size: 0.7rem; font-weight: 800; color: #1e293b;">INITIAL DATE (MM/DD/YYYY)</label>
                                         <input type="date" id="filter-from" class="form-input"
                                             onchange="renderDriverLog(); fetchHistory();"
                                             style="border: 1px solid #cbd5e1; height: 38px; border-radius: 6px; width: 100%;">
                                     </div>
                                     <!-- Final Date Group -->
                                     <div style="display: flex; flex-direction: column; gap: 5px;">
-                                        <label style="font-size: 0.7rem; font-weight: 800; color: #1e293b;">FINAL
-                                            DATE</label>
+                                        <label style="font-size: 0.7rem; font-weight: 800; color: #1e293b;">FINAL DATE (MM/DD/YYYY)</label>
                                         <input type="date" id="filter-to" class="form-input"
                                             onchange="renderDriverLog(); fetchHistory();"
                                             style="border: 1px solid #cbd5e1; height: 38px; border-radius: 6px; width: 100%;">
@@ -1759,11 +1757,11 @@
                     </div>
                     <div class="report-filters">
                         <div class="filter-group">
-                            <label>From</label>
+                            <label>From (MM/DD/YYYY)</label>
                             <input type="date" id="profit-date-from" onchange="renderProfitReport()">
                         </div>
                         <div class="filter-group">
-                            <label>To</label>
+                            <label>To (MM/DD/YYYY)</label>
                             <input type="date" id="profit-date-to" onchange="renderProfitReport()">
                         </div>
                         <button onclick="resetProfitFilters()" class="btn-reset-report">Reset</button>
@@ -2537,8 +2535,17 @@
                 const matchRelease = !filters.release || valRelease.includes(filters.release.toLowerCase().trim());
                 const matchPhone = !filters.phone || valPhone.includes(filters.phone.toLowerCase().trim());
 
-                const matchDate = (!filters.fromDate || valDate >= filters.fromDate) &&
-                    (!filters.toDate || valDate <= filters.toDate);
+                const toISO = (dStr) => {
+                    if (!dStr || dStr === '---') return null;
+                    if (dStr.includes('/')) {
+                        const parts = dStr.split('/');
+                        if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                    }
+                    return dStr;
+                };
+                const isoValDate = toISO(valDate);
+                const matchDate = (!filters.fromDate || isoValDate >= filters.fromDate) &&
+                    (!filters.toDate || isoValDate <= filters.toDate);
 
                 // Master Status Filter (Trip rowData[41])
                 let matchStatus = true;

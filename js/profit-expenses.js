@@ -101,16 +101,19 @@
                     const isYardPaid = (row[30] === 'PAID');
                     const isRatePaid = (row[32] === 'PAID'); 
 
-                    let orderProfit = 0;
+                    const hasYard = (row[12] === 'YES');
+                    const hasTrans = (row[42] === 'YES');
+                    const hasSales = (row[43] === 'YES');
 
-                    // A. Sales Component
-                    if (isSalesPaid) {
-                        totals.sales += salesPrice; // Show Gross Sales
-                        orderProfit += salesPrice;  // Gross goes to company
+                    let transportProfit = 0;
+
+                    // A. Sales Component (Goes to its own bucket)
+                    if (isSalesPaid && hasSales) {
+                        totals.sales += salesPrice; 
                     }
                     
-                    // B. Yard Component
-                    if (isYardPaid) {
+                    // B. Yard Component (Goes to its own bucket)
+                    if (isYardPaid && hasYard) {
                         const yardVal = parseFloat(row[13]) || 0; 
                         const pricePerDay = parseFloat(row[14]) || 0;
                         let storage = 0;
@@ -122,35 +125,43 @@
                         }
                         const totalYard = yardVal + storage;
                         totals.yard += totalYard;
-                        orderProfit += totalYard;
                     }
 
                     // C. Transport Component
-                    if (isRatePaid) {
+                    if (isRatePaid && hasTrans) {
                         const transVal = parseFloat(row[18]) || 0;
-                        orderProfit += transVal;
+                        transportProfit += transVal;
                     }
 
-                    // D. Assign Gross Order Revenue to Company
+                    // D. Assign Transport Revenue to Company bucket
                     const company = row[16] || '';
-                    if (company === 'RP TULIPAN') totals.tulipan += orderProfit;
-                    else if (company === 'JR SUPER CRAME') totals.jr += orderProfit;
-                    else if (company === 'CONTRACTOR') totals.contractor += orderProfit;
+                    if (company === 'RP TULIPAN') totals.tulipan += transportProfit;
+                    else if (company === 'JR SUPER CRAME') totals.jr += transportProfit;
+                    else if (company === 'CONTRACTOR') totals.contractor += transportProfit;
+
+                    // E. NEW: Calculate Container Cost (Purchases) based on actual Sale
+                    if (isSalesPaid) {
+                        const relNo = (row[4] || '').toString().trim();
+                        const tripSize = (row[2] || '').toString();
+                        const releaseData = relMap.get(relNo);
+
+                        if (releaseData) {
+                            let unitCost = 0;
+                            if (tripSize.includes("20")) unitCost = releaseData.p20;
+                            else if (tripSize.includes("40")) unitCost = releaseData.p40;
+                            else if (tripSize.includes("45")) unitCost = releaseData.p45;
+
+                            // Fallback if specific size price is 0
+                            if (unitCost === 0) {
+                                unitCost = releaseData.p20 || releaseData.p40 || releaseData.p45 || 0;
+                            }
+                            totals.releases += unitCost;
+                        }
+                    }
                 }
             });
 
-            // 2. Process Releases (Investments / Purchases)
-            currentReleases.forEach(row => {
-                const rowDate = row[1];
-                if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
-                    const initialQty = (parseInt(row[7]) || 0) + (parseInt(row[9]) || 0) + (parseInt(row[11]) || 0);
-                    const unitPrice = parseFloat(row[8]) || parseFloat(row[10]) || parseFloat(row[12]) || 0;
-                    const releaseTotal = initialQty * unitPrice;
-                    totals.releases += releaseTotal;
-                }
-            });
-
-            // 3. Process Business Expenses (Includes Driver Payouts)
+            // 2. Process Business Expenses (Includes Driver Payouts)
             expensesData.forEach(row => {
                 const rowDate = row[0];
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
