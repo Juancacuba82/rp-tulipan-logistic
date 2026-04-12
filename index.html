@@ -2311,10 +2311,16 @@
                 if (header) {
                     if (finalView === 'hero') {
                         header.classList.remove('navbar-fixed-solid');
-                        if (navActions) navActions.style.display = 'none';
                     } else {
                         header.classList.add('navbar-fixed-solid');
-                        if (navActions) navActions.style.display = (finalView === 'auth') ? 'none' : 'flex';
+                    }
+
+                    if (navActions) {
+                        if (finalView === 'hero' || finalView === 'auth') {
+                            navActions.style.display = 'none';
+                        } else {
+                            navActions.style.display = ''; // Let CSS handle it
+                        }
                     }
                 }
 
