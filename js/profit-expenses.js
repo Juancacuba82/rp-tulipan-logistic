@@ -1,51 +1,92 @@
         async function loadExpensesData() {
-            window.loadExpensesData = loadExpensesData;
-            const body = document.getElementById('expenses-body');
-            if (!body) return;
-
             try {
                 const data = await getExpenses();
                 currentExpenses = data.map(mapExpenseToArray);
-
-                body.innerHTML = '';
-                currentExpenses.forEach((rowData) => {
-                    const tr = document.createElement('tr');
-                    rowData.slice(0, 5).forEach((text, i) => { // Show first 5 columns
-                        const td = document.createElement('td');
-                        td.textContent = (i === 0) ? window.formatDateMMDDYYYY(text) : text;
-                        tr.appendChild(td);
-                    });
-
-                    // Action Cell (Delete using expense_id at rowData[5])
-                    const actionsTd = document.createElement('td');
-                    if (window.currentUserRole === 'admin') {
-                        const delBtn = document.createElement('button');
-                        delBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                        delBtn.className = 'btn-cancel';
-                        delBtn.style.padding = '5px 10px';
-                        delBtn.onclick = async () => {
-                            if (!confirm('Are you sure you want to delete this expense?')) return;
-                            try {
-                                const expenseId = rowData[5];
-                                await deleteExpense(expenseId);
-                                await loadExpensesData();
-                            } catch (e) {
-                                console.error("Error deleting expense:", e);
-                                alert("Failed to delete expense from database.");
-                            }
-                        };
-                        actionsTd.appendChild(delBtn);
-                    } else {
-                        actionsTd.textContent = '---';
-                    }
-                    tr.appendChild(actionsTd);
-                    body.appendChild(tr);
-                });
-                calculateExpenseTotal();
+                renderExpensesHistory();
             } catch (err) {
                 console.error("Error loading expenses:", err);
             }
         }
+        window.loadExpensesData = loadExpensesData;
+
+        window.renderExpensesHistory = function () {
+            const body = document.getElementById('expenses-body');
+            if (!body) return;
+
+            const fromDate = document.getElementById('exp-filter-from')?.value;
+            const toDate = document.getElementById('exp-filter-to')?.value;
+            const category = document.getElementById('exp-filter-category')?.value;
+            const search = (document.getElementById('exp-filter-search')?.value || '').toLowerCase();
+
+            const filtered = (currentExpenses || []).filter(row => {
+                const rowDate = row[0];
+                const rowCat = row[1];
+                const rowDesc = (row[2] || '').toLowerCase();
+                const rowNote = (row[4] || '').toLowerCase();
+
+                const matchDate = (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
+                const matchCat = !category || rowCat === category;
+                const matchSearch = !search || rowDesc.includes(search) || rowNote.includes(search);
+
+                return matchDate && matchCat && matchSearch;
+            });
+
+            body.innerHTML = '';
+            filtered.forEach((rowData) => {
+                const tr = document.createElement('tr');
+                rowData.slice(0, 5).forEach((text, i) => { // Show first 5 columns
+                    const td = document.createElement('td');
+                    td.textContent = (i === 0) ? window.formatDateMMDDYYYY(text) : text;
+                    
+                    // Polish cells
+                    if (i === 3) { // Amount
+                        td.style.fontWeight = '900';
+                        td.style.color = '#ef4444';
+                        td.style.textAlign = 'right';
+                    }
+                    if (i === 1) { // Category
+                        td.style.fontWeight = '700';
+                        td.style.color = '#1e293b';
+                    }
+                    tr.appendChild(td);
+                });
+
+                // Action Cell (Delete using expense_id at rowData[5])
+                const actionsTd = document.createElement('td');
+                if (window.currentUserRole === 'admin') {
+                    const delBtn = document.createElement('button');
+                    delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                    delBtn.className = 'btn-cancel';
+                    delBtn.style.padding = '5px 10px';
+                    delBtn.onclick = async () => {
+                        if (!confirm('Are you sure you want to delete this expense?')) return;
+                        try {
+                            const expenseId = rowData[5];
+                            await deleteExpense(expenseId);
+                            await loadExpensesData();
+                        } catch (e) {
+                            console.error("Error deleting expense:", e);
+                            alert("Failed to delete expense from database.");
+                        }
+                    };
+                    actionsTd.appendChild(delBtn);
+                } else {
+                    actionsTd.textContent = '---';
+                }
+                tr.appendChild(actionsTd);
+                body.appendChild(tr);
+            });
+
+            calculateExpenseTotal();
+        };
+
+        window.resetExpenseFilters = function () {
+            if (document.getElementById('exp-filter-from')) document.getElementById('exp-filter-from').value = '';
+            if (document.getElementById('exp-filter-to')) document.getElementById('exp-filter-to').value = '';
+            if (document.getElementById('exp-filter-category')) document.getElementById('exp-filter-category').value = '';
+            if (document.getElementById('exp-filter-search')) document.getElementById('exp-filter-search').value = '';
+            renderExpensesHistory();
+        };
 
         function calculateExpenseTotal() {
             let total = 0;
@@ -53,7 +94,7 @@
                 const amountStr = row.cells[3].textContent.replace('$', '').replace(/,/g, '');
                 total += parseFloat(amountStr) || 0;
             });
-            document.getElementById('exp-total-badge').textContent = `Total: $${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('exp-total-badge').textContent = `Total: $${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         }
 
         function saveExpensesData() {

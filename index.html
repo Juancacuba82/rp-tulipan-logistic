@@ -1683,51 +1683,97 @@
                 <aside class="entry-sidebar primary-entryNarrow">
                     <div class="sidebar-header">
                         <h3>Expense Management</h3>
-                        <div class="header-actions">
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
                             <button onclick="addExpenseRow()" class="btn-add-sidebar">Save Expense</button>
+                            <button onclick="resetExpenseForm()" class="btn-add-sidebar" 
+                                style="background: #64748b; color: white; box-shadow: none;"
+                                onmouseover="this.style.background='#475569'" 
+                                onmouseout="this.style.background='#64748b'">
+                                RESET
+                            </button>
                         </div>
                     </div>
                     <div class="sidebar-form">
-                        <div class="form-group"><label>DATE</label><input type="date" id="exp-date"></div>
                         <div class="form-group">
-                            <label>CATEGORY</label>
+                            <label class="sidebar-label-btn" style="background: #475569 !important;">DATE</label>
+                            <input type="date" id="exp-date">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">CATEGORY</label>
                             <select id="exp-category" onchange="toggleOtherExpense()">
                                 <option value="Fuel">Fuel (Diesel)</option>
                                 <option value="Service/Repairs">Service / Repairs</option>
                                 <option value="Tolls">Tolls / Sunpass</option>
                                 <option value="Insurance">Insurance</option>
-                                <option value="Payments to Drivers">Payments to Drivers</option>
                                 <option value="Payroll">Payroll (Workers)</option>
                                 <option value="Utilities">Utilities / Rent</option>
                                 <option value="Taxes/Licenses">Taxes / Licenses</option>
                                 <option value="Other">Other (Special)</option>
                             </select>
                         </div>
-                        <div class="form-group" id="group-exp-driver" style="display: none;">
-                            <label>DRIVER</label>
-                            <select id="exp-driver">
-                                <option value="" disabled selected>Select Driver...</option>
-                            </select>
-                        </div>
+
                         <div class="form-group" id="group-exp-other" style="display: none;">
-                            <label>DESCRIPTION (OTHER)</label>
+                            <label class="sidebar-label-btn" style="background: #64748b !important;">DESCRIPTION</label>
                             <input type="text" id="exp-other-desc" placeholder="Specify expense type">
                         </div>
-                        <div class="form-group"><label>AMOUNT ($)</label><input type="number" id="exp-amount" placeholder="0">
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #059669 !important;">AMOUNT ($)</label>
+                            <input type="number" id="exp-amount" placeholder="0.00" step="0.01">
                         </div>
-                        <div class="form-group"><label>DETAILS / NOTE</label><textarea id="exp-note"
-                                style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px;"></textarea>
+                        <div class="form-group" style="flex-direction: column; align-items: flex-start;">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important; width: 100% !important; margin-bottom: 8px;">DETAILS / NOTE</label>
+                            <textarea id="exp-note" placeholder="Write additional details here..."
+                                style="width: 100%; height: 120px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: inherit; font-size: 0.9rem; resize: none;"></textarea>
                         </div>
                     </div>
                 </aside>
 
                 <div class="table-area">
-                    <div class="table-toolbar"
-                        style="display:flex; justify-content: space-between; align-items:center;">
-                        <h2>Recent Expenses History</h2>
-                        <h3 id="exp-total-badge"
-                            style="background:#f1f5f9; padding: 10px 20px; border-radius: 8px; color: #b91c1c; font-weight:900;">
-                            Total: $0.00</h3>
+                    <div class="table-toolbar">
+                        <div style="display:flex; justify-content: space-between; align-items:center; width: 100%; margin-bottom: 20px;">
+                            <h2 style="border-left: 4px solid #ef4444; padding-left: 15px;">Recent Expenses History</h2>
+                            <h3 id="exp-total-badge"
+                                style="background:#fef2f2; padding: 10px 20px; border-radius: 8px; color: #b91c1c; font-weight:900; border: 1px solid #fee2e2;">
+                                Total: $0.00</h3>
+                        </div>
+
+                        <!-- ADVANCED FILTERS FOR EXPENSES -->
+                        <div class="advanced-filter-panel" style="margin-bottom: 20px; background: #fff;">
+                            <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                <div class="filter-item">
+                                    <label>FROM DATE</label>
+                                    <input type="date" id="exp-filter-from" onchange="renderExpensesHistory()">
+                                </div>
+                                <div class="filter-item">
+                                    <label>TO DATE</label>
+                                    <input type="date" id="exp-filter-to" onchange="renderExpensesHistory()">
+                                </div>
+                                <div class="filter-item">
+                                    <label>CATEGORY</label>
+                                    <select id="exp-filter-category" onchange="renderExpensesHistory()">
+                                        <option value="">All Categories</option>
+                                        <option value="Fuel">Fuel (Diesel)</option>
+                                        <option value="Service/Repairs">Service / Repairs</option>
+                                        <option value="Tolls">Tolls / Sunpass</option>
+                                        <option value="Insurance">Insurance</option>
+                                        <option value="Payroll">Payroll (Workers)</option>
+                                        <option value="Utilities">Utilities / Rent</option>
+                                        <option value="Taxes/Licenses">Taxes / Licenses</option>
+                                        <option value="Driver Payment">Driver Payment</option>
+                                        <option value="Other">Other (Special)</option>
+                                    </select>
+                                </div>
+                                <div class="filter-item">
+                                    <label>SEARCH (Desc/Note)</label>
+                                    <input type="text" id="exp-filter-search" placeholder="Search expenses..." onkeyup="renderExpensesHistory()">
+                                </div>
+                                <div class="filter-item" style="justify-content: flex-end; display: flex; align-items: flex-end;">
+                                    <button onclick="resetExpenseFilters()" class="btn-reset-filters" style="height: 32px; width: 100%;">
+                                        <i class="fas fa-undo"></i> RESET
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="table-scroll-container">
                         <table class="drivers-report-table">

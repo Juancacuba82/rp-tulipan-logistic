@@ -235,11 +235,13 @@
             const settlementSalary = mathGross - factoringFee - weeklyPayment;
 
             // Updated RIGHT result box
-            resSalary.textContent = `$${settlementSalary.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            const salaryFormatted = settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 });
+            resSalary.textContent = `$${salaryFormatted}`;
+            resSalary.dataset.value = settlementSalary.toFixed(2);
 
             // 2. Link RIGHT result to LEFT 'Driver Salary' display
             const linkedDisplay = document.getElementById('res-linked-salary');
-            if (linkedDisplay) linkedDisplay.textContent = `$${settlementSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+            if (linkedDisplay) linkedDisplay.textContent = `$${salaryFormatted}`;
 
             // 3. Left Side Calculation (Cash Balance)
             const cashColl = parseFloat(elCashColl.value) || 0;
@@ -248,7 +250,9 @@
             // Formula: Cash Balance = (Cash Collected + Last Week Balance) - Driver Salary (Settlement result)
             const cashTotal = (cashColl + lastBal) - settlementSalary;
 
-            resCashBal.textContent = `$${cashTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 })}`;
+            const cashFormatted = cashTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 });
+            resCashBal.textContent = `$${cashFormatted}`;
+            resCashBal.dataset.value = cashTotal.toFixed(2);
         }
 
         // --- settlement ARCHIVING SYSTEM ---
@@ -408,8 +412,7 @@
                 return;
             }
 
-            const cashText = cashField ? cashField.textContent : '$0,00';
-            const cashAmountFinal = parseFloat(cashText.replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
+            const cashAmountFinal = cashField ? (parseFloat(cashField.dataset.value) || 0) : 0;
 
             if (!confirm(`Are you sure you want to ARCHIVE this settlement for ${driverNameFinal}?`)) return;
 
@@ -427,9 +430,8 @@
                 if (error) throw error;
 
                 // AUTOMATIC EXPENSE INTEGRATION
-                const resSalary = document.getElementById('res-driver-salary');
-                const salaryStr = resSalary ? resSalary.textContent : '$0,00';
-                const salaryVal = parseFloat(salaryStr.replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
+                // The expense should reflect the actual amount paid (Final Cash Balance)
+                const expenseAmount = Math.abs(cashAmountFinal);
 
                 // Date Fallback: Use selected final date or Today
                 const expenseDate = val_final || new Date().toISOString().split('T')[0];
@@ -438,7 +440,7 @@
                     expenseDate,
                     'Driver Payment',
                     `Liquidación de ${driverNameFinal} - ${expenseDate}`,
-                    `$${salaryVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+                    `$${expenseAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
                     `Auto-generated from Driver Settlement Archive`
                 ];
 
