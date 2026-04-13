@@ -505,17 +505,8 @@
             else if (fullSize.startsWith("40")) { q40 = qty; p40 = price; }
             else if (fullSize.startsWith("45")) { q45 = qty; p45 = price; }
 
-            // STOCK PRESERVATION LOGIC (for edits)
-            let finalStock = qty;
-            if (editingReleaseId) {
-                const oldRel = currentReleases.find(r => r[15] === editingReleaseId);
-                if (oldRel) {
-                    const oldInitial = (parseInt(oldRel[7]) || 0) + (parseInt(oldRel[9]) || 0) + (parseInt(oldRel[11]) || 0);
-                    const oldStock = parseInt(oldRel[14]) || 0;
-                    const sold = Math.max(0, oldInitial - oldStock);
-                    finalStock = Math.max(0, qty - sold);
-                }
-            }
+            // STOCK LOGIC: Directly use the value from the new manual 'rel-stock-unified' field
+            const finalStock = parseInt(document.getElementById('rel-stock-unified').value) || 0;
 
             const relObj = {
                 release_no: relNo,
@@ -548,13 +539,18 @@
                     for (const targetId of targets) {
                         let finalRelObj = { ...relObj };
 
-                        // Recalculate stock specifically for each release in the selection
-                        const targetRel = currentReleases.find(r => r[15] === targetId);
-                        if (targetRel) {
-                            const oldInitial = (parseInt(targetRel[7]) || 0) + (parseInt(targetRel[9]) || 0) + (parseInt(targetRel[11]) || 0);
-                            const oldStock = parseInt(targetRel[14]) || 0;
-                            const sold = Math.max(0, oldInitial - oldStock);
-                            finalRelObj.total_stock = Math.max(0, qty - sold);
+                        // For single-record edits, use the exact value from the UI field.
+                        // For bulk updates, we still use the 'smart' deduction logic to preserve individual sold counts.
+                        if (targets.length > 1) {
+                            const targetRel = currentReleases.find(r => r[15] === targetId);
+                            if (targetRel) {
+                                const oldInitial = (parseInt(targetRel[7]) || 0) + (parseInt(targetRel[9]) || 0) + (parseInt(targetRel[11]) || 0);
+                                const oldStock = parseInt(targetRel[14]) || 0;
+                                const sold = Math.max(0, oldInitial - oldStock);
+                                finalRelObj.total_stock = Math.max(0, qty - sold);
+                            }
+                        } else {
+                            finalRelObj.total_stock = finalStock;
                         }
 
                         await updateRelease(targetId, finalRelObj);

@@ -8,9 +8,9 @@
             const resetBtn = document.getElementById('btn-reset-release');
             if (resetBtn) resetBtn.style.display = 'none';
 
-            ['rel-no-releases', 'rel-size-detail', 'rel-qty-unified', 'rel-price-unified', 'rel-date', 'rel-city', 'rel-depot', 'rel-address', 'rel-seller'].forEach(id => {
+            ['rel-no-releases', 'rel-size-detail', 'rel-qty-unified', 'rel-pickup-unified', 'rel-stock-unified', 'rel-price-unified', 'rel-date', 'rel-city', 'rel-depot', 'rel-address', 'rel-seller'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.value = (id.includes('qty') || id.includes('price')) ? '0' : '';
+                if (el) el.value = (id.includes('qty') || id.includes('price') || id.includes('stock') || id.includes('pickup')) ? '0' : '';
             });
 
             // Reset radios
@@ -63,6 +63,13 @@
             // We get the quantity from the first non-zero base column
             const qtyVal = parseInt(row[7]) || parseInt(row[9]) || parseInt(row[11]) || 0;
             document.getElementById('rel-qty-unified').value = qtyVal;
+
+            // STOCK POPULATION (From the actual column in DB)
+            const currentStock = parseInt(row[14]) || 0;
+            document.getElementById('rel-stock-unified').value = currentStock;
+
+            // PICKUP POPULATION (Calculated)
+            document.getElementById('rel-pickup-unified').value = Math.max(0, qtyVal - currentStock);
 
             const priceVal = parseFloat(row[8]) || parseFloat(row[10]) || parseFloat(row[12]) || 0;
             document.getElementById('rel-price-unified').value = priceVal;
