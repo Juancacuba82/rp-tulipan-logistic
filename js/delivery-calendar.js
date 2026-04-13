@@ -108,7 +108,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty'
             ];
 
             // 0. UNIQUE CONTAINER VALIDATION REMOVED
@@ -171,10 +171,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (isFinalized) newlyFinalized = true;
             }
 
-            // TRIGGER LOGIC: Deduct on NEW trip if deduction candidate.
-            // On EDITS, only trigger if status changes to PAID (newlyFinalized) or reverts (newlyPending).
-            // But for simplicity and consistency, let's deduct whenever a release is used.
-            const triggerStockUpdate = (editingIndex === null && isDeductionCandidate) || (newlyFinalized && isDeductionCandidate);
+            // TRIGGER LOGIC: Deduct ONLY if the order is or becomes finalized (Green).
+            // Revert if it was finalized and now is marked as pending (Red).
+            const triggerStockUpdate = newlyFinalized && isDeductionCandidate;
             const triggerStockRevert = newlyPending && isDeductionCandidate;
 
             // Stock validation: run whenever an order involves a Release
@@ -238,7 +237,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                             // Preparation for actual deduction/reversion
                             if (triggerStockUpdate || triggerStockRevert) {
-                                const change = triggerStockUpdate ? -1 : 1;
+                                const qtyVal = parseInt(document.getElementById('in-qty')?.value) || 1;
+                                const change = triggerStockUpdate ? -qtyVal : qtyVal;
                                 // ALWAYS update total_stock, NEVER touch the initial investment columns (qty_20, etc)
                                 window.calculatedNewStock = (parseInt(matchingRows[0][14]) || 0) + change;
                                 window.stockUpdateField = 'total_stock';
@@ -302,7 +302,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 document.getElementById('in-showtax')?.checked || false,   // 49
                 parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0, // 50
                 document.getElementById('in-hideamounts')?.checked || false, // 51
-                document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND' // 52
+                document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND', // 52
+                document.getElementById('in-qty')?.value || 1 // 53
             ];
 
             const dbObj = mapArrayToTrip(rowData);
@@ -404,7 +405,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-ncont', 'in-release', 'in-order', 'in-delivery', 'in-miles',
                 'in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount',
                 'in-phone', 'in-note', 'in-mrate', 'in-taxpercent', 'in-paiddriver',
-                'in-pickup', 'in-customer', 'in-email'
+                'in-pickup', 'in-customer', 'in-email', 'in-qty'
             ];
 
             fieldsToClear.forEach(id => {
@@ -412,6 +413,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (el) {
                     if (id === 'in-taxpercent') {
                         el.value = '7';
+                    } else if (id === 'in-qty') {
+                        el.value = '1';
                     } else if (['in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount', 'in-miles', 'in-paiddriver', 'in-mrate'].includes(id)) {
                         el.value = '0';
                     } else {
@@ -580,7 +583,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     totalStock = matchingRows.reduce((sum, r) => sum + (parseInt(r[idx]) || 0), 0);
                 }
 
-                let bypass = false;
                 if (editingIndex !== null) {
                     const oldTripData = currentTrips[editingIndex];
                     if (oldTripData && oldTripData[4] === selectedRel && oldTripData[2] === selectedSize && oldTripData[44] === selectedRelType && oldTripData[45] === selectedRelCond) {
@@ -588,7 +590,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 }
 
-                if (totalStock <= 0 && !bypass) {
+                const requestedQty = parseInt(document.getElementById('in-qty')?.value) || 1;
+                if (totalStock < requestedQty && !bypass) {
                     tripBtn.disabled = true;
                     tripBtn.style.opacity = '0.5';
                     if (labelSpan) labelSpan.textContent = 'No stock';
@@ -751,7 +754,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue'
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty'
             ];
 
             fields.forEach((id, i) => {
