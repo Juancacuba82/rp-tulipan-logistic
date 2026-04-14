@@ -1065,10 +1065,50 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             e.stopPropagation();
                             if (!confirm('¿Seguro que quieres borrar este viaje? Esta acción no se puede deshacer.')) return;
                             try {
+                                // --- STOCK REVERSION LOGIC ---
+                                const wasFinalized = rowData[41] === 'PAID';
+                                const mode = rowData[26];
+                                const relNo = rowData[4];
+                                const size = rowData[2];
+                                const type = rowData[44];
+                                const cond = rowData[45];
+                                const qtyVal = parseInt(rowData[53]) || 1;
+
+                                if (wasFinalized && relNo && relNo !== '---' && (mode === 'SALE' || mode === 'RENT')) {
+                                    console.log(`Reverting stock for deleted trip: ${relNo}, ${size}, Qty: ${qtyVal}`);
+                                    
+                                    // Ensure releases are loaded
+                                    if (!currentReleases || currentReleases.length === 0) {
+                                        if (window.loadReleasesData) await window.loadReleasesData();
+                                    }
+
+                                    // Find exact match
+                                    const match = currentReleases.find(r => 
+                                        r[0] === relNo && 
+                                        String(r[16] || '').trim() === String(size || '').trim() &&
+                                        r[2] === type &&
+                                        r[3] === cond
+                                    ) || currentReleases.find(r => r[0] === relNo); // Fallback to just Rel No
+
+                                    if (match) {
+                                        const releaseUuid = match[15];
+                                        const currentStock = parseInt(match[14]) || 0;
+                                        const newStock = currentStock + qtyVal;
+                                        
+                                        console.log(`Adjusting stock for release ${relNo}: ${currentStock} -> ${newStock}`);
+                                        await db.from('releases')
+                                            .update({ total_stock: newStock })
+                                            .eq('id', releaseUuid);
+                                            
+                                        if (window.loadReleasesData) await window.loadReleasesData();
+                                    }
+                                }
+
                                 await deleteTrip(rowData[0]); // This is trip_id
                                 alert("Viaje eliminado");
                                 await loadTableData();
                             } catch (err) {
+                                console.error("Error during deletion/reversion:", err);
                                 alert("Error al borrar: " + err.message);
                             }
                         };
