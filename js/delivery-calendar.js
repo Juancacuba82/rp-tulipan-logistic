@@ -970,6 +970,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.stsales = stSales || 'PEND';
                         tr.dataset.stamount = stAmount || 'PEND';
                         tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
+                        // Service type flags for filtering
+                        tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
+                        tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
+                        tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
 
                         // Priority Highlight for Today
                         if (isTodayEntry) {

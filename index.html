@@ -850,6 +850,16 @@
                                 </select>
                             </div>
 
+                            <div class="filter-item">
+                                <label>Service Type</label>
+                                <select id="f-service-type" onchange="applyAdvancedFilters()" style="font-weight: 700;">
+                                    <option value="">All Services</option>
+                                    <option value="sales"  style="background-color: #f0fdf4; color: #166534;">🟢 Sales</option>
+                                    <option value="transport" style="background-color: #eff6ff; color: #1d4ed8;">🔵 Transport</option>
+                                    <option value="yard" style="background-color: #fff7ed; color: #c2410c;">🟠 Yard Services</option>
+                                </select>
+                            </div>
+
                             <!-- Text Live Filters -->
                             <div class="filter-item">
                                 <label>N. CONT</label>
@@ -2597,6 +2607,7 @@
                 status: document.getElementById('f-status')?.value || '',
                 payStatus: document.getElementById('f-pay-status')?.value || '',
                 pending: document.getElementById('f-pending')?.value || '',
+                serviceType: document.getElementById('f-service-type')?.value || '',
 
                 ncont: document.getElementById('f-ncont')?.value.toLowerCase() || '',
                 order: document.getElementById('f-order')?.value.toLowerCase() || '',
@@ -2685,8 +2696,25 @@
                     }
                 }
 
+                let matchServiceType = true;
+                if (filters.serviceType) {
+                    const hasSales    = tr.dataset.flagSales === 'YES';
+                    const hasTrans    = tr.dataset.flagTransport === 'YES';
+                    const hasYard     = tr.dataset.flagYard === 'YES';
+                    if (filters.serviceType === 'sales') {
+                        // Sales: todas las órdenes con ventas (independiente de si tienen transport)
+                        matchServiceType = hasSales;
+                    } else if (filters.serviceType === 'transport') {
+                        // Transport: SOLO órdenes con transporte y SIN ventas
+                        matchServiceType = hasTrans && !hasSales;
+                    } else if (filters.serviceType === 'yard') {
+                        // Yard Services: SOLO órdenes con yard y SIN transport ni ventas
+                        matchServiceType = hasYard && !hasTrans && !hasSales;
+                    }
+                }
+
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
-                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate) {
+                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType) {
                     tr.style.display = '';
                 } else {
                     tr.style.display = 'none';
