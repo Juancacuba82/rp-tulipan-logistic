@@ -984,6 +984,10 @@
                             </button>
                         </div>
 
+                        <button onclick="openSignatureModal()" class="btn-add-sidebar"
+                            style="background: #1e293b; font-size:0.8rem; padding:8px 25px; margin-right:10px; box-shadow: 0 4px 10px rgba(30, 41, 59, 0.3); border:none; border-radius:4px; color:white; font-weight:bold; cursor:pointer;">
+                            <i class="fas fa-file-signature" style="margin-right:8px;"></i> CLIENT SIGNATURE
+                        </button>
                         <button onclick="printA4Document()" class="btn-add-sidebar"
                             style="background: #b91c1c; font-size:0.8rem; padding:8px 25px; box-shadow: 0 4px 10px rgba(185, 28, 28, 0.3); border:none; border-radius:4px; color:white; font-weight:bold; cursor:pointer;">
                             <i class="fas fa-print" style="margin-right:8px;"></i> PRINT RECEIPT
@@ -2938,6 +2942,30 @@
         </div>
     </div>
 
+    <!-- Digital Signature Modal -->
+    <div id="signature-modal" class="simple-modal">
+        <div class="modal-content" style="width: 500px; border-top-color: #1e293b;">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-signature"></i> Client Signature</h3>
+                <button onclick="closeSignatureModal()" class="btn-close-modal">&times;</button>
+            </div>
+            <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 15px;">Please sign within the box below using your finger or mouse.</p>
+            
+            <div style="border: 2px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; overflow: hidden; position: relative; touch-action: none;">
+                <canvas id="signature-pad" width="450" height="200" style="display: block; cursor: crosshair;"></canvas>
+            </div>
+            
+            <div class="modal-footer" style="flex-direction: row; justify-content: space-between; margin-top: 20px;">
+                <button onclick="clearSignature()" class="btn-cancel" style="background: #64748b; color: white;">Clear</button>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="closeSignatureModal()" class="btn-cancel">Cancel</button>
+                    <button onclick="saveSignature()" class="btn-add-sidebar" style="background: #1e293b;">Save Signature</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/fleet.js?v=2"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>

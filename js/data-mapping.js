@@ -79,7 +79,8 @@
                 t.tax_percent || 0,         // 50 (Persisted per order)
                 t.hide_amounts || false,    // 51 (NEW: Hides billing summary on receipt)
                 normPaid(t.st_tax),          // 52
-                t.qty || 1                  // 53
+                t.qty || 1,                  // 53
+                t.signature || ''            // 54
             ];
         }
 
@@ -139,7 +140,8 @@
                 tax_percent: parseFloat(row[50]) || 0,
                 hide_amounts: row[51] === true || row[51] === 'true',
                 st_tax: row[52],
-                qty: parseInt(row[53]) || 1
+                qty: parseInt(row[53]) || 1,
+                signature: row[54] || ''
             };
         }
 

@@ -168,7 +168,8 @@
                 storageStatus: trip[31] === 'PAID' ? 'PAID' : 'PENDING',
                 transpStatus: trip[32] === 'PAID' ? 'PAID' : 'PENDING',
                 salesStatus: trip[33] === 'PAID' ? 'PAID' : 'PENDING',
-                taxStatus: (trip[52] === 'PAID' || trip[52] === true || trip[52] === 'true') ? 'PAID' : 'PENDING'
+                taxStatus: (trip[52] === 'PAID' || trip[52] === true || trip[52] === 'true') ? 'PAID' : 'PENDING',
+                signature: trip[54] || ''
             };
 
             const subtotal = data.yard + data.storage + data.transp + data.sales;
@@ -283,7 +284,10 @@
                     ${notesHtml}
                     <div style="display:flex; justify-content:space-between; margin-top:60px;">
                         <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold;">AUTHORIZED BY (RP TULIPAN)</div>
-                        <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold;">RECEIVED BY (CUSTOMER)</div>
+                        <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold; position: relative;">
+                            ${data.signature ? `<img src="${data.signature}" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); max-height: 80px; width: auto; pointer-events: none;">` : ''}
+                            RECEIVED BY (CUSTOMER)
+                        </div>
                     </div>
                 </div>
             `;
@@ -407,7 +411,8 @@
                     .receipt-table th { background: #1e293b; color: white; text-align: left; padding: 10px; font-size: 0.8rem; }
                     .receipt-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
                     .receipt-total-row { background: #f1f5f9; font-weight: 900; font-size: 1.2rem; }
-                    .signature-box { width: 45%; border-top: 2px solid #1a1a1a; text-align: center; padding-top: 10px; font-size: 0.8rem; margin-top: 60px; font-weight: 700; }
+                    .signature-box { width: 45%; border-top: 2px solid #1a1a1a; text-align: center; padding-top: 10px; font-size: 0.8rem; margin-top: 60px; font-weight: 700; position: relative; }
+                    .signature-img { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); max-height: 80px; width: auto; }
                     @media print { @page { size: auto; margin: 10mm; } }
                 `);
             printWin.document.write('</style></head><body>');
@@ -471,4 +476,105 @@
 
             window.loadDocTrips();
         }
+
+        // --- DIGITAL SIGNATURE LOGIC ---
+        let sigCanvas, sigCtx, isDrawing = false;
+
+        window.initSignaturePad = function() {
+            sigCanvas = document.getElementById('signature-pad');
+            if (!sigCanvas) return;
+            sigCtx = sigCanvas.getContext('2d');
+            sigCtx.strokeStyle = '#1e293b';
+            sigCtx.lineWidth = 2;
+            sigCtx.lineCap = 'round';
+
+            // Mouse Events
+            sigCanvas.addEventListener('mousedown', startDrawing);
+            sigCanvas.addEventListener('mousemove', draw);
+            window.addEventListener('mouseup', stopDrawing);
+
+            // Touch Events
+            sigCanvas.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                startDrawing(touch);
+                e.preventDefault();
+            });
+            sigCanvas.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                draw(touch);
+                e.preventDefault();
+            });
+            sigCanvas.addEventListener('touchend', stopDrawing);
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = sigCanvas.getBoundingClientRect();
+            const x = (e.clientX || e.pageX) - rect.left;
+            const y = (e.clientY || e.pageY) - rect.top;
+            sigCtx.beginPath();
+            sigCtx.moveTo(x, y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = sigCanvas.getBoundingClientRect();
+            const x = (e.clientX || e.pageX) - rect.left;
+            const y = (e.clientY || e.pageY) - rect.top;
+            sigCtx.lineTo(x, y);
+            sigCtx.stroke();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        window.openSignatureModal = function() {
+            if (!window.currentDocTrip) return alert("Select a trip first!");
+            const modal = document.getElementById('signature-modal');
+            modal.style.display = 'flex';
+            if (!sigCanvas) window.initSignaturePad();
+            window.clearSignature();
+        }
+
+        window.closeSignatureModal = function() {
+            const modal = document.getElementById('signature-modal');
+            modal.style.display = 'none';
+        }
+
+        window.clearSignature = function() {
+            if (!sigCtx) return;
+            sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+        }
+
+        window.saveSignature = async function() {
+            if (!window.currentDocTrip) return;
+            const tripId = window.currentDocTrip[0];
+            const dataUrl = sigCanvas.toDataURL('image/png');
+
+            try {
+                // Update Supabase
+                await updateTrip(tripId, { signature: dataUrl });
+                
+                // Update local data
+                window.currentDocTrip[54] = dataUrl;
+                
+                // Update specific trip in currentTrips list
+                const idx = currentTrips.findIndex(t => t[0] === tripId);
+                if (idx !== -1) currentTrips[idx][54] = dataUrl;
+
+                alert("Signature saved successfully!");
+                window.closeSignatureModal();
+                window.drawReceipt();
+            } catch (err) {
+                console.error("Signature save fail:", err);
+                alert("Failed to save signature.");
+            }
+        }
+
+        // Initialize on load if possible
+        document.addEventListener('DOMContentLoaded', () => {
+             // In case it's already in the DOM
+             window.initSignaturePad();
+        });
 
