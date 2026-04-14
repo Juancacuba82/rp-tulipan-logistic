@@ -2122,6 +2122,10 @@
                 '#nav-actions-container button[onclick*="calendar"]'
             ];
 
+            // Email Settings button: only visible for admin
+            const emailBtn = document.getElementById('btn-email-settings');
+            if (emailBtn) emailBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+
             if (isAdmin) {
                 // Admin sees everything
                 [...adminOnlySelectors, ...staffOnlySelectors].forEach(sel => {
