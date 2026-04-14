@@ -149,6 +149,7 @@
                 storage: parseFloat(trip[27]) || 0,
                 transp: parseFloat(trip[18]) || 0,
                 sales: parseFloat(trip[20]) || 0,
+                qty: parseInt(trip[53]) || 1,
                 taxRate: taxRate,
                 takeTax: takeTax,
                 showBilling: showBilling,
@@ -189,7 +190,7 @@
 
             // Basic layout sections
             const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver);
-            const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place);
+            const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place);
             const clientContent = f('CUSTOMER NAME', data.cust) + f('PHONE', data.phone);
 
             // Inspection content

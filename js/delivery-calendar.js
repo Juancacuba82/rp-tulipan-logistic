@@ -759,7 +759,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             fields.forEach((id, i) => {
                 const el = document.getElementById(id);
-                const v = rowData[i + 1];
+                // The fields list has 30 items. The trip array mapping has 54 items.
+                // We need to map the fields to their corresponding indices in rowData.
+                let v;
+                if (id === 'in-qty') {
+                    v = rowData[53]; // Qty is index 53
+                } else {
+                    v = rowData[i + 1];
+                }
+
                 if (el) {
                     if (id === 'in-release') {
                         // Hybrid Logic: Check if value exists in Select
