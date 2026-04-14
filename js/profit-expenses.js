@@ -113,10 +113,12 @@
             const relMap = new Map();
             currentReleases.forEach(r => {
                 if (r && r[0]) {
-                    relMap.set(r[0].toString().trim(), { 
-                        p20: parseFloat(r[8]) || 0,
-                        p40: parseFloat(r[10]) || 0,
-                        p45: parseFloat(r[12]) || 0
+                    const rNo = r[0].toString().trim();
+                    const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0 };
+                    relMap.set(rNo, { 
+                        p20: (parseFloat(r[8]) || 0) || existing.p20,
+                        p40: (parseFloat(r[10]) || 0) || existing.p40,
+                        p45: (parseFloat(r[12]) || 0) || existing.p45
                     });
                 }
             });
@@ -213,7 +215,8 @@
             });
 
             // 4. Final Summaries
-            const totalRevenue = totals.tulipan + totals.jr + totals.contractor;
+            // TOTAL REVENUE now includes everything: Transport Profits, Sales Revenue, and Yard Services
+            const totalRevenue = totals.tulipan + totals.jr + totals.contractor + totals.sales + totals.yard;
             const totalGlobalExpenses = totals.expenses + totals.releases;
             const netProfit = totalRevenue - totalGlobalExpenses;
 

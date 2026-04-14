@@ -303,7 +303,7 @@
                         td.style.background = '#f8fafc';
                     }
                     else if (idx === 'TOTAL') {
-                        td.textContent = `$${lineInitialTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                        td.textContent = `$${lineRemainingTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                         td.style.fontWeight = '900';
                         td.style.color = '#1e293b';
                         td.style.background = '#f8fafc';

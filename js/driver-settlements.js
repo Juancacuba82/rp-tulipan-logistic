@@ -391,6 +391,7 @@
             const val_search = searchField ? searchField.value : '';
 
             const cashField = document.getElementById('res-cash-bal');
+            const salaryField = document.getElementById('res-driver-salary');
             const statusField = document.getElementById('settlement-status');
             const typeField = document.getElementById('settlement-payment-type');
 
@@ -430,8 +431,8 @@
                 if (error) throw error;
 
                 // AUTOMATIC EXPENSE INTEGRATION
-                // The expense should reflect the actual amount paid (Final Cash Balance)
-                const expenseAmount = Math.abs(cashAmountFinal);
+                // The expense should reflect the Net Driver Salary instead of the Final Cash Balance
+                const expenseAmount = salaryField ? (parseFloat(salaryField.dataset.value) || 0) : 0;
 
                 // Date Fallback: Use selected final date or Today
                 const expenseDate = val_final || new Date().toISOString().split('T')[0];
