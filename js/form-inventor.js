@@ -89,8 +89,8 @@
                 const size = row[2] || '---';
                 const nCont = row[3] || '---';
                 const phone = row[23] || '---';
+                const customer = row[11] || '---';
                 const salesPrice = parseFloat(row[20]) || 0;
-                const transPrice = parseFloat(row[18]) || 0;
                 const note = row[25] || '---';
 
                 // Get purchase price from release
@@ -111,11 +111,10 @@
                     }
                 }
 
-                const gross = salesPrice - unitCost - transPrice;
+                const gross = salesPrice - unitCost;
 
                 totalSales += salesPrice;
                 totalCost += unitCost;
-                totalTransport += transPrice;
                 totalGross += gross;
 
                 const tr = document.createElement('tr');
@@ -131,8 +130,8 @@
                     <td style="${cellStyle}">${nCont}</td>
                     <td style="${cellStyle}">${phone}</td>
                     <td style="${cellStyle}">${seller}</td>
+                    <td style="${cellStyle} font-weight: 800; color: #1e293b;">${customer}</td>
                     <td style="${cellStyle} color: #ef4444;">$${unitCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td style="${cellStyle} color: #1e40af;">$${transPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style="${cellStyle} color: #0f172a; font-weight: 900;">$${salesPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style="${cellStyle} color: ${gross >= 0 ? '#10b981' : '#ef4444'}; font-weight: 900;">$${gross.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style="${cellStyle} white-space: normal; min-width: 150px; max-width: 250px; text-align: left;">${note}</td>
@@ -154,7 +153,6 @@
             const fmt = v => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             if (document.getElementById('inv-total-sales')) document.getElementById('inv-total-sales').textContent = fmt(totalSales);
             if (document.getElementById('inv-total-cost')) document.getElementById('inv-total-cost').textContent = fmt(totalCost);
-            if (document.getElementById('inv-total-transport')) document.getElementById('inv-total-transport').textContent = fmt(totalTransport);
             if (document.getElementById('inv-total-gross')) document.getElementById('inv-total-gross').textContent = fmt(totalGross);
 
             // Empty state
@@ -169,6 +167,7 @@
             const releaseEntries = []; // { relNo, size, city }
             const releaseNosAdded = new Set();
             const cities = new Set();
+            const sizes = new Set();
 
             // From releases data
             if (typeof currentReleases !== 'undefined') {
@@ -178,6 +177,7 @@
 
                     const relNo = (r[0] || '').toString().trim();
                     const size = r[16] || '---';
+                    if (size && size !== '---') sizes.add(size);
                     const city = r[6] || '---';
                     if (relNo && relNo !== '---' && !releaseNosAdded.has(relNo)) {
                         releaseNosAdded.add(relNo);
@@ -190,12 +190,16 @@
             if (typeof currentTrips !== 'undefined') {
                 currentTrips.forEach(row => {
                     if (row[6] && row[6] !== '---') cities.add(row[6]);
+                    if (row[2] && row[2] !== '---') sizes.add(row[2]);
                 });
             }
 
             // Merge with hardcoded cities from delivery calendar
             const hardcodedCities = ["MIAMI", "MEDLEY", "TAMPA", "JACKSONVILLE", "SAVANNAH", "TITUSVILLE", "MASCOTTE", "ORLANDO", "ATLANTA", "CHARLESTON", "NEWARK", "SUMMERVILLE", "BALTIMORE"];
             hardcodedCities.forEach(c => cities.add(c));
+
+            const hardcodedSizes = ["40' HC", "40' STD", "40' DD", "40' OS", "45' HC", "20' STD", "20' HC", "20' DD", "20' OS"];
+            hardcodedSizes.forEach(s => sizes.add(s));
 
             // Fill Seller and City as simple selects
             const fillSelect = (id, values) => {
@@ -214,6 +218,7 @@
 
             fillSelect('inv-f-seller', sellers);
             fillSelect('inv-f-city', cities);
+            fillSelect('inv-f-size', sizes);
 
             // Fill N Release with "relNo - size - city" format
             const relSel = document.getElementById('inv-f-release');
@@ -274,12 +279,10 @@
 
             // Financials
             const sPrice = parseFloat(row[20]) || 0;
-            const tPrice = parseFloat(row[18]) || 0;
             const uCost = parseFloat(unitCost) || 0;
-            const net = sPrice - uCost - tPrice;
+            const net = sPrice - uCost;
 
             document.getElementById('inv-det-cost').textContent = fmt(uCost);
-            document.getElementById('inv-det-trans').textContent = fmt(tPrice);
             document.getElementById('inv-det-sales').textContent = fmt(sPrice);
             document.getElementById('inv-det-profit').textContent = fmt(net);
             document.getElementById('inv-det-profit').style.color = net >= 0 ? '#10b981' : '#ef4444';

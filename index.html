@@ -2282,7 +2282,9 @@
                 <div class="releases-filter-container" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px;">
                     <div class="filter-item">
                         <label>Size</label>
-                        <input type="text" id="inv-f-size" class="rel-filter-input" placeholder="All" oninput="renderInventorTable()">
+                        <select id="inv-f-size" class="rel-filter-input" onchange="renderInventorTable()">
+                            <option value="">All</option>
+                        </select>
                     </div>
                     <div class="filter-item">
                         <label>N. Cont</label>
@@ -2320,10 +2322,6 @@
                         <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Purchase Cost</span>
                         <h3 id="inv-total-cost" style="margin: 5px 0 0; font-size: 1.5rem; color: #ef4444;">$0.00</h3>
                     </div>
-                    <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 5px solid #1e40af; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
-                        <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Transport</span>
-                        <h3 id="inv-total-transport" style="margin: 5px 0 0; font-size: 1.5rem; color: #1e40af;">$0.00</h3>
-                    </div>
                     <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 5px solid #10b981; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
                         <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Gross Profit</span>
                         <h3 id="inv-total-gross" style="margin: 5px 0 0; font-size: 1.5rem; color: #10b981;">$0.00</h3>
@@ -2340,8 +2338,8 @@
                                 <th>N. Cont</th>
                                 <th>Phone</th>
                                 <th>Seller</th>
+                                <th>Customer</th>
                                 <th>Purchase Price</th>
-                                <th>Transportation</th>
                                 <th>Sales Price</th>
                                 <th>Gross</th>
                                 <th>Note</th>
@@ -3453,14 +3451,10 @@
                 <!-- Financials -->
                 <div class="inv-detail-card" style="grid-column: span 2;">
                     <h4><i class="fas fa-dollar-sign"></i> Financial Breakdown</h4>
-                    <div class="inv-detail-info-grid" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="inv-detail-info-grid" style="grid-template-columns: repeat(3, 1fr);">
                         <div class="inv-info-item">
                             <span class="inv-info-label">Purchase Price</span>
                             <span class="inv-info-value price-down" id="inv-det-cost">$0.00</span>
-                        </div>
-                        <div class="inv-info-item">
-                            <span class="inv-info-label">Transportation</span>
-                            <span class="inv-info-value price-down" id="inv-det-trans">$0.00</span>
                         </div>
                         <div class="inv-info-item">
                             <span class="inv-info-label">Sales Price</span>
