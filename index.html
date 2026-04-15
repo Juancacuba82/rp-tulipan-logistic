@@ -567,6 +567,8 @@
                     & RECEIPTS</button>
                 <button onclick="closeMenu(); showView('calendar')" class="btn-calendar"><i
                         class="fas fa-calendar-check"></i> DELIVERY CALENDAR</button>
+                <button onclick="closeMenu(); showView('cust-invoice')" class="btn-calendar"><i
+                        class="fas fa-file-invoice-dollar"></i> CUSTOMERS INVOICE</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -646,6 +648,10 @@
                     <button onclick="showView('calendar')" class="dash-card">
                         <i class="fas fa-calendar-check"></i>
                         <span>DELIVERY CALENDAR</span>
+                    </button>
+                    <button onclick="showView('cust-invoice')" class="dash-card">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>CUSTOMERS INVOICE</span>
                     </button>
                     <button onclick="showView('expenses')" class="dash-card">
                         <i class="fas fa-file-invoice-dollar"></i>
@@ -1519,7 +1525,7 @@
                             style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; width: 100%;">
                             <div class="filter-item">
                                 <label>Release #</label>
-                                <input type="text" id="rf-no" class="rel-filter-input" placeholder="Release # or Booking" oninput="applyReleasesFilters()">
+                                <input type="text" id="rf-no" class="rel-filter-input" placeholder="Release # or Booking #" oninput="applyReleasesFilters()">
                             </div>
                             <div class="filter-item">
                                 <label>Date From</label>
@@ -2352,6 +2358,66 @@
                 </div>
             </div>
         </section>
+
+        <!-- CUSTOMERS INVOICE View -->
+        <section id="cust-invoice-view" class="view-section hidden">
+            <div style="max-width: 1400px; margin: 0 auto; padding: 30px 20px;">
+                <div class="inv-header-flex" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
+                    <div>
+                        <h2 style="font-size: 2rem; color: #1e293b; margin-bottom: 5px;">Customers Invoice</h2>
+                        <p style="color: #64748b; font-size: 0.9rem;">Pending invoices for completed orders only</p>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="releases-filter-container" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px;">
+                    <div class="filter-item">
+                        <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">Order #</label>
+                        <input type="text" id="ci-f-order" class="rel-filter-input" placeholder="Search Order #" oninput="renderCustInvoiceTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                    </div>
+                    <div class="filter-item">
+                        <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">City</label>
+                        <select id="ci-f-city" class="rel-filter-input" onchange="renderCustInvoiceTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                            <option value="">All Cities</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">Delivery Place</label>
+                        <select id="ci-f-place" class="rel-filter-input" onchange="renderCustInvoiceTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                            <option value="">All Places</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">Driver</label>
+                        <select id="ci-f-driver" class="rel-filter-input" onchange="renderCustInvoiceTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                            <option value="">All Drivers</option>
+                        </select>
+                    </div>
+                    <button onclick="resetCustInvoiceFilters()" class="btn-reset-report" style="align-self: flex-end; margin-bottom: 5px; background: #64748b; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Reset</button>
+                </div>
+
+                <div class="table-scroll-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto;">
+                    <table id="cust-invoice-table" style="width: 100%; min-width: 1100px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
+                        <thead>
+                            <tr class="header-row">
+                                <th style="padding: 12px; background: #1e293b; color: white;">Order #</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">City</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">Delivery Place</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">Miles</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">Driver</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">Trans. Pay</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">Sales Price</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">Cash</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cust-invoice-body">
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script>
@@ -2401,7 +2467,8 @@
                     console.log("User authenticated:", user.id);
                     const success = await checkAuth();
                     if (success) {
-                        showView('hero');
+                        const savedView = localStorage.getItem('activeSection') || 'hero';
+                        showView(savedView);
                     } else {
                         throw new Error("Authenticated, but profile fetch failed.");
                     }
@@ -2558,7 +2625,7 @@
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
         (function setupRealtime() {
             if (!db) return;
-            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories'];
+            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories', 'cust-invoice'];
             channels.forEach(table => {
                 db.channel(`${table}_changes`)
                     .on('postgres_changes', { event: '*', schema: 'public', table: table }, async payload => {
@@ -2770,6 +2837,13 @@
                             if (window.loadTableData) await window.loadTableData();
                             if (window.loadReleasesData) await window.loadReleasesData();
                             if (window.renderInventorTable) window.renderInventorTable();
+                        })();
+                    } else if (viewId === 'inventory') {
+                        if (window.renderInventorTable) window.renderInventorTable();
+                    } else if (viewId === 'cust-invoice') {
+                        (async () => {
+                            if (window.loadTableData) await window.loadTableData();
+                            if (window.renderCustInvoiceTable) window.renderCustInvoiceTable();
                         })();
                     }
 
@@ -3152,6 +3226,17 @@
         // Call loadDocTrips to populate initially
         loadDocTrips();
 
+        // --- STARTUP LOGIC ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            console.log("App starting up...");
+            const authSuccess = await checkAuth();
+            if (authSuccess) {
+                const savedView = localStorage.getItem('activeSection') || 'hero';
+                showView(savedView);
+            } else {
+                showView('auth');
+            }
+        });
     </script>
 
     <!-- SMART EXCEL IMPORTER MODAL -->
@@ -3387,6 +3472,7 @@
 
     <script src="./js/fleet.js?v=2"></script>
     <script src="./js/form-inventor.js?v=1"></script>
+    <script src="./js/cust-invoice.js?v=1"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>
