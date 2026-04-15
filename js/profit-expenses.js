@@ -109,7 +109,7 @@
             const logisticsData = currentTrips || [];
             const expensesData = currentExpenses || [];
 
-            // 0. Build Release Lookup Map for Costs
+            // 0. Build Release Lookup Map for Container Purchase Costs
             const relMap = new Map();
             currentReleases.forEach(r => {
                 if (r && r[0]) {
@@ -124,87 +124,79 @@
             });
 
             let totals = {
-                sales: 0,
-                rentals: 0,
-                yard: 0,
-                tulipan: 0,
-                jr: 0,
-                contractor: 0,
-                expenses: 0, 
-                releases: 0, 
-                payouts: 0   
+                sales: 0,        // Net Sales Profit (sales_price - container_cost)
+                yard: 0,         // Yard / Storage income
+                tulipan: 0,      // RP Tulipan transport revenue
+                jr: 0,           // JR Super Crame transport revenue
+                contractor: 0,   // Contractor transport revenue
+                expenses: 0,     // Business expenses
+                releases: 0      // Informational: total container purchase cost in COMPLETE orders
             };
 
-            // 1. Process Logistics Data (Trips)
+            // 1. Process Logistics Data (Trips) — only COMPLETE orders count
             logisticsData.forEach(row => {
                 const rowDate = row[1];
+                const orderStatus = (row[41] || '').toString().toUpperCase();
+
+                // Only include orders marked as Complete (status value = 'PAID')
+                if (orderStatus !== 'PAID') return;
+
+                // Date filter
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                     const salesPrice = parseFloat(row[20]) || 0;
-                    const isSalesPaid = (row[33] === 'PAID'); 
-                    const isYardPaid = (row[30] === 'PAID');
-                    const isRatePaid = (row[32] === 'PAID'); 
+                    const hasYard    = (row[12] === 'YES');
+                    const hasTrans   = (row[42] === 'YES');
+                    const hasSales   = (row[43] === 'YES');
 
-                    const hasYard = (row[12] === 'YES');
-                    const hasTrans = (row[42] === 'YES');
-                    const hasSales = (row[43] === 'YES');
-
-                    let transportProfit = 0;
-
-                    // A. Sales Component (Goes to its own bucket)
-                    if (isSalesPaid && hasSales) {
-                        totals.sales += salesPrice; 
-                    }
-                    
-                    // B. Yard Component (Goes to its own bucket)
-                    if (isYardPaid && hasYard) {
-                        const yardVal = parseFloat(row[13]) || 0; 
-                        const pricePerDay = parseFloat(row[14]) || 0;
-                        let storage = 0;
-                        if (pricePerDay > 0 && row[1] && row[15] && row[15] !== '---') {
-                            const dateIn = new Date(row[1]);
-                            const dateOut = new Date(row[15]);
-                            const days = Math.max(0, Math.round((dateOut - dateIn) / (1000 * 60 * 60 * 24)));
-                            storage = pricePerDay * days;
-                        }
-                        const totalYard = yardVal + storage;
-                        totals.yard += totalYard;
-                    }
-
-                    // C. Transport Component
-                    if (isRatePaid && hasTrans) {
-                        const transVal = parseFloat(row[18]) || 0;
-                        transportProfit += transVal;
-                    }
-
-                    // D. Assign Transport Revenue to Company bucket
-                    const company = row[16] || '';
-                    if (company === 'RP TULIPAN') totals.tulipan += transportProfit;
-                    else if (company === 'JR SUPER CRAME') totals.jr += transportProfit;
-                    else if (company === 'CONTRACTOR') totals.contractor += transportProfit;
-
-                    // E. NEW: Calculate Container Cost (Purchases) based on actual Sale
-                    if (isSalesPaid) {
-                        const relNo = (row[4] || '').toString().trim();
-                        const tripSize = (row[2] || '').toString();
+                    // A. Sales Component — Net profit = sales_price minus container purchase cost
+                    if (hasSales && salesPrice > 0) {
+                        const relNo      = (row[4] || '').toString().trim();
+                        const tripSize   = (row[2] || '').toString();
                         const releaseData = relMap.get(relNo);
 
+                        let unitCost = 0;
                         if (releaseData) {
-                            let unitCost = 0;
-                            if (tripSize.includes("20")) unitCost = releaseData.p20;
-                            else if (tripSize.includes("40")) unitCost = releaseData.p40;
-                            else if (tripSize.includes("45")) unitCost = releaseData.p45;
+                            if (tripSize.includes('20'))      unitCost = releaseData.p20;
+                            else if (tripSize.includes('40')) unitCost = releaseData.p40;
+                            else if (tripSize.includes('45')) unitCost = releaseData.p45;
 
                             // Fallback if specific size price is 0
                             if (unitCost === 0) {
                                 unitCost = releaseData.p20 || releaseData.p40 || releaseData.p45 || 0;
                             }
-                            totals.releases += unitCost;
                         }
+
+                        const salesProfit = salesPrice - unitCost;
+                        totals.sales += salesProfit;
+                        totals.releases += unitCost; // Track container cost (informational only)
+                    }
+
+                    // B. Yard / Storage Component
+                    if (hasYard) {
+                        const yardVal     = parseFloat(row[13]) || 0;
+                        const pricePerDay = parseFloat(row[14]) || 0;
+                        let storage = 0;
+                        if (pricePerDay > 0 && row[1] && row[15] && row[15] !== '---') {
+                            const dateIn  = new Date(row[1]);
+                            const dateOut = new Date(row[15]);
+                            const days = Math.max(0, Math.round((dateOut - dateIn) / (1000 * 60 * 60 * 24)));
+                            storage = pricePerDay * days;
+                        }
+                        totals.yard += yardVal + storage;
+                    }
+
+                    // C. Transport Component — assign to company bucket
+                    if (hasTrans) {
+                        const transVal = parseFloat(row[18]) || 0;
+                        const company  = (row[16] || '').toString().toUpperCase();
+                        if (company === 'RP TULIPAN')       totals.tulipan    += transVal;
+                        else if (company === 'JR SUPER CRAME') totals.jr      += transVal;
+                        else if (company === 'CONTRACTOR')  totals.contractor += transVal;
                     }
                 }
             });
 
-            // 2. Process Business Expenses (Includes Driver Payouts)
+            // 2. Process Business Expenses
             expensesData.forEach(row => {
                 const rowDate = row[0];
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
@@ -214,13 +206,12 @@
                 }
             });
 
-            // 4. Final Summaries
-            // TOTAL REVENUE now includes everything: Transport Profits, Sales Revenue, and Yard Services
+            // 3. Final Summaries
             const totalRevenue = totals.tulipan + totals.jr + totals.contractor + totals.sales + totals.yard;
-            const totalGlobalExpenses = totals.expenses + totals.releases;
+            const totalGlobalExpenses = totals.expenses;
             const netProfit = totalRevenue - totalGlobalExpenses;
 
-            // 4. Update Summary Cards (Note: indexing shifted in original code)
+            // 4. Update Summary Cards
             document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('total-expenses-val').textContent = `$${totalGlobalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
@@ -238,24 +229,25 @@
 
             // 5. Update Breakdown List
             document.getElementById('val-sales').textContent = `$${totals.sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            document.getElementById('val-yard').textContent = `$${totals.yard.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-
-            document.getElementById('val-tulipan').textContent = `$${totals.tulipan.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            document.getElementById('val-jr').textContent = `$${totals.jr.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            if (document.getElementById('val-yard'))       document.getElementById('val-yard').textContent       = `$${totals.yard.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('val-tulipan').textContent    = `$${totals.tulipan.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('val-jr').textContent         = `$${totals.jr.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-contractor').textContent = `$${totals.contractor.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            
-            // Costs
-            document.getElementById('val-expenses').textContent = `$${totals.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            document.getElementById('val-releases').textContent = `$${totals.releases.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            // Total row (sum of all revenue: sales + yard + tulipan + jr + contractor)
+            if (document.getElementById('val-revenue-total')) document.getElementById('val-revenue-total').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('val-expenses').textContent   = `$${totals.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            // Container Purchases — informational only, NOT subtracted from revenue or expenses
+            if (document.getElementById('val-releases')) document.getElementById('val-releases').textContent = `$${totals.releases.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
-            // 6. Update Simple Bar Chart
-            const maxVal = Math.max(totals.sales, totals.yard, totals.tulipan, totals.jr, totals.contractor, totalGlobalExpenses, 1);
-            if (document.getElementById('bar-sales')) document.getElementById('bar-sales').style.width = `${(totals.sales / maxVal) * 100}%`;
-            if (document.getElementById('bar-yard')) document.getElementById('bar-yard').style.width = `${(totals.yard / maxVal) * 100}%`;
-            if (document.getElementById('bar-tulipan')) document.getElementById('bar-tulipan').style.width = `${(totals.tulipan / maxVal) * 100}%`;
-            if (document.getElementById('bar-jr')) document.getElementById('bar-jr').style.width = `${(totals.jr / maxVal) * 100}%`;
+            // 6. Update Bar Chart
+            const maxVal = Math.max(totalRevenue, totals.sales, totals.yard, totals.tulipan, totals.jr, totals.contractor, totalGlobalExpenses, totals.releases, 1);
+            if (document.getElementById('bar-sales'))      document.getElementById('bar-sales').style.width      = `${(totals.sales / maxVal) * 100}%`;
+            if (document.getElementById('bar-yard'))       document.getElementById('bar-yard').style.width       = `${(totals.yard / maxVal) * 100}%`;
+            if (document.getElementById('bar-tulipan'))    document.getElementById('bar-tulipan').style.width    = `${(totals.tulipan / maxVal) * 100}%`;
+            if (document.getElementById('bar-jr'))         document.getElementById('bar-jr').style.width         = `${(totals.jr / maxVal) * 100}%`;
             if (document.getElementById('bar-contractor')) document.getElementById('bar-contractor').style.width = `${(totals.contractor / maxVal) * 100}%`;
-            if (document.getElementById('bar-expenses')) document.getElementById('bar-expenses').style.width = `${(totalGlobalExpenses / maxVal) * 100}%`;
+            if (document.getElementById('bar-expenses'))   document.getElementById('bar-expenses').style.width   = `${(totalGlobalExpenses / maxVal) * 100}%`;
+            if (document.getElementById('bar-releases'))   document.getElementById('bar-releases').style.width   = `${(totals.releases / maxVal) * 100}%`;
         };
 
         window.resetProfitFilters = function () {

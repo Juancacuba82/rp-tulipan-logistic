@@ -834,6 +834,105 @@
                 console.error("Delete err:", err);
             }
         };
+        // --- EXPENSE CATEGORY MANAGEMENT LOGIC ---
+        let currentExpenseCategories = [];
+        window.loadExpenseCategoriesData = async function () {
+            try {
+                const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
+                
+                const { data, error } = await db.from('expense_categories').select('*').order('name', { ascending: true });
+                
+                if (error) {
+                    console.error("Supabase error loading expense categories:", error);
+                    currentExpenseCategories = defaults.map((s, i) => ({ id: i, name: s }));
+                } else if (!data || data.length === 0) {
+                    const seedObjs = defaults.map(s => ({ name: s }));
+                    await db.from('expense_categories').insert(seedObjs);
+                    const { data: freshData } = await db.from('expense_categories').select('*').order('name', { ascending: true });
+                    currentExpenseCategories = (freshData && freshData.length > 0) ? freshData : defaults.map((s, i) => ({ id: i, name: s }));
+                } else {
+                    currentExpenseCategories = data;
+                }
+                
+                refreshExpenseCategorySelects();
+            } catch (err) {
+                console.error("Critical error in loadExpenseCategoriesData:", err);
+            }
+        };
+
+        function refreshExpenseCategorySelects() {
+            const expSel = document.getElementById('exp-category');
+            const expFilt = document.getElementById('exp-filter-category');
+            
+            const populate = (sel, isFilter) => {
+                if (!sel) return;
+                const currentVal = sel.value;
+                sel.innerHTML = isFilter ? '<option value="">All Categories</option>' : '<option value="" disabled selected>Select Category...</option>';
+                currentExpenseCategories.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.name;
+                    opt.textContent = s.name;
+                    sel.appendChild(opt);
+                });
+                if (currentVal) sel.value = currentVal;
+            };
+
+            populate(expSel, false);
+            populate(expFilt, true);
+        }
+
+        window.openExpenseCategoryManager = function () {
+            document.getElementById('expense-category-manager-modal').style.display = 'flex';
+            renderExpenseCategoryManagerList();
+        };
+        window.closeExpenseCategoryManager = function () {
+            document.getElementById('expense-category-manager-modal').style.display = 'none';
+        };
+
+        function renderExpenseCategoryManagerList() {
+            const container = document.getElementById('expense-category-list-body');
+            if (!container) return;
+            container.innerHTML = '';
+            currentExpenseCategories.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'driver-item';
+                item.innerHTML = `
+                    <span>${s.name}</span>
+                    <button onclick="deleteExpenseCategory('${s.id}')" class="btn-del-driver" title="Delete Category">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        window.addNewExpenseCategory = async function () {
+            const input = document.getElementById('new-expense-category-name');
+            const name = input.value.trim();
+            if (!name) return;
+            try {
+                const { error } = await db.from('expense_categories').insert([{ name: name }]);
+                if (error) throw error;
+                input.value = '';
+                await loadExpenseCategoriesData();
+                renderExpenseCategoryManagerList();
+            } catch (err) {
+                alert("Error adding category: " + err.message);
+            }
+        };
+
+        window.deleteExpenseCategory = async function (id) {
+            if (!confirm("Are you sure you want to delete this category?")) return;
+            try {
+                const { error } = await db.from('expense_categories').delete().eq('id', id);
+                if (error) throw error;
+                await loadExpenseCategoriesData();
+                renderExpenseCategoryManagerList();
+            } catch (err) {
+                console.error("Delete err:", err);
+            }
+        };
+
 
         function calculateFinalPay(company, grossPay) {
             if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {

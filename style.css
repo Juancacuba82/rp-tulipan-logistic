@@ -1943,7 +1943,7 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
+    padding: 16px 0;
     border-bottom: 1px solid #f1f5f9;
 }
 
@@ -1978,18 +1978,25 @@ main {
 }
 
 .bar-group {
-    margin-bottom: 15px;
+    margin-bottom: 0;
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-bottom: 1px solid transparent;
 }
 
 .bar-group label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: #64748b;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
     display: block;
+    font-weight: 600;
+    line-height: 1;
 }
 
 .bar-container {
-    height: 25px;
+    height: 20px;
     background: #f1f5f9;
     border-radius: 4px;
     overflow: hidden;

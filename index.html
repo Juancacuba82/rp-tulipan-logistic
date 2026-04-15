@@ -285,6 +285,257 @@
         .btn-add-driver-confirm:hover {
             background: #059669;
         }
+
+        /* Inventory Detail Modal Premium Styles */
+        .inventory-detail-modal .modal-content {
+            width: 700px;
+            max-width: 90vw;
+            max-height: 90vh;
+            border-top: 8px solid #1e40af;
+            padding: 0;
+            overflow: hidden;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .inv-detail-header {
+            background: white;
+            padding: 20px 25px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .inventory-detail-modal .btn-close-modal {
+            background: #f1f5f9;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1;
+            padding-bottom: 4px;
+        }
+
+        .inventory-detail-modal .btn-close-modal:hover {
+            background: #cbd5e1;
+            color: #ef4444;
+            transform: rotate(90deg);
+        }
+
+        .inv-detail-title {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #1e293b;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+        }
+
+        .inv-detail-body {
+            padding: 25px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .inv-detail-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        }
+
+        .inv-detail-card h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-detail-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .inv-info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .inv-info-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        .inv-info-value {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #1e293b;
+        }
+
+        .inv-info-value.price-up {
+            color: #10b981;
+        }
+
+        .inv-info-value.price-down {
+            color: #ef4444;
+        }
+
+        .inv-detail-footer {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        .inv-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .inv-badge-blue { background: #eff6ff; color: #1e40af; }
+        .inv-badge-green { background: #f0fdf4; color: #15803d; }
+        .inv-badge-orange { background: #fff7ed; color: #c2410c; }
+
+        /* Responsive adjustments for Inventory Detail */
+        @media (max-width: 768px) {
+            .inventory-detail-modal .modal-content {
+                width: 90vw !important;
+                max-height: 85vh !important;
+                display: flex !important;
+                flex-direction: column !important;
+                border-top-width: 5px !important;
+            }
+
+            .inv-detail-header {
+                padding: 15px 20px !important;
+            }
+
+            .inv-detail-title {
+                font-size: 1.2rem !important;
+            }
+
+            .inv-detail-body {
+                grid-template-columns: 1fr !important;
+                padding: 15px !important;
+                gap: 15px !important;
+                overflow-y: auto !important;
+                flex: 1 !important;
+            }
+
+            .inv-detail-card {
+                grid-column: span 1 !important;
+                padding: 15px !important;
+            }
+
+            .inv-detail-info-grid {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px !important;
+            }
+
+            /* Financials breakdown on mobile */
+            #inventory-detail-modal .inv-detail-info-grid[style*="repeat(4, 1fr)"] {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 12px !important;
+            }
+
+            .inv-info-value {
+                font-size: 0.9rem !important;
+            }
+
+            .inv-detail-footer {
+                padding: 15px 20px !important;
+            }
+        }
+
+        /* Inventory View Mobile Fixes */
+        @media (max-width: 768px) {
+            #inventory-view > div {
+                padding: 20px 10px !important;
+            }
+            #inventory-view .releases-filter-container {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 8px !important;
+                margin-bottom: 15px !important;
+            }
+            #inventory-view .filter-item {
+                flex: none !important;
+                width: 100% !important;
+            }
+            #inventory-view label {
+                font-size: 0.65rem !important;
+            }
+            #inventory-view input, #inventory-view select {
+                padding: 6px 8px !important;
+                font-size: 0.75rem !important;
+            }
+            #inventory-view .table-scroll-container {
+                margin: 0 -10px !important;
+                border-radius: 0 !important;
+                border-left: none !important;
+                border-right: none !important;
+            }
+
+            #inventory-view .inv-header-flex {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 20px !important;
+            }
+
+            #inventory-view .inv-header-filters {
+                width: 100% !important;
+                justify-content: space-between !important;
+            }
+        }
+        .btn-manage-inline {
+            background: #f8fafc;
+            color: #1e40af;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn-manage-inline:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
     </style>
 </head>
 
@@ -399,6 +650,10 @@
                     <button onclick="showView('expenses')" class="dash-card">
                         <i class="fas fa-file-invoice-dollar"></i>
                         <span>EXPENSES MANAGEMENT</span>
+                    </button>
+                    <button onclick="showView('inventory')" class="dash-card">
+                        <i class="fas fa-boxes"></i>
+                        <span>FORM INVENTOR</span>
                     </button>
                 </div>
             </div>
@@ -1754,17 +2009,16 @@
                             <input type="date" id="exp-date">
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #1e40af !important;">CATEGORY</label>
-                            <select id="exp-category" onchange="toggleOtherExpense()">
-                                <option value="Fuel">Fuel (Diesel)</option>
-                                <option value="Service/Repairs">Service / Repairs</option>
-                                <option value="Tolls">Tolls / Sunpass</option>
-                                <option value="Insurance">Insurance</option>
-                                <option value="Payroll">Payroll (Workers)</option>
-                                <option value="Utilities">Utilities / Rent</option>
-                                <option value="Taxes/Licenses">Taxes / Licenses</option>
-                                <option value="Other">Other (Special)</option>
-                            </select>
+                            <label class="sidebar-label-btn" style="background: #1e40af !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">CATEGORY</label>
+                            <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
+                                <select id="exp-category" onchange="toggleOtherExpense()" style="flex: 1; margin: 0;">
+                                    <option value="" disabled selected>Loading categories...</option>
+                                </select>
+                                <button onclick="openExpenseCategoryManager()" class="btn-manage-inline" 
+                                    style="flex: 0 0 auto; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                    Manage
+                                </button>
+                            </div>
                         </div>
 
                         <div class="form-group" id="group-exp-other" style="display: none;">
@@ -1807,15 +2061,6 @@
                                     <label>CATEGORY</label>
                                     <select id="exp-filter-category" onchange="renderExpensesHistory()">
                                         <option value="">All Categories</option>
-                                        <option value="Fuel">Fuel (Diesel)</option>
-                                        <option value="Service/Repairs">Service / Repairs</option>
-                                        <option value="Tolls">Tolls / Sunpass</option>
-                                        <option value="Insurance">Insurance</option>
-                                        <option value="Payroll">Payroll (Workers)</option>
-                                        <option value="Utilities">Utilities / Rent</option>
-                                        <option value="Taxes/Licenses">Taxes / Licenses</option>
-                                        <option value="Driver Payment">Driver Payment</option>
-                                        <option value="Other">Other (Special)</option>
                                     </select>
                                 </div>
                                 <div class="filter-item">
@@ -1932,6 +2177,12 @@
                                 </div>
                                 <div class="item-value" id="val-contractor">$0.00</div>
                             </div>
+                            <div class="breakdown-item" style="border-top: 2px solid #1e293b; margin-top: 12px; padding-top: 12px;">
+                                <div class="item-label" style="font-weight: 900; color: #1e293b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    ⬛ Total
+                                </div>
+                                <div class="item-value" id="val-revenue-total" style="font-weight: 900; color: #1e293b; font-size: 1.05rem;">$0.00</div>
+                            </div>
                             <div class="breakdown-item" style="border-top: 1px dashed #e2e8f0; margin-top: 15px; padding-top: 15px;">
                                 <div class="item-label" style="font-weight: 800; color: #1e293b; text-transform: uppercase; font-size: 0.75rem;">
                                     Costs & Expenses
@@ -1954,10 +2205,9 @@
                         </div>
                     </div>
 
-                    <div class="chart-panel">
-                        <!-- We can add a CSS chart or just a placeholder for visual excellence -->
+                    <div class="chart-panel" style="display: flex; flex-direction: column;">
                         <h3>Revenue Distribution</h3>
-                        <div class="simple-bar-chart">
+                        <div class="simple-bar-chart" style="flex: 1;">
                             <div class="bar-group">
                                 <label>Sales Profit</label>
                                 <div class="bar-container">
@@ -1988,14 +2238,119 @@
                                     <div id="bar-contractor" class="bar" style="width: 0%; background: #a855f7;"></div>
                                 </div>
                             </div>
-                            <div class="bar-group">
-                                <label>Total Expenses</label>
+                            <!-- Expenses section: margin-top accounts for TOTAL row + Costs & Expenses header on the left -->
+                            <div class="bar-group" style="margin-top: 116px;">
+                                <label style="color: #ef4444; font-weight: 700;">Total Expenses</label>
                                 <div class="bar-container">
                                     <div id="bar-expenses" class="bar" style="width: 0%; background: #ef4444;"></div>
                                 </div>
                             </div>
+                            <div class="bar-group">
+                                <label style="color: #be185d; font-weight: 700;">Container Purchases</label>
+                                <div class="bar-container">
+                                    <div id="bar-releases" class="bar" style="width: 0%; background: #be185d;"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FORM INVENTOR View -->
+        <section id="inventory-view" class="view-section hidden">
+            <div style="max-width: 1400px; margin: 0 auto; padding: 30px 20px;">
+                <div class="inv-header-flex" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
+                    <div>
+                        <h2 style="font-size: 2rem; color: #1e293b; margin-bottom: 5px;">Form Inventor</h2>
+                        <p style="color: #64748b; font-size: 0.9rem;">Container sales detail — completed orders only</p>
+                    </div>
+                    <div class="inv-header-filters" style="display: flex; gap: 12px; align-items: flex-end;">
+                        <div>
+                            <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">From</label>
+                            <input type="date" id="inv-date-from" onchange="renderInventorTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">To</label>
+                            <input type="date" id="inv-date-to" onchange="renderInventorTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                        </div>
+                        <button onclick="resetInventorFilters()" class="btn-reset-report">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="releases-filter-container" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px;">
+                    <div class="filter-item">
+                        <label>Size</label>
+                        <input type="text" id="inv-f-size" class="rel-filter-input" placeholder="All" oninput="renderInventorTable()">
+                    </div>
+                    <div class="filter-item">
+                        <label>N. Cont</label>
+                        <input type="text" id="inv-f-ncont" class="rel-filter-input" placeholder="All" oninput="renderInventorTable()">
+                    </div>
+                    <div class="filter-item">
+                        <label>Phone</label>
+                        <input type="text" id="inv-f-phone" class="rel-filter-input" placeholder="All" oninput="renderInventorTable()">
+                    </div>
+                    <div class="filter-item">
+                        <label>Seller</label>
+                        <select id="inv-f-seller" class="rel-filter-input" onchange="renderInventorTable()">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>N Release</label>
+                        <select id="inv-f-release" class="rel-filter-input" onchange="renderInventorTable()">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>City</label>
+                        <select id="inv-f-city" class="rel-filter-input" onchange="renderInventorTable()">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 5px solid #f59e0b; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+                        <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Sales</span>
+                        <h3 id="inv-total-sales" style="margin: 5px 0 0; font-size: 1.5rem; color: #0f172a;">$0.00</h3>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 5px solid #ef4444; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+                        <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Purchase Cost</span>
+                        <h3 id="inv-total-cost" style="margin: 5px 0 0; font-size: 1.5rem; color: #ef4444;">$0.00</h3>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 5px solid #1e40af; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+                        <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Transport</span>
+                        <h3 id="inv-total-transport" style="margin: 5px 0 0; font-size: 1.5rem; color: #1e40af;">$0.00</h3>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 5px solid #10b981; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+                        <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Gross Profit</span>
+                        <h3 id="inv-total-gross" style="margin: 5px 0 0; font-size: 1.5rem; color: #10b981;">$0.00</h3>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-scroll-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto;">
+                    <table id="inventor-table" style="width: 100%; min-width: 1100px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
+                        <thead>
+                            <tr class="header-row">
+                                <th>Date</th>
+                                <th>Size</th>
+                                <th>N. Cont</th>
+                                <th>Phone</th>
+                                <th>Seller</th>
+                                <th>Purchase Price</th>
+                                <th>Transportation</th>
+                                <th>Sales Price</th>
+                                <th>Gross</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventor-body">
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -2205,14 +2560,11 @@
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
         (function setupRealtime() {
             if (!db) return;
-
-            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies'];
+            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories'];
             channels.forEach(table => {
                 db.channel(`${table}_changes`)
                     .on('postgres_changes', { event: '*', schema: 'public', table: table }, async payload => {
                         console.log(`Realtime update on ${table}:`, payload.eventType);
-
-                        // Intelligent refresh:
                         if (table === 'trips') await loadTableData();
                         if (table === 'releases') await loadReleasesData();
                         if (table === 'expenses') await loadExpensesData();
@@ -2221,6 +2573,10 @@
                         if (table === 'customers') await loadCustomersData();
                         if (table === 'pickup_addresses') await loadPickupAddressesData();
                         if (table === 'companies') await loadCompaniesData();
+                        if (table === 'depots') await loadDepotsData();
+                        if (table === 'sellers') await loadSellersData();
+                        if (table === 'container_sizes') await loadContainerSizesData();
+                        if (table === 'expense_categories') await loadExpenseCategoriesData();
                     })
                     .subscribe();
             });
@@ -2411,10 +2767,23 @@
                         })();
                     } else if (finalView === 'expenses') {
                         if (window.loadExpensesData) window.loadExpensesData();
+                    } else if (finalView === 'inventory') {
+                        (async () => {
+                            if (window.loadTableData) await window.loadTableData();
+                            if (window.loadReleasesData) await window.loadReleasesData();
+                            if (window.renderInventorTable) window.renderInventorTable();
+                        })();
                     }
 
-                    // Always ensure drivers are loaded
+                    // Always ensure data managers are loaded
                     if (window.loadDriversData) window.loadDriversData();
+                    if (window.loadCustomersData) window.loadCustomersData();
+                    if (window.loadPickupAddressesData) window.loadPickupAddressesData();
+                    if (window.loadDepotsData) window.loadDepotsData();
+                    if (window.loadSellersData) window.loadSellersData();
+                    if (window.loadCompaniesData) window.loadCompaniesData();
+                    if (window.loadContainerSizesData) window.loadContainerSizesData();
+                    if (window.loadExpenseCategoriesData) window.loadExpenseCategoriesData();
                 }, 50);
             } else {
                 console.warn("View not found:", targetId);
@@ -2923,6 +3292,27 @@
         </div>
     </div>
 
+    <!-- EXPENSE CATEGORY MANAGEMENT MODAL -->
+    <div id="expense-category-manager-modal" class="simple-modal">
+        <div class="modal-content" style="border-top-color: #1e40af;">
+            <div class="modal-header">
+                <h3>Manage Expense Categories</h3>
+                <button onclick="closeExpenseCategoryManager()" class="btn-close-modal">&times;</button>
+            </div>
+            <div id="expense-category-list-body" class="driver-list-container">
+                <!-- Categories will be listed here -->
+            </div>
+            <div class="modal-footer">
+                <div class="add-driver-input-row">
+                    <input type="text" id="new-expense-category-name" placeholder="ENTER NEW CATEGORY NAME...">
+                    <button onclick="addNewExpenseCategory()" class="btn-add-driver-confirm"
+                        style="background: #1e40af;">ADD</button>
+                </div>
+                <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting a category only removes it from future entries.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- SIZE MANAGEMENT MODAL -->
     <div id="size-manager-modal" class="simple-modal" style="display: none;">
         <div class="modal-content" style="max-width:350px; border-top-color: #3b82f6;">
@@ -2998,8 +3388,102 @@
     </div>
 
     <script src="./js/fleet.js?v=2"></script>
+    <script src="./js/form-inventor.js?v=1"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
+    </div>
+    <!-- INVENTORY DETAIL MODAL -->
+    <div id="inventory-detail-modal" class="simple-modal inventory-detail-modal">
+        <div class="modal-content">
+            <div class="inv-detail-header">
+                <div>
+                    <h3 class="inv-detail-title" id="inv-modal-title">Container Details</h3>
+                    <div id="inv-modal-subtitle" style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Order Ref: #---</div>
+                </div>
+                <button onclick="closeInventoryDetail()" class="btn-close-modal">&times;</button>
+            </div>
+            
+            <div class="inv-detail-body">
+                <!-- Unit & Status -->
+                <div class="inv-detail-card">
+                    <h4><i class="fas fa-info-circle"></i> Unit Specs</h4>
+                    <div class="inv-detail-info-grid">
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Container Size</span>
+                            <span class="inv-info-value" id="inv-det-size">---</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Container #</span>
+                            <span class="inv-info-value" id="inv-det-ncont">---</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Release #</span>
+                            <span class="inv-info-value" id="inv-det-release">---</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Status</span>
+                            <span class="inv-badge inv-badge-green" id="inv-det-status">Complete</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logistics -->
+                <div class="inv-detail-card">
+                    <h4><i class="fas fa-map-marker-alt"></i> Logistics</h4>
+                    <div class="inv-detail-info-grid">
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Customer</span>
+                            <span class="inv-info-value" id="inv-det-customer">---</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">City</span>
+                            <span class="inv-info-value" id="inv-det-city">---</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Seller</span>
+                            <span class="inv-info-value" id="inv-det-seller">---</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Date Sold</span>
+                            <span class="inv-info-value" id="inv-det-date">---</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financials -->
+                <div class="inv-detail-card" style="grid-column: span 2;">
+                    <h4><i class="fas fa-dollar-sign"></i> Financial Breakdown</h4>
+                    <div class="inv-detail-info-grid" style="grid-template-columns: repeat(4, 1fr);">
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Purchase Price</span>
+                            <span class="inv-info-value price-down" id="inv-det-cost">$0.00</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Transportation</span>
+                            <span class="inv-info-value price-down" id="inv-det-trans">$0.00</span>
+                        </div>
+                        <div class="inv-info-item">
+                            <span class="inv-info-label">Sales Price</span>
+                            <span class="inv-info-value price-up" id="inv-det-sales" style="font-size: 1.2rem;">$0.00</span>
+                        </div>
+                        <div class="inv-info-item" style="background: #f0fdf4; padding: 10px; border-radius: 8px;">
+                            <span class="inv-info-label" style="color: #15803d;">Net Profit</span>
+                            <span class="inv-info-value" id="inv-det-profit" style="color: #10b981; font-size: 1.2rem;">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extra Info -->
+                <div class="inv-detail-card" style="grid-column: span 2;">
+                    <h4><i class="fas fa-comment-alt"></i> Notes & Details</h4>
+                    <p id="inv-det-note" style="margin: 0; color: #475569; font-size: 0.9rem; line-height: 1.6;">No additional notes provided for this transaction.</p>
+                </div>
+            </div>
+
+            <div class="inv-detail-footer">
+                <button onclick="closeInventoryDetail()" class="btn-cancel" style="padding: 10px 25px;">Close Detail</button>
+            </div>
+        </div>
     </div>
 </body>
 
