@@ -13,27 +13,37 @@ window.renderCustInvoiceTable = function () {
     const fCity = (document.getElementById('ci-f-city')?.value || '').trim();
     const fPlace = (document.getElementById('ci-f-place')?.value || '').trim();
     const fDriver = (document.getElementById('ci-f-driver')?.value || '').trim();
+    const fFrom = document.getElementById('ci-f-from')?.value || '';
+    const fTo = document.getElementById('ci-f-to')?.value || '';
 
     const logisticsData = currentTrips || [];
 
     const filtered = logisticsData.filter(row => {
+        // 1. Basic Status Filter (Only Complete/Paid/Delivered rows)
         const orderStatus = (row[41] || '').toString().toUpperCase();
         const isComplete = (orderStatus === 'COMPLETE' || orderStatus === 'PAID' || orderStatus === 'DELIVERED');
         if (!isComplete) return false;
 
+        // 2. Payment Filter (Only PENDING components)
         const isRatePend = (row[32] === 'PEND');
         const isSalesPend = (row[33] === 'PEND');
         if (!isRatePend && !isSalesPend) return false;
 
+        // 3. User UI Filters
         const orderNo = (row[5] || '').toString().toLowerCase();
         const city = (row[6] || '').toString().trim();
         const place = (row[8] || '').toString().trim();
         const driver = (row[17] || '').toString().trim();
+        const rowDate = row[1] || ''; // YYYY-MM-DD
 
         if (fOrder && !orderNo.includes(fOrder)) return false;
         if (fCity && city !== fCity) return false;
         if (fPlace && place !== fPlace) return false;
         if (fDriver && driver !== fDriver) return false;
+        
+        // Date Range
+        if (fFrom && rowDate < fFrom) return false;
+        if (fTo && rowDate > fTo) return false;
 
         return true;
     });
@@ -101,7 +111,6 @@ window.sendInvoiceEmailByIndex = function (index) {
     const confirmSend = confirm(`Do you want to send the invoice email for Order #${rowData[5]}?`);
     if (!confirmSend) return;
 
-    // Provide immediate feedback
     const btn = event.currentTarget;
     const originalContent = btn.innerHTML;
     btn.disabled = true;
@@ -172,5 +181,7 @@ window.resetCustInvoiceFilters = function () {
     if (document.getElementById('ci-f-city')) document.getElementById('ci-f-city').value = '';
     if (document.getElementById('ci-f-place')) document.getElementById('ci-f-place').value = '';
     if (document.getElementById('ci-f-driver')) document.getElementById('ci-f-driver').value = '';
+    if (document.getElementById('ci-f-from')) document.getElementById('ci-f-from').value = '';
+    if (document.getElementById('ci-f-to')) document.getElementById('ci-f-to').value = '';
     renderCustInvoiceTable();
 };
