@@ -12,7 +12,7 @@ window.renderCustInvoiceTable = function () {
     const fOrder = (document.getElementById('ci-f-order')?.value || '').toLowerCase().trim();
     const fCity = (document.getElementById('ci-f-city')?.value || '').trim();
     const fPlace = (document.getElementById('ci-f-place')?.value || '').trim();
-    const fDriver = (document.getElementById('ci-f-driver')?.value || '').trim();
+    const fCustomer = (document.getElementById('ci-f-customer')?.value || '').trim();
     const fFrom = document.getElementById('ci-f-from')?.value || '';
     const fTo = document.getElementById('ci-f-to')?.value || '';
 
@@ -33,13 +33,13 @@ window.renderCustInvoiceTable = function () {
         const orderNo = (row[5] || '').toString().toLowerCase();
         const city = (row[6] || '').toString().trim();
         const place = (row[8] || '').toString().trim();
-        const driver = (row[17] || '').toString().trim();
+        const customer = (row[11] || '').toString().trim();
         const rowDate = row[1] || ''; // YYYY-MM-DD
 
         if (fOrder && !orderNo.includes(fOrder)) return false;
         if (fCity && city !== fCity) return false;
         if (fPlace && place !== fPlace) return false;
-        if (fDriver && driver !== fDriver) return false;
+        if (fCustomer && customer !== fCustomer) return false;
         
         // Date Range
         if (fFrom && rowDate < fFrom) return false;
@@ -57,7 +57,7 @@ window.renderCustInvoiceTable = function () {
         const city = row[6] || '---';
         const place = row[8] || '---';
         const miles = row[10] || 0;
-        const driver = row[17] || '---';
+        const customerCol = row[11] || '---';
         const transPay = parseFloat(row[18]) || 0;
         const salesPrice = parseFloat(row[20]) || 0;
         
@@ -79,7 +79,7 @@ window.renderCustInvoiceTable = function () {
             <td style="${cellStyle}">${city}</td>
             <td style="${cellStyle} white-space: normal; min-width: 150px;">${place}</td>
             <td style="${cellStyle}">${miles}</td>
-            <td style="${cellStyle}">${driver}</td>
+            <td style="${cellStyle}">${customerCol}</td>
             <td style="${cellStyle}">$${transPay.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             <td style="${cellStyle}">$${salesPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             <td style="${cellStyle} color: #10b981;">${cashDisplay}</td>
@@ -143,7 +143,7 @@ window.sendInvoiceEmailByIndex = function (index) {
 window.populateCustInvoiceFilters = function () {
     const cities = new Set();
     const places = new Set();
-    const drivers = new Set();
+    const customers = new Set();
 
     if (typeof currentTrips !== 'undefined') {
         currentTrips.forEach(row => {
@@ -151,7 +151,7 @@ window.populateCustInvoiceFilters = function () {
             if (status === 'COMPLETE' || status === 'PAID' || status === 'DELIVERED') {
                 if (row[6] && row[6] !== '---') cities.add(row[6]);
                 if (row[8] && row[8] !== '---') places.add(row[8]);
-                if (row[17] && row[17] !== '---') drivers.add(row[17]);
+                if (row[11] && row[11] !== '---') customers.add(row[11]);
             }
         });
     }
@@ -160,7 +160,7 @@ window.populateCustInvoiceFilters = function () {
         const sel = document.getElementById(id);
         if (!sel) return;
         const cur = sel.value;
-        const defaultText = id.includes('city') ? 'All Cities' : id.includes('place') ? 'All Places' : 'All Drivers';
+        const defaultText = id.includes('city') ? 'All Cities' : id.includes('place') ? 'All Places' : 'All Customers';
         sel.innerHTML = `<option value="">${defaultText}</option>`;
         [...vals].sort().forEach(v => {
             const opt = document.createElement('option');
@@ -173,14 +173,14 @@ window.populateCustInvoiceFilters = function () {
 
     fill('ci-f-city', cities);
     fill('ci-f-place', places);
-    fill('ci-f-driver', drivers);
+    fill('ci-f-customer', customers);
 };
 
 window.resetCustInvoiceFilters = function () {
     if (document.getElementById('ci-f-order')) document.getElementById('ci-f-order').value = '';
     if (document.getElementById('ci-f-city')) document.getElementById('ci-f-city').value = '';
     if (document.getElementById('ci-f-place')) document.getElementById('ci-f-place').value = '';
-    if (document.getElementById('ci-f-driver')) document.getElementById('ci-f-driver').value = '';
+    if (document.getElementById('ci-f-customer')) document.getElementById('ci-f-customer').value = '';
     if (document.getElementById('ci-f-from')) document.getElementById('ci-f-from').value = '';
     if (document.getElementById('ci-f-to')) document.getElementById('ci-f-to').value = '';
     renderCustInvoiceTable();
