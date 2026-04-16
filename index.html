@@ -1780,6 +1780,10 @@
                             <label style="color: #1e293b; font-weight: 800;">CURRENT MILEAGE (Odometer)</label>
                             <input type="number" id="f-miles" placeholder="0" style="font-size: 1.1rem; font-weight: 900; color: #1e293b;">
                         </div>
+                        <div class="form-group" style="background: #f0fdf4; padding: 10px; border-radius: 8px; border-left: 4px solid #10b981; margin-bottom: 12px;">
+                            <label style="color: #15803d; font-weight: 800;">LAST GENERAL SERVICE (MILES)</label>
+                            <input type="number" id="f-general-miles" placeholder="0" style="font-weight: bold; color: #15803d;">
+                        </div>
                         <div class="form-group" style="background: #fffbeb; padding: 10px; border-radius: 8px; border-left: 4px solid #d97706;">
                             <label style="color: #92400e; font-weight: 800;">LAST TECHNICAL INSPECTION</label>
                             <input type="date" id="f-inspection-date" style="font-weight: bold; color: #92400e;">
@@ -1836,6 +1840,45 @@
                     </div>
             </div>
         </section>
+
+        <!-- MAINTENANCE HISTORY MODAL -->
+        <div id="fleet-history-modal" class="simple-modal" style="display: none;">
+            <div class="modal-content" style="width: 600px; max-width: 95vw; border-top: 5px solid #334155; padding: 0;">
+                <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                    <h3 id="history-modal-title" style="color: #1e293b; font-weight: 800;"><i class="fas fa-history"></i> Maintenance History</h3>
+                    <button onclick="closeFleetHistoryModal()" class="btn-close-modal">&times;</button>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <!-- New entry form -->
+                    <div style="background: #f1f5f9; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                        <h4 style="font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 10px; text-transform: uppercase;">Register New Activity</h4>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="hist-task" placeholder="e.g. New Tires, Brake Change..." style="flex: 2; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                            <input type="number" id="hist-miles" placeholder="Miles" style="flex: 1; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                            <button onclick="saveMaintenanceEntry()" style="background: #2563eb; color: white; border: none; padding: 0 20px; border-radius: 6px; font-weight: 800; font-size: 0.8rem; cursor: pointer;">SAVE</button>
+                        </div>
+                    </div>
+
+                    <div style="max-height: 350px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                    <th style="padding: 10px; text-align: left; font-size: 0.65rem; color: #64748b; text-transform: uppercase;">Date</th>
+                                    <th style="padding: 10px; text-align: left; font-size: 0.65rem; color: #64748b; text-transform: uppercase;">Activity</th>
+                                    <th style="padding: 10px; text-align: right; font-size: 0.65rem; color: #64748b; text-transform: uppercase;">Mileage</th>
+                                    <th style="padding: 10px; width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="fleet-history-body">
+                                <!-- entries -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <input type="hidden" id="active-history-unit-id">
+            </div>
+        </div>
 
         <!-- FLEET NOTE MODAL -->
         <div id="fleet-note-modal" class="simple-modal" style="display: none;">

@@ -973,7 +973,8 @@
                 last_driver: f.last_driver || 'N/A',
                 lastUpdate: f.last_update_date || f.updated_at,
                 note: f.note,
-                lastInspection: f.last_inspection_date || ''
+                lastInspection: f.last_inspection_date || '',
+                lastGeneralMiles: f.last_general_maintenance_miles || 0
             };
         }
 
@@ -994,7 +995,8 @@
                 last_driver: u.last_driver || null,
                 last_update_date: u.lastUpdate || new Date().toISOString(),
                 note: u.note || null,
-                last_inspection_date: u.lastInspection === '' ? null : u.lastInspection
+                last_inspection_date: u.lastInspection === '' ? null : u.lastInspection,
+                last_general_maintenance_miles: parseInt(u.lastGeneralMiles) || 0
             };
         }
 
