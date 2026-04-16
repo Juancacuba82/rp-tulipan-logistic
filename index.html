@@ -516,6 +516,49 @@
                 width: 100% !important;
                 justify-content: space-between !important;
             }
+
+            /* Fleet Management Mobile Responsive Fixes */
+            #fleet-view .dashboard-split-container {
+                flex-direction: column !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            #fleet-view aside {
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                border-right: none !important;
+                border-bottom: 2px solid #cbd5e1 !important;
+                padding: 15px !important; /* Reduced from 25px */
+                overflow: visible !important;
+                box-sizing: border-box !important;
+            }
+            #fleet-view .table-area {
+                padding: 10px !important; /* Reduced from 15px/25px */
+                height: auto !important;
+                overflow: visible !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            #fleet-view .dashboard-header-fleet,
+            #fleet-view div[style*="justify-content: space-between"] {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 12px !important;
+                margin-bottom: 15px !important;
+            }
+            #fleet-cards-container {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+                width: 100% !important;
+            }
+            /* Fix for the dark card in sidebar to not overflow */
+            #fleet-view div[style*="background: #242f42"] {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 15px !important;
+                box-sizing: border-box !important;
+            }
         }
         .btn-manage-inline {
             background: #f8fafc;
@@ -618,11 +661,6 @@
         <section class="view-section hero" id="hero-view" style="display: none;">
             <div class="overlay"></div>
             <div class="hero-content">
-                <div class="branding">
-                    <h1 class="company-name">RP TULIPAN <span class="accent-text">TRANSPORT INC</span></h1>
-                    <div class="red-accent-line"></div>
-                </div>
-
                 <!-- Central Dashboard Grid -->
                 <div class="dashboard-grid">
                     <button onclick="showView('fleet')" class="dash-card">
@@ -1688,32 +1726,37 @@
 
         <!-- FLEET MANAGEMENT VIEW -->
         <section id="fleet-view" class="view-section hidden">
-            <div class="dashboard-split-container">
-                <aside class="entry-sidebar primary-entry" style="flex: 0 0 500px;">
+            <div class="dashboard-split-container" style="display: flex; min-height: 100vh;">
+                <aside class="entry-sidebar primary-entry" style="flex: 0 0 320px; background: #242f42; min-height: 100vh; overflow: visible;">
                     <!-- DRIVER QUICK UPDATE (TOP PRIORITY) -->
                     <div style="background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
                         <h3 style="font-size: 0.9rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; color: #f8fafc;">
                             <i class="fas fa-truck-moving" style="color: #ef4444;"></i> DRIVER DAILY UPDATE
                         </h3>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="color: #94a3b8; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">1. SELECT YOUR TRUCK</label>
-                            <select id="quick-truck-sel" style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 45px; padding: 0 12px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; appearance: none; -webkit-appearance: none;">
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label style="color: #94a3b8; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; display: block;">1. SELECT YOUR TRUCK</label>
+                            <select id="quick-truck-sel" style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; appearance: none; -webkit-appearance: none;">
                                 <option value="" disabled selected>Choose truck...</option>
                             </select>
                         </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="color: #94a3b8; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">2. DISPATCHED DRIVER</label>
-                            <input list="drivers-list" id="quick-driver-name" placeholder="Type or select driver..." 
-                                   style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 45px; padding: 0 12px; border-radius: 8px; font-size: 0.9rem;">
-                            <datalist id="drivers-list"></datalist>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label style="color: #94a3b8; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; display: block;">2. DISPATCHED DRIVER</label>
+                            <input list="fleet-drivers-list" id="quick-driver-name" placeholder="Driver name..." 
+                                   style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; font-size: 0.85rem;">
+                            <datalist id="fleet-drivers-list"></datalist>
                         </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="color: #94a3b8; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">3. ENDING MILEAGE</label>
-                            <input type="number" id="quick-miles" placeholder="Enter odometer reading..." 
-                                   style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 45px; padding: 0 12px; border-radius: 8px; font-size: 1.1rem; font-weight: 900;">
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label style="color: #94a3b8; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; display: block;">3. ENDING MILEAGE</label>
+                            <input type="number" id="quick-miles" placeholder="0" 
+                                   style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 38px; padding: 0 10px; border-radius: 6px; font-size: 1rem; font-weight: 900;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="color: #94a3b8; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; display: block;">4. VEHICLE NOTES</label>
+                            <textarea id="quick-note" placeholder="Report issues..." 
+                                      style="background: #334155; color: white; border: 1px solid #475569; width: 100%; min-height: 45px; padding: 8px 10px; border-radius: 6px; font-size: 0.8rem; resize: vertical;"></textarea>
                         </div>
                         <button onclick="quickUpdateMileage()" class="btn-add-sidebar" 
-                                style="width: 100%; background: #ef4444; border: none; font-weight: 900; height: 50px; font-size: 0.85rem; letter-spacing: 1px; color: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.4);">
+                                style="width: 100%; background: #ef4444; border: none; font-weight: 900; height: 42px; font-size: 0.8rem; letter-spacing: 0.5px; color: white; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.4);">
                             UPDATE MILES & SAVE
                         </button>
                     </div>
@@ -1733,9 +1776,13 @@
 
                         <div class="form-group"><label>VIN (CHASSIS)</label><input type="text" id="f-vin" placeholder="17-Digit VIN"></div>
                         <div class="form-group"><label>PLATE / TAG</label><input type="text" id="f-plate" placeholder="ABC-123"></div>
-                        <div class="form-group" style="background: #f1f5f9; padding: 10px; border-radius: 8px; border-left: 4px solid #2563eb;">
+                        <div class="form-group" style="background: #f1f5f9; padding: 10px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 12px;">
                             <label style="color: #1e293b; font-weight: 800;">CURRENT MILEAGE (Odometer)</label>
                             <input type="number" id="f-miles" placeholder="0" style="font-size: 1.1rem; font-weight: 900; color: #1e293b;">
+                        </div>
+                        <div class="form-group" style="background: #fffbeb; padding: 10px; border-radius: 8px; border-left: 4px solid #d97706;">
+                            <label style="color: #92400e; font-weight: 800;">LAST TECHNICAL INSPECTION</label>
+                            <input type="date" id="f-inspection-date" style="font-weight: bold; color: #92400e;">
                         </div>
                         
                         <!-- HIDDEN DATA FOR LOGIC -->
@@ -1759,7 +1806,7 @@
                     </div>
                 </aside>
 
-                <div class="table-area" style="background: #f8fafc; padding: 25px; min-height: 100vh;">
+                <div class="table-area" style="background: #f8fafc; padding: 25px; flex: 1; min-height: 100vh;">
                     <!-- DASHBOARD HEADER & FILTERS -->
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; gap: 20px; flex-wrap: wrap; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                         <div>
@@ -1768,13 +1815,18 @@
                         </div>
                         
                         <!-- AUDIT FILTERS -->
-                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                            <div class="form-group" style="margin: 0; min-width: 200px;">
-                                <label style="font-size: 0.7rem; color: #64748b; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">Search by Truck</label>
-                                <select id="filter-fleet-unit" onchange="renderFleetCards()" style="padding: 10px; height: 45px; border-radius: 10px; font-size: 0.9rem; border: 1px solid #cbd5e1; width: 100%; background: #ffffff; font-weight: 600; color: #1e293b;">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <label style="display: flex; align-items: center; gap: 8px; background: #fee2e2; color: #991b1b; padding: 10px 15px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.8rem; border: 1px solid #fecaca; transition: all 0.2s;">
+                                <input type="checkbox" id="filter-alerts-only" onchange="renderFleetCards()" style="width: 18px; height: 18px; cursor: pointer;">
+                                SHOW ALERTS ONLY
+                            </label>
+                            
+                            <label style="display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-size: 0.6rem; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-left: 5px;">SEARCH BY TRUCK</span>
+                                <select id="filter-fleet-unit" onchange="renderFleetCards()" style="background: #f8fafc; border: 1px solid #e2e8f0; height: 40px; padding: 0 15px; border-radius: 10px; font-weight: bold; color: #1e293b;">
                                     <option value="ALL">All Active Units</option>
                                 </select>
-                            </div>
+                            </label>
                         </div>
                     </div>
 
@@ -1782,9 +1834,30 @@
                     <div id="fleet-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 25px;">
                         <!-- Modern Cards generated by JS -->
                     </div>
-                </div>
             </div>
         </section>
+
+        <!-- FLEET NOTE MODAL -->
+        <div id="fleet-note-modal" class="simple-modal" style="display: none;">
+            <div class="modal-content" style="border-top: 5px solid #ef4444; width: 450px;">
+                <div class="modal-header">
+                    <h3 style="color: #991b1b;"><i class="fas fa-exclamation-triangle"></i> Driver Report</h3>
+                    <button onclick="closeFleetNoteModal()" class="btn-close-modal">&times;</button>
+                </div>
+                <div style="background: #fef2f2; padding: 20px; border-radius: 8px; border: 1px solid #fee2e2; margin-bottom: 20px;">
+                    <p id="fleet-note-text" style="color: #450a0a; font-weight: 600; font-size: 1rem; margin: 0; line-height: 1.6;"></p>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="clearCurrentFleetNote()" style="background: #1e293b; color: white; border: none; height: 45px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <i class="fas fa-check-circle"></i> MARK AS SOLVED (Clear Alert)
+                    </button>
+                    <button onclick="closeFleetNoteModal()" style="background: #f1f5f9; color: #475569; border: none; height: 40px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                        Keep Alert and Close
+                    </button>
+                </div>
+                <input type="hidden" id="active-fleet-note-id">
+            </div>
+        </div>
         <!-- DRIVERS REPORTS VIEW -->
         <section id="reports-view" class="view-section hidden" style="padding-bottom: 150px;">
             <div class="dashboard-split-container"

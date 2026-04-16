@@ -971,7 +971,9 @@
                 dueMiles: f.next_service_due_miles || 0,
                 status: f.status,
                 last_driver: f.last_driver || 'N/A',
-                lastUpdate: f.last_update_date || f.updated_at
+                lastUpdate: f.last_update_date || f.updated_at,
+                note: f.note,
+                lastInspection: f.last_inspection_date || ''
             };
         }
 
@@ -990,7 +992,9 @@
                 next_service_due_miles: parseInt(u.dueMiles) || 0,
                 status: u.status,
                 last_driver: u.last_driver || null,
-                last_update_date: u.lastUpdate || new Date().toISOString()
+                last_update_date: u.lastUpdate || new Date().toISOString(),
+                note: u.note || null,
+                last_inspection_date: u.lastInspection === '' ? null : u.lastInspection
             };
         }
 
