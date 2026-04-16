@@ -127,10 +127,11 @@ async function saveFleet(fleetData) {
     return data;
 }
 
-async function deleteFleetUnit(unitId) {
+async function supabaseDeleteFleetUnit(unitId) {
     const { error } = await db.from('fleet').delete().eq('unit_id', unitId);
     if (error) { console.error('Error deleting unit:', error); throw error; }
 }
+window.supabaseDeleteFleetUnit = supabaseDeleteFleetUnit;
 
 // MIGRATION TOOL: Help move data from LocalStorage to Supabase
 async function migrateDataToSupabase() {

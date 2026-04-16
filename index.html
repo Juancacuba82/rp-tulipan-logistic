@@ -1690,86 +1690,97 @@
         <section id="fleet-view" class="view-section hidden">
             <div class="dashboard-split-container">
                 <aside class="entry-sidebar primary-entry" style="flex: 0 0 500px;">
-                    <div class="sidebar-header">
-                        <h3 id="fleet-form-title">Add Fleet Unit</h3>
-                        <div class="header-actions">
-                            <button onclick="saveFleetUnit()" class="btn-add-sidebar">Save Unit</button>
-                            <button onclick="resetFleetForm()" class="btn-cancel">Reset</button>
+                    <!-- DRIVER QUICK UPDATE (TOP PRIORITY) -->
+                    <div style="background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+                        <h3 style="font-size: 0.9rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; color: #f8fafc;">
+                            <i class="fas fa-truck-moving" style="color: #ef4444;"></i> DRIVER DAILY UPDATE
+                        </h3>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="color: #94a3b8; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">1. SELECT YOUR TRUCK</label>
+                            <select id="quick-truck-sel" style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 45px; padding: 0 12px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; appearance: none; -webkit-appearance: none;">
+                                <option value="" disabled selected>Choose truck...</option>
+                            </select>
                         </div>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="color: #94a3b8; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">2. DISPATCHED DRIVER</label>
+                            <input list="drivers-list" id="quick-driver-name" placeholder="Type or select driver..." 
+                                   style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 45px; padding: 0 12px; border-radius: 8px; font-size: 0.9rem;">
+                            <datalist id="drivers-list"></datalist>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="color: #94a3b8; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">3. ENDING MILEAGE</label>
+                            <input type="number" id="quick-miles" placeholder="Enter odometer reading..." 
+                                   style="background: #334155; color: white; border: 1px solid #475569; width: 100%; height: 45px; padding: 0 12px; border-radius: 8px; font-size: 1.1rem; font-weight: 900;">
+                        </div>
+                        <button onclick="quickUpdateMileage()" class="btn-add-sidebar" 
+                                style="width: 100%; background: #ef4444; border: none; font-weight: 900; height: 50px; font-size: 0.85rem; letter-spacing: 1px; color: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.4);">
+                            UPDATE MILES & SAVE
+                        </button>
                     </div>
 
-                    <!-- Tabs -->
-                    <div class="fleet-tabs"
-                        style="display: flex; background: #e2e8f0; padding: 5px; gap: 5px; border-bottom: 2px solid #cbd5e1;">
-                        <button onclick="switchFleetTab('truck')" id="tab-truck"
-                            class="btn-fleet-tab active">TRUCKS</button>
-                        <button onclick="switchFleetTab('trailer')" id="tab-trailer"
-                            class="btn-fleet-tab">TRAILERS</button>
+                    <div class="sidebar-header" style="border-top: 2px solid #cbd5e1; padding-top: 20px; margin-top: 20px;">
+                        <h3 id="fleet-form-title" style="font-size: 0.9rem; color: #1e293b; font-weight: 800; text-transform: uppercase;">
+                            <i class="fas fa-tools"></i> Fleet Management
+                        </h3>
                     </div>
 
-                    <div class="sidebar-form">
+                    <div class="sidebar-form" style="padding-top: 10px;">
                         <input type="hidden" id="f-id">
                         <input type="hidden" id="f-type" value="truck">
 
-                        <div class="form-group"><label>UNIT #</label><input type="text" id="f-unit"
-                                placeholder="e.g. T-101"></div>
-                        <div class="form-group"><label>VIN</label><input type="text" id="f-vin" placeholder="VIN #">
+                        <div class="form-group"><label>TRUCK #</label><input type="text" id="f-unit" placeholder="e.g. 1, 2, 5" style="font-weight: bold; font-size: 1.1rem;"></div>
+                        <div class="form-group"><label>YEAR</label><input type="number" id="f-year" placeholder="e.g. 2023"></div>
+
+                        <div class="form-group"><label>VIN (CHASSIS)</label><input type="text" id="f-vin" placeholder="17-Digit VIN"></div>
+                        <div class="form-group"><label>PLATE / TAG</label><input type="text" id="f-plate" placeholder="ABC-123"></div>
+                        <div class="form-group" style="background: #f1f5f9; padding: 10px; border-radius: 8px; border-left: 4px solid #2563eb;">
+                            <label style="color: #1e293b; font-weight: 800;">CURRENT MILEAGE (Odometer)</label>
+                            <input type="number" id="f-miles" placeholder="0" style="font-size: 1.1rem; font-weight: 900; color: #1e293b;">
                         </div>
-                        <div class="form-group"><label>PLATE / TAG</label><input type="text" id="f-plate"
-                                placeholder="Plate #"></div>
-                        <div class="form-group"><label>YEAR</label><input type="number" id="f-year" placeholder="2024">
+                        
+                        <!-- HIDDEN DATA FOR LOGIC -->
+                        <div class="maintenance-box" style="display:none;">
+                            <span id="f-miles-accumulated">0</span>
+                            <input type="hidden" id="f-last-miles" value="0">
+                            <input type="hidden" id="f-last-date" value="">
+                            <input type="hidden" id="f-due-date" value="">
+                            <input type="hidden" id="f-due-miles" value="0">
                         </div>
 
-                        <div id="truck-only-fields">
-                            <div class="form-group"><label>CURRENT MILEAGE</label><input type="number" id="f-miles"
-                                    placeholder="0"></div>
-                        </div>
-
-                        <div class="maintenance-box"
-                            style="margin: 20px 0; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                            <h4
-                                style="font-size: 0.8rem; margin-bottom: 15px; color: #1e293b; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
-                                PREVENTIVE MAINTENANCE</h4>
-                            <div class="form-group"><label>Last Service Date</label><input type="date" id="f-last-date">
-                            </div>
-                            <div class="form-group"><label>Last Service Miles</label><input type="number"
-                                    id="f-last-miles"></div>
-                            <div class="form-group"><label style="color: #b91c1c;">Next Service Due (Date)</label><input
-                                    type="date" id="f-due-date"></div>
-                            <div class="form-group"><label style="color: #b91c1c;">Next Service Due
-                                    (Miles)</label><input type="number" id="f-due-miles"></div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>OPERATIONAL STATUS</label>
-                            <select id="f-status">
-                                <option value="Available">Available</option>
-                                <option value="In Shop">In Shop</option>
-                                <option value="Out of Service">Out of Service</option>
-                            </select>
+                        <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                            <button id="fleet-save-btn" onclick="saveFleetUnit()" class="btn-add-sidebar" style="width: 100%; height: 50px; background: #2563eb; font-weight: 900; letter-spacing: 1px;">
+                                <i class="fas fa-plus-circle"></i> Register
+                            </button>
+                            
+                            <button id="fleet-delete-btn" onclick="deleteCurrentUnitFromForm()" class="btn-cancel" style="width: 100%; height: 40px; background: #991b1b; color: white; display: none; font-size: 0.8rem; font-weight: bold;">
+                                <i class="fas fa-trash-alt"></i> DELETE TRUCK
+                            </button>
                         </div>
                     </div>
                 </aside>
 
-                <div class="table-area">
-                    <div class="table-toolbar">
-                        <h2 id="fleet-table-title">Trucks Inventory</h2>
+                <div class="table-area" style="background: #f8fafc; padding: 25px; min-height: 100vh;">
+                    <!-- DASHBOARD HEADER & FILTERS -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; gap: 20px; flex-wrap: wrap; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div>
+                            <h2 id="fleet-table-title" style="font-size: 1.8rem; font-weight: 900; color: #1e293b; margin: 0; letter-spacing: -0.5px;">Trucks Fleet Dashboard</h2>
+                            <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">Modern real-time maintenance monitoring</p>
+                        </div>
+                        
+                        <!-- AUDIT FILTERS -->
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="form-group" style="margin: 0; min-width: 200px;">
+                                <label style="font-size: 0.7rem; color: #64748b; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">Search by Truck</label>
+                                <select id="filter-fleet-unit" onchange="renderFleetCards()" style="padding: 10px; height: 45px; border-radius: 10px; font-size: 0.9rem; border: 1px solid #cbd5e1; width: 100%; background: #ffffff; font-weight: 600; color: #1e293b;">
+                                    <option value="ALL">All Active Units</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                    <div class="table-scroll-container">
-                        <table class="drivers-report-table fleet-table">
-                            <thead>
-                                <tr>
-                                    <th>UNIT#</th>
-                                    <th>VIN / PLATE</th>
-                                    <th>YEAR</th>
-                                    <th>MILEAGE / TAG</th>
-                                    <th>NEXT SERVICE</th>
-                                    <th>STATUS</th>
-                                    <th style="width: 100px;">ACTIONS</th>
-                                </tr>
-                            </thead>
-                            <tbody id="fleet-table-body"></tbody>
-                        </table>
+
+                    <!-- CARDS GRID -->
+                    <div id="fleet-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 25px;">
+                        <!-- Modern Cards generated by JS -->
                     </div>
                 </div>
             </div>

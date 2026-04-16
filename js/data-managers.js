@@ -44,6 +44,7 @@
                 currentDrivers = data;
                 window.currentDrivers = data;
                 refreshDriverSelects();
+                if (window.populateDriverAuditList) window.populateDriverAuditList();
             } catch (err) {
                 console.error("Error loading drivers:", err);
             }
@@ -952,6 +953,7 @@
             return 'TRIP-' + Date.now().toString().slice(-6);
         }
         window.newTripIdForDb = newTripIdForDb;
+        window.currentTrips = currentTrips; // Expose globally for fleet module suggestions
 
         // --- FLEET DATA MAPPERS ---
         function mapFleetToUI(f) {
@@ -967,7 +969,9 @@
                 lastMiles: f.last_service_miles || 0,
                 dueDate: f.next_service_due_date || '',
                 dueMiles: f.next_service_due_miles || 0,
-                status: f.status
+                status: f.status,
+                last_driver: f.last_driver || 'N/A',
+                lastUpdate: f.last_update_date || f.updated_at
             };
         }
 
@@ -984,7 +988,9 @@
                 last_service_miles: parseInt(u.lastMiles) || 0,
                 next_service_due_date: u.dueDate === '' ? null : u.dueDate,
                 next_service_due_miles: parseInt(u.dueMiles) || 0,
-                status: u.status
+                status: u.status,
+                last_driver: u.last_driver || null,
+                last_update_date: u.lastUpdate || new Date().toISOString()
             };
         }
 

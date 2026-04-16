@@ -1,357 +1,317 @@
         // --- FLEET MANAGEMENT LOGIC ---
         let currentFleetTab = 'truck';
 
-        window.switchFleetTab = function (type) {
-            currentFleetTab = type;
-            document.getElementById('f-type').value = type;
-            document.getElementById('truck-only-fields').style.display = (type === 'truck') ? 'block' : 'none';
-            document.getElementById('tab-truck').classList.toggle('active', type === 'truck');
-            document.getElementById('tab-trailer').classList.toggle('active', type === 'trailer');
-            document.getElementById('fleet-table-title').textContent = (type === 'truck') ? 'Trucks Inventory' : 'Trailers Inventory';
-            renderFleetTable();
+        window.resetOilFromCard = async function(id) {
+            const unit = currentFleet.find(u => u.id === id);
+            if (!unit) return;
+
+            if (!confirm(`Confirm OIL SERVICE completed for Unit #${unit.num}? (This will reset the counter to zero)`)) return;
+
+            try {
+                // We keep all other data, just update lastMiles
+                const dbUnit = mapUIToFleet({ ...unit, lastMiles: unit.miles });
+                await saveFleet(dbUnit);
+                await loadFleetData();
+                alert(`Counter reset! Next service for Unit #${unit.num} starts now.`);
+            } catch (err) {
+                console.error("Error resetting oil:", err);
+                alert("Failed to reset counter.");
+            }
         };
 
         window.saveFleetUnit = async function () {
-            const id = document.getElementById('f-id').value;
-            const unitData = {
-                id: id || Date.now().toString(),
-                type: document.getElementById('f-type').value,
-                num: document.getElementById('f-unit').value,
-                vin: document.getElementById('f-vin').value,
-                plate: document.getElementById('f-plate').value,
-                year: document.getElementById('f-year').value,
-                miles: document.getElementById('f-miles').value,
-                lastDate: document.getElementById('f-last-date').value,
-                lastMiles: document.getElementById('f-last-miles').value,
-                dueDate: document.getElementById('f-due-date').value,
-                dueMiles: document.getElementById('f-due-miles').value,
-                status: document.getElementById('f-status').value
-            };
-
-            if (!unitData.num) return alert('Unit # is required');
-
             try {
+                const id = document.getElementById('f-id').value;
+                const unitData = {
+                    id: id || Date.now().toString(),
+                    type: document.getElementById('f-type')?.value || 'truck',
+                    num: document.getElementById('f-unit').value,
+                    vin: document.getElementById('f-vin').value,
+                    plate: document.getElementById('f-plate').value,
+                    year: document.getElementById('f-year').value,
+                    miles: document.getElementById('f-miles').value,
+                    lastDate: document.getElementById('f-last-date')?.value || '',
+                    lastMiles: document.getElementById('f-last-miles')?.value || '0',
+                    status: 'Available' // Default
+                };
+
+                if (!unitData.num) return alert('TRUCK # is required');
+
                 const dbUnit = mapUIToFleet(unitData);
                 await saveFleet(dbUnit);
                 await loadFleetData();
                 resetFleetForm();
-                alert('Unit saved successfully!');
+                alert('Unit registered successfully!');
             } catch (err) {
                 console.error("Error saving fleet unit:", err);
-                alert("Failed to save unit to Supabase.");
+                alert("Failed to save: " + err.message);
             }
         };
 
         window.renderFleetTable = function () {
-            const fleet = currentFleet;
-            const body = document.getElementById('fleet-table-body');
-            if (!body) return;
-            body.innerHTML = '';
+            renderFleetCards();
+        };
 
-            const filtered = fleet.filter(u => u.type === currentFleetTab);
-            const today = new Date().toISOString().split('T')[0];
+        window.renderFleetCards = function() {
+            const container = document.getElementById('fleet-cards-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const unitFilterEl = document.getElementById('filter-fleet-unit');
+            const unitFilter = unitFilterEl ? unitFilterEl.value : 'ALL';
+
+            // Refresh Filter dropdown
+            if (unitFilterEl) {
+                const currentVal = unitFilterEl.value;
+                unitFilterEl.innerHTML = '<option value="ALL">All Active Units</option>';
+                const uniqueNums = [...new Set(currentFleet.map(u => u.num))].sort();
+                uniqueNums.forEach(num => {
+                    const opt = document.createElement('option');
+                    opt.value = num;
+                    opt.textContent = `Unit #${num}`;
+                    unitFilterEl.appendChild(opt);
+                });
+                unitFilterEl.value = currentVal;
+                if (!unitFilterEl.value) unitFilterEl.value = 'ALL';
+            }
+
+            const filtered = currentFleet.filter(u => {
+                const matchUnit = (unitFilter === 'ALL' || u.num === unitFilter);
+                return matchUnit;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 50px; color: #64748b;">No trucks found.</div>';
+                return;
+            }
 
             filtered.forEach(u => {
-                const tr = document.createElement('tr');
+                const currentMiles = parseInt(u.miles) || 0;
+                const lastServiceMiles = parseInt(u.lastMiles) || 0;
+                const milesSince = Math.max(0, currentMiles - lastServiceMiles);
+                const limit = 8000;
+                const progressPercent = Math.min(100, (milesSince / limit) * 100);
+                
+                let cardColor = '#10b981';
+                let statusText = 'HEALTHY';
+                if (milesSince >= 8000) { cardColor = '#ef4444'; statusText = 'OVERDUE'; }
+                else if (milesSince >= 7500) { cardColor = '#f59e0b'; statusText = 'SOON'; }
 
-                // Maintenance Logic Check
-                let isOverdue = false;
-                if (u.dueDate && u.dueDate <= today) isOverdue = true;
-                if (u.type === 'truck' && u.dueMiles && parseInt(u.miles) >= parseInt(u.dueMiles)) isOverdue = true;
+                // Determine "Last Updated Logic"
+                // AUDIT LOG LOGIC
+                const lastDriverStr = u.last_driver || 'N/A';
+                const lastUpdateStr = u.lastUpdate ? new Date(u.lastUpdate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
 
-                const nextServiceText = (u.dueDate || u.dueMiles) ? `${window.formatDateMMDDYYYY(u.dueDate)}${u.dueMiles ? ' / ' + u.dueMiles + ' mi' : ''}` : 'No Due Set';
-                const statusClass = (u.status === 'Available') ? 'status-paid' : 'status-pending';
+                const card = document.createElement('div');
+                card.style = `background: white; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-top: 6px solid ${cardColor}; padding: 20px; transition: transform 0.2s; position: relative;`;
+                
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                        <div>
+                            <span style="display: block; font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">UNIT ID</span>
+                            <h3 style="font-size: 1.5rem; font-weight: 900; color: #1e293b; margin: 0;">#${u.num}</h3>
+                        </div>
+                        <div style="background: ${cardColor}15; color: ${cardColor}; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 900;">
+                            ${statusText}
+                        </div>
+                    </div>
 
-                tr.innerHTML = `
-                        <td style="font-weight: 900; color: var(--navy-blue);">${u.num}</td>
-                        <td style="font-size: 0.65rem;">${u.vin || 'N/A'}<br><span style="color:var(--corporate-red); font-weight:bold;">${u.plate || 'N/A'}</span></td>
-                        <td>${u.year || 'N/A'}</td>
-                        <td>${u.type === 'truck' ? (u.miles || 0) + ' mi' : (u.plate || 'N/A')}</td>
-                        <td style="${isOverdue ? 'color: white; background: #ef4444; font-weight: bold; border-radius: 4px;' : ''}">${nextServiceText}</td>
-                        <td><span class="status-badge ${statusClass}">${u.status}</span></td>
-                        <td>
-                            <button onclick="editFleetUnit('${u.id}')" class="btn-reset-report" style="padding: 2px 8px; font-size: 0.7rem;">EDIT</button>
-                            ${window.currentUserRole === 'admin' ? `<button onclick="deleteFleetUnit('${u.id}')" class="btn-cancel" style="padding: 2px 8px; font-size: 0.7rem;">DEL</button>` : ''}
-                        </td>
-                    `;
-                body.appendChild(tr);
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px;">
+                        <div>
+                            <label style="display: block; font-size: 0.5rem; color: #64748b;">PLATE / TAG</label>
+                            <span style="font-weight: 700; font-size: 0.8rem; color: #334155;">${u.plate || 'N/A'}</span>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.5rem; color: #64748b;">YEAR</label>
+                            <span style="font-weight: 700; font-size: 0.8rem; color: #334155;">${u.year || 'N/A'}</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 0.65rem; font-weight: 8200; color: #1e293b;">OIL CHANGE PROXIMITY</span>
+                            <span style="font-size: 0.75rem; font-weight: 900; color: ${cardColor};">${milesSince.toLocaleString()} / 8k mi</span>
+                        </div>
+                        <div style="height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden;">
+                            <div style="width: ${progressPercent}%; height: 100%; background: ${cardColor}; transition: width 0.5s;"></div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #e2e8f0;">
+                         <div>
+                            <span style="display: block; font-size: 0.55rem; color: #94a3b8; text-transform: uppercase;">Total Odometer</span>
+                            <span style="font-weight: 900; font-size: 1.1rem; color: #1e293b;">${currentMiles.toLocaleString()} mi</span>
+                         </div>
+                         <div style="display: flex; gap: 5px;">
+                            <button onclick="editFleetUnit('${u.id}')" title="Edit" style="background: #f1f5f9; border: none; padding: 8px; border-radius: 8px; color: #64748b; cursor: pointer;"><i class="fas fa-edit"></i></button>
+                            <button onclick="resetOilFromCard('${u.id}')" title="Service Completed" style="background: #1e293b; border: none; padding: 8px; border-radius: 8px; color: white; cursor: pointer;"><i class="fas fa-sync-alt"></i></button>
+                            <button onclick="deleteFleetUnit('${u.id}')" title="Delete" style="background: #fef2f2; border: none; padding: 8px; border-radius: 8px; color: #ef4444; cursor: pointer;"><i class="fas fa-trash-alt"></i></button>
+                         </div>
+                    </div>
+
+                    <!-- AUDIT SECTION -->
+                    <div style="display: flex; align-items: center; gap: 10px; background: #fdf2f2; padding: 8px 12px; border-radius: 8px; border: 1px solid #fee2e2;">
+                        <div style="background: #ef4444; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
+                            <i class="fas fa-user-clock"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 0.6rem; color: #991b1b; font-weight: 800; text-transform: uppercase;">LAST ACTIVITY</div>
+                            <div style="font-size: 0.75rem; color: #450a0a; font-weight: 700;">
+                                ${lastDriverStr} <span style="font-weight: 400; color: #991b1b; font-size: 0.65rem;">• ${lastUpdateStr}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
             });
         };
 
         window.editFleetUnit = function (id) {
             const unit = currentFleet.find(u => u.id === id);
             if (!unit) return;
+            const safeSetVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val || '';
+            };
+            safeSetVal('f-id', unit.id);
+            safeSetVal('f-unit', unit.num);
+            safeSetVal('f-vin', unit.vin);
+            safeSetVal('f-plate', unit.plate);
+            safeSetVal('f-year', unit.year);
+            safeSetVal('f-miles', unit.miles);
+            
+            document.getElementById('fleet-form-title').textContent = 'Editing Truck #' + unit.num;
+            const delBtn = document.getElementById('fleet-delete-btn');
+            if (delBtn) delBtn.style.display = 'block';
+        };
 
-            document.getElementById('f-id').value = unit.id;
-            document.getElementById('f-unit').value = unit.num;
-            document.getElementById('f-vin').value = unit.vin;
-            document.getElementById('f-plate').value = unit.plate;
-            document.getElementById('f-year').value = unit.year;
-            document.getElementById('f-miles').value = unit.miles;
-            document.getElementById('f-last-date').value = unit.lastDate;
-            document.getElementById('f-last-miles').value = unit.lastMiles;
-            document.getElementById('f-due-date').value = unit.dueDate;
-            document.getElementById('f-due-miles').value = unit.dueMiles;
-            document.getElementById('f-status').value = unit.status;
-
-            document.getElementById('fleet-form-title').textContent = 'Edit Unit ' + unit.num;
+        window.deleteCurrentUnitFromForm = async function() {
+            const id = document.getElementById('f-id').value;
+            if (!id) return;
+            await window.deleteFleetUnit(id);
+            resetFleetForm();
         };
 
         window.deleteFleetUnit = async function (id) {
-            if (!confirm('Are you sure you want to delete this unit?')) return;
+            if (!confirm('Permanently delete this truck?')) return;
             try {
-                await deleteFleetUnit(id);
+                await window.supabaseDeleteFleetUnit(id); 
                 await loadFleetData();
+                alert("Truck deleted.");
             } catch (err) {
-                console.error("Error deleting unit:", err);
+                console.error("Delete err:", err);
             }
         };
 
+        function resetFleetForm() {
+            const fields = ['f-id', 'f-unit', 'f-vin', 'f-plate', 'f-year', 'f-miles'];
+            fields.forEach(f => {
+                const el = document.getElementById(f);
+                if (el) el.value = (f === 'f-miles') ? '0' : '';
+            });
+            document.getElementById('fleet-form-title').textContent = 'Fleet Management';
+            const delBtn = document.getElementById('fleet-delete-btn');
+            if (delBtn) delBtn.style.display = 'none';
+        }
+        window.resetFleetForm = resetFleetForm;
+
         async function loadFleetData() {
-            window.loadFleetData = loadFleetData;
             try {
                 const data = await getFleet();
-                currentFleet = data.map(mapFleetToUI);
-                renderFleetTable();
+                if (typeof currentFleet !== 'undefined') {
+                    currentFleet = data.map(mapFleetToUI).sort((a, b) => {
+                        const numA = parseInt(a.num) || 0;
+                        const numB = parseInt(b.num) || 0;
+                        return numA - numB;
+                    });
+                }
+                renderFleetCards();
+                refreshQuickFleetSelect();
+                populateDriverAuditList();
             } catch (err) {
                 console.error("Error loading fleet:", err);
             }
         }
         window.loadFleetData = loadFleetData;
 
-
-        // --- SMART IMPORTER LOGIC REMOVED ---
-
-
-
-        // Importer functions removed
-
-
-        window.setImportTarget = function (target) {
-            importTarget = target;
-            const btnRel = document.getElementById('target-rel');
-            const btnTrips = document.getElementById('target-trips');
-
-            if (target === 'releases') {
-                btnRel.classList.add('active');
-                btnTrips.classList.remove('active');
-            } else {
-                btnTrips.classList.add('active');
-                btnRel.classList.remove('active');
-            }
-            // If data was already pasted, re-render mapping to show appropriate options
-            if (pastedDataGrid.length > 0) processPastedData();
-        }
-
-        window.resetImporter = function () {
-            document.getElementById('import-paste-area').value = '';
-            document.getElementById('mapping-container').innerHTML = '';
-            document.getElementById('importer-step-1').style.display = 'block';
-            document.getElementById('importer-step-2').style.display = 'none';
-            pastedDataGrid = [];
-        }
-
-        window.processPastedData = function () {
-            const raw = document.getElementById('import-paste-area').value.trim();
-            if (!raw) return;
-
-            // Excel uses Tabs (\t) for columns and Newlines (\n) for rows
-            const rows = raw.split(/\r?\n/).map(row => row.split('\t'));
-            if (rows.length === 0) return;
-
-            pastedDataGrid = rows;
-            renderMappingUI();
-
-            document.getElementById('importer-step-1').style.display = 'none';
-            document.getElementById('importer-step-2').style.display = 'block';
-        }
-
-        // renderMappingUI removed
-
-
-        window.executeFinalImport = async function () {
-            const selects = document.querySelectorAll('.map-select');
-            const mapping = {};
-            let hasSelection = false;
-
-            selects.forEach(s => {
-                if (s.value !== 'IGNORE') {
-                    mapping[s.getAttribute('data-col')] = s.value;
-                    hasSelection = true;
-                }
+        function populateDriverAuditList() {
+            const list = document.getElementById('drivers-list');
+            if (!list) return;
+            
+            // Use official driver list from central DB
+            const drivers = window.currentDrivers || [];
+            if (!drivers || drivers.length === 0) return;
+            
+            list.innerHTML = '';
+            drivers.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.name;
+                list.appendChild(opt);
             });
+        }
+        window.populateDriverAuditList = populateDriverAuditList;
 
-            if (!hasSelection) {
-                alert("Please map at least one column before importing!");
+        function refreshQuickFleetSelect() {
+            const sel = document.getElementById('quick-truck-sel');
+            if (!sel) return;
+            const currentVal = sel.value;
+            sel.innerHTML = '<option value="" disabled selected>Choose truck...</option>';
+            currentFleet.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = `TRUCK #${u.num} (${u.plate})`;
+                sel.appendChild(opt);
+            });
+            if (currentVal) sel.value = currentVal;
+        }
+
+        window.quickUpdateMileage = async function() {
+            const truckId = document.getElementById('quick-truck-sel').value;
+            const driverName = document.getElementById('quick-driver-name').value.trim();
+            const newMilesInput = document.getElementById('quick-miles');
+            const newMiles = parseInt(newMilesInput.value) || 0;
+
+            if (!truckId) return alert("Please select a truck first.");
+            if (!driverName) return alert("Driver name is required for audit.");
+            if (newMiles === 0) return alert("Please enter valid mileage.");
+
+            const truck = currentFleet.find(u => u.id === truckId);
+            if (!truck) return;
+
+            const currentMiles = parseInt(truck.miles) || 0;
+            if (newMiles < currentMiles) {
+                alert(`⚠️ ERROR: Lower mileage entered. This truck already has ${currentMiles.toLocaleString()} mi.`);
                 return;
             }
 
-            if (!confirm(`Are you sure you want to import ${pastedDataGrid.length} records?`)) return;
-
-            const btn = document.querySelector('#smart-importer-modal .btn-add-sidebar[onclick*="executeFinalImport"]');
-            const originalText = btn ? btn.textContent : 'DO MAGIC';
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = 'WORKING MAGIC... 🪄';
-            }
-
             try {
-                const finalObjects = [];
-
-                for (const row of pastedDataGrid) {
-                    const obj = {};
-                    let isHeader = false;
-
-                    for (let colIdx in mapping) {
-                        const fieldName = mapping[colIdx];
-                        let val = (row[colIdx] || '').trim();
-
-                        // 1. Detect if this is a header row (e.g., "Fecha" instead of "2024-01-01")
-                        if (fieldName === 'date' && val && isNaN(Date.parse(val))) {
-                            isHeader = true;
-                            break;
-                        }
-
-                        // 2. Data Sanitization
-                        if (fieldName.includes('price') || fieldName.includes('qty') || fieldName === 'amount') {
-                            val = val.replace(/[^0-9.-]+/g, "");
-                            val = parseFloat(val) || 0;
-                        } else if (fieldName === 'paid' || fieldName === 'status') {
-                            const lower = val.toLowerCase();
-                            val = (lower === 'paid' || lower === 'yes' || lower === 'true' || lower === '1' || lower === 'ok');
-                        }
-
-                        obj[fieldName] = val;
-                    }
-
-                    // Skip this row if it was identified as a header
-                    if (isHeader) continue;
-                    if (Object.keys(obj).length === 0) continue;
-
-                    // Special behavior for Releases: Calculate Initial Stock if not mapped
-                    if (importTarget === 'releases') {
-                        if (!obj.total_stock) {
-                            obj.total_stock = (parseInt(obj.qty_20) || 0) + (parseInt(obj.qty_40) || 0) + (parseInt(obj.qty_45) || 0);
-                        }
-                    } else {
-                        // Special behavior for TRIPS: Ensure trip_id and default mode
-                        if (!obj.trip_id) {
-                            obj.trip_id = 'TRIP-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-                        }
-                        if (!obj.service_mode) obj.service_mode = 'SALE';
-                    }
-
-                    finalObjects.push(obj);
-                }
-
-                if (finalObjects.length === 0) {
-                    alert("No valid data found to import (Check if you mapped the columns correctly).");
-                    return;
-                }
-
-                const tableName = importTarget === 'releases' ? 'releases' : 'trips';
-                const { error } = await db.from(tableName).insert(finalObjects);
-
-                if (error) {
-                    console.error("Database Insert Error:", error);
-                    throw new Error(`DATABASE ERROR (${error.code}): ${error.message} - ${error.details || ''}`);
-                }
-
-                alert(`🎯 SUCCESS! ${finalObjects.length} records imported correctly.`);
-                closeSmartImporter();
-
-                // Refresh relevant view
-                if (importTarget === 'releases') {
-                    if (window.loadReleasesData) await window.loadReleasesData();
-                } else {
-                    if (window.loadTableData) await window.loadTableData();
-                }
-
+                // Update with Driver and Timestamp
+                const updateBatch = { 
+                    ...truck, 
+                    miles: newMiles, 
+                    status: 'Available',
+                    last_driver: driverName,
+                    lastUpdate: new Date().toISOString()
+                };
+                
+                const dbUnit = mapUIToFleet(updateBatch);
+                // Ensure dbUnit includes the new fields for Supabase
+                dbUnit.last_driver = driverName; 
+                // Note: updated_at is usually handled by Supabase, but we force it for UI consistency if needed
+                
+                await saveFleet(dbUnit);
+                await loadFleetData();
+                newMilesInput.value = '';
+                document.getElementById('quick-driver-name').value = '';
+                alert(`✅ Truck #${truck.num} updated by ${driverName}!`);
             } catch (err) {
-                console.error("Import failed:", err);
-                alert("Import failed: " + err.message);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = originalText;
-                }
+                console.error("Error in quickUpdate:", err);
+                alert("Update failed.");
             }
-        }
+        };
 
-        // Run initial load
         loadFleetData();
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            // 1. Initial Logic: Read last section
-            let activeSection = localStorage.getItem('activeSection') || 'hero';
-            if (activeSection === 'auth') activeSection = 'hero';
-
-            // 2. Immediate Show (Don't wait for data/auth yet)
-            // Fix F5 Flicker: temporarily fake the role to bypass the auth check in showView
-            // The real auth check will run below and correct it in 0.5s.
-            window.currentUserRole = 'loading';
-            showView(activeSection);
-
-            // 3. Auth Check in background
-            let loggedIn = false;
-            // Ensure we start with a clean state
-            document.body.style.background = '#f0f2f5';
-
-            try {
-                loggedIn = await checkAuth();
-            } catch (authErr) {
-                console.error("Auth check failed:", authErr);
-            }
-
-            if (loggedIn) {
-                showView(activeSection);
-            } else {
-                showView('auth');
-            }
-
-            // Safety check: if no view is visible after 2 seconds, force auth
-            setTimeout(() => {
-                const visible = Array.from(document.querySelectorAll('.view-section')).some(s => s.style.display !== 'none');
-                if (!visible) {
-                    console.warn("Emergency: No view visible. Forcing Auth View.");
-                    const av = document.getElementById('auth-view');
-                    if (av) {
-                        av.classList.remove('hidden');
-                        av.style.setProperty('display', 'flex', 'important');
-                    }
-                }
-            }, 3000);
-
-            // 4. Background Loading (Parallel)
-            const loaders = [
-                () => window.loadTableData?.(),
-                () => window.loadDriversData?.(),
-                () => window.loadCustomersData?.(),
-                () => window.loadPickupAddressesData?.(),
-                () => window.loadCompaniesData?.(),
-                () => window.loadDepotsData?.(),
-                () => window.loadSellersData?.(),
-                () => window.loadFleetData?.(),
-                () => window.loadReleasesData?.(),
-                () => window.loadContainerSizesData?.()
-            ];
-
-            // Run loaders all at once for maximum speed
-            Promise.allSettled(loaders.map(f => f())).then(() => {
-                console.log("All background data loaded.");
-            });
-
-            // 5. Global Cleanup
-            window.currentUserRole = window.currentUserRole || 'staff';
-        });
-
-        window.addEventListener('scroll', () => {
-            const h = document.getElementById('hero-view');
-            if (h && !h.classList.contains('hidden')) {
-                if (window.scrollY > 50) {
-                    header.classList.add('navbar-scrolled');
-                } else {
-                    header.classList.remove('navbar-scrolled');
-                }
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+             // Listener removed to simplify
         });
