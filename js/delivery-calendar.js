@@ -268,7 +268,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 return el ? el.value || '---' : '---';
             });
 
-            // CRITICAL FIX: Ensure hybrid Release #, Pickup and Customer are correctly captured in baseValues
+            // CRITICAL FIX: Ensure hybrid Release #, Pickup, Customer AND Size are correctly captured in baseValues
+            baseValues[1] = selectedSize || '---';
             baseValues[3] = selectedRelease || '---';
             baseValues[6] = selectedPickup || '---';
             baseValues[10] = selectedCustomer || '---';
@@ -422,7 +423,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-ncont', 'in-release', 'in-order', 'in-delivery', 'in-miles',
                 'in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount',
                 'in-phone', 'in-note', 'in-mrate', 'in-taxpercent', 'in-paiddriver',
-                'in-pickup', 'in-customer', 'in-email', 'in-qty'
+                'in-pickup', 'in-customer', 'in-email', 'in-qty', 'in-size',
+                'in-yard', 'in-collect', 'in-mode', 'in-income'
             ];
 
             fieldsToClear.forEach(id => {
@@ -432,6 +434,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         el.value = '7';
                     } else if (id === 'in-qty') {
                         el.value = '1';
+                    } else if (id === 'in-mode') {
+                        el.value = 'SALE';
                     } else if (['in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount', 'in-miles', 'in-paiddriver', 'in-mrate'].includes(id)) {
                         el.value = '0';
                     } else {
@@ -442,9 +446,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             // 2. Select Dropdowns
             const selectsToReset = [
-                'in-size', 'in-rel-type', 'in-rel-condition', 'in-city', 
+                'in-size-sel', 'in-rel-type', 'in-rel-condition', 'in-city', 
                 'in-pickup-sel', 'in-customer-sel', 'in-doors', 'in-company', 
-                'in-driver', 'in-paytype', 'in-release-sel'
+                'in-driver', 'in-paytype', 'in-release-sel', 'in-status-toggle'
             ];
             selectsToReset.forEach(id => {
                 const el = document.getElementById(id);
@@ -455,7 +459,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const checks = [
                 'in-flag1', 'in-flag2', 'in-flag3', 'in-yardpaid', 'in-rentpaid',
                 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-yard-cash',
-                'in-rate-cash', 'in-sales-cash', 'in-showtax', 'in-hideamounts', 'in-taxpaid'
+                'in-rate-cash', 'in-sales-cash', 'in-showtax', 'in-hideamounts', 'in-taxpaid',
+                'in-sendemail'
             ];
             checks.forEach(id => {
                 const el = document.getElementById(id);
@@ -485,6 +490,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             else if (window.updateStatusColor) window.updateStatusColor('PEND');
 
             // Hybrid mode resets
+            if (typeof toggleSizeMode === 'function') toggleSizeMode('list');
             if (typeof toggleReleaseMode === 'function') toggleReleaseMode('list');
             if (typeof togglePickupAddressMode === 'function') togglePickupAddressMode('list');
             if (typeof toggleCustomerMode === 'function') toggleCustomerMode('list');
