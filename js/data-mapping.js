@@ -25,6 +25,16 @@
                 return ds;
             };
 
+            const safeParse = (val, fallback) => {
+                if (!val) return fallback;
+                if (typeof val === 'object') return val;
+                try {
+                    return JSON.parse(val);
+                } catch (e) {
+                    return fallback;
+                }
+            };
+
             return [
                 t.trip_id || '',           // 0
                 t.date || '---',           // 1
@@ -78,9 +88,10 @@
                 t.take_tax || false,        // 49 (Persisted per order)
                 t.tax_percent || 0,         // 50 (Persisted per order)
                 t.hide_amounts || false,    // 51 (NEW: Hides billing summary on receipt)
-                normPaid(t.st_tax),          // 52
+                t.st_tax || 'PEND',          // 52
                 t.qty || 1,                  // 53
-                t.signature || ''            // 54
+                t.signature || '',           // 54
+                safeParse(t.photos, [])       // 55
             ];
         }
 
@@ -141,7 +152,8 @@
                 hide_amounts: row[51] === true || row[51] === 'true',
                 st_tax: row[52],
                 qty: parseInt(row[53]) || 1,
-                signature: row[54] || ''
+                signature: row[54] || '',
+                photos: row[55] || []
             };
         }
 

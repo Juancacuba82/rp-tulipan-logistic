@@ -276,6 +276,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 pending += parseFloat(document.getElementById('in-mrate')?.value || '0') || 0;
             }
 
+            // Preserve existing signature and photos if editing
+            let existingSig = '';
+            let existingPhotos = [];
+            if (editingIndex !== null && currentTrips[editingIndex]) {
+                existingSig = currentTrips[editingIndex][54] || '';
+                existingPhotos = currentTrips[editingIndex][55] || [];
+            }
+
             const rowData = [
                 editingTripDbId || '',                  // 0: trip_id
                 ...baseValues.slice(0, 28),             // 1-28: Fields 0-27 (Date to StartDateRent)
@@ -303,7 +311,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0, // 50
                 document.getElementById('in-hideamounts')?.checked || false, // 51
                 document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND', // 52
-                document.getElementById('in-qty')?.value || 1 // 53
+                document.getElementById('in-qty')?.value || 1, // 53
+                existingSig,    // 54
+                existingPhotos  // 55
             ];
 
             const dbObj = mapArrayToTrip(rowData);

@@ -19,14 +19,23 @@ window.renderCustInvoiceTable = function () {
     const logisticsData = currentTrips || [];
 
     const filtered = logisticsData.filter(row => {
-        // 1. Basic Status Filter (Only Complete/Paid/Delivered rows)
+        // 1. Basic Status Filter (Only Complete/Delivered/Finalized-PAID rows)
         const orderStatus = (row[41] || '').toString().toUpperCase();
-        const isComplete = (orderStatus === 'COMPLETE' || orderStatus === 'PAID' || orderStatus === 'DELIVERED');
-        if (!isComplete) return false;
+        
+        // In this system, 'PAID' status usually means 'Finalized' (Green in calendar)
+        const isReady = (orderStatus === 'COMPLETE' || orderStatus === 'DELIVERED' || orderStatus === 'PAID');
+        if (!isReady) return false;
 
-        // 2. Payment Filter (Only PENDING components)
-        const isRatePend = (row[32] === 'PEND');
-        const isSalesPend = (row[33] === 'PEND');
+        // 2. Component Payment Check (Only show if there's actually a debt)
+        // Check if the order involves Transport and/or Sales components
+        const hasTrans = (row[42] === 'YES');
+        const hasSales = (row[43] === 'YES');
+
+        // Check if those components are still PENDING
+        const isRatePend = hasTrans && (row[32] === 'PEND');
+        const isSalesPend = hasSales && (row[33] === 'PEND');
+
+        // Only show if at least ONE required component is still PENDING
         if (!isRatePend && !isSalesPend) return false;
 
         // 3. User UI Filters
@@ -147,8 +156,16 @@ window.populateCustInvoiceFilters = function () {
 
     if (typeof currentTrips !== 'undefined') {
         currentTrips.forEach(row => {
-            const status = (row[41] || '').toString().toUpperCase();
-            if (status === 'COMPLETE' || status === 'PAID' || status === 'DELIVERED') {
+            const orderStatus = (row[41] || '').toString().toUpperCase();
+            const isReady = (orderStatus === 'COMPLETE' || orderStatus === 'DELIVERED' || orderStatus === 'PAID');
+            if (!isReady) return;
+
+            const hasTrans = (row[42] === 'YES');
+            const hasSales = (row[43] === 'YES');
+            const isRatePend = hasTrans && (row[32] === 'PEND');
+            const isSalesPend = hasSales && (row[33] === 'PEND');
+
+            if (isRatePend || isSalesPend) {
                 if (row[6] && row[6] !== '---') cities.add(row[6]);
                 if (row[8] && row[8] !== '---') places.add(row[8]);
                 if (row[11] && row[11] !== '---') customers.add(row[11]);

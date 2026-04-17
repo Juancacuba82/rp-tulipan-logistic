@@ -124,6 +124,133 @@
 
             // Generate preview directly from data
             window.drawReceipt();
+            window.renderTripPhotos();
+        }
+
+        window.renderTripPhotos = function() {
+            const gallery = document.getElementById('trip-photos-gallery');
+            const list = document.getElementById('photos-list');
+            if (!gallery || !list) return;
+
+            if (!window.currentDocTrip || !window.currentDocTrip[55] || window.currentDocTrip[55].length === 0) {
+                gallery.style.display = 'none';
+                return;
+            }
+
+            gallery.style.display = 'block';
+            list.innerHTML = '';
+
+            const photos = window.currentDocTrip[55];
+            photos.forEach((url, idx) => {
+                const div = document.createElement('div');
+                div.style.position = 'relative';
+                div.innerHTML = `
+                    <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;">
+                    <button onclick="deleteTripPhoto(${idx})" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        window.handleTripPhotoUpload = async function(input) {
+            const file = input.files[0];
+            if (!file || !window.currentDocTrip) return;
+
+            try {
+                const tripId = window.currentDocTrip[0];
+                const orderNo = window.currentDocTrip[5] || 'OR';
+                const fileName = `trip_${tripId}_${Date.now()}.jpg`;
+
+                // Show loading state
+                const btn = document.querySelector('.btn-photo-docs');
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> UPLOADING...';
+                btn.disabled = true;
+
+                // 1. Upload to Supabase Storage
+                // We'll use a bucket named 'trip-photos' (ensure it exists)
+                const { data, error } = await db.storage
+                    .from('trip-photos')
+                    .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+                if (error) throw error;
+
+                // 2. Get Public URL
+                const { data: { publicUrl } } = db.storage.from('trip-photos').getPublicUrl(fileName);
+
+                // 3. Update local and remote data
+                const currentPhotos = [...(window.currentDocTrip[55] || [])];
+                currentPhotos.push(publicUrl);
+                
+                await updateTrip(tripId, { photos: currentPhotos });
+                
+                // Update specific trip in currentTrips list
+                window.currentDocTrip[55] = currentPhotos;
+                const idx = currentTrips.findIndex(t => t[0] === tripId);
+                if (idx !== -1) currentTrips[idx][55] = currentPhotos;
+
+                // 4. UI Feedback
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                input.value = ''; // clear input
+                
+                window.renderTripPhotos();
+                alert("Photo uploaded successfully!");
+
+            } catch (err) {
+                console.error("Photo upload failed:", err);
+                alert("Error uploading photo. Please ensure 'trip-photos' bucket exists in Supabase.");
+                const btn = document.querySelector('.btn-photo-docs');
+                btn.innerHTML = '<i class="fas fa-camera"></i> PHOTOS';
+                btn.disabled = false;
+            }
+        }
+
+        window.deleteTripPhoto = async function(photoIdx) {
+            if (!confirm("Are you sure you want to delete this photo and permanently remove the file from storage?")) return;
+            if (!window.currentDocTrip) return;
+
+            const tripId = window.currentDocTrip[0];
+            const currentPhotos = [...(window.currentDocTrip[55] || [])];
+            const photoUrl = currentPhotos[photoIdx];
+            
+            // Extract filename from public URL
+            // Format: .../public/trip-photos/filename.jpg
+            let fileName = '';
+            try {
+                const parts = photoUrl.split('trip-photos/');
+                if (parts.length > 1) fileName = parts[1];
+            } catch (e) {
+                console.error("Path extraction failed", e);
+            }
+
+            currentPhotos.splice(photoIdx, 1);
+
+            try {
+                // 1. Delete from database
+                await updateTrip(tripId, { photos: currentPhotos });
+                
+                // 2. Delete from storage if filename was found
+                if (fileName) {
+                    const { error: storageError } = await db.storage
+                        .from('trip-photos')
+                        .remove([fileName]);
+                    if (storageError) console.warn("Storage cleanup failed:", storageError);
+                }
+
+                // 3. Update local state
+                window.currentDocTrip[55] = currentPhotos;
+                const idx = currentTrips.findIndex(t => t[0] === tripId);
+                if (idx !== -1) currentTrips[idx][55] = currentPhotos;
+                
+                window.renderTripPhotos();
+                console.log("Photo and file deleted successfully.");
+            } catch (err) {
+                console.error("Delete photo failed:", err);
+                alert("Failed to delete photo.");
+            }
         }
 
         window.getTripReceiptContent = function (trip) {
@@ -254,6 +381,21 @@
             const statusColor = data.status === 'PAID' ? '#166534' : '#991b1b';
             const statusBg = data.status === 'PAID' ? '#dcfce7' : '#fee2e2';
 
+            const photos = trip[55] || [];
+            let photosHtml = '';
+            if (photos.length > 0) {
+                let imgList = '';
+                photos.forEach(url => {
+                    imgList += `<img src="${url}" style="width: 31%; height: 180px; object-fit: cover; border-radius: 5px; border: 1px solid #e2e8f0; margin-bottom: 10px;">`;
+                });
+                photosHtml = `
+                    <div class="receipt-section-title" style="margin-top: 35px; break-before: auto;"><i class="fas fa-camera"></i> Delivery Evidence</div>
+                    <div style="display: flex; gap: 3%; flex-wrap: wrap; margin-top: 15px;">
+                        ${imgList}
+                    </div>
+                `;
+            }
+
             const headerHtml = `
                 <div class="receipt-header" style="position: relative;">
                     <div class="receipt-logo-area">
@@ -282,6 +424,7 @@
                     ${inspectionSectionHtml}
                     ${billingSectionHtml}
                     ${notesHtml}
+                    ${photosHtml}
                     <div style="display:flex; justify-content:space-between; margin-top:60px;">
                         <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold;">AUTHORIZED BY (RP TULIPAN)</div>
                         <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold; position: relative;">
