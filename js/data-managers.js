@@ -97,6 +97,18 @@
             if (window.renderDriverLog) window.renderDriverLog();
         }
 
+        function populateDriverAuditList() {
+            const list = document.getElementById('fleet-drivers-list');
+            if (!list) return;
+            list.innerHTML = '';
+            currentDrivers.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.name;
+                list.appendChild(opt);
+            });
+        }
+        window.populateDriverAuditList = populateDriverAuditList;
+
         function renderDriverManagerList() {
             const container = document.getElementById('driver-list-body');
             if (!container) return;

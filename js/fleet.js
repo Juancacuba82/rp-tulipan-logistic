@@ -96,6 +96,11 @@
             try {
                 const dbUnit = mapUIToFleet({ ...unit, lastMiles: unit.miles });
                 await saveFleet(dbUnit);
+                await db.from('fleet_maintenance_log').insert([{
+                    unit_id: id,
+                    task: "Oil Service (Quick Reset)",
+                    mileage: unit.miles
+                }]);
                 await loadFleetData();
             } catch (err) { alert("Failed to reset oil."); }
         };
@@ -105,8 +110,13 @@
             if (!unit) return;
             if (!confirm(`Confirm GENERAL MAINTENANCE (24k) completed for Unit #${unit.num}?`)) return;
             try {
-                const dbUnit = mapUIToFleet({ ...unit, lastGeneralMiles: unit.miles });
+                const dbUnit = mapUIToFleet({ ...unit, lastGeneralMiles: unit.miles, lastMiles: unit.miles });
                 await saveFleet(dbUnit);
+                await db.from('fleet_maintenance_log').insert([{
+                    unit_id: id,
+                    task: "General Maintenance Reset (24k)",
+                    mileage: unit.miles
+                }]);
                 await loadFleetData();
                 alert(`General maintenance recorded! Counter reset for Unit #${unit.num}.`);
             } catch (err) { alert("Failed to reset general maintenance."); }
@@ -140,6 +150,19 @@
         window.saveFleetUnit = async function () {
             try {
                 const id = document.getElementById('f-id').value;
+                const miles = document.getElementById('f-miles').value;
+                const lastMilesInput = document.getElementById('f-last-miles');
+                const lastGeneralMilesInput = document.getElementById('f-general-miles');
+                const resetGeneralChk = document.getElementById('f-reset-general');
+
+                let lastMilesVal = lastMilesInput.value || '0';
+                let lastGeneralMilesVal = lastGeneralMilesInput.value || '0';
+
+                // Logic: If reset General is checked, we set both to the "Oil Change" miles input
+                if (resetGeneralChk && resetGeneralChk.checked) {
+                    lastGeneralMilesVal = lastMilesVal;
+                }
+
                 const unitData = {
                     id: id || Date.now().toString(),
                     type: document.getElementById('f-type')?.value || 'truck',
@@ -147,19 +170,44 @@
                     vin: document.getElementById('f-vin').value,
                     plate: document.getElementById('f-plate').value,
                     year: document.getElementById('f-year').value,
-                    miles: document.getElementById('f-miles').value,
+                    miles: miles,
                     lastDate: document.getElementById('f-last-date')?.value || '',
-                    lastMiles: document.getElementById('f-last-miles')?.value || '0',
-                    lastGeneralMiles: document.getElementById('f-general-miles').value || '0',
+                    lastMiles: lastMilesVal,
+                    lastGeneralMiles: lastGeneralMilesVal,
                     lastInspection: document.getElementById('f-inspection-date').value || '',
                     status: 'Available'
                 };
+
                 if (!unitData.num) return alert('TRUCK # is required');
+
+                // Detect if service miles changed to log it
+                const oldUnit = currentFleet.find(u => u.id === id);
+                let logTask = "";
+                if (oldUnit) {
+                    if (parseInt(unitData.lastMiles) !== parseInt(oldUnit.lastMiles)) {
+                        logTask = "Oil Change / Service";
+                    }
+                    if (parseInt(unitData.lastGeneralMiles) !== parseInt(oldUnit.lastGeneralMiles)) {
+                        logTask = logTask ? "General Maint & Oil Service" : "General Maintenance Reset";
+                    }
+                } else {
+                    logTask = "Truck Registered";
+                }
+
                 const dbUnit = mapUIToFleet(unitData);
                 await saveFleet(dbUnit);
+
+                if (logTask) {
+                    await db.from('fleet_maintenance_log').insert([{
+                        unit_id: dbUnit.unit_id,
+                        task: logTask,
+                        mileage: parseInt(unitData.lastMiles) || parseInt(unitData.miles)
+                    }]);
+                }
+
                 await loadFleetData();
                 resetFleetForm();
-                alert('Unit registered successfully!');
+                alert('Unit saved successfully!');
             } catch (err) { alert("Failed to save: " + err.message); }
         };
 
@@ -301,8 +349,13 @@
             safeSetVal('f-plate', unit.plate);
             safeSetVal('f-year', unit.year);
             safeSetVal('f-miles', unit.miles);
+            safeSetVal('f-last-miles', unit.lastMiles);
             safeSetVal('f-general-miles', unit.lastGeneralMiles);
             safeSetVal('f-inspection-date', unit.lastInspection);
+            
+            const chk = document.getElementById('f-reset-general');
+            if (chk) chk.checked = false;
+
             document.getElementById('fleet-form-title').textContent = 'Editing Truck #' + unit.num;
             document.getElementById('fleet-delete-btn').style.display = 'block';
         };
@@ -313,8 +366,14 @@
         };
 
         function resetFleetForm() {
-            const fields = ['f-id', 'f-unit', 'f-vin', 'f-plate', 'f-year', 'f-miles', 'f-general-miles', 'f-inspection-date'];
-            fields.forEach(f => { const el = document.getElementById(f); if (el) el.value = (f.includes('miles')) ? '0' : ''; });
+            const fields = ['f-id', 'f-unit', 'f-vin', 'f-plate', 'f-year', 'f-miles', 'f-general-miles', 'f-last-miles', 'f-inspection-date'];
+            fields.forEach(f => { 
+                const el = document.getElementById(f); 
+                if (el) el.value = (f.includes('miles')) ? '0' : ''; 
+            });
+            const chk = document.getElementById('f-reset-general');
+            if (chk) chk.checked = false;
+
             document.getElementById('fleet-form-title').textContent = 'Fleet Management';
             document.getElementById('fleet-delete-btn').style.display = 'none';
         }
@@ -358,6 +417,16 @@
             try {
                 const dbUnit = mapUIToFleet({ ...truck, miles: newMiles, last_driver: driverName, lastUpdate: new Date().toISOString(), note: noteText || truck.note });
                 await saveFleet(dbUnit);
+
+                // Auto-log the daily update if there's a note
+                if (noteText) {
+                    await db.from('fleet_maintenance_log').insert([{
+                        unit_id: truckId,
+                        task: `Driver Report: ${noteText}`,
+                        mileage: newMiles
+                    }]);
+                }
+
                 await loadFleetData();
                 newMilesInput.value = '';
                 document.getElementById('quick-driver-name').value = '';

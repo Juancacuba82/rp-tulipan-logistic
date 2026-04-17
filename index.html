@@ -1800,9 +1800,14 @@
                             <label style="color: #1e293b; font-weight: 800;">CURRENT MILEAGE (Odometer)</label>
                             <input type="number" id="f-miles" placeholder="0" style="font-size: 1.1rem; font-weight: 900; color: #1e293b;">
                         </div>
-                        <div class="form-group" style="background: #f0fdf4; padding: 10px; border-radius: 8px; border-left: 4px solid #10b981; margin-bottom: 12px;">
-                            <label style="color: #15803d; font-weight: 800;">LAST GENERAL SERVICE (MILES)</label>
-                            <input type="number" id="f-general-miles" placeholder="0" style="font-weight: bold; color: #15803d;">
+                        <div class="form-group" style="background: #f0fdf4; padding: 12px; border-radius: 10px; border-left: 5px solid #10b981; margin-bottom: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
+                            <label style="color: #15803d; font-weight: 900; font-size: 0.75rem; text-transform: uppercase; width: 100%; margin-bottom: 0; flex: none;">Oil Change / Last Service (Miles)</label>
+                            <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
+                                <input type="number" id="f-last-miles" placeholder="0" style="font-weight: 900; color: #1e293b; font-size: 1.1rem; flex: 1; height: 40px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 12px;">
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.6rem; font-weight: 800; color: #6d28d9; cursor: pointer; background: #f5f3ff; padding: 6px 10px; border-radius: 6px; border: 1px solid #ddd6fe; white-space: nowrap; height: 40px;">
+                                    <input type="checkbox" id="f-reset-general" style="width: 16px; height: 16px; cursor: pointer; accent-color: #6d28d9;"> RESET GENERAL (24k)
+                                </label>
+                            </div>
                         </div>
                         <div class="form-group" style="background: #fffbeb; padding: 10px; border-radius: 8px; border-left: 4px solid #d97706;">
                             <label style="color: #92400e; font-weight: 800;">LAST TECHNICAL INSPECTION</label>
@@ -1812,7 +1817,7 @@
                         <!-- HIDDEN DATA FOR LOGIC -->
                         <div class="maintenance-box" style="display:none;">
                             <span id="f-miles-accumulated">0</span>
-                            <input type="hidden" id="f-last-miles" value="0">
+                            <input type="hidden" id="f-general-miles" value="0">
                             <input type="hidden" id="f-last-date" value="">
                             <input type="hidden" id="f-due-date" value="">
                             <input type="hidden" id="f-due-miles" value="0">
