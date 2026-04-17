@@ -505,7 +505,7 @@
             }
 
             try {
-                // 1. Upload to Supabase Storage first
+                // 1. Upload to Supabase Storage
                 const orderNo = tripData[5] || 'OR';
                 const fileName = `receipt_${orderNo.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
 
@@ -514,17 +514,21 @@
                 console.log("Receipt uploaded! URL:", publicUrl);
 
                 // 2. Send email with the URL link
-                await emailjs.send(serviceId, templateId, {
+                const templateParams = {
                     to_email: emailTo,
                     customer_name: tripData[11] || 'Valued Customer',
                     order_no: tripData[5] || '---',
-                    receipt_url: publicUrl // This is the new parameter
-                }, publicKey);
+                    receipt_url: publicUrl
+                };
 
-                console.log("Email Sent via EmailJS with receipt link!");
+                const response = await emailjs.send(serviceId, templateId, templateParams, publicKey);
+                console.log("EmailJS Success:", response.status, response.text);
+                
+                console.log("Email Sent via EmailJS with link!");
             } catch (e) {
-                console.error("Email/Upload Error:", e);
-                alert("Error enviando el correo: " + e.message);
+                console.error("Email/Upload Critical Error:", e);
+                const errorMsg = e.text || e.message || (typeof e === 'string' ? e : JSON.stringify(e));
+                alert("Error enviando el correo: " + errorMsg);
             }
         }
 
