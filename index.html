@@ -765,18 +765,25 @@
                                 id="in-date"></div>
                         <div class="form-group">
                             <label class="sidebar-label-btn">Size</label>
-                            <select id="in-size" required>
-                                <option value="" disabled selected>Choose Size...</option>
-                                <option value="40' HC">40' HC</option>
-                                <option value="40' STD">40' STD</option>
-                                <option value="40' DD">40' DD</option>
-                                <option value="40' OS">40' OS</option>
-                                <option value="45' HC">45' HC</option>
-                                <option value="20' STD">20' STD</option>
-                                <option value="20' HC">20' HC</option>
-                                <option value="20' DD">20' DD</option>
-                                <option value="20' OS">20' OS</option>
-                            </select>
+                            <div class="hybrid-input-wrapper">
+                                <select id="in-size-sel">
+                                    <option value="" disabled selected>Choose Size...</option>
+                                    <option value="40' HC">40' HC</option>
+                                    <option value="40' STD">40' STD</option>
+                                    <option value="40' DD">40' DD</option>
+                                    <option value="40' OS">40' OS</option>
+                                    <option value="45' HC">45' HC</option>
+                                    <option value="20' STD">20' STD</option>
+                                    <option value="20' HC">20' HC</option>
+                                    <option value="20' DD">20' DD</option>
+                                    <option value="20' OS">20' OS</option>
+                                </select>
+                                <input type="text" id="in-size" placeholder="Type Size..." style="display:none;">
+                                <button type="button" class="btn-toggle-input" onclick="toggleSizeMode()"
+                                    title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="toggle-icon-size"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group"><label class="sidebar-label-btn">N. Cont</label><input type="text"
                                 id="in-ncont" placeholder="N. Cont"></div>

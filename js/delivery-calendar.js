@@ -127,7 +127,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const pickupMan = document.getElementById('in-pickup');
             const selectedPickup = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
 
-            const selectedSize = document.getElementById('in-size').value;
+            const sizeSel = document.getElementById('in-size-sel');
+            const sizeMan = document.getElementById('in-size');
+            const selectedSize = (sizeMan && sizeMan.style.display !== 'none') ? sizeMan.value : (sizeSel ? sizeSel.value : '');
+
             const selectedRelType = document.getElementById('in-rel-type').value;
             const selectedRelCond = document.getElementById('in-rel-condition').value;
 
@@ -136,7 +139,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const yardVal = yardEl ? yardEl.value : (document.getElementById('in-flag1')?.checked ? 'YES' : 'NO');
             const yardOnly = yardVal === 'YES' && (parseFloat(document.getElementById('in-sales')?.value || '0') === 0);
             const modeVal = document.getElementById('in-mode')?.value || 'SALE';
-            const isDeductionCandidate = (selectedRelease && selectedRelease !== '---' && !yardOnly && (modeVal === 'SALE' || modeVal === 'RENT'));
+            const isSalesFlag = document.getElementById('in-flag3')?.checked || false;
+            const releaseExists = (currentReleases || []).some(r => r[0] === selectedRelease);
+            const isDeductionCandidate = (selectedRelease && selectedRelease !== '---' && !yardOnly && 
+                                         ((modeVal === 'SALE' && isSalesFlag) || modeVal === 'RENT') && 
+                                         releaseExists);
             const isYardPaid = document.getElementById('in-yardpaid').checked;
             const isRatePaid = document.getElementById('in-ratepaid').checked;
             const isSalesPaid = document.getElementById('in-salespaid').checked;
@@ -811,6 +818,22 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             toggleCustomerMode('manual');
                             el.value = (v === '---' || v === undefined || v === null) ? '' : v;
                         }
+                    } else if (id === 'in-size') {
+                        // Hybrid Logic for Size
+                        const sel = document.getElementById('in-size-sel');
+                        let exists = false;
+                        if (sel) {
+                            for (let opt of sel.options) {
+                                if (opt.value === v) { exists = true; break; }
+                            }
+                        }
+                        if (exists && v !== '---' && v !== '') {
+                            toggleSizeMode('list');
+                            sel.value = v;
+                        } else {
+                            toggleSizeMode('manual');
+                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                        }
                     } else if (id === 'in-pickup') {
                         // Hybrid Logic for Pickup Address
                         const sel = document.getElementById('in-pickup-sel');
@@ -1262,4 +1285,27 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 console.error("Group revert failed:", e);
             }
         }
+
+        function toggleSizeMode(forceMode) {
+            const sel = document.getElementById('in-size-sel');
+            const man = document.getElementById('in-size');
+            const icon = document.getElementById('toggle-icon-size');
+
+            let isManual = man.style.display !== 'none';
+            if (forceMode === 'manual') isManual = false;
+            if (forceMode === 'list') isManual = true;
+
+            if (isManual) {
+                man.style.display = 'none';
+                sel.style.display = 'block';
+                icon.className = 'fas fa-edit';
+                man.value = '';
+            } else {
+                sel.style.display = 'none';
+                man.style.display = 'block';
+                icon.className = 'fas fa-list';
+                sel.selectedIndex = 0;
+            }
+        }
+        window.toggleSizeMode = toggleSizeMode;
 

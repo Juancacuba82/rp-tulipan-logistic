@@ -762,7 +762,7 @@
         function updateSizeDropdowns() {
             const relSide = document.getElementById('rel-size-detail');
             const relFilt = document.getElementById('rf-size');
-            const tripSide = document.getElementById('in-size');
+            const tripSide = document.getElementById('in-size-sel');
             const tripFilt = document.getElementById('f-size');
             
             const populate = (sel, isFilter) => {
