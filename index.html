@@ -1265,7 +1265,7 @@
                             </h3>
                             
                             <div class="toolbar-doc-actions">
-                                <button onclick="document.getElementById('trip-photo-input').click()" class="btn-photo-docs" title="Upload Delivery Photo">
+                                <button id="btn-docs-photos" onclick="document.getElementById('trip-photo-input').click()" class="btn-photo-docs" title="Upload Delivery Photo">
                                     <i class="fas fa-camera"></i> PHOTOS
                                 </button>
                                 <input type="file" id="trip-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="handleTripPhotoUpload(this)">
@@ -2727,6 +2727,10 @@
                 const docsDrvSel = document.getElementById('docs-driver-dropdown');
                 if (docsDrvSel) docsDrvSel.style.display = 'none';
 
+                // Hide Photos button in Docs & Receipts for drivers
+                const docsPhotoBtn = document.getElementById('btn-docs-photos');
+                if (docsPhotoBtn) docsPhotoBtn.style.display = 'none';
+
                 // RESTRICTIONS inside Reports view for Drivers:
                 const archiveBtn = document.querySelector('button[onclick*="archiveSettlement"]');
                 if (archiveBtn) archiveBtn.style.display = 'none';
@@ -2770,6 +2774,9 @@
 
                 const docsDrvSel = document.getElementById('docs-driver-dropdown');
                 if (docsDrvSel) docsDrvSel.style.display = '';
+
+                const docsPhotoBtn = document.getElementById('btn-docs-photos');
+                if (docsPhotoBtn) docsPhotoBtn.style.display = '';
             }
 
             // Toggle Logout button visibility (hidden on auth view)
