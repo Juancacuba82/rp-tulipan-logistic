@@ -966,6 +966,8 @@
         }
         window.newTripIdForDb = newTripIdForDb;
         window.currentTrips = currentTrips; // Expose globally for fleet module suggestions
+        window.currentReleases = currentReleases;
+        window.currentExpenses = currentExpenses;
 
         // --- FLEET DATA MAPPERS ---
         function mapFleetToUI(f) {

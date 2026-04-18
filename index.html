@@ -1677,7 +1677,7 @@
                                 </select>
                             </div>
                             <div class="filter-item" style="flex: 1; min-width: 130px; display: flex; flex-direction: row; align-items: center; gap: 8px; background: white; padding: 0 10px; border-radius: 6px; border: 1px solid #cbd5e1; height: 32px;">
-                                <input type="checkbox" id="rf-show-zero" onchange="applyReleasesFilters()" style="cursor:pointer; width: 16px; height: 16px;">
+                                <input type="checkbox" id="rf-show-zero" onchange="applyReleasesFilters()" style="cursor:pointer; width: 16px; height: 16px;" checked>
                                 <label for="rf-show-zero" style="margin: 0; font-size: 0.65rem; color: #1e293b; font-weight: 800; cursor:pointer;">SHOW EMPTY STOCK</label>
                             </div>
                             <button onclick="resetReleasesFilters()" class="btn-cancel"
@@ -3019,6 +3019,8 @@
                     } else if (finalView === 'calendar') {
                         if (window.loadTableData) window.loadTableData();
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
+                        if (window.loadReleasesData) window.loadReleasesData();
+                    } else if (finalView === 'releases') {
                         if (window.loadReleasesData) window.loadReleasesData();
                     } else if (finalView === 'fleet') {
                         if (window.loadFleetData) window.loadFleetData();

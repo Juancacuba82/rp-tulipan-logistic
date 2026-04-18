@@ -180,7 +180,6 @@
         window.togglePickupAddressMode = togglePickupAddressMode;
 
         async function loadReleasesData() {
-            window.loadReleasesData = loadReleasesData;
             const body = document.getElementById('releases-body');
             if (!body) return;
 
@@ -460,7 +459,7 @@
                 if (el) { el.value = ''; el.classList.remove('rel-filter-active'); }
             });
             const zeroCheck = document.getElementById('rf-show-zero');
-            if (zeroCheck) zeroCheck.checked = false;
+            if (zeroCheck) zeroCheck.checked = true;
             applyReleasesFilters();
         };
         window.loadReleasesData = loadReleasesData; // Expose globally
