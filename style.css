@@ -490,7 +490,7 @@ main {
         overflow-y: auto !important;
     }
 
-    .entry-sidebar.primary-entry {
+    .entry-sidebar.primary-entry, .entry-sidebar.primary-entryNarrow {
         flex: 0 0 auto !important;
         width: 100% !important;
         border-right: none !important;

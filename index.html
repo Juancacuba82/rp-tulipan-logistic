@@ -172,7 +172,7 @@
             padding: 25px;
             border-radius: 12px;
             width: 400px;
-            max-width: 90%;
+            max-width: 95%; /* Responsive width */
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             border-top: 5px solid #10b981;
         }
@@ -527,38 +527,60 @@
                 width: 100% !important;
                 height: auto !important;
                 max-height: none !important;
-                border-right: none !important;
                 border-bottom: 2px solid #cbd5e1 !important;
-                padding: 15px !important; /* Reduced from 25px */
+                padding: 15px !important;
                 overflow: visible !important;
-                box-sizing: border-box !important;
             }
             #fleet-view .table-area {
-                padding: 10px !important; /* Reduced from 15px/25px */
+                padding: 10px !important;
                 height: auto !important;
-                overflow: visible !important;
                 width: 100% !important;
-                box-sizing: border-box !important;
-            }
-            #fleet-view .dashboard-header-fleet,
-            #fleet-view div[style*="justify-content: space-between"] {
-                flex-direction: column !important;
-                align-items: stretch !important;
-                gap: 12px !important;
-                margin-bottom: 15px !important;
             }
             #fleet-cards-container {
                 grid-template-columns: 1fr !important;
                 gap: 15px !important;
-                width: 100% !important;
             }
-            /* Fix for the dark card in sidebar to not overflow */
-            #fleet-view div[style*="background: #242f42"] {
+
+            /* Form Call & Calendar Mobile Fixes */
+            #calls-view .dashboard-split-container,
+            #calendar-view .dashboard-split-container {
+                flex-direction: column !important;
+                height: auto !important;
+            }
+            #calls-view aside, #calendar-view aside {
                 width: 100% !important;
-                margin: 0 !important;
                 padding: 15px !important;
-                box-sizing: border-box !important;
+                border-right: none !important;
+                border-bottom: 2px solid #cbd5e1 !important;
             }
+
+            /* Customer Invoice & Inventory Mobile Fixes */
+            .inv-header-flex, #inventory-view .inv-header-flex {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                text-align: center;
+                gap: 15px;
+            }
+            .releases-filter-container {
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+            .releases-filter-container .filter-item,
+            .releases-filter-container input,
+            .releases-filter-container select,
+            .releases-filter-container button {
+                width: 100% !important;
+            }
+
+            /* Auth / Login View Mobile */
+            #auth-view .auth-card {
+                margin: 20px;
+                padding: 25px !important;
+            }
+
+            /* Navbar Logo Mobile size */
+            .logo-text { font-size: 1.2rem !important; }
+            .navbar-logo-img { width: 35px !important; }
         }
         .btn-manage-inline {
             background: #f8fafc;
