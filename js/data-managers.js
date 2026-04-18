@@ -559,7 +559,9 @@
                 }
 
                 currentSellers = data;
+                window.currentSellers = data;
                 refreshSellerSelects();
+                if (window.updateCallSellerDropdown) window.updateCallSellerDropdown();
             } catch (err) {
                 console.error("Error loading sellers:", err);
             }

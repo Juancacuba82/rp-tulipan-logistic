@@ -182,3 +182,27 @@ CREATE POLICY "Allow public select settlement_history" ON settlement_history FOR
 CREATE POLICY "Allow public insert settlement_history" ON settlement_history FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update settlement_history" ON settlement_history FOR UPDATE USING (true);
 CREATE POLICY "Allow public delete settlement_history" ON settlement_history FOR DELETE USING (true);
+-- 6. CALL LOGS TABLE
+CREATE TABLE IF NOT EXISTS call_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    date DATE DEFAULT CURRENT_DATE,
+    customer TEXT,
+    phone TEXT,
+    city TEXT,
+    zip_code TEXT,
+    measures TEXT,
+    amount NUMERIC DEFAULT 0,
+    next_call_date DATE,
+    seller TEXT,
+    status TEXT DEFAULT 'PENDING',
+    description TEXT,
+    service_type TEXT, -- 'Sales', 'Transport', 'Service Yard'
+    created_by TEXT,   -- Email of the user who registered the call
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE call_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public select call_logs" ON call_logs FOR SELECT USING (true);
+CREATE POLICY "Allow public insert call_logs" ON call_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update call_logs" ON call_logs FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete call_logs" ON call_logs FOR DELETE USING (true);

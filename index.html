@@ -614,6 +614,8 @@
                         class="fas fa-calendar-check"></i> DELIVERY CALENDAR</button>
                 <button onclick="closeMenu(); showView('cust-invoice')" class="btn-calendar"><i
                         class="fas fa-file-invoice-dollar"></i> CUSTOMERS INVOICE</button>
+                <button onclick="closeMenu(); showView('calls')" class="btn-calendar"><i
+                        class="fas fa-phone-alt"></i> FORM CALL</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -700,6 +702,10 @@
                     <button onclick="showView('inventory')" class="dash-card">
                         <i class="fas fa-boxes"></i>
                         <span>FORM INVENTOR</span>
+                    </button>
+                    <button onclick="showView('calls')" class="dash-card">
+                        <i class="fas fa-phone-alt"></i>
+                        <span>FORM CALL</span>
                     </button>
                 </div>
             </div>
@@ -2589,7 +2595,195 @@
                 </div>
             </div>
         </section>
+        <!-- FORM CALL View -->
+        <section id="calls-view" class="view-section hidden">
+            <div class="dashboard-split-container">
+                <!-- Left Panel: Form Call Entry -->
+                <aside class="entry-sidebar primary-entryNarrow">
+                    <div class="sidebar-header">
+                        <div class="trip-entry-header-text">
+                            <h3>Form Call Entry</h3>
+                            <p class="trip-entry-subtitle">Register leads and potential buyers.</p>
+                        </div>
+                    </div>
+                    <div class="sidebar-form">
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Date</label>
+                            <input type="date" id="call-date">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Customer</label>
+                            <input type="text" id="call-customer" placeholder="Customer Name" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Service Type</label>
+                            <select id="call-service">
+                                <option value="Sales">Sales</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Service Yard">Service Yard</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Phone</label>
+                            <input type="text" id="call-phone" placeholder="Phone Number">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">City</label>
+                            <input type="text" id="call-city" placeholder="City" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Zip Code</label>
+                            <input type="text" id="call-zip" placeholder="Zip Code">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Measures</label>
+                            <input type="text" id="call-measures" placeholder="Measures (e.g. 40ft HC)" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Amount</label>
+                            <input type="number" id="call-amount" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Next Call Date</label>
+                            <input type="date" id="call-next-date">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Seller</label>
+                            <select id="call-seller">
+                                <option value="">Select Seller...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Status</label>
+                            <select id="call-status">
+                                <option value="PENDING">PENDING</option>
+                                <option value="FOLLOW UP">FOLLOW UP</option>
+                                <option value="SOLD">SOLD</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex-direction: column; align-items: flex-start;">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important; width: 100% !important; margin-bottom: 8px;">DESCRIPTION</label>
+                            <textarea id="call-description" placeholder="Notes about this lead..."
+                                style="width: 100%; height: 100px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: inherit; font-size: 0.9rem; resize: none;"></textarea>
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <button onclick="saveCallLog()" class="btn-add-sidebar" style="width: 100%; padding: 12px; margin-bottom: 10px;" id="btn-save-call">SAVE CALL RECORD</button>
+                            <button onclick="resetCallForm()" class="btn-cancel" style="width: 100%;">RESET FORM</button>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Right Panel: Grid -->
+                <div class="table-area">
+                    <div class="table-toolbar">
+                        <div style="display:flex; justify-content: space-between; align-items:center;">
+                            <h2 style="border-left: 4px solid #1e40af; padding-left: 15px;">Leads & Calls Management</h2>
+                            <div class="header-actions">
+                                <button onclick="resetCallFilters()" class="btn-cancel" style="height: 38px;">
+                                    <i class="fas fa-undo"></i> RESET FILTERS
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ADVANCED FILTERS FOR CALLS -->
+                    <div class="advanced-filter-panel" style="margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div class="filter-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+                            <div class="filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">FROM DATE</label>
+                                <input type="date" id="cf-from-date" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                            </div>
+                            <div class="filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">TO DATE</label>
+                                <input type="date" id="cf-to-date" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                            </div>
+                            <div class="filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">SERVICE</label>
+                                <select id="cf-service" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                                    <option value="">All Services</option>
+                                    <option value="Sales">Sales</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Service Yard">Service Yard</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">CITY</label>
+                                <select id="cf-city" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                                    <option value="">All Cities</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">SELLER</label>
+                                <select id="cf-seller" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                                    <option value="">All Sellers</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">STATUS</label>
+                                <select id="cf-status" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                                    <option value="">All Status</option>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="FOLLOW UP">FOLLOW UP</option>
+                                    <option value="SOLD">SOLD</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                            <div class="filter-item" style="grid-column: span 2;">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">SEARCH (CUSTOMER/PHONE)</label>
+                                <input type="text" id="call-search" placeholder="Search..." onkeyup="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-scroll-container">
+                        <table class="drivers-report-table" id="calls-table">
+                            <thead>
+                                <tr class="header-row">
+                                    <th>DATE</th>
+                                    <th>CUSTOMER</th>
+                                    <th>SERVICE</th>
+                                    <th>PHONE</th>
+                                    <th>CITY</th>
+                                    <th>ZIP</th>
+                                    <th>MEASURES</th>
+                                    <th>AMOUNT</th>
+                                    <th>NEXT CALL</th>
+                                    <th>SELLER</th>
+                                    <th>STATUS</th>
+                                    <th>ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calls-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
+
+    <!-- CLIENT TRANSFER MODAL -->
+    <div id="transfer-call-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:white; padding:25px; border-radius:12px; width:400px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0; color:#1e293b;"><i class="fas fa-exchange-alt" style="margin-right:10px; color:#1e40af;"></i> Transfer Client</h3>
+                <button onclick="closeTransferModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#64748b;">&times;</button>
+            </div>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom:20px;">Select the employee who will take over this client:</p>
+            
+            <div class="form-group" style="margin-bottom:20px;">
+                <label style="display:block; font-size:0.75rem; font-weight:800; color:#1e40af; margin-bottom:8px;">TRANSFER TO:</label>
+                <select id="transfer-to-email" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;">
+                    <option value="">Select Employee...</option>
+                </select>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button onclick="executeTransfer()" class="btn-add-sidebar" style="flex:1; padding:10px;">CONFIRM TRANSFER</button>
+                <button onclick="closeTransferModal()" class="btn-cancel" style="flex:1; padding:10px;">CANCEL</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // NOTE: If you experience CORS errors (Unsafe attempt to load script), 
@@ -2680,6 +2874,7 @@
                 if (session && session.user) {
                     // Pre-fill user data even before profile loading
                     window.currentUserRole = 'user';
+                    window.userEmail = session.user.email;
 
                     try {
                         const profile = await getProfile(session.user.id);
@@ -3051,6 +3246,11 @@
                         (async () => {
                             if (window.loadTableData) await window.loadTableData();
                             if (window.renderCustInvoiceTable) window.renderCustInvoiceTable();
+                        })();
+                    } else if (viewId === 'calls') {
+                        (async () => {
+                            if (window.loadCallsData) await window.loadCallsData();
+                            if (window.renderCallsTable) window.renderCallsTable();
                         })();
                     }
 
@@ -3680,6 +3880,7 @@
     <script src="./js/fleet.js?v=2"></script>
     <script src="./js/form-inventor.js?v=1"></script>
     <script src="./js/cust-invoice.js?v=1"></script>
+    <script src="./js/calls.js?v=2"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>
