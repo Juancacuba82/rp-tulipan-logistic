@@ -16,6 +16,7 @@
             const fromDate = document.getElementById('exp-filter-from')?.value;
             const toDate = document.getElementById('exp-filter-to')?.value;
             const category = document.getElementById('exp-filter-category')?.value;
+            const driverName = document.getElementById('exp-filter-driver')?.value;
             const search = (document.getElementById('exp-filter-search')?.value || '').toLowerCase();
 
             const filtered = (currentExpenses || []).filter(row => {
@@ -26,42 +27,47 @@
 
                 const matchDate = (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
                 const matchCat = !category || rowCat === category;
+                const matchDriver = !driverName || rowDesc.includes(driverName.toLowerCase()) || rowNote.includes(driverName.toLowerCase());
                 const matchSearch = !search || rowDesc.includes(search) || rowNote.includes(search);
 
-                return matchDate && matchCat && matchSearch;
+                return matchDate && matchCat && matchDriver && matchSearch;
             });
 
             body.innerHTML = '';
             filtered.forEach((rowData) => {
                 const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                const expenseId = rowData[5];
+
+                if (window.editingExpenseId === expenseId) {
+                    tr.classList.add('editing-row');
+                }
+
+                tr.onclick = () => window.editExpenseRow(rowData);
+
                 rowData.slice(0, 5).forEach((text, i) => { // Show first 5 columns
                     const td = document.createElement('td');
                     td.textContent = (i === 0) ? window.formatDateMMDDYYYY(text) : text;
                     
-                    // Polish cells
                     if (i === 3) { // Amount
-                        td.style.fontWeight = '900';
                         td.style.color = '#ef4444';
                         td.style.textAlign = 'right';
-                    }
-                    if (i === 1) { // Category
-                        td.style.fontWeight = '700';
-                        td.style.color = '#1e293b';
                     }
                     tr.appendChild(td);
                 });
 
                 // Action Cell (Delete using expense_id at rowData[5])
                 const actionsTd = document.createElement('td');
+                actionsTd.onclick = (e) => e.stopPropagation(); // Don't trigger edit when deleting
+
                 if (window.currentUserRole === 'admin') {
                     const delBtn = document.createElement('button');
-                    delBtn.innerHTML = '<i class="fas fa-trash"></i>';
-                    delBtn.className = 'btn-cancel';
-                    delBtn.style.padding = '5px 10px';
+                    delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                    delBtn.className = 'btn-delete-row';
+                    delBtn.title = "Delete Expense";
                     delBtn.onclick = async () => {
                         if (!confirm('Are you sure you want to delete this expense?')) return;
                         try {
-                            const expenseId = rowData[5];
                             await deleteExpense(expenseId);
                             await loadExpensesData();
                         } catch (e) {
@@ -80,10 +86,55 @@
             calculateExpenseTotal();
         };
 
+        window.editExpenseRow = function (rowData) {
+            window.editingExpenseId = rowData[5];
+
+            // Trigger re-render to highlight the row
+            window.renderExpensesHistory();
+
+            // Fill form
+            document.getElementById('exp-date').value = rowData[0] || '';
+            const cat = rowData[1];
+            const sel = document.getElementById('exp-category');
+            
+            // Handle Category Selection
+            let catFound = false;
+            for (let opt of sel.options) {
+                if (opt.value === cat) {
+                    sel.value = cat;
+                    catFound = true;
+                    break;
+                }
+            }
+
+            if (!catFound) {
+                sel.value = 'Other';
+                document.getElementById('exp-other-desc').value = rowData[2] || '';
+            } else {
+                document.getElementById('exp-other-desc').value = '';
+            }
+            window.toggleOtherExpense();
+
+            const amountStr = (rowData[3] || '0').replace('$', '').replace(/,/g, '');
+            document.getElementById('exp-amount').value = parseFloat(amountStr) || 0;
+            document.getElementById('exp-note').value = rowData[4] || '';
+
+            // Update Button
+            const btn = document.getElementById('btn-save-expense');
+            if (btn) {
+                btn.textContent = "Update Expense";
+                btn.classList.add('btn-update');
+            }
+            
+            // Scroll to form (for mobile)
+            document.querySelector('.expenses-view aside')?.scrollTo(0, 0);
+        };
+
         window.resetExpenseFilters = function () {
             if (document.getElementById('exp-filter-from')) document.getElementById('exp-filter-from').value = '';
             if (document.getElementById('exp-filter-to')) document.getElementById('exp-filter-to').value = '';
             if (document.getElementById('exp-filter-category')) document.getElementById('exp-filter-category').value = '';
+            if (document.getElementById('exp-filter-driver')) document.getElementById('exp-filter-driver').value = '';
             if (document.getElementById('exp-filter-search')) document.getElementById('exp-filter-search').value = '';
             renderExpensesHistory();
         };

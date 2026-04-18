@@ -473,6 +473,8 @@
             if (groupOther) groupOther.style.display = (cat === 'Other') ? 'block' : 'none';
         };
 
+        window.editingExpenseId = null;
+
         window.addExpenseRow = async () => {
             const date = document.getElementById('exp-date').value || '---';
             const cat = document.getElementById('exp-category').value;
@@ -480,25 +482,36 @@
             const amount = parseFloat(document.getElementById('exp-amount').value) || 0;
             const note = document.getElementById('exp-note').value || '---';
 
-            let desc = (cat === 'Other') ? otherVal : cat;
+            const btn = document.getElementById('btn-save-expense');
 
+            if (!date || date === '---') return alert("Please select a date.");
+            if (!cat) return alert("Please select a category.");
+
+            let desc = (cat === 'Other') ? otherVal : cat;
             const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note];
 
             try {
                 const expenseObj = mapArrayToExpense(rowData);
-                await addExpense(expenseObj);
-                await loadExpensesData(); // Reload from Supabase
+                
+                if (window.editingExpenseId) {
+                    const { error } = await db.from('expenses').update(expenseObj).eq('id', window.editingExpenseId);
+                    if (error) throw error;
+                    alert("Expense updated successfully!");
+                } else {
+                    await addExpense(expenseObj);
+                    alert("Expense saved successfully!");
+                }
 
-                // Reset form
+                await loadExpensesData(); // Reload from Supabase
                 window.resetExpenseForm();
-                alert("Expense saved successfully!");
             } catch (err) {
-                console.error("Error adding expense:", err);
+                console.error("Error saving expense:", err);
                 alert("Failed to save expense to database.");
             }
         };
 
         window.resetExpenseForm = () => {
+            window.editingExpenseId = null;
             document.getElementById('exp-date').value = '';
             document.getElementById('exp-category').selectedIndex = 0;
             const otherGroup = document.getElementById('group-exp-other');
@@ -506,5 +519,14 @@
             document.getElementById('exp-other-desc').value = '';
             document.getElementById('exp-amount').value = '0';
             document.getElementById('exp-note').value = '';
+            
+            const btn = document.getElementById('btn-save-expense');
+            if (btn) {
+                btn.textContent = "Save Expense";
+                btn.classList.remove('btn-update'); 
+            }
+
+            // Remove highlighted rows
+            document.querySelectorAll('#expenses-body tr').forEach(r => r.classList.remove('editing-row'));
         };
 

@@ -1235,10 +1235,31 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
 
         async function resetReportFilters() {
-            // RELOAD AS ULTIMATE RESET:
-            // This clears the manual calculator, JS variables and resets input fields
-            // The app will stay on "reports" view thanks to localStorage persistence.
-            window.location.reload();
+            // Reset input fields
+            const drv = document.getElementById('filter-search');
+            const from = document.getElementById('filter-from');
+            const to = document.getElementById('filter-to');
+            
+            if (drv) drv.value = '';
+            if (from) from.value = '';
+            if (to) to.value = '';
+
+            // Reset pending only flag
+            if (typeof reportShowUnpaidOnly !== 'undefined') {
+                reportShowUnpaidOnly = false;
+                const btn = document.getElementById('btn-pending-only');
+                if (btn) {
+                    btn.style.background = '#fff';
+                    btn.style.borderColor = '#cbd5e1';
+                }
+            }
+
+            // Sync UI display
+            if (window.syncDriverNames) window.syncDriverNames();
+
+            // Refresh data views
+            if (window.renderDriverLog) window.renderDriverLog();
+            if (window.fetchHistory) window.fetchHistory();
         }
 
         async function markTripAsPaid(tripId) {

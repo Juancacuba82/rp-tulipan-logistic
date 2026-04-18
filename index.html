@@ -2157,7 +2157,7 @@
                     <div class="sidebar-header">
                         <h3>Expense Management</h3>
                         <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
-                            <button onclick="addExpenseRow()" class="btn-add-sidebar">Save Expense</button>
+                            <button id="btn-save-expense" onclick="addExpenseRow()" class="btn-add-sidebar">Save Expense</button>
                             <button onclick="resetExpenseForm()" class="btn-add-sidebar" 
                                 style="background: #64748b; color: white; box-shadow: none;"
                                 onmouseover="this.style.background='#475569'" 
@@ -2224,6 +2224,12 @@
                                     <label>CATEGORY</label>
                                     <select id="exp-filter-category" onchange="renderExpensesHistory()">
                                         <option value="">All Categories</option>
+                                    </select>
+                                </div>
+                                <div class="filter-item">
+                                    <label>DRIVER (Liquidations)</label>
+                                    <select id="exp-filter-driver" onchange="renderExpensesHistory()">
+                                        <option value="">All Drivers</option>
                                     </select>
                                 </div>
                                 <div class="filter-item">

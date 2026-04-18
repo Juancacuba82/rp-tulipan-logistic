@@ -79,6 +79,9 @@
             populate(filterSel, true);
             populate(reportFilterSel, true);
             
+            const expFilterDrv = document.getElementById('exp-filter-driver');
+            if (expFilterDrv) populate(expFilterDrv, true);
+            
             const docsFilterSel = document.getElementById('docs-driver-dropdown');
             if (docsFilterSel) {
                 const currentVal = docsFilterSel.value;

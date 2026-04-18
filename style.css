@@ -1427,36 +1427,62 @@ main {
     .navbar, .entry-sidebar, .header-actions, .view-section.hidden, .hero, .nav-actions, #header-nav { display: none !important; }
 }
 
-/* Drivers Report Table (Image Style) */
+/* Redesigned Drivers/Modules Report Table (Premium Navy Look) */
 .drivers-report-table {
     width: 100%;
     border-collapse: collapse;
     background-color: #fff;
-    font-size: 0.7rem;
-    font-family: 'Roboto Condensed', sans-serif;
+    font-size: 0.8rem;
+    font-family: var(--font-main);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
 }
 
 .drivers-report-table th {
-    background-color: #fce8d5; /* Light orange/beige header as in image */
-    color: #431407;
-    padding: 10px 6px;
+    background-color: var(--navy-blue);
+    color: white;
+    padding: 14px 16px;
     text-transform: uppercase;
-    border: 1px solid #84cc16; /* Light green border as in image */
-    font-weight: 900;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 700;
     white-space: nowrap;
+    letter-spacing: 0.5px;
+    text-align: center;
 }
 
 .drivers-report-table td {
-    padding: 6px 6px;
-    border: 1px solid #84cc16; /* Light green border as in image */
-    text-align: center;
-    white-space: nowrap;
-    color: #000000;
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    color: #1e293b;
     font-weight: 700;
+    vertical-align: middle;
+    text-align: center;
 }
 
-.drivers-report-table tr:nth-child(even) td {
-    background-color: #fffbeb; /* Light yellow/beige stripe as in image */
+.drivers-report-table tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+.drivers-report-table tr:hover {
+    background-color: #f1f5f9;
+    cursor: default;
+}
+
+/* Reset for Action buttons inside table */
+.drivers-report-table .btn-delete-row {
+    background: #fee2e2;
+    color: #ef4444;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.drivers-report-table .btn-delete-row:hover {
+    background: #fecaca;
+    transform: scale(1.1);
 }
 
 /* Print specific for report */
