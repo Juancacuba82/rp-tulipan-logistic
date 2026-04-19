@@ -634,10 +634,6 @@
                     & RECEIPTS</button>
                 <button onclick="closeMenu(); showView('calendar')" class="btn-calendar"><i
                         class="fas fa-calendar-check"></i> DELIVERY CALENDAR</button>
-                <button onclick="closeMenu(); showView('cust-invoice')" class="btn-calendar"><i
-                        class="fas fa-file-invoice-dollar"></i> CUSTOMERS INVOICE</button>
-                <button onclick="closeMenu(); showView('calls')" class="btn-calendar"><i
-                        class="fas fa-phone-alt"></i> FORM CALL</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -2654,12 +2650,29 @@
                             <input type="text" id="call-city" placeholder="City" style="text-transform: uppercase;">
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Zip Code</label>
-                            <input type="text" id="call-zip" placeholder="Zip Code">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Delivery Place</label>
+                            <input type="text" id="call-zip" placeholder="Delivery Place">
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Measures</label>
-                            <input type="text" id="call-measures" placeholder="Measures (e.g. 40ft HC)" style="text-transform: uppercase;">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Size</label>
+                            <div class="hybrid-input-wrapper">
+                                <select id="call-size-sel">
+                                    <option value="" disabled selected>Choose Size...</option>
+                                    <option value="40' HC">40' HC</option>
+                                    <option value="40' STD">40' STD</option>
+                                    <option value="40' DD">40' DD</option>
+                                    <option value="40' OS">40' OS</option>
+                                    <option value="45' HC">45' HC</option>
+                                    <option value="20' STD">20' STD</option>
+                                    <option value="20' HC">20' HC</option>
+                                    <option value="20' DD">20' DD</option>
+                                    <option value="20' OS">20' OS</option>
+                                </select>
+                                <input type="text" id="call-size" placeholder="Type Size..." style="display:none; text-transform: uppercase;">
+                                <button type="button" class="btn-toggle-input" onclick="toggleCallSizeMode()" title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="toggle-icon-call-size"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e40af !important;">Amount</label>
@@ -2668,12 +2681,6 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e40af !important;">Next Call Date</label>
                             <input type="date" id="call-next-date">
-                        </div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #1e40af !important;">Seller</label>
-                            <select id="call-seller">
-                                <option value="">Select Seller...</option>
-                            </select>
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e40af !important;">Status</label>
@@ -2736,12 +2743,6 @@
                                 </select>
                             </div>
                             <div class="filter-item">
-                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">SELLER</label>
-                                <select id="cf-seller" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
-                                    <option value="">All Sellers</option>
-                                </select>
-                            </div>
-                            <div class="filter-item">
                                 <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">STATUS</label>
                                 <select id="cf-status" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
                                     <option value="">All Status</option>
@@ -2766,11 +2767,10 @@
                                     <th>SERVICE</th>
                                     <th>PHONE</th>
                                     <th>CITY</th>
-                                    <th>ZIP</th>
-                                    <th>MEASURES</th>
+                                    <th>DELIVERY PLACE</th>
+                                    <th>SIZE</th>
                                     <th>AMOUNT</th>
                                     <th>NEXT CALL</th>
-                                    <th>SELLER</th>
                                     <th>STATUS</th>
                                     <th>ACTIONS</th>
                                 </tr>

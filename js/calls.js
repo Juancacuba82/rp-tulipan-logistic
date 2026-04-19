@@ -36,7 +36,6 @@ function renderCallsTable() {
     const fTo = document.getElementById('cf-to-date')?.value || "";
     const fService = document.getElementById('cf-service')?.value || "";
     const fCity = document.getElementById('cf-city')?.value || "";
-    const fSeller = document.getElementById('cf-seller')?.value || "";
     const fStatus = document.getElementById('cf-status')?.value || "";
     const search = document.getElementById('call-search')?.value.toLowerCase() || "";
 
@@ -51,10 +50,9 @@ function renderCallsTable() {
         const matchTo = !fTo || c.date <= fTo;
         const matchService = !fService || c.service_type === fService;
         const matchCity = !fCity || c.city === fCity;
-        const matchSeller = !fSeller || c.seller === fSeller;
         const matchStatus = !fStatus || c.status === fStatus;
 
-        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchSeller && matchStatus;
+        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus;
     });
 
     filtered.forEach(c => {
@@ -75,7 +73,6 @@ function renderCallsTable() {
             <td>${(c.measures || "").toUpperCase()}</td>
             <td style="color: #15803d; font-weight: 800;">$${Number(c.amount || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
             <td style="color: #b91c1c; font-weight: 700;">${nextStr}</td>
-            <td>${c.seller || "---"}</td>
             <td><span class="inv-badge ${getStatusBadgeClass(c.status)}">${c.status || 'PENDING'}</span></td>
             <td>
                 <div style="display:flex; gap:5px;">
@@ -182,10 +179,11 @@ async function saveCallLog() {
         phone: document.getElementById('call-phone').value,
         city: document.getElementById('call-city').value.toUpperCase(),
         zip_code: document.getElementById('call-zip').value,
-        measures: document.getElementById('call-measures').value.toUpperCase(),
+        measures: (document.getElementById('call-size').style.display === 'none' 
+                    ? document.getElementById('call-size-sel').value 
+                    : document.getElementById('call-size').value).toUpperCase(),
         amount: Math.round((parseFloat(document.getElementById('call-amount').value) || 0) * 100) / 100,
         next_call_date: document.getElementById('call-next-date').value || null,
-        seller: document.getElementById('call-seller').value,
         status: document.getElementById('call-status').value,
         description: document.getElementById('call-description').value,
         created_by: window.userEmail || null
@@ -200,18 +198,29 @@ async function saveCallLog() {
     btn.textContent = "Saving...";
 
     try {
-        let error;
-        if (editingCallId) {
-            const { error: err } = await db.from('call_logs').update(payload).eq('id', editingCallId);
-            error = err;
+        if (payload.status === 'SOLD') {
+            const transferOk = await transferSoldCallToCalendar(payload);
+            if (!transferOk) throw new Error("Could not transfer SOLD lead to calendar");
+
+            if (editingCallId) {
+                // Remove from call_logs since it's now in the calendar
+                const { error: delErr } = await db.from('call_logs').delete().eq('id', editingCallId);
+                if (delErr) console.warn("Note: Transferred to calendar but failed to remove from call logs:", delErr);
+            }
+            alert("¡Lead convertido a VENDIDO y transferido al Delivery Calendar!");
         } else {
-            const { error: err } = await db.from('call_logs').insert([payload]);
-            error = err;
+            let error;
+            if (editingCallId) {
+                const { error: err } = await db.from('call_logs').update(payload).eq('id', editingCallId);
+                error = err;
+            } else {
+                const { error: err } = await db.from('call_logs').insert([payload]);
+                error = err;
+            }
+            if (error) throw error;
+            alert(editingCallId ? "Call updated successfully" : "Call registered successfully");
         }
-
-        if (error) throw error;
-
-        alert(editingCallId ? "Call updated successfully" : "Call registered successfully");
+        
         resetCallForm();
         await loadCallsData();
     } catch (err) {
@@ -235,10 +244,22 @@ function editCallLog(id) {
     document.getElementById('call-phone').value = call.phone || "";
     document.getElementById('call-city').value = call.city || "";
     document.getElementById('call-zip').value = call.zip_code || "";
-    document.getElementById('call-measures').value = call.measures || "";
+    const sizeVal = call.measures || "";
+    const sizeSel = document.getElementById('call-size-sel');
+    const sizeInput = document.getElementById('call-size');
+    const isStandard = [...sizeSel.options].some(opt => opt.value === sizeVal);
+
+    if (isStandard && sizeVal !== "") {
+        sizeSel.value = sizeVal;
+        sizeSel.style.display = 'block';
+        sizeInput.style.display = 'none';
+    } else {
+        sizeInput.value = sizeVal;
+        sizeSel.style.display = 'none';
+        sizeInput.style.display = 'block';
+    }
     document.getElementById('call-amount').value = call.amount || 0;
     document.getElementById('call-next-date').value = call.next_call_date || "";
-    document.getElementById('call-seller').value = call.seller || "";
     document.getElementById('call-status').value = call.status || "PENDING";
     document.getElementById('call-description').value = call.description || "";
 
@@ -267,10 +288,12 @@ function resetCallForm() {
     document.getElementById('call-phone').value = "";
     document.getElementById('call-city').value = "";
     document.getElementById('call-zip').value = "";
-    document.getElementById('call-measures').value = "";
+    document.getElementById('call-size-sel').value = "";
+    document.getElementById('call-size-sel').style.display = 'block';
+    document.getElementById('call-size').value = "";
+    document.getElementById('call-size').style.display = 'none';
     document.getElementById('call-amount').value = 0;
     document.getElementById('call-next-date').value = "";
-    document.getElementById('call-seller').value = "";
     document.getElementById('call-status').value = "PENDING";
     document.getElementById('call-description').value = "";
     
@@ -283,37 +306,11 @@ function resetCallFilters() {
     document.getElementById('cf-to-date').value = "";
     document.getElementById('cf-service').value = "";
     document.getElementById('cf-city').value = "";
-    document.getElementById('cf-seller').value = "";
     document.getElementById('cf-status').value = "";
     document.getElementById('call-search').value = "";
     renderCallsTable();
 }
 
-function updateCallSellerDropdown() {
-    const sel = document.getElementById('call-seller');
-    const filterSel = document.getElementById('cf-seller');
-    if (!sel && !filterSel) return;
-    
-    // Preserve current selection if any
-    const currentVal = sel ? sel.value : "";
-    const currentFilterVal = filterSel ? filterSel.value : "";
-
-    if (sel) sel.innerHTML = '<option value="">Select Seller...</option>';
-    if (filterSel) filterSel.innerHTML = '<option value="">All Sellers</option>';
-    
-    if (window.currentSellers && window.currentSellers.length > 0) {
-        window.currentSellers.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.name;
-            opt.textContent = s.name;
-            if (sel) sel.appendChild(opt.cloneNode(true));
-            if (filterSel) filterSel.appendChild(opt.cloneNode(true));
-        });
-    }
-    
-    if (sel && currentVal) sel.value = currentVal;
-    if (filterSel && currentFilterVal) filterSel.value = currentFilterVal;
-}
 
 function populateCityFilter() {
     const filterSel = document.getElementById('cf-city');
@@ -338,6 +335,73 @@ const originalLoadCallsData = loadCallsData;
 loadCallsData = async function() {
     await originalLoadCallsData();
     populateCityFilter();
+}
+
+function toggleCallSizeMode() {
+    const sel = document.getElementById('call-size-sel');
+    const inp = document.getElementById('call-size');
+    const icon = document.getElementById('toggle-icon-call-size');
+
+    if (sel.style.display !== 'none') {
+        sel.style.display = 'none';
+        inp.style.display = 'block';
+        icon.classList.remove('fa-edit');
+        icon.classList.add('fa-list');
+    } else {
+        sel.style.display = 'block';
+        inp.style.display = 'none';
+        icon.classList.remove('fa-list');
+        icon.classList.add('fa-edit');
+    }
+}
+
+async function transferSoldCallToCalendar(call) {
+    console.log("Transferring sold call to calendar...", call);
+    
+    // Generate a unique Order No
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let ordSuffix = '';
+    for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    const orderNo = 'ORD-' + ordSuffix;
+
+    // Build the trip object (trips table)
+    const tripObj = {
+        trip_id: 'TRIP-' + Date.now(),
+        date: call.date,
+        size: call.measures,
+        customer: call.customer,
+        phone_no: call.phone,
+        city: call.city,
+        delivery_place: call.zip_code, // Now labeled "Delivery Place" in UI
+        note: `[TRANSFERRED FROM FORM CALL] ${call.description || ''}`,
+        status: 'PENDING_PAYMENT',
+        order_no: orderNo,
+        amount: call.amount,
+        service_mode: 'SALE',
+        has_trans: call.service_type === 'Transport' ? 'YES' : 'NO',
+        has_sales: call.service_type === 'Sales' ? 'YES' : 'NO',
+        yard_services: call.service_type === 'Service Yard' ? 'YES' : 'NO',
+        // Map amount to the specific field for better tracking
+        trans_pay: call.service_type === 'Transport' ? call.amount : 0,
+        sales_price: call.service_type === 'Sales' ? call.amount : 0,
+        yard_rate: call.service_type === 'Service Yard' ? call.amount : 0,
+        // Default flags
+        st_yard: 'PEND',
+        st_rent: 'PEND',
+        st_rate: 'PEND',
+        st_sales: 'PEND',
+        st_amount: 'PEND'
+    };
+
+    try {
+        const { error } = await db.from('trips').insert([tripObj]);
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error("Error in transferSoldCallToCalendar:", err);
+        alert("CRITICAL ERROR: Could not transfer to calendar: " + err.message);
+        return false;
+    }
 }
 
 // Initial set date
