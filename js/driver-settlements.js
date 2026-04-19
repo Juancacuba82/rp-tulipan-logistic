@@ -1,4 +1,5 @@
         function renderDriverLog() {
+            window.renderDriverLog = renderDriverLog; // Export to window
             const body = document.getElementById('dl-body');
             if (!body) return;
             body.innerHTML = '';
@@ -66,9 +67,12 @@
                     const grossInput = document.getElementById('calc-gross');
 
                     if (selectedIndices.size === 0) {
-                        if (cashCollInput) cashCollInput.value = "0.00";
-                        if (grossInput) grossInput.value = "0.00";
-                        if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                        // Only reset to 0 if NOT in edit mode
+                        if (!editingSettlementId) {
+                            if (cashCollInput) cashCollInput.value = "0";
+                            if (grossInput) grossInput.value = "0";
+                            if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                        }
                         return;
                     }
 
@@ -256,7 +260,8 @@
         }
 
         // --- settlement ARCHIVING SYSTEM ---
-        let currentSettlements = [];
+        window.currentSettlements = [];
+        let editingSettlementId = null;
 
         async function fetchHistory() {
             console.log("Attempting to fetch history from Supabase...");
@@ -272,7 +277,7 @@
                 }
 
                 console.log(`Success: Fetched ${data ? data.length : 0} settlement records.`);
-                currentSettlements = data || [];
+                window.currentSettlements = data || [];
 
                 if (currentSettlements.length === 0) {
                     console.log("INFO: No settlement history found in database.");
@@ -298,13 +303,15 @@
             body.innerHTML = '';
 
             // Filter data locally if a search term exists (Universal Global Filter Logic)
-            const filtered = currentSettlements.filter(s => {
+            const filtered = window.currentSettlements.filter(s => {
                 const sDrv = (s.driver_name || '').toLowerCase();
                 
-                // ROLE SECURITY: Driver ONLY sees their own history
+                // ROLE SECURITY: Driver ONLY sees their own history (EXCEPT Robert Cortez)
                 if (window.currentUserRole === 'driver') {
-                    const drvRef = (window.currentDriverNameRef || '').toLowerCase();
-                    if (sDrv !== drvRef) return false;
+                    const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+                    if (drvRef !== "ROBERT CORTEZ") {
+                        if (sDrv !== drvRef.toLowerCase()) return false;
+                    }
                 }
 
                 const matchLocal = sDrv.includes(filterValue);
@@ -320,7 +327,17 @@
 
             filtered.forEach(s => {
                 const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.title = "Click to load into calculator";
+                tr.onclick = () => loadSettlementToCalculator(s.id);
+                
                 const fDate = (d) => window.formatDateMMDDYYYY(d);
+                
+                // Color highlight if editing
+                if (editingSettlementId === s.id) {
+                    tr.style.background = '#fef3c7';
+                    tr.style.border = '2px solid #f59e0b';
+                }
 
                 // Aging Calculation
                 let agingText = '---';
@@ -345,7 +362,7 @@
                     ${window.currentUserRole !== 'driver' ? `
                     <td style="text-align: center;">
                         ${window.currentUserRole === 'admin' ? `
-                        <button onclick="deleteSettlement('${s.id}')" class="btn-cancel" style="padding: 5px 10px; font-size: 0.7rem; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">
+                        <button onclick="event.stopPropagation(); deleteSettlement('${s.id}')" class="btn-cancel" style="padding: 5px 10px; font-size: 0.7rem; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">
                             <i class="fas fa-trash"></i> DELETE
                         </button>` : '---'}
                     </td>` : ''}
@@ -353,6 +370,102 @@
                 body.appendChild(tr);
             });
         }
+
+        window.loadSettlementToCalculator = function(id) {
+            const settlement = window.currentSettlements.find(s => s.id === id);
+            if (!settlement) {
+                console.warn("Settlement not found for ID:", id);
+                return;
+            }
+
+            editingSettlementId = id;
+
+            // Load filters to match the report data if possible
+            const fromField = document.getElementById('filter-from');
+            const toField = document.getElementById('filter-to');
+            const searchField = document.getElementById('filter-search');
+
+            if (fromField) fromField.value = settlement.start_date || '';
+            if (toField) toField.value = settlement.end_date || '';
+            
+            if (searchField) {
+                // Try to find the driver name in the options text
+                const options = Array.from(searchField.options);
+                const matchingOpt = options.find(opt => opt.text.toUpperCase() === (settlement.driver_name || '').toUpperCase());
+                if (matchingOpt) {
+                    searchField.value = matchingOpt.value;
+                }
+            }
+            
+            // Sync UI names and table
+            if (window.syncDriverNames) window.syncDriverNames();
+            if (window.renderDriverLog) window.renderDriverLog();
+
+            // Use a small timeout to ensure any immediate UI resets from renderDriverLog are bypassed
+            setTimeout(() => {
+                // Load Calculator Inputs
+                const elCashColl = document.getElementById('calc-cash-coll');
+                const elLastBal = document.getElementById('calc-last-bal');
+                const elGross = document.getElementById('calc-gross');
+                const elFactory = document.getElementById('calc-factory');
+                const elWeekly = document.getElementById('calc-weekly');
+
+                if (elCashColl) elCashColl.value = settlement.cash_collected || "0";
+                if (elLastBal) elLastBal.value = settlement.last_week_balance || "0";
+                if (elGross) {
+                    elGross.value = settlement.gross_amount || "0";
+                    elGross.dataset.adjusted = settlement.gross_adjusted || settlement.gross_amount || "0";
+                }
+                if (elFactory) elFactory.value = settlement.factory_fee_percent || "0";
+                if (elWeekly) elWeekly.value = settlement.weekly_payment || "0";
+
+                // Load Status/Type
+                const statusField = document.getElementById('settlement-status');
+                const typeField = document.getElementById('settlement-payment-type');
+                if (statusField) statusField.value = settlement.status || 'PENDING';
+                if (typeField) typeField.value = settlement.payment_type || 'CASH';
+
+                // Recalculate
+                if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                
+                // Update Buttons UI
+                const btnArchive = document.getElementById('btn-archive-settlement');
+                const btnCancel = document.getElementById('btn-cancel-settlement-edit');
+                if (btnArchive) {
+                    btnArchive.innerHTML = '<i class="fas fa-save"></i> UPDATE SETTLEMENT';
+                    btnArchive.style.background = '#2563eb';
+                }
+                if (btnCancel) btnCancel.style.display = 'block';
+
+                // Scroll to calculator
+                document.querySelector('.weekly-calculator-container')?.scrollIntoView({ behavior: 'smooth' });
+                
+                // Refresh History Highlight
+                renderSettlementHistory();
+            }, 50);
+        };
+
+        window.resetSettlementEdit = function() {
+            editingSettlementId = null;
+            
+            const btnArchive = document.getElementById('btn-archive-settlement');
+            const btnCancel = document.getElementById('btn-cancel-settlement-edit');
+            if (btnArchive) {
+                btnArchive.innerHTML = '<i class="fas fa-file-invoice-dollar"></i> ARCHIVE SETTLEMENT';
+                btnArchive.style.background = '#10b981';
+            }
+            if (btnCancel) btnCancel.style.display = 'none';
+
+            // Clear inputs
+            const ids = ['calc-cash-coll', 'calc-last-bal', 'calc-gross', 'calc-factory', 'calc-weekly'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = 0;
+            });
+
+            if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+            renderSettlementHistory();
+        };
 
         function syncDriverNames() {
             const selectEl = document.getElementById('filter-search');
@@ -414,8 +527,21 @@
             }
 
             const cashAmountFinal = cashField ? (parseFloat(cashField.dataset.value) || 0) : 0;
+            const salaryAmountFinal = salaryField ? (parseFloat(salaryField.dataset.value) || 0) : 0;
 
-            if (!confirm(`Are you sure you want to ARCHIVE this settlement for ${driverNameFinal}?`)) return;
+            const confirmMsg = editingSettlementId 
+                ? `Are you sure you want to UPDATE this settlement for ${driverNameFinal}?`
+                : `Are you sure you want to ARCHIVE this settlement for ${driverNameFinal}?`;
+
+            if (!confirm(confirmMsg)) return;
+
+            // Calculator Data Capture
+            const cashColl = parseFloat(document.getElementById('calc-cash-coll')?.value) || 0;
+            const lastBal = parseFloat(document.getElementById('calc-last-bal')?.value) || 0;
+            const grossRaw = parseFloat(document.getElementById('calc-gross')?.value) || 0;
+            const grossAdj = parseFloat(document.getElementById('calc-gross')?.dataset.adjusted) || grossRaw;
+            const factoryPct = parseFloat(document.getElementById('calc-factory')?.value) || 0;
+            const weeklyPay = parseFloat(document.getElementById('calc-weekly')?.value) || 0;
 
             const entry = {
                 driver_name: driverNameFinal,
@@ -423,16 +549,31 @@
                 end_date: val_final,
                 cash_balance: cashAmountFinal,
                 status: val_status,
-                payment_type: val_type
+                payment_type: val_type,
+                // Calculator Inputs
+                cash_collected: cashColl,
+                last_week_balance: lastBal,
+                gross_amount: grossRaw,
+                gross_adjusted: grossAdj,
+                factory_fee_percent: factoryPct,
+                weekly_payment: weeklyPay
             };
 
             try {
-                const { error } = await db.from('settlement_history').insert([entry]);
+                let error;
+                if (editingSettlementId) {
+                    const result = await db.from('settlement_history').update(entry).eq('id', editingSettlementId);
+                    error = result.error;
+                } else {
+                    const result = await db.from('settlement_history').insert([entry]);
+                    error = result.error;
+                }
+                
                 if (error) throw error;
 
                 // AUTOMATIC EXPENSE INTEGRATION
                 // The expense should reflect the Net Driver Salary instead of the Final Cash Balance
-                const expenseAmount = salaryField ? (parseFloat(salaryField.dataset.value) || 0) : 0;
+                const expenseAmount = salaryAmountFinal;
 
                 // Date Fallback: Use selected final date or Today
                 const expenseDate = val_final || new Date().toISOString().split('T')[0];
@@ -440,27 +581,20 @@
                 const expData = [
                     expenseDate,
                     'Driver Payment',
-                    `Liquidación de ${driverNameFinal} - ${expenseDate}`,
+                    `${editingSettlementId ? 'Updated' : 'Liquidación'} de ${driverNameFinal} - ${expenseDate}`,
                     `$${expenseAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-                    `Auto-generated from Driver Settlement Archive`
+                    `Auto-generated from Driver Settlement ${editingSettlementId ? 'Update' : 'Archive'}`
                 ];
 
                 const expenseObj = mapArrayToExpense(expData);
                 await addExpense(expenseObj);
 
-                alert("Archive & Expense Saved Successfully!");
+                alert(editingSettlementId ? "Settlement Updated Successfully!" : "Archive & Expense Saved Successfully!");
 
-                // Clear Calculators
-                const ids = ['calc-cash-coll', 'calc-last-bal', 'calc-gross', 'calc-factory', 'calc-weekly'];
-                ids.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.value = 0;
-                });
-
-                updateWeeklyCalc();
+                resetSettlementEdit();
                 if (window.fetchHistory) window.fetchHistory();
             } catch (err) {
-                console.error("Archive failed:", err);
+                console.error("Archive/Update failed:", err);
                 alert("DATABASE ERROR: " + (err.message || "Unknown error"));
             }
         }

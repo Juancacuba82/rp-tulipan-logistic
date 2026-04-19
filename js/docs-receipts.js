@@ -82,13 +82,17 @@
 
                 const matchesDate = (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
 
-                // DRIVER RESTRICTION: Only show their own trips
+                // DRIVER RESTRICTION: Only show their own trips (EXCEPT Robert Cortez)
                 let roleDriverMatch = true;
                 if (window.currentUserRole === 'driver') {
-                    const drvRef = (window.currentDriverNameRef || '').toLowerCase();
-                    const isMyTrip = (drv === drvRef);
-                    const isComplete = (trip[41] === 'PAID');
-                    roleDriverMatch = isMyTrip && !isComplete;
+                    const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+                    if (drvRef === "ROBERT CORTEZ") {
+                        roleDriverMatch = true; // Super-driver access
+                    } else {
+                        const isMyTrip = (drv === drvRef.toLowerCase());
+                        const isComplete = (trip[41] === 'PAID');
+                        roleDriverMatch = isMyTrip && !isComplete;
+                    }
                 }
 
                 if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownStatusMatch && dropdownPaymentMatch) {

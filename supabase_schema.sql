@@ -174,6 +174,13 @@ CREATE TABLE IF NOT EXISTS settlement_history (
     cash_balance NUMERIC,
     status TEXT,         -- New Field
     payment_type TEXT,   -- New Field
+    -- Calculator Inputs
+    cash_collected NUMERIC DEFAULT 0,
+    last_week_balance NUMERIC DEFAULT 0,
+    gross_amount NUMERIC DEFAULT 0,
+    gross_adjusted NUMERIC DEFAULT 0,
+    factory_fee_percent NUMERIC DEFAULT 0,
+    weekly_payment NUMERIC DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

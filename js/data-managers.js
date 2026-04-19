@@ -67,9 +67,15 @@
                     sel.appendChild(opt);
                 });
                 
-                // If it's a driver logged in, force their value
+                // If it's a driver logged in, force their value (EXCEPT Robert Cortez)
                 if (isFilter && sel.id === 'filter-search' && window.currentDriverNameRef) {
-                    sel.value = window.currentDriverNameRef;
+                    const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+                    if (drvRef === "ROBERT CORTEZ") {
+                        // Let him pick anything
+                        if (currentVal) sel.value = currentVal;
+                    } else {
+                        sel.value = window.currentDriverNameRef;
+                    }
                 } else if (currentVal) {
                     sel.value = currentVal;
                 }
