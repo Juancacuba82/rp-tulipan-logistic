@@ -14,6 +14,7 @@
             const fPhone = (document.getElementById('inv-f-phone')?.value || '').toUpperCase().trim();
 
             // Select filters (exact match)
+            const fCustomer = (document.getElementById('inv-f-customer')?.value || '').trim();
             const fSeller = (document.getElementById('inv-f-seller')?.value || '').trim();
             const fRelease = (document.getElementById('inv-f-release')?.value || '').trim();
             const fCity = (document.getElementById('inv-f-city')?.value || '').trim();
@@ -58,10 +59,12 @@
                 const size = (row[2] || '').toString().toUpperCase();
                 const nCont = (row[3] || '').toString().toUpperCase();
                 const phone = (row[23] || '').toString().toUpperCase();
+                const customer = (row[11] || '').toString().trim();
 
                 if (fSize && !size.includes(fSize)) return false;
                 if (fNCont && !nCont.includes(fNCont)) return false;
                 if (fPhone && !phone.includes(fPhone)) return false;
+                if (fCustomer && customer !== fCustomer) return false;
 
                 // Select filters (exact)
                 const relNo = (row[4] || '').toString().trim();
@@ -164,6 +167,7 @@
         // Populate dropdown filters with unique values from existing data
         window.populateInventorDropdowns = function () {
             const sellers = new Set();
+            const customers = new Set();
             const releaseEntries = []; // { relNo, size, city }
             const releaseNosAdded = new Set();
             const cities = new Set();
@@ -191,6 +195,7 @@
                 currentTrips.forEach(row => {
                     if (row[6] && row[6] !== '---') cities.add(row[6]);
                     if (row[2] && row[2] !== '---') sizes.add(row[2]);
+                    if (row[11] && row[11] !== '---') customers.add(row[11]);
                 });
             }
 
@@ -217,6 +222,7 @@
             };
 
             fillSelect('inv-f-seller', sellers);
+            fillSelect('inv-f-customer', customers);
             fillSelect('inv-f-city', cities);
             fillSelect('inv-f-size', sizes);
 
@@ -241,6 +247,7 @@
             document.getElementById('inv-f-size').value = '';
             document.getElementById('inv-f-ncont').value = '';
             document.getElementById('inv-f-phone').value = '';
+            document.getElementById('inv-f-customer').value = '';
             document.getElementById('inv-f-seller').value = '';
             document.getElementById('inv-f-release').value = '';
             document.getElementById('inv-f-city').value = '';

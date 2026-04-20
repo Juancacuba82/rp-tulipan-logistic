@@ -2492,6 +2492,12 @@
                         <input type="text" id="inv-f-phone" class="rel-filter-input" placeholder="All" oninput="renderInventorTable()">
                     </div>
                     <div class="filter-item">
+                        <label>Customer</label>
+                        <select id="inv-f-customer" class="rel-filter-input" onchange="renderInventorTable()">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
                         <label>Seller</label>
                         <select id="inv-f-seller" class="rel-filter-input" onchange="renderInventorTable()">
                             <option value="">All</option>
