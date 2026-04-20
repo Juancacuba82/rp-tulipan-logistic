@@ -2599,6 +2599,7 @@
                     <table id="cust-invoice-table" style="width: 100%; min-width: 1100px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
                         <thead>
                             <tr class="header-row">
+                                <th style="padding: 12px; background: #1e293b; color: white;">DATE</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Order #</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">City</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Delivery Place</th>
@@ -2651,7 +2652,22 @@
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e40af !important;">City</label>
-                            <input type="text" id="call-city" placeholder="City" style="text-transform: uppercase;">
+                            <select id="call-city">
+                                <option value="" disabled selected>Select City</option>
+                                <option value="MIAMI">MIAMI</option>
+                                <option value="MEDLEY">MEDLEY</option>
+                                <option value="TAMPA">TAMPA</option>
+                                <option value="JACKSONVILLE">JACKSONVILLE</option>
+                                <option value="SAVANNAH">SAVANNAH</option>
+                                <option value="TITUSVILLE">TITUSVILLE</option>
+                                <option value="MASCOTTE">MASCOTTE</option>
+                                <option value="ORLANDO">ORLANDO</option>
+                                <option value="ATLANTA">ATLANTA</option>
+                                <option value="CHARLESTON">CHARLESTON</option>
+                                <option value="NEWARK">NEWARK</option>
+                                <option value="SUMMERVILLE">SUMMERVILLE</option>
+                                <option value="BALTIMORE">BALTIMORE</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e40af !important;">Delivery Place</label>
@@ -2756,7 +2772,13 @@
                                     <option value="CANCELLED">CANCELLED</option>
                                 </select>
                             </div>
-                            <div class="filter-item" style="grid-column: span 2;">
+                            <div class="filter-item" id="cf-seller-filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">ASSIGNED TO</label>
+                                <select id="cf-seller" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                                    <option value="">All Employees</option>
+                                </select>
+                            </div>
+                            <div class="filter-item" style="grid-column: span 1;">
                                 <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">SEARCH (CUSTOMER/PHONE)</label>
                                 <input type="text" id="call-search" placeholder="Search..." onkeyup="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
                             </div>
@@ -2776,6 +2798,8 @@
                                     <th>AMOUNT</th>
                                     <th>NEXT CALL</th>
                                     <th>STATUS</th>
+                                    <th class="admin-th-assigned">ASSIGNED TO</th>
+                                    <th>NOTES</th>
                                     <th>ACTIONS</th>
                                 </tr>
                             </thead>

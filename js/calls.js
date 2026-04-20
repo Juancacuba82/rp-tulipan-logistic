@@ -31,12 +31,21 @@ function renderCallsTable() {
     const tbody = document.getElementById('calls-body');
     if (!tbody) return;
 
+    const isAdmin = (window.currentUserRole === 'admin');
+
+    // Toggle admin-only UI elements
+    const sellerFilterItem = document.getElementById('cf-seller-filter-item');
+    if (sellerFilterItem) sellerFilterItem.style.display = isAdmin ? 'block' : 'none';
+    
+    document.querySelectorAll('.admin-th-assigned').forEach(el => el.style.display = isAdmin ? '' : 'none');
+
     // Get filter values
     const fFrom = document.getElementById('cf-from-date')?.value || "";
     const fTo = document.getElementById('cf-to-date')?.value || "";
     const fService = document.getElementById('cf-service')?.value || "";
     const fCity = document.getElementById('cf-city')?.value || "";
     const fStatus = document.getElementById('cf-status')?.value || "";
+    const fSeller = document.getElementById('cf-seller')?.value || "";
     const search = document.getElementById('call-search')?.value.toLowerCase() || "";
 
     tbody.innerHTML = "";
@@ -51,17 +60,39 @@ function renderCallsTable() {
         const matchService = !fService || c.service_type === fService;
         const matchCity = !fCity || c.city === fCity;
         const matchStatus = !fStatus || c.status === fStatus;
+        const matchSeller = !fSeller || c.created_by === fSeller;
 
-        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus;
+        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus && matchSeller;
     });
+
+    const todayStr = new Date().toISOString().split('T')[0];
 
     filtered.forEach(c => {
         const tr = document.createElement('tr');
         if (editingCallId === c.id) tr.classList.add('editing-row');
 
+        // Highlight Priority based on Next Call date
+        if (c.next_call_date === todayStr) {
+            tr.style.backgroundColor = '#fefce8'; // Light Amber (Today)
+            tr.style.border = '2px solid #f59e0b'; // Amber Priority
+        } else if (c.next_call_date && c.next_call_date < todayStr && c.status !== 'SOLD' && c.status !== 'CANCELLED') {
+            tr.style.backgroundColor = '#fee2e2'; // Light Red (Overdue)
+            tr.style.border = '2px solid #dc2626'; // Strong Red Priority
+        }
+
         // Format dates
-        const dateStr = c.date ? new Date(c.date + 'T00:00:00').toLocaleDateString() : '---';
-        const nextStr = c.next_call_date ? new Date(c.next_call_date + 'T00:00:00').toLocaleDateString() : '---';
+        const formatDate = (ds) => {
+            if (!ds || ds === '---') return '---';
+            const parts = ds.split('-');
+            if (parts.length !== 3) return ds;
+            return `${parts[1]}/${parts[2]}/${parts[0]}`;
+        };
+
+        const dateStr = formatDate(c.date);
+        const nextStr = formatDate(c.next_call_date);
+
+        // Get worker alias or email
+        const worker = c.created_by ? c.created_by.split('@')[0].toUpperCase() : '---';
 
         tr.innerHTML = `
             <td>${dateStr}</td>
@@ -74,6 +105,10 @@ function renderCallsTable() {
             <td style="color: #15803d; font-weight: 800;">$${Number(c.amount || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
             <td style="color: #b91c1c; font-weight: 700;">${nextStr}</td>
             <td><span class="inv-badge ${getStatusBadgeClass(c.status)}">${c.status || 'PENDING'}</span></td>
+            <td class="admin-td-assigned" style="${isAdmin ? '' : 'display:none;'} font-weight: 700; color: #1e40af;">${worker}</td>
+            <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.description || ''}">
+                ${(c.description || "---").toUpperCase()}
+            </td>
             <td>
                 <div style="display:flex; gap:5px;">
                     <button onclick="editCallLog('${c.id}')" class="btn-manage-inline" title="Edit"><i class="fas fa-edit"></i></button>
@@ -307,8 +342,27 @@ function resetCallFilters() {
     document.getElementById('cf-service').value = "";
     document.getElementById('cf-city').value = "";
     document.getElementById('cf-status').value = "";
+    document.getElementById('cf-seller').value = "";
     document.getElementById('call-search').value = "";
     renderCallsTable();
+}
+
+function updateCallSellerDropdown() {
+    const sel = document.getElementById('cf-seller');
+    if (!sel) return;
+
+    const currentVal = sel.value;
+    const sellers = [...new Set(currentCalls.map(c => c.created_by).filter(e => !!e))].sort();
+
+    sel.innerHTML = '<option value="">All Employees</option>';
+    sellers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s.split('@')[0].toUpperCase();
+        sel.appendChild(opt);
+    });
+
+    if (currentVal) sel.value = currentVal;
 }
 
 

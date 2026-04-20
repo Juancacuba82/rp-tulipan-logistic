@@ -79,11 +79,21 @@ window.renderCustInvoiceTable = function () {
         
         const cashDisplay = cashAmountValue > 0 ? `$${cashAmountValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '---';
 
+        // Format row date to MM/DD/YYYY
+        const formatDateCI = (ds) => {
+            if (!ds || ds === '---') return '---';
+            const parts = ds.split('-');
+            if (parts.length !== 3) return ds;
+            return `${parts[1]}/${parts[2]}/${parts[0]}`;
+        };
+        const displayDate = formatDateCI(row[1]);
+
         const tr = document.createElement('tr');
         tr.style.cssText = 'border-bottom: 1px solid #dee2e6; transition: background 0.2s;';
         const cellStyle = 'padding: 12px 14px; border: 1px solid #dee2e6; color: #000; font-weight: 700; text-align: center; vertical-align: middle;';
 
         tr.innerHTML = `
+            <td style="${cellStyle}">${displayDate}</td>
             <td style="${cellStyle}">${orderNo}</td>
             <td style="${cellStyle}">${city}</td>
             <td style="${cellStyle} white-space: normal; min-width: 150px;">${place}</td>
@@ -104,7 +114,7 @@ window.renderCustInvoiceTable = function () {
     });
 
     if (filtered.length === 0) {
-        body.innerHTML = '<tr><td colspan="9" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No pending customer invoices found for the selected filters.</td></tr>';
+        body.innerHTML = '<tr><td colspan="10" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No pending customer invoices found for the selected filters.</td></tr>';
     }
 };
 
