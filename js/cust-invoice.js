@@ -63,12 +63,14 @@ window.renderCustInvoiceTable = function () {
 
     filtered.forEach((row, index) => {
         const orderNo = row[5] || '---';
+        const nCont = row[3] || '---';
         const city = row[6] || '---';
         const place = row[8] || '---';
         const miles = row[10] || 0;
         const customerCol = row[11] || '---';
         const transPay = parseFloat(row[18]) || 0;
         const salesPrice = parseFloat(row[20]) || 0;
+        const note = row[25] && row[25] !== '---' ? row[25] : '';
         
         const isRCash = (row[47] === true || row[47] === 'true');
         const isSCash = (row[48] === true || row[48] === 'true');
@@ -95,6 +97,7 @@ window.renderCustInvoiceTable = function () {
         tr.innerHTML = `
             <td style="${cellStyle}">${displayDate}</td>
             <td style="${cellStyle}">${orderNo}</td>
+            <td style="${cellStyle}">${nCont}</td>
             <td style="${cellStyle}">${city}</td>
             <td style="${cellStyle} white-space: normal; min-width: 150px;">${place}</td>
             <td style="${cellStyle}">${miles}</td>
@@ -102,6 +105,7 @@ window.renderCustInvoiceTable = function () {
             <td style="${cellStyle}">$${transPay.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             <td style="${cellStyle}">$${salesPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             <td style="${cellStyle} color: #10b981;">${cashDisplay}</td>
+            <td style="${cellStyle} white-space: normal; min-width: 150px; text-align: left; font-size: 0.75rem;">${note}</td>
             <td style="${cellStyle}">
                 <button onclick="sendInvoiceEmailByIndex(${index})" class="btn-calendar" style="padding: 5px 10px; font-size: 0.75rem; background: #1e40af; min-width: 80px;">
                     <i class="fas fa-envelope"></i> EMAIL
@@ -114,7 +118,7 @@ window.renderCustInvoiceTable = function () {
     });
 
     if (filtered.length === 0) {
-        body.innerHTML = '<tr><td colspan="10" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No pending customer invoices found for the selected filters.</td></tr>';
+        body.innerHTML = '<tr><td colspan="12" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No pending customer invoices found for the selected filters.</td></tr>';
     }
 };
 

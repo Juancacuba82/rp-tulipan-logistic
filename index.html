@@ -24,7 +24,7 @@
     <script src="./js/delivery-calendar.js?v=10"></script>
     <script src="./js/driver-settlements.js?v=10"></script>
     <script src="./js/releases.js?v=10"></script>
-    <script src="./js/profit-expenses.js?v=10"></script>
+    <script src="./js/profit-expenses.js?v=15"></script>
 
     <script src="./js/docs-receipts.js?v=10"></script>
     <script src="./js/fleet.js?v=10"></script>
@@ -724,6 +724,10 @@
                     <button onclick="showView('calls')" class="dash-card">
                         <i class="fas fa-phone-alt"></i>
                         <span>FORM CALL</span>
+                    </button>
+                    <button onclick="showView('rentals')" class="dash-card">
+                        <i class="fas fa-key"></i>
+                        <span>RENTALS</span>
                     </button>
                 </div>
             </div>
@@ -2355,6 +2359,13 @@
                             </div>
                             <div class="breakdown-item">
                                 <div class="item-label">
+                                    <span class="dot" style="background: #f59e0b;"></span>
+                                    Total Rentals
+                                </div>
+                                <div class="item-value" id="val-rentals">$0.00</div>
+                            </div>
+                            <div class="breakdown-item">
+                                <div class="item-label">
                                     <span class="dot" style="background: #2dd4bf;"></span>
                                     RP TULIPAN Profit
                                 </div>
@@ -2415,6 +2426,12 @@
                                 <label>Yard</label>
                                 <div class="bar-container">
                                     <div id="bar-yard" class="bar yard" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="bar-group">
+                                <label>Rentals</label>
+                                <div class="bar-container">
+                                    <div id="bar-rentals" class="bar" style="width: 0%; background: #f59e0b;"></div>
                                 </div>
                             </div>
                             <div class="bar-group">
@@ -2607,6 +2624,7 @@
                             <tr class="header-row">
                                 <th style="padding: 12px; background: #1e293b; color: white;">DATE</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Order #</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">N. CONT</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">City</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Delivery Place</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Miles</th>
@@ -2614,6 +2632,7 @@
                                 <th style="padding: 12px; background: #1e293b; color: white;">Trans. Pay</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Sales Price</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Cash</th>
+                                <th style="padding: 12px; background: #1e293b; color: white;">NOTE</th>
                                 <th style="padding: 12px; background: #1e293b; color: white;">Actions</th>
                             </tr>
                         </thead>
@@ -2816,6 +2835,133 @@
             </div>
         </section>
 
+        <!-- RENTALS View -->
+        <section id="rentals-view" class="view-section hidden">
+            <div class="dashboard-split-container">
+                <!-- Left Sidebar: Rental Form -->
+                <aside class="sidebar-form sidebar-narrow">
+                    <div class="sidebar-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                        <i class="fas fa-key" style="color: #64748b;"></i>
+                        <h2 style="color: #0f172a; font-weight: 900; margin-left: 10px;">Container Rentals</h2>
+                    </div>
+                    
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Start Date</label>
+                            <input type="date" id="rental-start-date">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #e11d48 !important;">Final Date</label>
+                            <input type="date" id="rental-final-date">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Release #</label>
+                            <div class="hybrid-input-wrapper">
+                                <select id="rental-release-sel">
+                                    <option value="" disabled selected>Select Release...</option>
+                                </select>
+                                <input type="text" id="rental-release" placeholder="Type Release..." style="display:none;">
+                                <button type="button" class="btn-toggle-input" onclick="toggleRentalReleaseMode()" title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="rental-toggle-icon-release"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Container #</label>
+                            <input type="text" id="rental-container" placeholder="TLLU123456-7" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Customer</label>
+                            <div class="hybrid-input-wrapper">
+                                <select id="rental-customer-sel">
+                                    <option value="" disabled selected>Select Customer...</option>
+                                </select>
+                                <input type="text" id="rental-customer" placeholder="Type Customer..." style="display:none;">
+                                <button type="button" class="btn-toggle-input" onclick="toggleRentalCustomerMode()" title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="rental-toggle-icon-customer"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Phone</label>
+                            <input type="tel" id="rental-phone" placeholder="786-000-0000">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #3b82f6 !important;">Base Price ($)</label>
+                            <input type="number" id="rental-base-price" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #3b82f6 !important;">Daily Rate ($)</label>
+                            <input type="number" id="rental-daily-rate" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #10b981 !important;">Status</label>
+                            <select id="rental-status">
+                                <option value="ACTIVE">ACTIVE</option>
+                                <option value="FINISHED">FINISHED</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Payment Status</label>
+                            <select id="rental-payment-status">
+                                <option value="PENDING" selected>PENDING</option>
+                                <option value="PAID">PAID</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <textarea id="rental-notes" placeholder="NOTES: Enter terms, conditions or general info..."
+                                style="width: 100%; height: 60px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 0.85rem; resize: none; font-family: inherit; font-weight: 700; background: #f8fafc;"></textarea>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <button id="btn-save-rental" onclick="saveRentalData()" class="btn-add-sidebar" style="width: 100%; padding: 12px; margin-bottom: 10px; background: #0f172a; border: 1px solid #334155;">SAVE RENTAL RECORD</button>
+                            <button onclick="resetRentalForm()" class="btn-cancel" style="width: 100%;">RESET FORM</button>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Right Panel: Grid -->
+                <div class="table-area">
+                    <div class="table-toolbar">
+                        <div style="display:flex; justify-content: space-between; align-items:center;">
+                            <h2 style="border-left: 4px solid #0f172a; padding-left: 15px;">Active Rentals Tracking</h2>
+                            <div class="header-actions">
+                                <div style="text-align: right;">
+                                    <span style="font-size: 0.7rem; color: #64748b; font-weight: 800; display: block; text-transform: uppercase;">Total Accumulated</span>
+                                    <h3 id="rentals-total-income" style="margin: 0; color: #10b981; font-size: 1.5rem; font-weight: 900;">$0.00</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-scroll-container">
+                        <table class="drivers-report-table" id="rentals-table">
+                            <thead>
+                                <tr class="header-row" style="background: #0f172a !important;">
+                                    <th>START DATE</th>
+                                    <th>FINAL DATE</th>
+                                    <th>RELEASE #</th>
+                                    <th>CONTAINER #</th>
+                                    <th>CUSTOMER</th>
+                                    <th>PHONE</th>
+                                    <th>BASE PRICE</th>
+                                    <th>DAILY RATE</th>
+                                    <th>DAYS</th>
+                                    <th>ACCUMULATED</th>
+                                    <th>STATUS</th>
+                                    <th>PAYMENT</th>
+                                    <th>NOTES</th>
+                                    <th>ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rentals-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
     </main>
 
     <!-- CLIENT TRANSFER MODAL -->
@@ -2970,6 +3116,7 @@
                 'button[onclick*="releases"]',
                 'button[onclick*="calendar"]',
                 'button[onclick*="cust-invoice"]',
+                'button[onclick*="rentals"]',
                 '#nav-actions-container button[onclick*="fleet"]',
                 '#nav-actions-container button[onclick*="releases"]',
                 '#nav-actions-container button[onclick*="calendar"]',
@@ -3088,7 +3235,7 @@
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
         (function setupRealtime() {
             if (!db) return;
-            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories', 'cust-invoice'];
+            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories', 'cust-invoice', 'rentals'];
             channels.forEach(table => {
                 db.channel(`${table}_changes`)
                     .on('postgres_changes', { event: '*', schema: 'public', table: table }, async payload => {
@@ -3105,6 +3252,7 @@
                         if (table === 'sellers') await loadSellersData();
                         if (table === 'container_sizes') await loadContainerSizesData();
                         if (table === 'expense_categories') await loadExpenseCategoriesData();
+                        if (table === 'rentals') await loadRentalsData();
                     })
                     .subscribe();
             });
@@ -3303,6 +3451,35 @@
                         if (window.loadReleasesData) window.loadReleasesData();
                     } else if (finalView === 'fleet') {
                         if (window.loadFleetData) window.loadFleetData();
+                    } else if (finalView === 'rentals') {
+                        if (window.loadCustomersData) window.loadCustomersData();
+                        if (window.loadRentalsData) window.loadRentalsData();
+
+                        // --- EMERGENCY SYNC FOR RENTALS ---
+                        const syncInterval = setInterval(() => {
+                            const selCust = document.getElementById('rental-customer-sel');
+                            const selRel = document.getElementById('rental-release-sel');
+                            
+                            // Sync Customers
+                            if (selCust && window.currentCustomers && window.currentCustomers.length > 0) {
+                                if (selCust.options.length <= 1 && window.populateRentalCustomerSelect) {
+                                    window.populateRentalCustomerSelect();
+                                }
+                            }
+                            
+                            // Sync Releases
+                            if (selRel && window.currentReleases && window.currentReleases.length > 0) {
+                                if (selRel.options.length <= 1 && window.populateRentalReleaseSelect) {
+                                    window.populateRentalReleaseSelect();
+                                }
+                            }
+
+                            // If both are populated, stop interval
+                            if (selCust && selRel && selCust.options.length > 1 && selRel.options.length > 1) {
+                                clearInterval(syncInterval);
+                            }
+                        }, 500);
+                        // -------------------------------------------
                     } else if (finalView === 'profit-report') {
                         (async () => {
                             if (window.loadExpensesData) await window.loadExpensesData();
@@ -3957,8 +4134,9 @@
 
     <script src="./js/fleet.js?v=10"></script>
     <script src="./js/form-inventor.js?v=10"></script>
-    <script src="./js/cust-invoice.js?v=10"></script>
+    <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=10"></script>
+    <script src="./js/rentals.js?v=100"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>

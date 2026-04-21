@@ -194,6 +194,7 @@
                 }
 
                 currentCustomers = data;
+                window.currentCustomers = data;
                 refreshCustomerSelects();
             } catch (err) {
                 console.error("Error loading customers:", err);
@@ -234,6 +235,8 @@
                 });
                 sideSel.dataset.listenerAdded = "true";
             }
+            
+            if (window.populateRentalCustomerSelect) window.populateRentalCustomerSelect();
         }
 
         function renderCustomerManagerList() {

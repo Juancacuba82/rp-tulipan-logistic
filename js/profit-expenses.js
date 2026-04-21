@@ -177,6 +177,7 @@
             let totals = {
                 sales: 0,        // Net Sales Profit (sales_price - container_cost)
                 yard: 0,         // Yard / Storage income
+                rentals: 0,      // PAID rentals income
                 tulipan: 0,      // RP Tulipan transport revenue
                 jr: 0,           // JR Super Crame transport revenue
                 contractor: 0,   // Contractor transport revenue
@@ -247,6 +248,19 @@
                 }
             });
 
+            // 1.5 Process PAID Rentals
+            if (window.currentRentals && window.calculateRentalCost) {
+                window.currentRentals.forEach(row => {
+                    if (row.payment_status === 'PAID') {
+                        const rowDate = row.start_date;
+                        if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
+                            const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status);
+                            totals.rentals += costInfo.total;
+                        }
+                    }
+                });
+            }
+
             // 2. Process Business Expenses
             expensesData.forEach(row => {
                 const rowDate = row[0];
@@ -258,7 +272,7 @@
             });
 
             // 3. Final Summaries
-            const totalRevenue = totals.tulipan + totals.jr + totals.contractor + totals.sales + totals.yard;
+            const totalRevenue = totals.tulipan + totals.jr + totals.contractor + totals.sales + totals.yard + totals.rentals;
             const totalGlobalExpenses = totals.expenses;
             const netProfit = totalRevenue - totalGlobalExpenses;
 
@@ -281,19 +295,21 @@
             // 5. Update Breakdown List
             document.getElementById('val-sales').textContent = `$${totals.sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             if (document.getElementById('val-yard'))       document.getElementById('val-yard').textContent       = `$${totals.yard.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            if (document.getElementById('val-rentals'))    document.getElementById('val-rentals').textContent    = `$${totals.rentals.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-tulipan').textContent    = `$${totals.tulipan.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-jr').textContent         = `$${totals.jr.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-contractor').textContent = `$${totals.contractor.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            // Total row (sum of all revenue: sales + yard + tulipan + jr + contractor)
+            // Total row (sum of all revenue: sales + yard + rentals + tulipan + jr + contractor)
             if (document.getElementById('val-revenue-total')) document.getElementById('val-revenue-total').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-expenses').textContent   = `$${totals.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             // Container Purchases — informational only, NOT subtracted from revenue or expenses
             if (document.getElementById('val-releases')) document.getElementById('val-releases').textContent = `$${totals.releases.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
             // 6. Update Bar Chart
-            const maxVal = Math.max(totalRevenue, totals.sales, totals.yard, totals.tulipan, totals.jr, totals.contractor, totalGlobalExpenses, totals.releases, 1);
+            const maxVal = Math.max(totalRevenue, totals.sales, totals.yard, totals.rentals, totals.tulipan, totals.jr, totals.contractor, totalGlobalExpenses, totals.releases, 1);
             if (document.getElementById('bar-sales'))      document.getElementById('bar-sales').style.width      = `${(totals.sales / maxVal) * 100}%`;
             if (document.getElementById('bar-yard'))       document.getElementById('bar-yard').style.width       = `${(totals.yard / maxVal) * 100}%`;
+            if (document.getElementById('bar-rentals'))    document.getElementById('bar-rentals').style.width    = `${(totals.rentals / maxVal) * 100}%`;
             if (document.getElementById('bar-tulipan'))    document.getElementById('bar-tulipan').style.width    = `${(totals.tulipan / maxVal) * 100}%`;
             if (document.getElementById('bar-jr'))         document.getElementById('bar-jr').style.width         = `${(totals.jr / maxVal) * 100}%`;
             if (document.getElementById('bar-contractor')) document.getElementById('bar-contractor').style.width = `${(totals.contractor / maxVal) * 100}%`;

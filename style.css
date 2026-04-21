@@ -653,6 +653,14 @@ main {
     padding: 20px;
 }
 
+.sidebar-narrow {
+    flex: 0 0 350px !important;
+    width: 350px !important;
+    min-width: 350px !important;
+    background: #ffffff;
+    border-right: 1px solid #cbd5e1;
+}
+
 .form-group {
     display: flex;
     align-items: center;

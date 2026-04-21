@@ -133,6 +133,30 @@ async function supabaseDeleteFleetUnit(unitId) {
 }
 window.supabaseDeleteFleetUnit = supabaseDeleteFleetUnit;
 
+// Helper for Rentals
+async function getRentals() {
+    const { data, error } = await db.from('rentals').select('*').order('start_date', { ascending: false });
+    if (error) { console.error('Error fetching rentals:', error); return []; }
+    return data;
+}
+
+async function addRental(rentalData) {
+    const { data, error } = await db.from('rentals').insert([rentalData]);
+    if (error) { console.error('Error adding rental:', error); throw error; }
+    return data;
+}
+
+async function updateRental(id, updateData) {
+    const { data, error } = await db.from('rentals').update(updateData).eq('id', id);
+    if (error) { console.error('Error updating rental:', error); throw error; }
+    return data;
+}
+
+async function deleteRental(id) {
+    const { error } = await db.from('rentals').delete().eq('id', id);
+    if (error) { console.error('Error deleting rental:', error); throw error; }
+}
+
 // MIGRATION TOOL: Help move data from LocalStorage to Supabase
 async function migrateDataToSupabase() {
     console.log("Starting migration...");

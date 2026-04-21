@@ -190,6 +190,7 @@
                 
                 // Always update the global array first
                 currentReleases = sorted.map(mapReleaseToArray);
+                window.currentReleases = currentReleases;
                 
                 // Update Sidebar Dropdowns globally if they exist
                 if (window.updateReleaseDatalist) window.updateReleaseDatalist();
