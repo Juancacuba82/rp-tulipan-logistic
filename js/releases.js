@@ -180,9 +180,6 @@
         window.togglePickupAddressMode = togglePickupAddressMode;
 
         async function loadReleasesData() {
-            const body = document.getElementById('releases-body');
-            if (!body) return;
-
             try {
                 const data = await getReleases();
                 const sorted = (data || []).sort((a, b) => {
@@ -190,7 +187,18 @@
                     const dateB = new Date(b.date || '1970-01-01');
                     return dateB - dateA;
                 });
+                
+                // Always update the global array first
                 currentReleases = sorted.map(mapReleaseToArray);
+                
+                // Update Sidebar Dropdowns globally if they exist
+                if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+                if (window.populateInventorDropdowns) window.populateInventorDropdowns();
+
+                // Only proceed with table rendering if we are in the Releases view
+                const body = document.getElementById('releases-body');
+                if (!body) return;
+
                 applyReleasesFilters();
                 refreshReleaseNoFilter(); // Update the filter dropdown
             } catch (err) {

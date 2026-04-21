@@ -514,47 +514,79 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         window.updateReleaseDatalist = function () {
             const relSel = document.getElementById('in-release-sel');
             const relList = document.getElementById('release-list');
-            if (currentReleases.length > 0) {
-                // Populate Hybrid Select (Design matches CITY)
-                if (relSel) {
-                    const currentVal = relSel.value;
-                    relSel.innerHTML = '<option value="" disabled selected>Select Release...</option>';
+            if (typeof currentReleases === 'undefined' || !currentReleases) return;
 
-                    // REQUIREMENT: Filter ONLY releases with stock > 0 and sort
-                    const sortedReleases = currentReleases
-                        .filter(r => (parseInt(r[14]) || 0) > 0) // Index 14 is total_stock
-                        .sort((a, b) => (a[0] || '').localeCompare(b[0] || ''));
+            // 1. Group and Consolidate Stock to handle duplicates gracefully
+            const consolidated = {};
+            
+            currentReleases.forEach(r => {
+                if (!r) return;
+                // Support both Array (from mapping) and Object (direct from DB)
+                const relNo = (Array.isArray(r) ? r[0] : r.release_no || '').trim();
+                const stock = (Array.isArray(r) ? Number(r[14]) : Number(r.total_stock) || 0);
+                const size = (Array.isArray(r) ? r[16] : r.container_size || '---');
+                const city = (Array.isArray(r) ? r[6] : r.city || '---');
+                const type = (Array.isArray(r) ? r[2] : r.type || 'DRY');
+                const cond = (Array.isArray(r) ? r[3] : r.condition || 'USED');
+                const pickup = (Array.isArray(r) ? r[4] : r.depot || '---');
 
-                    sortedReleases.forEach(r => {
-                        const relNo = r[0] || '---';
-                        const city = r[6] || '---';
-                        const size = r[16] || '---';
-                        const displayText = `${relNo} - ${size} - ${city}`;
+                if (!relNo || relNo === '---') return;
 
-                        const opt = document.createElement('option');
-                        opt.value = relNo;
-                        opt.textContent = displayText;
-                        // Data attributes for immediate population
-                        opt.dataset.size = size;
-                        opt.dataset.city = city;
-                        opt.dataset.type = r[2] || 'DRY';
-                        opt.dataset.cond = r[3] || 'USED';
-                        opt.dataset.pickup = r[4] || '---';
-                        relSel.appendChild(opt);
-                    });
-                    if (currentVal) relSel.value = currentVal;
+                // Unique key for matching dropdown entry
+                const key = `${relNo}|${size}|${city}|${type}|${cond}`;
+                
+                // CRITICAL: Only consider it if stock is truly positive
+                if (stock > 0) {
+                    if (!consolidated[key]) {
+                        consolidated[key] = {
+                            relNo, size, city, type, cond, pickup,
+                            totalStock: stock,
+                            rawData: r
+                        };
+                    } else {
+                        // Consolidate stock from multiple database entries of the same release
+                        consolidated[key].totalStock += stock;
+                    }
                 }
-                // Fallback datalist for manual mode or other views
-                if (relList) {
-                    relList.innerHTML = '';
-                    currentReleases.forEach(r => {
-                        const opt = document.createElement('option');
-                        opt.value = r[0]; // Release # is index 0
-                        relList.appendChild(opt);
-                    });
-                }
+            });
+
+            // 2. Prepare the final list
+            const activeReleases = Object.values(consolidated)
+                .sort((a, b) => a.relNo.localeCompare(b.relNo));
+
+            // 3. Populate Selection UI
+            if (relSel) {
+                const currentVal = relSel.value;
+                relSel.innerHTML = '<option value="" disabled selected>Select Release...</option>';
+
+                activeReleases.forEach(item => {
+                    const displayText = `${item.relNo} - ${item.size} - ${item.city}`;
+                    const opt = document.createElement('option');
+                    opt.value = item.relNo;
+                    opt.textContent = displayText;
+                    
+                    const r = item.rawData;
+                    opt.dataset.size = item.size;
+                    opt.dataset.city = item.city;
+                    opt.dataset.type = item.type;
+                    opt.dataset.cond = item.cond;
+                    opt.dataset.pickup = item.pickup;
+                    relSel.appendChild(opt);
+                });
+                if (currentVal) relSel.value = currentVal;
             }
-        }
+
+            // 4. Update the fallback datalist
+            if (relList) {
+                relList.innerHTML = '';
+                const uniqueRelNos = [...new Set(activeReleases.map(i => i.relNo))];
+                uniqueRelNos.forEach(rel => {
+                    const opt = document.createElement('option');
+                    opt.value = rel;
+                    relList.appendChild(opt);
+                });
+            }
+        };
 
         // --- DYNAMIC SIZE FILTER BASED ON RELEASE STOCK ---
         const setupReleaseValidation = () => {

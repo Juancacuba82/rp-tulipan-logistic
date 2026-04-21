@@ -18,16 +18,16 @@
     <link rel="stylesheet" href="./style.css">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./supabase-client.js?v=2"></script>
-    <script src="./js/data-mapping.js?v=2"></script>
-    <script src="./js/data-managers.js?v=2"></script>
-    <script src="./js/delivery-calendar.js?v=2"></script>
-    <script src="./js/driver-settlements.js?v=2"></script>
-    <script src="./js/releases.js?v=2"></script>
-    <script src="./js/profit-expenses.js?v=2"></script>
+    <script src="./supabase-client.js?v=10"></script>
+    <script src="./js/data-mapping.js?v=10"></script>
+    <script src="./js/data-managers.js?v=10"></script>
+    <script src="./js/delivery-calendar.js?v=10"></script>
+    <script src="./js/driver-settlements.js?v=10"></script>
+    <script src="./js/releases.js?v=10"></script>
+    <script src="./js/profit-expenses.js?v=10"></script>
 
-    <script src="./js/docs-receipts.js?v=2"></script>
-    <script src="./js/fleet.js?v=2"></script>
+    <script src="./js/docs-receipts.js?v=10"></script>
+    <script src="./js/fleet.js?v=10"></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -821,7 +821,7 @@
                                 <select id="in-release-sel" onchange="if(window.autoPopulateFromRelease) window.autoPopulateFromRelease()">
                                     <option value="" disabled selected>Select Release...</option>
                                 </select>
-                                <input type="text" id="in-release" placeholder="Type Release..." style="display:none;">
+                                <input type="text" id="in-release" placeholder="Type Release..." style="display:none;" autocomplete="off">
                                 <button type="button" class="btn-toggle-input" onclick="toggleReleaseMode()"
                                     title="Toggle Manual/List">
                                     <i class="fas fa-edit" id="toggle-icon"></i>
@@ -3284,6 +3284,21 @@
                         if (window.loadTableData) window.loadTableData();
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
                         if (window.loadReleasesData) window.loadReleasesData();
+
+                        // --- EMERGENCY UI AUDIT PATCH ---
+                        setInterval(() => {
+                            const relSel = document.getElementById('in-release-sel');
+                            if (relSel && typeof currentReleases !== 'undefined') {
+                                for (let i = relSel.options.length - 1; i >= 0; i--) {
+                                    const opt = relSel.options[i];
+                                    if (!opt.value || opt.value === "" || opt.disabled) continue;
+                                    const master = currentReleases.find(r => r[0] === opt.value);
+                                    if (master && (Number(master[14]) || 0) <= 0) {
+                                        relSel.remove(i);
+                                    }
+                                }
+                            }
+                        }, 1000);
                     } else if (finalView === 'releases') {
                         if (window.loadReleasesData) window.loadReleasesData();
                     } else if (finalView === 'fleet') {
@@ -3940,10 +3955,10 @@
         </div>
     </div>
 
-    <script src="./js/fleet.js?v=2"></script>
-    <script src="./js/form-inventor.js?v=1"></script>
-    <script src="./js/cust-invoice.js?v=1"></script>
-    <script src="./js/calls.js?v=2"></script>
+    <script src="./js/fleet.js?v=10"></script>
+    <script src="./js/form-inventor.js?v=10"></script>
+    <script src="./js/cust-invoice.js?v=10"></script>
+    <script src="./js/calls.js?v=10"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>
