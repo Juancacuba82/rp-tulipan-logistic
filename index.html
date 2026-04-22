@@ -1096,6 +1096,15 @@
                             </select>
                         </div>
 
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af; color: white;">Invoice Sent?</label>
+                            <select id="in-invoice-sent" onchange="syncImmediate('invoice_sent', this.value)"
+                                style="font-weight: 700; transition: all 0.3s ease;">
+                                <option value="NO" style="background-color: #fee2e2; color: #991b1b;">NO</option>
+                                <option value="YES" style="background-color: #dcfce7; color: #166534;">YES</option>
+                            </select>
+                        </div>
+
                         <!-- Removed STATUS as per user request -->
                         <!-- Removed COMISSION as per user request -->
                         <!-- Removed COMISION DRIVER as per user request -->
@@ -1300,8 +1309,11 @@
                                 </button>
                                 <input type="file" id="trip-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="handleTripPhotoUpload(this)">
                                 
-                                <button onclick="openSignatureModal()" class="btn-signature-docs">
-                                    <i class="fas fa-file-signature"></i> SIGNATURE
+                                <button onclick="openSignatureModal('customer')" class="btn-signature-docs" style="background: #1e293b;">
+                                    <i class="fas fa-file-signature"></i> CLIENT SIG
+                                </button>
+                                <button onclick="openSignatureModal('driver')" class="btn-signature-docs" style="background: #b91c1c;">
+                                    <i class="fas fa-user-tie"></i> DRIVER SIG
                                 </button>
                                 <button onclick="printA4Document()" class="btn-print-docs">
                                     <i class="fas fa-print"></i> PRINT
@@ -1322,6 +1334,10 @@
                                 </div>
                                 <select id="docs-driver-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
                                     <option value="">All Drivers</option>
+                                </select>
+
+                                <select id="docs-customer-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
+                                    <option value="">All Customers</option>
                                 </select>
 
                                 <select id="docs-status-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
@@ -2614,6 +2630,14 @@
                     <div class="filter-item">
                         <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">To Date</label>
                         <input type="date" id="ci-f-to" class="rel-filter-input" onchange="renderCustInvoiceTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                    </div>
+                    <div class="filter-item">
+                        <label style="display: block; font-size: 0.75rem; font-weight: bold; color: #475569; margin-bottom: 5px;">Invoice</label>
+                        <select id="ci-f-invoice" class="rel-filter-input" onchange="renderCustInvoiceTable()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+                            <option value="">All</option>
+                            <option value="YES">Yes</option>
+                            <option value="NO">No</option>
+                        </select>
                     </div>
                     <button onclick="resetCustInvoiceFilters()" class="btn-reset-report" style="align-self: flex-end; margin-bottom: 5px; background: #64748b; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Reset</button>
                 </div>
@@ -4113,7 +4137,7 @@
     <div id="signature-modal" class="simple-modal">
         <div class="modal-content" style="width: 500px; border-top-color: #1e293b;">
             <div class="modal-header">
-                <h3><i class="fas fa-file-signature"></i> Client Signature</h3>
+                <h3 id="signature-modal-title"><i class="fas fa-file-signature"></i> Client Signature</h3>
                 <button onclick="closeSignatureModal()" class="btn-close-modal">&times;</button>
             </div>
             <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 15px;">Please sign within the box below using your finger or mouse.</p>

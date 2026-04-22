@@ -91,14 +91,16 @@
                 t.st_tax || 'PEND',          // 52
                 t.qty || 1,                  // 53
                 t.signature || '',           // 54
-                safeParse(t.photos, [])       // 55
+                safeParse(t.photos, []),      // 55
+                t.signature_driver || '',     // 56
+                t.invoice_sent || 'NO'        // 57
             ];
         }
 
 
         // Maps sidebar save rowData (no trip UUID in row — checkboxes inserted before last field)
         function mapArrayToTrip(row) {
-            return {
+            const obj = {
                 date: row[1] === '---' ? null : row[1],
                 size: row[2],
                 n_cont: row[3],
@@ -153,7 +155,14 @@
                 st_tax: row[52],
                 qty: parseInt(row[53]) || 1,
                 signature: row[54] || '',
-                photos: row[55] || []
+                photos: row[55] || [],
+                invoice_sent: row[57] || 'NO'
             };
-        }
 
+            // Only include driver signature if it's not empty, to avoid errors if column is missing in DB
+            if (row[56] && row[56] !== '') {
+                obj.signature_driver = row[56];
+            }
+
+            return obj;
+        }

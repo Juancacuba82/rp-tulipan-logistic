@@ -15,6 +15,7 @@ window.renderCustInvoiceTable = function () {
     const fCustomer = (document.getElementById('ci-f-customer')?.value || '').trim();
     const fFrom = document.getElementById('ci-f-from')?.value || '';
     const fTo = document.getElementById('ci-f-to')?.value || '';
+    const fInvoice = document.getElementById('ci-f-invoice')?.value || '';
 
     const logisticsData = currentTrips || [];
 
@@ -54,6 +55,10 @@ window.renderCustInvoiceTable = function () {
         if (fFrom && rowDate < fFrom) return false;
         if (fTo && rowDate > fTo) return false;
 
+        // Invoice Filter (Index 57)
+        const invoiceSentStatus = (row[57] || 'NO').toUpperCase();
+        if (fInvoice && invoiceSentStatus !== fInvoice) return false;
+
         return true;
     });
 
@@ -91,7 +96,11 @@ window.renderCustInvoiceTable = function () {
         const displayDate = formatDateCI(row[1]);
 
         const tr = document.createElement('tr');
+        const isInvoiceSent = (row[57] === 'YES');
+        
         tr.style.cssText = 'border-bottom: 1px solid #dee2e6; transition: background 0.2s;';
+        tr.style.backgroundColor = isInvoiceSent ? '#dcfce7' : '#fee2e2'; // Light Green if YES, Light Red if NO
+        
         const cellStyle = 'padding: 12px 14px; border: 1px solid #dee2e6; color: #000; font-weight: 700; text-align: center; vertical-align: middle;';
 
         tr.innerHTML = `
@@ -107,19 +116,61 @@ window.renderCustInvoiceTable = function () {
             <td style="${cellStyle} color: #10b981;">${cashDisplay}</td>
             <td style="${cellStyle} white-space: normal; min-width: 150px; text-align: left; font-size: 0.75rem;">${note}</td>
             <td style="${cellStyle}">
-                <button onclick="sendInvoiceEmailByIndex(${index})" class="btn-calendar" style="padding: 5px 10px; font-size: 0.75rem; background: #1e40af; min-width: 80px;">
-                    <i class="fas fa-envelope"></i> EMAIL
-                </button>
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button onclick="sendInvoiceEmailByIndex(${index})" class="btn-calendar" title="Send by Email" style="padding: 5px 10px; font-size: 0.75rem; background: #1e40af; min-width: 80px;">
+                        <i class="fas fa-envelope"></i> EMAIL
+                    </button>
+                    <button onclick="downloadInvoiceByIndex(${index})" class="btn-calendar" title="Download PDF" style="padding: 5px 10px; font-size: 0.75rem; background: #10b981; min-width: 80px;">
+                        <i class="fas fa-download"></i> PDF
+                    </button>
+                </div>
             </td>
         `;
 
-        if (body.children.length % 2 === 1) tr.style.backgroundColor = '#f8f9fa';
+        // Color handled by invoice status above
         body.appendChild(tr);
     });
 
     if (filtered.length === 0) {
         body.innerHTML = '<tr><td colspan="12" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No pending customer invoices found for the selected filters.</td></tr>';
     }
+};
+
+window.downloadInvoiceByIndex = function (index) {
+    const rowData = window.custInvoiceRows[index];
+    if (!rowData) return;
+
+    if (!window.generatePDFFromData) {
+        alert("PDF logic not loaded yet. Please wait or refresh.");
+        return;
+    }
+
+    const btn = event.currentTarget;
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    window.generatePDFFromData(rowData).then(blob => {
+        if (blob) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const orderNo = rowData[5] || 'OR';
+            a.download = `Invoice_${orderNo.replace(/\s+/g, '_')}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            alert("No se pudo generar el PDF de la factura.");
+        }
+    }).catch(err => {
+        console.error("Invoice download error:", err);
+        alert("Error generando el documento.");
+    }).finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    });
 };
 
 window.sendInvoiceEmailByIndex = function (index) {
@@ -214,5 +265,6 @@ window.resetCustInvoiceFilters = function () {
     if (document.getElementById('ci-f-customer')) document.getElementById('ci-f-customer').value = '';
     if (document.getElementById('ci-f-from')) document.getElementById('ci-f-from').value = '';
     if (document.getElementById('ci-f-to')) document.getElementById('ci-f-to').value = '';
+    if (document.getElementById('ci-f-invoice')) document.getElementById('ci-f-invoice').value = '';
     renderCustInvoiceTable();
 };

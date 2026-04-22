@@ -108,7 +108,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty'
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
+                'in-invoice-sent'
             ];
 
             // 0. UNIQUE CONTAINER VALIDATION REMOVED
@@ -321,7 +322,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND', // 52
                 document.getElementById('in-qty')?.value || 1, // 53
                 existingSig,    // 54
-                existingPhotos  // 55
+                existingPhotos, // 55
+                '',             // 56 (driver sig placeholder - handled by dbObj mapping)
+                document.getElementById('in-invoice-sent')?.value || 'NO' // 57
             ];
 
             const dbObj = mapArrayToTrip(rowData);
@@ -448,7 +451,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const selectsToReset = [
                 'in-size-sel', 'in-rel-type', 'in-rel-condition', 'in-city', 
                 'in-pickup-sel', 'in-customer-sel', 'in-doors', 'in-company', 
-                'in-driver', 'in-paytype', 'in-release-sel', 'in-status-toggle'
+                'in-driver', 'in-paytype', 'in-release-sel', 'in-status-toggle',
+                'in-invoice-sent'
             ];
             selectsToReset.forEach(id => {
                 const el = document.getElementById(id);
@@ -809,7 +813,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty'
+                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
+                'in-invoice-sent'
             ];
 
             fields.forEach((id, i) => {
@@ -819,6 +824,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 let v;
                 if (id === 'in-qty') {
                     v = rowData[53]; // Qty is index 53
+                } else if (id === 'in-invoice-sent') {
+                    v = rowData[57] || 'NO';
                 } else {
                     v = rowData[i + 1];
                 }

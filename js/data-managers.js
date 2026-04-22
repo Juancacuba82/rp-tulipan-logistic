@@ -223,6 +223,19 @@
             populate(sideSel, false);
             populate(filterSel, true);
 
+            const docsCustSel = document.getElementById('docs-customer-dropdown');
+            if (docsCustSel) {
+                const currentVal = docsCustSel.value;
+                docsCustSel.innerHTML = '<option value="">All Customers</option>';
+                currentCustomers.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.name;
+                    opt.textContent = c.name;
+                    docsCustSel.appendChild(opt);
+                });
+                if (currentVal) docsCustSel.value = currentVal;
+            }
+
             // Auto-fill email when selecting a customer
             if (sideSel && !sideSel.dataset.listenerAdded) {
                 sideSel.addEventListener('change', (e) => {

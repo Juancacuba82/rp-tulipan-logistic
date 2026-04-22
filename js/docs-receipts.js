@@ -18,6 +18,7 @@
             const docsDriverFilter = (document.getElementById('docs-driver-dropdown')?.value || '').toLowerCase();
             const docsStatusFilter = (document.getElementById('docs-status-dropdown')?.value || '');
             const docsPaymentFilter = (document.getElementById('docs-payment-dropdown')?.value || '');
+            const docsCustomerFilter = (document.getElementById('docs-customer-dropdown')?.value || '').toLowerCase();
             const fromDate = document.getElementById('trip-from-date')?.value;
             const toDate = document.getElementById('trip-to-date')?.value;
             const list = document.getElementById('trip-list-scroll');
@@ -54,7 +55,7 @@
                 const drv = (trip[17] || '').toLowerCase(); // Index 17: Driver
                 const ord = (trip[5] || '').toLowerCase();  // Index 5: Order
 
-                const orderStatus = trip[41] || 'PENDING_PAYMENT';
+                const orderStatus = (trip[41] || 'PENDING_PAYMENT').toString().toUpperCase();
 
                 // Payment Status Calculation (Same logic as advanced filters)
                 const vY = parseFloat(trip[13]) || 0;
@@ -74,6 +75,7 @@
                 const isFullyPaid = (clearY && clearR && clearS && clearA && clearRent && clearTax);
 
                 const dropdownDriverMatch = !docsDriverFilter || drv === docsDriverFilter || drv.includes(docsDriverFilter);
+                const dropdownCustomerMatch = !docsCustomerFilter || cust === docsCustomerFilter || cust.includes(docsCustomerFilter);
                 const dropdownStatusMatch = !docsStatusFilter || orderStatus === docsStatusFilter;
                 
                 let dropdownPaymentMatch = true;
@@ -95,7 +97,7 @@
                     }
                 }
 
-                if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownStatusMatch && dropdownPaymentMatch) {
+                if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownCustomerMatch && dropdownStatusMatch && dropdownPaymentMatch) {
                     const div = document.createElement('div');
                     div.className = 'trip-item';
                     // Highlight if currently selected
@@ -300,7 +302,8 @@
                 transpStatus: trip[32] === 'PAID' ? 'PAID' : 'PENDING',
                 salesStatus: trip[33] === 'PAID' ? 'PAID' : 'PENDING',
                 taxStatus: (trip[52] === 'PAID' || trip[52] === true || trip[52] === 'true') ? 'PAID' : 'PENDING',
-                signature: trip[54] || ''
+                signature: trip[54] || '',
+                signature_driver: trip[56] || ''
             };
 
             const subtotal = data.yard + data.storage + data.transp + data.sales;
@@ -430,7 +433,10 @@
                     ${notesHtml}
                     ${photosHtml}
                     <div style="display:flex; justify-content:space-between; margin-top:60px;">
-                        <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold;">AUTHORIZED BY (RP TULIPAN)</div>
+                        <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold; position: relative;">
+                            ${data.signature_driver ? `<img src="${data.signature_driver}" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); max-height: 80px; width: auto; pointer-events: none;">` : ''}
+                            AUTHORIZED BY (RP TULIPAN)
+                        </div>
                         <div style="width:45%; border-top:1px solid #94a3b8; padding-top:10px; text-align:center; font-size:0.7rem; color:#64748b; font-weight:bold; position: relative;">
                             ${data.signature ? `<img src="${data.signature}" style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); max-height: 80px; width: auto; pointer-events: none;">` : ''}
                             RECEIVED BY (CUSTOMER)
@@ -618,12 +624,14 @@
             const f3 = document.getElementById('docs-driver-dropdown');
             const f4 = document.getElementById('docs-status-dropdown');
             const f5 = document.getElementById('docs-payment-dropdown');
+            const f6 = document.getElementById('docs-customer-dropdown');
 
             if(f1) f1.value = '';
             if(f2) f2.value = '';
             if(f3) f3.value = '';
             if(f4) f4.value = '';
             if(f5) f5.value = '';
+            if(f6) f6.value = '';
 
             window.loadDocTrips();
         }
@@ -680,9 +688,18 @@
             isDrawing = false;
         }
 
-        window.openSignatureModal = function() {
+        let currentSigType = 'customer'; // Default
+        window.openSignatureModal = function(type = 'customer') {
             if (!window.currentDocTrip) return alert("Select a trip first!");
+            currentSigType = type;
+            
             const modal = document.getElementById('signature-modal');
+            const title = document.getElementById('signature-modal-title');
+            
+            if (title) {
+                title.innerHTML = type === 'driver' ? '<i class="fas fa-user-tie"></i> Driver Signature' : '<i class="fas fa-file-signature"></i> Client Signature';
+            }
+            
             modal.style.display = 'flex';
             if (!sigCanvas) window.initSignaturePad();
             window.clearSignature();
@@ -704,22 +721,32 @@
             const dataUrl = sigCanvas.toDataURL('image/png');
 
             try {
+                // Determine field name and index
+                const fieldName = currentSigType === 'driver' ? 'signature_driver' : 'signature';
+                const fieldIndex = currentSigType === 'driver' ? 56 : 54;
+
                 // Update Supabase
-                await updateTrip(tripId, { signature: dataUrl });
+                const updates = {};
+                updates[fieldName] = dataUrl;
+                await updateTrip(tripId, updates);
                 
                 // Update local data
-                window.currentDocTrip[54] = dataUrl;
+                window.currentDocTrip[fieldIndex] = dataUrl;
                 
                 // Update specific trip in currentTrips list
                 const idx = currentTrips.findIndex(t => t[0] === tripId);
-                if (idx !== -1) currentTrips[idx][54] = dataUrl;
+                if (idx !== -1) currentTrips[idx][fieldIndex] = dataUrl;
 
-                alert("Signature saved successfully!");
+                alert(`${currentSigType === 'driver' ? 'Driver' : 'Client'} signature saved successfully!`);
                 window.closeSignatureModal();
                 window.drawReceipt();
             } catch (err) {
                 console.error("Signature save fail:", err);
-                alert("Failed to save signature.");
+                if (err.message && err.message.includes('signature_driver')) {
+                    alert("ERROR: No se pudo guardar la firma del driver. Por favor, asegúrate de haber agregado la columna 'signature_driver' en Supabase como se indicó anteriormente.");
+                } else {
+                    alert("Failed to save signature.");
+                }
             }
         }
 
