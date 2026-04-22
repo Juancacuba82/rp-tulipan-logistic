@@ -123,6 +123,19 @@
         }
     }
 
+    function toggleRentalSizeMode() {
+        const sel = document.getElementById('rental-size-sel');
+        const inp = document.getElementById('rental-size');
+        const icon = document.getElementById('rental-toggle-icon-size');
+        if (sel.style.display !== 'none') {
+            sel.style.display = 'none'; inp.style.display = 'block';
+            icon.className = 'fas fa-list'; inp.focus();
+        } else {
+            sel.style.display = 'block'; inp.style.display = 'none';
+            icon.className = 'fas fa-edit';
+        }
+    }
+
     function calculateRentalCost(startDateStr, finalDateStr, basePrice, dailyRate, status) {
         if (!startDateStr) return { total: 0, days: 0 };
         const start = new Date(startDateStr); start.setHours(0, 0, 0, 0);
@@ -130,7 +143,8 @@
         endDate.setHours(0, 0, 0, 0);
         const diffDays = Math.ceil((endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
         const daysPassed = Math.max(0, diffDays);
-        const total = parseFloat(basePrice) + (daysPassed * parseFloat(dailyRate));
+        // Cost is now fixed to basePrice since Daily Rate was removed
+        const total = parseFloat(basePrice);
         return { total: total, days: daysPassed };
     }
 
@@ -143,8 +157,14 @@
         currentRentals.forEach((row, idx) => {
             const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status);
             totalAccumulated += costInfo.total;
-            const isExpired = row.status === 'ACTIVE' && row.final_date && new Date(row.final_date) < new Date().setHours(0,0,0,0);
+            
+            // Highlight row in red if expired (ACTIVE and date reached/passed)
+            const isExpired = row.status === 'ACTIVE' && row.final_date && new Date(row.final_date) <= new Date().setHours(0,0,0,0);
+            
             const tr = document.createElement('tr');
+            if (isExpired) {
+                tr.style.backgroundColor = '#fee2e2'; // Light Red background
+            }
             tr.innerHTML = `
                 <td style="color: #000000; font-weight: 700;">${formatDate(row.start_date)}</td>
                 <td style="font-weight: 700; color: ${isExpired ? '#ef4444' : '#000000'};">
@@ -152,11 +172,12 @@
                     ${isExpired ? '<i class="fas fa-exclamation-triangle" title="Rental Expired"></i>' : ''}
                 </td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.release_no || '---'}</td>
+                <td style="font-weight: 700; color: #000000; text-align: center;">${row.size || '---'}</td>
                 <td style="font-weight: 900; color: #000000;">${row.container_no || '---'}</td>
+                <td style="font-weight: 700; color: #000000;">${row.delivery_place || '---'}</td>
                 <td style="font-weight: 700; color: #000000;">${row.customer_name || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">${row.phone || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">$${parseFloat(row.base_price).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                <td style="color: #000000; font-weight: 700; text-align: center !important;">$${parseFloat(row.daily_rate).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td style="font-weight: 800; color: #000000;">${costInfo.days} days</td>
                 <td style="font-weight: 900; color: ${row.status === 'ACTIVE' ? '#10b981' : '#000000'}; font-size: 1rem;">$${costInfo.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td>
@@ -185,13 +206,29 @@
 
     async function saveRentalData() {
         const startDate = document.getElementById('rental-start-date').value;
-        const finalDate = document.getElementById('rental-final-date').value;
+        const timeRent = document.getElementById('rental-time-rent').value;
+        
+        // Calculate final date automatically based on timeRent
+        let finalDate = null;
+        if (startDate && timeRent) {
+            const sDate = new Date(startDate);
+            if (timeRent === 'monthly') {
+                sDate.setMonth(sDate.getMonth() + 1);
+            } else if (timeRent === 'weekly') {
+                sDate.setDate(sDate.getDate() + 7);
+            } else if (timeRent === 'diary') {
+                sDate.setDate(sDate.getDate() + 1);
+            }
+            finalDate = sDate.toISOString().split('T')[0];
+        }
+
         const container = document.getElementById('rental-container').value;
         const customer = (document.getElementById('rental-customer-sel').style.display !== 'none') ? document.getElementById('rental-customer-sel').value : document.getElementById('rental-customer').value;
         const releaseNo = (document.getElementById('rental-release-sel').style.display !== 'none') ? document.getElementById('rental-release-sel').value : document.getElementById('rental-release').value;
         const phone = document.getElementById('rental-phone').value;
         const basePrice = document.getElementById('rental-base-price').value || 0;
-        const dailyRate = document.getElementById('rental-daily-rate').value || 0;
+        const size = (document.getElementById('rental-size-sel').style.display !== 'none') ? document.getElementById('rental-size-sel').value : document.getElementById('rental-size').value;
+        const deliveryPlace = document.getElementById('rental-delivery-place').value;
         const status = document.getElementById('rental-status').value;
         const paymentStatus = document.getElementById('rental-payment-status').value;
         const notes = document.getElementById('rental-notes').value;
@@ -199,10 +236,20 @@
         if (!startDate || !container || !customer) { alert("Please fill in Start Date, Container #, and Customer."); return; }
 
         const rentalData = {
-            start_date: startDate, final_date: finalDate || null, container_no: container.toUpperCase(),
-            customer_name: customer, release_no: releaseNo, phone: phone,
-            base_price: parseFloat(basePrice), daily_rate: parseFloat(dailyRate),
-            notes: notes, status: status, payment_status: paymentStatus
+            start_date: startDate, 
+            final_date: finalDate, 
+            time_rent: timeRent,
+            container_no: container.toUpperCase(),
+            customer_name: customer, 
+            release_no: releaseNo, 
+            size: size,
+            delivery_place: deliveryPlace,
+            phone: phone,
+            base_price: parseFloat(basePrice), 
+            daily_rate: 0,
+            notes: notes, 
+            status: status, 
+            payment_status: paymentStatus
         };
 
         try {
@@ -226,6 +273,46 @@
             }
             resetRentalForm();
             loadRentalsData();
+
+            // --- AUTOMATION: Create Order in Delivery Calendar ---
+            // Only for NEW rentals (not edits)
+            if (!editingRentalId) {
+                try {
+                    // 1. Generate Order ID
+                    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                    let ordSuffix = '';
+                    for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+                    const newOrderId = 'ORD-' + ordSuffix;
+
+                    // 2. Prepare Trip Data for Calendar
+                    const tripData = {
+                        trip_id: newOrderId,
+                        date: startDate,
+                        size: size,
+                        n_cont: container.toUpperCase(),
+                        release_no: releaseNo,
+                        delivery_place: deliveryPlace,
+                        customer: customer,
+                        phone_no: phone,
+                        amount: parseFloat(basePrice),
+                        monthly_rate: parseFloat(basePrice),
+                        service_mode: 'RENTAL',
+                        status: 'PENDING_PAYMENT',
+                        note: notes,
+                        st_rent: 'PEND',
+                        has_trans: 'YES',
+                        has_sales: 'NO'
+                    };
+
+                    // 3. Save to trips table via Supabase
+                    if (window.addTrip) {
+                        await window.addTrip(tripData);
+                        console.log("Automation: Calendar Order created successfully:", newOrderId);
+                    }
+                } catch (autoErr) {
+                    console.error("Automation Error (Creating Calendar Order):", autoErr);
+                }
+            }
         } catch (err) { alert("Error saving record: " + (err.message || "Unknown error")); }
     }
 
@@ -234,7 +321,7 @@
         if (!row) return;
         editingRentalId = row.id; originalRentalState = { ...row };
         document.getElementById('rental-start-date').value = row.start_date;
-        document.getElementById('rental-final-date').value = row.final_date || '';
+        document.getElementById('rental-time-rent').value = row.time_rent || 'monthly';
         document.getElementById('rental-container').value = row.container_no;
         const selC = document.getElementById('rental-customer-sel'); const inpC = document.getElementById('rental-customer');
         selC.style.display = 'block'; inpC.style.display = 'none'; selC.value = row.customer_name;
@@ -242,9 +329,14 @@
         const selR = document.getElementById('rental-release-sel'); const inpR = document.getElementById('rental-release');
         selR.style.display = 'block'; inpR.style.display = 'none'; selR.value = row.release_no || '';
         if (selR.value === "" && row.release_no) { selR.style.display = 'none'; inpR.style.display = 'block'; inpR.value = row.release_no; }
+        
+        const selS = document.getElementById('rental-size-sel'); const inpS = document.getElementById('rental-size');
+        selS.style.display = 'block'; inpS.style.display = 'none'; selS.value = row.size || '';
+        if (selS.value === "" && row.size) { selS.style.display = 'none'; inpS.style.display = 'block'; inpS.value = row.size; }
+
+        document.getElementById('rental-delivery-place').value = row.delivery_place || '';
         document.getElementById('rental-phone').value = row.phone || '';
         document.getElementById('rental-base-price').value = row.base_price;
-        document.getElementById('rental-daily-rate').value = row.daily_rate;
         document.getElementById('rental-status').value = row.status || 'ACTIVE';
         document.getElementById('rental-payment-status').value = row.payment_status || 'PENDING';
         document.getElementById('rental-notes').value = row.notes || '';
@@ -264,15 +356,16 @@
     function resetRentalForm() {
         editingRentalId = null; originalRentalState = null;
         document.getElementById('rental-start-date').value = '';
-        document.getElementById('rental-final-date').value = '';
+        document.getElementById('rental-time-rent').value = 'monthly';
         document.getElementById('rental-container').value = '';
         document.getElementById('rental-customer-sel').style.display='block'; document.getElementById('rental-customer').style.display='none';
         document.getElementById('rental-customer-sel').value=''; document.getElementById('rental-customer').value='';
-        document.getElementById('rental-release-sel').style.display='block'; document.getElementById('rental-release').style.display='none';
         document.getElementById('rental-release-sel').value=''; document.getElementById('rental-release').value='';
+        document.getElementById('rental-size-sel').style.display='block'; document.getElementById('rental-size').style.display='none';
+        document.getElementById('rental-size-sel').value=''; document.getElementById('rental-size').value='';
+        document.getElementById('rental-delivery-place').value = '';
         document.getElementById('rental-phone').value = '';
         document.getElementById('rental-base-price').value = '';
-        document.getElementById('rental-daily-rate').value = '';
         document.getElementById('rental-status').value = 'ACTIVE';
         document.getElementById('rental-payment-status').value = 'PENDING';
         document.getElementById('rental-notes').value = '';
@@ -292,6 +385,7 @@
     window.resetRentalForm = resetRentalForm;
     window.toggleRentalCustomerMode = toggleRentalCustomerMode;
     window.toggleRentalReleaseMode = toggleRentalReleaseMode;
+    window.toggleRentalSizeMode = toggleRentalSizeMode;
     window.populateRentalReleaseSelect = populateRentalReleaseSelect;
     window.populateRentalCustomerSelect = populateRentalCustomerSelect;
     window.populateAllRentalSelects = populateAllRentalSelects;

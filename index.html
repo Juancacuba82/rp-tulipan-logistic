@@ -2875,8 +2875,12 @@
                             <input type="date" id="rental-start-date">
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #e11d48 !important;">Final Date</label>
-                            <input type="date" id="rental-final-date">
+                            <label class="sidebar-label-btn" style="background: #e11d48 !important;">Time Rent</label>
+                            <select id="rental-time-rent" style="font-weight: 700;">
+                                <option value="monthly">Monthly (1 Month)</option>
+                                <option value="weekly">Weekly (7 Days)</option>
+                                <option value="diary">Diary (1 Day)</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;">Release #</label>
@@ -2891,8 +2895,33 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Container #</label>
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">SIZE</label>
+                            <div class="hybrid-input-wrapper">
+                                <select id="rental-size-sel">
+                                    <option value="" disabled selected>Choose Size...</option>
+                                    <option value="40' HC">40' HC</option>
+                                    <option value="40' STD">40' STD</option>
+                                    <option value="40' DD">40' DD</option>
+                                    <option value="40' OS">40' OS</option>
+                                    <option value="45' HC">45' HC</option>
+                                    <option value="20' STD">20' STD</option>
+                                    <option value="20' HC">20' HC</option>
+                                    <option value="20' DD">20' DD</option>
+                                    <option value="20' OS">20' OS</option>
+                                </select>
+                                <input type="text" id="rental-size" placeholder="Type Size..." style="display:none;">
+                                <button type="button" class="btn-toggle-input" onclick="toggleRentalSizeMode()" title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="rental-toggle-icon-size"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">N. Cont</label>
                             <input type="text" id="rental-container" placeholder="TLLU123456-7" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Delivery Place</label>
+                            <input type="text" id="rental-delivery-place" placeholder="Enter Address or Yard...">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;">Customer</label>
@@ -2911,12 +2940,8 @@
                             <input type="tel" id="rental-phone" placeholder="786-000-0000">
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #3b82f6 !important;">Base Price ($)</label>
+                            <label class="sidebar-label-btn" style="background: #3b82f6 !important;">Amount ($)</label>
                             <input type="number" id="rental-base-price" placeholder="0.00" step="0.01">
-                        </div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #3b82f6 !important;">Daily Rate ($)</label>
-                            <input type="number" id="rental-daily-rate" placeholder="0.00" step="0.01">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #10b981 !important;">Status</label>
@@ -2963,15 +2988,16 @@
                             <thead>
                                 <tr class="header-row" style="background: #0f172a !important;">
                                     <th>START DATE</th>
-                                    <th>FINAL DATE</th>
+                                    <th>TIME RENT</th>
                                     <th>RELEASE #</th>
-                                    <th>CONTAINER #</th>
+                                    <th>SIZE</th>
+                                    <th>N. CONT</th>
+                                    <th>DELIVERY PLACE</th>
                                     <th>CUSTOMER</th>
                                     <th>PHONE</th>
-                                    <th>BASE PRICE</th>
-                                    <th>DAILY RATE</th>
+                                    <th>AMOUNT</th>
                                     <th>DAYS</th>
-                                    <th>ACCUMULATED</th>
+                                    <th>TOTAL</th>
                                     <th>STATUS</th>
                                     <th>PAYMENT</th>
                                     <th>NOTES</th>

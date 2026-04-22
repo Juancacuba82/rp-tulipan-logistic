@@ -297,3 +297,23 @@ async function uploadReceipt(blob, filename) {
 
     return publicUrl;
 }
+
+// Global Exports
+window.getTrips = getTrips;
+window.addTrip = addTrip;
+window.updateTrip = updateTrip;
+window.deleteTrip = deleteTrip;
+window.getRentals = getRentals;
+window.addRental = addRental;
+window.updateRental = updateRental;
+window.deleteRental = deleteRental;
+window.getReleases = getReleases;
+window.addRelease = addRelease;
+window.updateRelease = updateRelease;
+window.getExpenses = getExpenses;
+window.addExpense = addExpense;
+window.deleteExpense = deleteExpense;
+window.getFleet = getFleet;
+window.saveFleet = saveFleet;
+window.migrateDataToSupabase = migrateDataToSupabase;
+window.uploadReceipt = uploadReceipt;
