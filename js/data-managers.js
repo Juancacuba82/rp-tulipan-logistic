@@ -1,3 +1,36 @@
+        // --- ACTIVITY LOGGING LOGIC ---
+        window.logActivity = async function (actionType, details = null, viewDate = null) {
+            if (!db || !window.userEmail) return;
+            try {
+                const { error } = await db.from('activity_logs').insert([{
+                    user_email: window.userEmail,
+                    action_type: actionType,
+                    details: details,
+                    view_date: viewDate
+                }]);
+                if (error) throw error;
+                console.log(`Activity logged: ${actionType}`);
+            } catch (err) {
+                console.warn("Could not log activity:", err);
+            }
+        };
+
+        window.fetchActivityLogs = async function (type = null, date = null) {
+            if (!db) return [];
+            try {
+                let query = db.from('activity_logs').select('*');
+                if (type) query = query.eq('action_type', type);
+                if (date) query = query.eq('view_date', date);
+                
+                const { data, error } = await query.order('created_at', { ascending: false });
+                if (error) throw error;
+                return data || [];
+            } catch (err) {
+                console.error("Error fetching activity logs:", err);
+                return [];
+            }
+        };
+
         // --- DRIVER MANAGEMENT LOGIC ---
         let currentDrivers = [];
         window.openDriverManager = function () {

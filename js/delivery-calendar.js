@@ -1007,6 +1007,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 const data = await getTrips();
                 
+                // --- Activity Log Sync (Admin Only) ---
+                let tomorrowLogs = [];
+                if (window.currentUserRole === 'admin' && window.fetchActivityLogs) {
+                    const tom = new Date();
+                    tom.setDate(tom.getDate() + 1);
+                    const tomStr = tom.toISOString().split('T')[0];
+                    tomorrowLogs = await window.fetchActivityLogs('VIEW_TOMORROW_ORDERS', tomStr);
+                }
+                const seenDrivers = new Set(tomorrowLogs.map(l => l.user_email));
+                
                 // --- Priority Sorting: TODAY first, then Chronological (Ascending) ---
                 const todayStr = new Date().toISOString().split('T')[0];
                 data.sort((a, b) => {
@@ -1142,6 +1152,31 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 td.textContent = text;
                             }
 
+                            // Custom styling for Driver Cell (Seen Indicator)
+                            if (i === 15) { // Driver index in displayData
+                                // Get Tomorrow in LOCAL time
+                                const today = new Date();
+                                const tomorrow = new Date(today);
+                                tomorrow.setDate(today.getDate() + 1);
+                                const tomStr = tomorrow.toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD local
+                                
+                                // Check if this specific order is for tomorrow
+                                if (rowData[1] === tomStr && text && text !== '---') {
+                                    const driverName = (text || '').toUpperCase();
+                                    const hasSeen = tomorrowLogs.some(log => {
+                                        return log.user_email.toUpperCase().includes(driverName) || 
+                                               driverName.includes(log.user_email.split('@')[0].toUpperCase());
+                                    });
+
+                                    if (hasSeen) {
+                                        td.innerHTML = `${text} <i class="fas fa-check-double" style="color: #3b82f6; margin-left: 5px;" title="Driver has seen tomorrow's orders"></i>`;
+                                    } else {
+                                        // WhatsApp style: Gray double check if not seen yet
+                                        td.innerHTML = `${text} <i class="fas fa-check-double" style="color: #94a3b8; margin-left: 5px; opacity: 0.6;" title="Driver hasn't seen tomorrow's orders yet"></i>`;
+                                    }
+                                }
+                            }
+                            
                             tr.appendChild(td);
                         });
 

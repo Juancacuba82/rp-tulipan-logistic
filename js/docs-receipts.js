@@ -35,6 +35,23 @@
                 }
             }
 
+            // Tracking: If driver is viewing tomorrow's orders in Docs Center
+            const isDriver = window.currentUserRole === 'driver';
+            if (isDriver) {
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(today.getDate() + 1);
+                const tomorrowStr = tomorrow.toLocaleDateString('sv-SE');
+                
+                if (window.logActivity) {
+                    const lastLog = sessionStorage.getItem('last_tomorrow_docs_view_log');
+                    if (lastLog !== tomorrowStr) {
+                        window.logActivity('VIEW_TOMORROW_ORDERS', `Driver viewed orders in Docs Center for ${tomorrowStr}`, tomorrowStr);
+                        sessionStorage.setItem('last_tomorrow_docs_view_log', tomorrowStr);
+                    }
+                }
+            }
+
             list.innerHTML = '';
 
             // Custom sorting for drivers: based on numeric prefix in Notes (index 25)
