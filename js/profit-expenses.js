@@ -84,6 +84,15 @@
             });
 
             calculateExpenseTotal();
+
+            // Update Summary Card Counter
+            const countEl = document.getElementById('expense-count-display');
+            if (countEl) {
+                countEl.textContent = filtered.length;
+                // Visual feedback: red if filtering
+                const isFiltered = fromDate || toDate || category || driverName || search;
+                countEl.style.color = isFiltered ? '#ef4444' : '#1e293b';
+            }
         };
 
         window.editExpenseRow = function (rowData) {

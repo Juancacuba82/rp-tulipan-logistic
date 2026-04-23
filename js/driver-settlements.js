@@ -191,6 +191,14 @@
                 if (footerLabel) footerLabel.textContent = "Report Entries:";
                 if (totalDisplay) totalDisplay.textContent = filtered.length;
 
+                // Update Summary Card Counter
+                const reportCountEl = document.getElementById('report-count-display');
+                if (reportCountEl) {
+                    reportCountEl.textContent = filtered.length;
+                    // Visual feedback: green if filtering a specific driver
+                    reportCountEl.style.color = searchTerm ? '#10b981' : '#1e293b';
+                }
+
                 // Initialize the Selection Summary (Resets calculator to 0 if nothing selected)
                 updateSelectionSummary();
             }

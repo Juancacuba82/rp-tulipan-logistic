@@ -134,6 +134,15 @@ window.renderCustInvoiceTable = function () {
     if (filtered.length === 0) {
         body.innerHTML = '<tr><td colspan="12" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No pending customer invoices found for the selected filters.</td></tr>';
     }
+
+    // Update Summary Card Counter
+    const invoiceCountEl = document.getElementById('invoice-count-display');
+    if (invoiceCountEl) {
+        invoiceCountEl.textContent = filtered.length;
+        // Visual feedback: blue if filtering
+        const isFiltered = fOrder || fCity || fPlace || fCustomer || fFrom || fTo || fInvoice;
+        invoiceCountEl.style.color = isFiltered ? '#3b82f6' : '#1e293b';
+    }
 };
 
 window.downloadInvoiceByIndex = function (index) {

@@ -162,6 +162,15 @@
             if (filtered.length === 0) {
                 body.innerHTML = '<tr><td colspan="10" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No completed container sales found for the selected filters.</td></tr>';
             }
+
+            // Update Summary Card Counter
+            const countEl = document.getElementById('inventor-count-display');
+            if (countEl) {
+                countEl.textContent = filtered.length;
+                // Visual feedback: orange if filtering
+                const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
+                countEl.style.color = isFiltered ? '#f59e0b' : '#1e293b';
+            }
         };
 
         // Populate dropdown filters with unique values from existing data

@@ -363,6 +363,24 @@
             if (elPending) elPending.textContent = `$${globalPendingTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
             if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+
+            // Update Summary Card Counter
+            const releasesCountEl = document.getElementById('releases-count-display');
+            if (releasesCountEl) {
+                releasesCountEl.textContent = dataToRender.length;
+                // Visual feedback: red if filtering
+                const isFiltered = document.getElementById('rf-no')?.value || 
+                                   document.getElementById('rf-date-from')?.value || 
+                                   document.getElementById('rf-date-to')?.value ||
+                                   document.getElementById('rf-type')?.value ||
+                                   document.getElementById('rf-cond')?.value ||
+                                   document.getElementById('rf-size')?.value ||
+                                   document.getElementById('rf-paid')?.value ||
+                                   document.getElementById('rf-city')?.value ||
+                                   document.getElementById('rf-depot')?.value ||
+                                   document.getElementById('rf-seller')?.value;
+                releasesCountEl.style.color = isFiltered ? '#b91c1c' : '#1e293b';
+            }
         }
         window.renderReleasesTable = renderReleasesTable;
 

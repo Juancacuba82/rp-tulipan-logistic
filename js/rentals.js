@@ -154,6 +154,12 @@
         body.innerHTML = '';
         let totalAccumulated = 0;
 
+        // Update Summary Card Counter
+        const countEl = document.getElementById('rental-count-display');
+        if (countEl) {
+            countEl.textContent = currentRentals.length;
+        }
+
         currentRentals.forEach((row, idx) => {
             const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status);
             totalAccumulated += costInfo.total;

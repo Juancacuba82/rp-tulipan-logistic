@@ -65,6 +65,15 @@ function renderCallsTable() {
         return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus && matchSeller;
     });
 
+    // Update Summary Card Counter
+    const callsCountEl = document.getElementById('calls-count-display');
+    if (callsCountEl) {
+        callsCountEl.textContent = filtered.length;
+        // Visual feedback: blue if filtering
+        const isFiltered = fFrom || fTo || fService || fCity || fStatus || fSeller || search;
+        callsCountEl.style.color = isFiltered ? '#1e40af' : '#1e293b';
+    }
+
     const todayStr = new Date().toISOString().split('T')[0];
 
     filtered.forEach(c => {
