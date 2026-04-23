@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -7,6 +8,7 @@
     <meta name="description"
         content="RP TULIPAN TRANSPORT INC - Professional Container Logistics Solutions. Minimalist and Reliable.">
     <title>RP TULIPAN TRANSPORT INC | Container Logistics</title>
+
     <!-- Modern Typography: Outfit from Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,14 +22,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./supabase-client.js?v=10"></script>
     <script src="./js/data-mapping.js?v=10"></script>
-    <script src="./js/data-managers.js?v=10"></script>
-    <script src="./js/delivery-calendar.js?v=10"></script>
-    <script src="./js/driver-settlements.js?v=10"></script>
-    <script src="./js/releases.js?v=10"></script>
-    <script src="./js/profit-expenses.js?v=15"></script>
-
-    <script src="./js/docs-receipts.js?v=10"></script>
-    <script src="./js/fleet.js?v=10"></script>
+    <script src="./js/data-managers.js?v=1700"></script>
+    <script src="./js/delivery-calendar.js?v=1700"></script>
+    <script src="./js/driver-settlements.js?v=1700"></script>
+    <script src="./js/releases.js?v=1700"></script>
+    <script src="./js/profit-expenses.js?v=1700"></script>
+    
+    <script src="./js/docs-receipts.js?v=1700"></script>
+    <script src="./js/fleet.js?v=1700"></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -3255,7 +3257,10 @@
                     try {
                         const profile = await getProfile(session.user.id);
                         window.currentUserRole = profile ? profile.role : 'user';
-                        window.currentDriverNameRef = profile ? profile.driver_name_ref : null;
+                        window.userEmail = session.user.email; // Asegurar aquí
+                        window.currentDriverNameRef = profile ? (profile.driver_name_ref || profile.name) : null;
+                        
+                        console.log("AUTH SUCCESS:", window.userEmail, window.currentUserRole, window.currentDriverNameRef);
                     } catch (pErr) {
                         console.warn("Profile fetch failed, defaulting to 'user' role:", pErr);
                     }
@@ -3595,6 +3600,13 @@
                 // 4. Trigger specific loads with safety timeout
                 setTimeout(() => {
                     if (finalView === 'docs') {
+                        // DIAGNÓSTICO DIRECTO
+                        if (window.currentUserRole === 'driver') {
+                            // Silent logic
+                        } else {
+                            console.log("Rol actual:", window.currentUserRole);
+                        }
+                        
                         if (window.loadDocTrips) window.loadDocTrips();
                     } else if (finalView === 'reports') {
                         (async () => {

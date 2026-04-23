@@ -1007,15 +1007,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 const data = await getTrips();
                 
-                // --- Activity Log Sync (Admin Only) ---
-                let tomorrowLogs = [];
-                if (window.currentUserRole === 'admin' && window.fetchActivityLogs) {
-                    const tom = new Date();
-                    tom.setDate(tom.getDate() + 1);
-                    const tomStr = tom.toISOString().split('T')[0];
-                    tomorrowLogs = await window.fetchActivityLogs('VIEW_TOMORROW_ORDERS', tomStr);
+                // --- Activity Log Sync ---
+                let activityLogs = [];
+                try {
+                    const { data: logs, error: logErr } = await db.from('activity_logs')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(1000);
+                    
+                    if (!logErr) {
+                        activityLogs = logs || [];
+                    }
+                } catch (e) {
+                    console.error("Log fetch failed:", e);
                 }
-                const seenDrivers = new Set(tomorrowLogs.map(l => l.user_email));
                 
                 // --- Priority Sorting: TODAY first, then Chronological (Ascending) ---
                 const todayStr = new Date().toISOString().split('T')[0];
@@ -1027,7 +1032,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     return (a.date || '').localeCompare(b.date || '');
                 });
 
-                console.log("Calendar View DEBUG: Records from Supabase ->", data ? data.length : 0);
 
                 // Clear ONLY when data is ready
                 logisticsBody.innerHTML = '';
@@ -1153,26 +1157,96 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             }
 
                             // Custom styling for Driver Cell (Seen Indicator)
-                            if (i === 15) { // Driver index in displayData
-                                // Get Tomorrow in LOCAL time
-                                const today = new Date();
-                                const tomorrow = new Date(today);
-                                tomorrow.setDate(today.getDate() + 1);
-                                const tomStr = tomorrow.toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD local
-                                
-                                // Check if this specific order is for tomorrow
-                                if (rowData[1] === tomStr && text && text !== '---') {
-                                    const driverName = (text || '').toUpperCase();
-                                    const hasSeen = tomorrowLogs.some(log => {
-                                        return log.user_email.toUpperCase().includes(driverName) || 
-                                               driverName.includes(log.user_email.split('@')[0].toUpperCase());
-                                    });
+                            if (i === 15) { 
+                                if (text && text !== '---') {
+                                    // Ultra-robust cleaning function for names
+                                    // Ultra-robust cleaning function (handles accents/diacritics)
+                                    const clean = (s) => (s || '').toString()
+                                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+                                        .replace(/[^A-Z0-9]/gi, '')
+                                        .toUpperCase();
+                                    const driverNameClean = clean(text);
+                                    
+                                    // OFFICIAL APP DRIVERS LIST (White-list)
+                                    // Each sub-array is a group of identifiers (Name Variations and Email Prefixes)
+                                    const DRIVER_GROUPS = [
+                                        ["MILAYMIRANDA", "MILAYMIRANDA84"],
+                                        ["ROBERTCORTEZ", "ROBERTCORTES", "CORTES410"],
+                                        ["JORGEARAMIREZ", "JORGEANDYRAMIREZ", "JORGITO110488"],
+                                        ["JOSE", "JOSEVARGAS", "JOSEEVARGAS", "3JYVARGASLLC"],
+                                        ["LUISGARRIDO", "GARRIDOTRANSPORT1973"],
+                                        ["ANTONIORAMON", "ANTONIORAMONCUBA", "RAMONCUBA88"],
+                                        ["GREGORYCUTINO", "GRIGORY2013"],
+            ["TRAVISJOSEY", "TJIZZLE88"]
+                                    ];
+                                    
+                                    const APP_DRIVERS = DRIVER_GROUPS.flat();
+                                    
+                                    // DIAGNOSTIC (Only show for the first 5 rows)
+                                    if (window.currentUserRole === 'admin' && !window.didDebugNames && text !== '---') {
+                                        console.log("DEBUG CALENDARIO - Original: '" + text + "' Cleaned: '" + driverNameClean + "'");
+                                    }
 
-                                    if (hasSeen) {
-                                        td.innerHTML = `${text} <i class="fas fa-check-double" style="color: #3b82f6; margin-left: 5px;" title="Driver has seen tomorrow's orders"></i>`;
+                                    const isRegistered = APP_DRIVERS.includes(driverNameClean);
+
+                                    if (isRegistered) {
+                                        // Robust date normalization to YYYYMMDD
+                                        const toYYYYMMDD = (d) => {
+                                            if (!d) return '';
+                                            const s = d.toString().trim();
+                                            if (s.includes('-')) return s.split('T')[0].replace(/-/g, '');
+                                            if (s.includes('/')) {
+                                                const p = s.split('/');
+                                                if (p[0].length === 4) return p.join('');
+                                                return p[2] + p[0].padStart(2, '0') + p[1].padStart(2, '0');
+                                            }
+                                            return s.replace(/[^0-9]/g, '');
+                                        };
+                                        const orderDate = toYYYYMMDD(rowData[1]);
+
+                                        // Find equivalence group for the current driver in the table
+                                        const myGroup = DRIVER_GROUPS.find(g => g.includes(driverNameClean)) || [driverNameClean];
+
+                                        // Find ALL logs for this driver, sorted by latest first
+                                        const driverLogs = activityLogs.filter(log => {
+                                            const logDriverClean = log.driver_name ? clean(log.driver_name) : '';
+                                            const logEmailClean = clean((log.user_email || '').split('@')[0]);
+                                            return (driverNameClean !== '' && (myGroup.includes(logDriverClean) || myGroup.includes(logEmailClean)));
+                                        });
+
+                                        // DEFAULT ICON STATE (Gray / Unread)
+                                        let iconColor = '#94a3b8';
+                                        let iconOpacity = '0.4';
+                                        let tooltip = 'Not seen by driver yet';
+
+                                        if (driverLogs.length > 0) {
+                                            // PRECISE MATCH: for VIEW_TRIP_DETAILS logs,
+                                            // require the specific tripId to be in the details field.
+                                            // This prevents false-blue when driver viewed a DIFFERENT
+                                            // order on the same date.
+                                            const tripId = rowData[0];
+                                            const exactMatch = driverLogs.find(log => {
+                                                if (toYYYYMMDD(log.view_date) !== orderDate) return false;
+                                                if (log.action_type === 'VIEW_TRIP_DETAILS') {
+                                                    return !!(log.details && log.details.includes(tripId));
+                                                }
+                                                return true; // other action types: date match is enough
+                                            });
+                                            const latestLog = driverLogs[0];
+                                            const lastSeenStr = new Date(latestLog.created_at).toLocaleString();
+                                            
+                                            if (exactMatch) {
+                                                iconColor = '#3b82f6'; // Seen (Blue)
+                                                iconOpacity = '1';
+                                                tooltip = `Seen by driver on: ${new Date(exactMatch.created_at).toLocaleString()}`;
+                                            } else {
+                                                tooltip = `Last driver activity: ${lastSeenStr}`;
+                                            }
+                                        }
+                                        
+                                        td.innerHTML = `${text} <i class="fas fa-check-double" style="color: ${iconColor}; opacity: ${iconOpacity}; margin-left: 5px; cursor: help;" title="${tooltip}"></i>`;
                                     } else {
-                                        // WhatsApp style: Gray double check if not seen yet
-                                        td.innerHTML = `${text} <i class="fas fa-check-double" style="color: #94a3b8; margin-left: 5px; opacity: 0.6;" title="Driver hasn't seen tomorrow's orders yet"></i>`;
+                                        td.textContent = text;
                                     }
                                 }
                             }
@@ -1410,3 +1484,150 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
         window.toggleSizeMode = toggleSizeMode;
 
+        // =============================================================
+        // REAL-TIME ACTIVITY SYNC  (3 layered mechanisms for reliability)
+        // =============================================================
+        // refreshReadReceiptIcons() re-fetches activity_logs from Supabase
+        // and updates ONLY the double-check icon cells in-place (no table flicker).
+
+        const _SYNC_DRIVER_GROUPS = [
+            ["MILAYMIRANDA", "MILAYMIRANDA84"],
+            ["ROBERTCORTEZ", "ROBERTCORTES", "CORTES410"],
+            ["JORGEARAMIREZ", "JORGEANDYRAMIREZ", "JORGITO110488"],
+            ["JOSE", "JOSEVARGAS", "JOSEEVARGAS", "3JYVARGASLLC"],
+            ["LUISGARRIDO", "GARRIDOTRANSPORT1973"],
+            ["ANTONIORAMON", "ANTONIORAMONCUBA", "RAMONCUBA88"],
+            ["GREGORYCUTINO", "GRIGORY2013"],
+            ["TRAVISJOSEY", "TJIZZLE88"]
+        ];
+
+        async function refreshReadReceiptIcons() {
+            if (!db || !currentTrips || currentTrips.length === 0) return;
+            try {
+                const { data: logs, error } = await db.from('activity_logs')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(500);
+                if (error || !logs) return;
+
+                const clean = (s) => (s || '').toString()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+                const toYYYYMMDD = (d) => {
+                    if (!d) return '';
+                    const s = d.toString().trim();
+                    if (s.includes('-')) return s.split('T')[0].replace(/-/g, '');
+                    if (s.includes('/')) {
+                        const p = s.split('/');
+                        if (p[0].length === 4) return p.join('');
+                        return p[2] + p[0].padStart(2, '0') + p[1].padStart(2, '0');
+                    }
+                    return s.replace(/[^0-9]/g, '');
+                };
+
+                const rows = document.querySelectorAll('#table-body tr');
+                rows.forEach((tr, idx) => {
+                    const rowData = currentTrips[idx];
+                    if (!rowData) return;
+                    const driverText = rowData[17] || '';
+                    if (!driverText || driverText === '---') return;
+
+                    const driverNameClean = clean(driverText);
+                    const myGroup = _SYNC_DRIVER_GROUPS.find(g => g.includes(driverNameClean));
+                    if (!myGroup) return;
+
+                    const orderDate = toYYYYMMDD(rowData[1]);
+                    const tds = tr.querySelectorAll('td');
+                    const driverTd = tds[15]; // displayData[15] = Driver column
+                    if (!driverTd) return;
+
+                    const driverLogs = logs.filter(log => {
+                        const logDriverClean = clean(log.driver_name || '');
+                        const logEmailClean = clean((log.user_email || '').split('@')[0]);
+                        return myGroup.includes(logDriverClean) || myGroup.includes(logEmailClean);
+                    });
+
+                    let iconColor = '#94a3b8';
+                    let iconOpacity = '0.4';
+                    let tooltip = 'Not seen by driver yet';
+
+                    if (driverLogs.length > 0) {
+                        // PRECISE MATCH: require specific tripId in details for VIEW_TRIP_DETAILS logs
+                        const tripId = rowData[0];
+                        const exactMatch = driverLogs.find(log => {
+                            if (toYYYYMMDD(log.view_date) !== orderDate) return false;
+                            if (log.action_type === 'VIEW_TRIP_DETAILS') {
+                                return !!(log.details && log.details.includes(tripId));
+                            }
+                            return true;
+                        });
+                        if (exactMatch) {
+                            iconColor = '#3b82f6';
+                            iconOpacity = '1';
+                            tooltip = 'Seen by driver on: ' + new Date(exactMatch.created_at).toLocaleString();
+                        } else {
+                            tooltip = 'Last driver activity: ' + new Date(driverLogs[0].created_at).toLocaleString();
+                        }
+                    }
+
+                    const icon = driverTd.querySelector('.fa-check-double');
+                    if (icon) {
+                        icon.style.color = iconColor;
+                        icon.style.opacity = iconOpacity;
+                        icon.title = tooltip;
+                    }
+                });
+                console.log('refreshReadReceiptIcons: icons updated from', logs.length, 'logs.');
+            } catch (e) {
+                console.error('refreshReadReceiptIcons error:', e);
+            }
+        }
+        window.refreshReadReceiptIcons = refreshReadReceiptIcons;
+
+        // --- Mechanism 1: Same-tab custom event ---
+        window.addEventListener('activityLogged', (e) => {
+            console.log('activityLogged event (same-tab):', e.detail);
+            if (window.syncTimer) clearTimeout(window.syncTimer);
+            window.syncTimer = setTimeout(() => refreshReadReceiptIcons(), 400);
+        });
+
+        // --- Mechanism 2: Supabase Realtime (instant cross-device push) ---
+        (function setupRealtimeActivitySync() {
+            if (!db) { setTimeout(setupRealtimeActivitySync, 2000); return; }
+            if (window._activityRealtimeChannel) {
+                try { db.removeChannel(window._activityRealtimeChannel); } catch(e) {}
+                window._activityRealtimeChannel = null;
+            }
+            const channel = db
+                .channel('calendar-activity-realtime-v2')
+                .on('postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'activity_logs' },
+                    (payload) => {
+                        console.log('Realtime INSERT on activity_logs!', payload.new);
+                        if (window.realtimeSyncTimer) clearTimeout(window.realtimeSyncTimer);
+                        window.realtimeSyncTimer = setTimeout(() => refreshReadReceiptIcons(), 600);
+                    }
+                )
+                .subscribe((status) => {
+                    console.log('Supabase Realtime channel status:', status);
+                    if (status === 'SUBSCRIBED') {
+                        console.log('Realtime ACTIVE: will detect driver views instantly.');
+                    }
+                });
+            window._activityRealtimeChannel = channel;
+        })();
+
+        // --- Mechanism 3: Polling fallback every 25 seconds ---
+        // Guarantees icons stay in sync even if Realtime has issues.
+        // Only fires when the calendar table is visible on screen.
+        (function startIconPolling() {
+            if (window._iconPollInterval) clearInterval(window._iconPollInterval);
+            window._iconPollInterval = setInterval(() => {
+                const tableBody = document.getElementById('table-body');
+                if (tableBody && tableBody.offsetParent !== null &&
+                    currentTrips && currentTrips.length > 0) {
+                    refreshReadReceiptIcons();
+                }
+            }, 25000);
+        })();

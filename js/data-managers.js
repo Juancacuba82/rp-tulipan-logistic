@@ -1,15 +1,39 @@
         // --- ACTIVITY LOGGING LOGIC ---
         window.logActivity = async function (actionType, details = null, viewDate = null) {
-            if (!db || !window.userEmail) return;
+            if (!db) return;
             try {
+                const { data: { session } } = await db.auth.getSession();
+                if (!session) return;
+
+                const user = session.user;
+                const email = user.email;
+                
+                // Get name from profiles table
+                const { data: profile } = await db.from('profiles').select('*').eq('id', user.id).single();
+                
+                // Tiered name fallback:
+                let driverName = profile?.driver_name_ref || profile?.full_name || profile?.name || email.split('@')[0];
+                
+                // Final safety:
+                if (!driverName || driverName === 'null') {
+                    driverName = email.split('@')[0] || "Unknown";
+                }
+
                 const { error } = await db.from('activity_logs').insert([{
-                    user_email: window.userEmail,
+                    user_email: email.trim(),
                     action_type: actionType,
                     details: details,
-                    view_date: viewDate
+                    view_date: viewDate,
+                    driver_name: driverName.toString().trim()
                 }]);
+                
                 if (error) throw error;
-                console.log(`Activity logged: ${actionType}`);
+                console.log(`Activity logged (v900): ${actionType} for ${driverName}`);
+                
+                // Notify any open views to refresh their read-receipt icons
+                window.dispatchEvent(new CustomEvent('activityLogged', { 
+                    detail: { driverName, actionType, viewDate } 
+                }));
             } catch (err) {
                 console.warn("Could not log activity:", err);
             }
