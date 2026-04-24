@@ -682,7 +682,7 @@
         const colName = _sigType === 'driver' ? 'signature_driver' : 'signature';
 
         try {
-            const { error } = await db.from('trips').update({ [colName]: dataUrl }).eq('id', tripId);
+            const { error } = await db.from('trips').update({ [colName]: dataUrl }).eq('trip_id', tripId);
             if (error) throw error;
 
             // Update local cache

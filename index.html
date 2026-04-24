@@ -1362,7 +1362,7 @@
                                 <button id="btn-docs-photos" onclick="document.getElementById('trip-photo-input').click()" class="btn-photo-docs" title="Upload Delivery Photo">
                                     <i class="fas fa-camera"></i> PHOTOS
                                 </button>
-                                <input type="file" id="trip-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="handleTripPhotoUpload(this)">
+                                <input type="file" id="trip-photo-input" accept="image/*" style="display: none;" onchange="handleTripPhotoUpload(this)">
                                 
                                 <button onclick="openSignatureModal('customer')" class="btn-signature-docs" style="background: #1e293b;">
                                     <i class="fas fa-file-signature"></i> CLIENT SIG
@@ -3325,9 +3325,9 @@
                 const docsDrvSel = document.getElementById('docs-driver-dropdown');
                 if (docsDrvSel) docsDrvSel.style.display = isSuperDriver ? '' : 'none';
 
-                // Hide Photos button in Docs & Receipts for drivers
+                // Allow Photos button in Docs & Receipts for drivers
                 const docsPhotoBtn = document.getElementById('btn-docs-photos');
-                if (docsPhotoBtn) docsPhotoBtn.style.display = 'none';
+                if (docsPhotoBtn) docsPhotoBtn.style.display = 'inline-flex';
 
                 // RESTRICTIONS inside Reports view for Drivers:
                 const archiveBtn = document.querySelector('button[onclick*="archiveSettlement"]');
