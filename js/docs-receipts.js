@@ -197,10 +197,10 @@
             rel: (trip[4] && trip[4] !== '---') ? trip[4] : '',
             order: (trip[5] && trip[5] !== '---') ? trip[5] : '',
             doors: (trip[9] && trip[9] !== '---') ? trip[9] : '',
-            cust: (trip[11] && trip[11] !== '---') ? trip[11] : '',
-            phone: (trip[23] && trip[23] !== '---') ? trip[23] : '',
+            _rawPhone: (trip[23] && trip[23] !== '---') ? trip[23].trim() : '',
             pickup: (trip[7] && trip[7] !== '---') ? trip[7] : '',
             place: (trip[8] && trip[8] !== '---') ? trip[8] : '',
+            miles: parseFloat(trip[10]) || 0,
             yard: parseFloat(trip[13]) || 0,
             storage: parseFloat(trip[27]) || 0,
             transp: parseFloat(trip[18]) || 0,
@@ -229,6 +229,13 @@
             signature_driver: trip[56] || ''
         };
 
+        // Parse Phone # field: format is "CLIENT NAME 305-555-1234"
+        // Split text (name) from the phone number (first digit-starting sequence at the end)
+        const _raw = data._rawPhone;
+        const _phoneMatch = _raw.match(/^(.*?)\s*(\+?\(?\d[\d\s\-\.\(\)]{5,})$/);
+        data.clientName = _phoneMatch ? _phoneMatch[1].trim() : '';
+        data.phone = _phoneMatch ? _phoneMatch[2].trim() : _raw;
+
         const subtotal = data.yard + data.storage + data.transp + data.sales;
         const taxVal = subtotal * (data.taxRate / 100);
         const total = subtotal + taxVal;
@@ -244,8 +251,8 @@
         };
 
         const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver);
-        const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place);
-        const clientContent = f('CUSTOMER NAME', data.cust) + f('PHONE', data.phone);
+        const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
+        const clientContent = f('CUSTOMER NAME', data.clientName) + f('PHONE', data.phone);
 
         let inspectionContent = '';
         const checkIcon = '<span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px; font-weight:bold; font-size:10px; margin-right:5px;">X</span>';
@@ -314,5 +321,23 @@
         const preview = document.getElementById('receipt-a4');
         if (!preview || !window.currentDocTrip) return;
         preview.innerHTML = window.getTripReceiptContent(window.currentDocTrip);
+    }
+
+    window.clearDocsFilters = function () {
+        const fromDate = document.getElementById('trip-from-date');
+        const toDate = document.getElementById('trip-to-date');
+        const driverDd = document.getElementById('docs-driver-dropdown');
+        const customerDd = document.getElementById('docs-customer-dropdown');
+        const statusDd = document.getElementById('docs-status-dropdown');
+        const paymentDd = document.getElementById('docs-payment-dropdown');
+
+        if (fromDate) fromDate.value = '';
+        if (toDate) toDate.value = '';
+        if (driverDd) driverDd.value = '';
+        if (customerDd) customerDd.value = '';
+        if (statusDd) statusDd.value = '';
+        if (paymentDd) paymentDd.value = '';
+
+        window.loadDocTrips();
     }
 })();
