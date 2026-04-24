@@ -162,7 +162,9 @@
         const list = document.getElementById('photos-list');
         if (!gallery || !list) return;
 
-        if (!window.currentDocTrip || !window.currentDocTrip[55] || window.currentDocTrip[55].length === 0) {
+        const photos = window.currentDocTrip ? (window.currentDocTrip[55] || []) : [];
+
+        if (photos.length === 0) {
             gallery.style.display = 'none';
             return;
         }
@@ -170,19 +172,154 @@
         gallery.style.display = 'block';
         list.innerHTML = '';
 
-        const photos = window.currentDocTrip[55];
         photos.forEach((url, idx) => {
             const div = document.createElement('div');
             div.style.position = 'relative';
             div.innerHTML = `
-                <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;">
-                <button onclick="deleteTripPhoto(${idx})" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer;" onclick="window.open('${url}', '_blank')">
+                <button onclick="deleteTripPhoto(${idx})" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="Delete photo">
                     <i class="fas fa-times"></i>
                 </button>
             `;
             list.appendChild(div);
         });
     }
+
+    // ============================================================
+    // PHOTO UPLOAD / DELETE LOGIC
+    // ============================================================
+
+    window.handleTripPhotoUpload = async function (input) {
+        if (!input.files || input.files.length === 0) return;
+        if (!window.currentDocTrip) {
+            alert('Please select a trip first.');
+            input.value = '';
+            return;
+        }
+
+        const file = input.files[0];
+        input.value = ''; // Reset so same file can be picked again
+
+        // Show loading state on the button
+        const btn = document.getElementById('btn-docs-photos');
+        const originalHTML = btn ? btn.innerHTML : '';
+        if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+
+        try {
+            const tripId = window.currentDocTrip[0];
+            const ext = file.name.split('.').pop() || 'jpg';
+            const fileName = `trip_${tripId}_${Date.now()}.${ext}`;
+            const filePath = `trip-photos/${fileName}`;
+
+            // Upload to Supabase Storage bucket 'receipts'
+            const { data: uploadData, error: uploadError } = await db.storage
+                .from('receipts')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false,
+                    contentType: file.type
+                });
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: { publicUrl } } = db.storage
+                .from('receipts')
+                .getPublicUrl(filePath);
+
+            // Add URL to photos array
+            const currentPhotos = Array.isArray(window.currentDocTrip[55])
+                ? [...window.currentDocTrip[55]]
+                : [];
+            currentPhotos.push(publicUrl);
+
+            // Save to Supabase
+            const { error: updateError } = await db.from('trips')
+                .update({ photos: currentPhotos })
+                .eq('trip_id', tripId);
+
+            if (updateError) throw updateError;
+
+            // Update local cache
+            window.currentDocTrip[55] = currentPhotos;
+            const idx = currentTrips.findIndex(t => t[0] === tripId);
+            if (idx !== -1) currentTrips[idx][55] = currentPhotos;
+
+            // Refresh UI
+            window.renderTripPhotos();
+            window.drawReceipt();
+
+            if (window.showToast) window.showToast('Photo uploaded successfully!', 'success');
+
+        } catch (err) {
+            console.error('Error uploading photo:', err);
+            alert('Error uploading photo: ' + (err.message || JSON.stringify(err)));
+        } finally {
+            if (btn) btn.innerHTML = originalHTML;
+        }
+    };
+
+    window.deleteTripPhoto = async function (idx) {
+        if (!window.currentDocTrip) return;
+        if (!confirm('Delete this photo? This cannot be undone.')) return;
+
+        const photos = Array.isArray(window.currentDocTrip[55])
+            ? [...window.currentDocTrip[55]]
+            : [];
+
+        if (idx < 0 || idx >= photos.length) return;
+
+        const urlToDelete = photos[idx];
+        const tripId = window.currentDocTrip[0];
+
+        // Show loading
+        const btn = document.getElementById('btn-docs-photos');
+        const originalHTML = btn ? btn.innerHTML : '';
+        if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+
+        try {
+            // Extract Storage file path from public URL
+            // Public URL format: https://<project>.supabase.co/storage/v1/object/public/receipts/<path>
+            const urlObj = new URL(urlToDelete);
+            const pathParts = urlObj.pathname.split('/object/public/receipts/');
+            if (pathParts.length === 2) {
+                const storagePath = decodeURIComponent(pathParts[1]);
+                const { error: delStorageErr } = await db.storage
+                    .from('receipts')
+                    .remove([storagePath]);
+                if (delStorageErr) {
+                    console.warn('Could not delete from Storage (continuing):', delStorageErr.message);
+                }
+            }
+
+            // Remove from array
+            photos.splice(idx, 1);
+
+            // Update Supabase
+            const { error: updateError } = await db.from('trips')
+                .update({ photos: photos })
+                .eq('trip_id', tripId);
+
+            if (updateError) throw updateError;
+
+            // Update local cache
+            window.currentDocTrip[55] = photos;
+            const tripIdx = currentTrips.findIndex(t => t[0] === tripId);
+            if (tripIdx !== -1) currentTrips[tripIdx][55] = photos;
+
+            // Refresh UI
+            window.renderTripPhotos();
+            window.drawReceipt();
+
+            if (window.showToast) window.showToast('Photo deleted.', 'success');
+
+        } catch (err) {
+            console.error('Error deleting photo:', err);
+            alert('Error deleting photo: ' + (err.message || JSON.stringify(err)));
+        } finally {
+            if (btn) btn.innerHTML = originalHTML;
+        }
+    };
 
     window.getTripReceiptContent = function (trip) {
         if (!trip) return '';
@@ -340,4 +477,241 @@
 
         window.loadDocTrips();
     }
+
+    // ============================================================
+    // PRINT LOGIC
+    // ============================================================
+    window.printA4Document = function () {
+        const el = document.getElementById('receipt-a4');
+        if (!el || !window.currentDocTrip) {
+            alert('Please select a trip first.');
+            return;
+        }
+
+        const printWin = window.open('', '_blank', 'width=1000,height=1200');
+        if (!printWin) {
+            alert('Popup blocked. Please allow popups for this site and try again.');
+            return;
+        }
+
+        printWin.document.write('<html><head><title>Print Receipt</title>');
+        printWin.document.write('<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">');
+        printWin.document.write('<style>');
+        printWin.document.write(`
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 0; font-family: 'Outfit', sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .a4-paper { width: 210mm; margin: 0 auto; padding: 15mm 20mm; background: white; min-height: 297mm; }
+            .receipt-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e293b; padding-bottom: 15px; margin-bottom: 20px; }
+            .receipt-header h1 { font-size: 1.8rem; margin: 0; font-weight: 900; }
+            .receipt-header p { margin: 2px 0; }
+            .receipt-section-title { background: #f8fafc; padding: 6px 12px; font-weight: 800; font-size: 0.75rem; margin-top: 18px; border-left: 5px solid #1e293b; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em; }
+            .receipt-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 12px; }
+            .receipt-field { font-size: 0.85rem; }
+            .receipt-field label { display: block; font-weight: 700; color: #64748b; font-size: 0.65rem; margin-bottom: 2px; text-transform: uppercase; }
+            .receipt-field span { font-weight: 700; border-bottom: 1px dashed #cbd5e1; display: block; min-height: 1.4rem; padding-bottom: 2px; }
+            .receipt-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.85rem; }
+            .receipt-table th { background: #1e293b; color: white; text-align: left; padding: 8px 10px; font-size: 0.75rem; }
+            .receipt-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+            .receipt-total-row td { background: #f1f5f9; font-weight: 900; font-size: 1.1rem; }
+            img { max-width: 100%; }
+            @media print {
+                @page { size: A4; margin: 10mm; }
+                body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+        `);
+        printWin.document.write('</style></head><body>');
+        printWin.document.write('<div class="a4-paper">');
+        printWin.document.write(el.innerHTML);
+        printWin.document.write('</div></body></html>');
+        printWin.document.close();
+
+        // Wait for fonts/images to load before printing
+        printWin.onload = function () {
+            setTimeout(() => {
+                printWin.focus();
+                printWin.print();
+            }, 600);
+        };
+
+        // Fallback if onload doesn't fire (some browsers)
+        setTimeout(() => {
+            if (!printWin.closed) {
+                printWin.focus();
+                printWin.print();
+            }
+        }, 1500);
+    };
+
+    // ============================================================
+    // SIGNATURE MODAL LOGIC
+    // ============================================================
+    let _sigType = 'customer'; // 'customer' | 'driver'
+    let _sigCanvas = null;
+    let _sigCtx = null;
+    let _sigDrawing = false;
+    let _sigLastX = 0;
+    let _sigLastY = 0;
+
+    function _sigGetPos(e, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        if (e.touches) {
+            return {
+                x: (e.touches[0].clientX - rect.left) * scaleX,
+                y: (e.touches[0].clientY - rect.top) * scaleY
+            };
+        }
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+
+    function _sigStart(e) {
+        e.preventDefault();
+        _sigDrawing = true;
+        const pos = _sigGetPos(e, _sigCanvas);
+        _sigLastX = pos.x;
+        _sigLastY = pos.y;
+        _sigCtx.beginPath();
+        _sigCtx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
+        _sigCtx.fillStyle = '#1e293b';
+        _sigCtx.fill();
+    }
+
+    function _sigMove(e) {
+        if (!_sigDrawing) return;
+        e.preventDefault();
+        const pos = _sigGetPos(e, _sigCanvas);
+        _sigCtx.beginPath();
+        _sigCtx.moveTo(_sigLastX, _sigLastY);
+        _sigCtx.lineTo(pos.x, pos.y);
+        _sigCtx.strokeStyle = '#1e293b';
+        _sigCtx.lineWidth = 2.5;
+        _sigCtx.lineCap = 'round';
+        _sigCtx.lineJoin = 'round';
+        _sigCtx.stroke();
+        _sigLastX = pos.x;
+        _sigLastY = pos.y;
+    }
+
+    function _sigEnd() { _sigDrawing = false; }
+
+    window.openSignatureModal = function (type) {
+        if (!window.currentDocTrip) {
+            alert('Please select a trip first.');
+            return;
+        }
+        _sigType = type || 'customer';
+        const modal = document.getElementById('signature-modal');
+        const title = document.getElementById('signature-modal-title');
+        if (!modal) return;
+
+        if (title) {
+            title.innerHTML = _sigType === 'driver'
+                ? '<i class="fas fa-user-tie"></i> Driver Signature'
+                : '<i class="fas fa-file-signature"></i> Client Signature';
+        }
+
+        // Setup canvas
+        _sigCanvas = document.getElementById('signature-pad');
+        if (!_sigCanvas) return;
+        _sigCtx = _sigCanvas.getContext('2d');
+        _sigCtx.clearRect(0, 0, _sigCanvas.width, _sigCanvas.height);
+
+        // Pre-load existing signature if any
+        const existingSig = _sigType === 'driver'
+            ? (window.currentDocTrip[56] || '')
+            : (window.currentDocTrip[54] || '');
+        if (existingSig) {
+            const img = new Image();
+            img.onload = () => _sigCtx.drawImage(img, 0, 0, _sigCanvas.width, _sigCanvas.height);
+            img.src = existingSig;
+        }
+
+        // Remove old listeners, re-add fresh
+        const c = _sigCanvas;
+        const newCanvas = c.cloneNode(true);
+        c.parentNode.replaceChild(newCanvas, c);
+        _sigCanvas = newCanvas;
+        _sigCtx = _sigCanvas.getContext('2d');
+        if (existingSig) {
+            const img2 = new Image();
+            img2.onload = () => _sigCtx.drawImage(img2, 0, 0, _sigCanvas.width, _sigCanvas.height);
+            img2.src = existingSig;
+        }
+
+        _sigCanvas.addEventListener('mousedown', _sigStart);
+        _sigCanvas.addEventListener('mousemove', _sigMove);
+        _sigCanvas.addEventListener('mouseup', _sigEnd);
+        _sigCanvas.addEventListener('mouseleave', _sigEnd);
+        _sigCanvas.addEventListener('touchstart', _sigStart, { passive: false });
+        _sigCanvas.addEventListener('touchmove', _sigMove, { passive: false });
+        _sigCanvas.addEventListener('touchend', _sigEnd);
+
+        modal.style.display = 'flex';
+    };
+
+    window.closeSignatureModal = function () {
+        const modal = document.getElementById('signature-modal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.clearSignature = function () {
+        if (_sigCtx && _sigCanvas) {
+            _sigCtx.clearRect(0, 0, _sigCanvas.width, _sigCanvas.height);
+        }
+    };
+
+    window.saveSignature = async function () {
+        if (!_sigCanvas || !window.currentDocTrip) return;
+
+        // Check if canvas is blank
+        const px = _sigCtx.getImageData(0, 0, _sigCanvas.width, _sigCanvas.height).data;
+        const isBlank = px.every(v => v === 0);
+        if (isBlank) {
+            alert('Please draw a signature before saving.');
+            return;
+        }
+
+        const dataUrl = _sigCanvas.toDataURL('image/png');
+        const tripId = window.currentDocTrip[0];
+
+        // Determine which column to update: trip[54] = customer sig, trip[56] = driver sig
+        const colName = _sigType === 'driver' ? 'signature_driver' : 'signature';
+
+        try {
+            const { error } = await db.from('trips').update({ [colName]: dataUrl }).eq('id', tripId);
+            if (error) throw error;
+
+            // Update local cache
+            if (_sigType === 'driver') {
+                window.currentDocTrip[56] = dataUrl;
+            } else {
+                window.currentDocTrip[54] = dataUrl;
+            }
+
+            // Also update in currentTrips array
+            const idx = currentTrips.findIndex(t => t[0] === tripId);
+            if (idx !== -1) {
+                if (_sigType === 'driver') currentTrips[idx][56] = dataUrl;
+                else currentTrips[idx][54] = dataUrl;
+            }
+
+            window.closeSignatureModal();
+            window.drawReceipt();
+
+            // Toast notification
+            if (window.showToast) {
+                window.showToast(_sigType === 'driver' ? 'Driver signature saved!' : 'Client signature saved!', 'success');
+            } else {
+                alert(_sigType === 'driver' ? 'Driver signature saved!' : 'Client signature saved!');
+            }
+        } catch (err) {
+            console.error('Error saving signature:', err);
+            alert('Error saving signature: ' + (err.message || err));
+        }
+    };
+
 })();
