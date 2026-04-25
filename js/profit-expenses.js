@@ -263,7 +263,7 @@
                     if (row.payment_status === 'PAID') {
                         const rowDate = row.start_date;
                         if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
-                            const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status);
+                            const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
                             totals.rentals += costInfo.total;
                         }
                     }

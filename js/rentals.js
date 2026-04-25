@@ -6,7 +6,30 @@
     async function loadRentalsData() {
         try {
             const data = await getRentals();
-            window.currentRentals = data || [];
+            
+            // --- AUTOMATION: Auto-Pending for expired PAID rentals ---
+            // If a rental is ACTIVE and PAID but reached its final date, it should flip to PENDING
+            const todayStr = new Date().toISOString().split('T')[0];
+            const today = new Date(todayStr).getTime();
+            let needsReload = false;
+
+            for (let row of data) {
+                if (row.status === 'ACTIVE' && row.payment_status === 'PAID' && row.final_date) {
+                    const fDate = new Date(row.final_date).getTime();
+                    if (fDate <= today) {
+                        console.log(`Auto-Pending rental ${row.id} (expired)`);
+                        await updateRental(row.id, { payment_status: 'PENDING' });
+                        needsReload = true;
+                    }
+                }
+            }
+
+            if (needsReload) {
+                window.currentRentals = await getRentals();
+            } else {
+                window.currentRentals = data || [];
+            }
+
             if (typeof window.loadReleasesData === 'function' && (!window.currentReleases || window.currentReleases.length === 0)) {
                 await window.loadReleasesData();
             }
@@ -136,15 +159,35 @@
         }
     }
 
-    function calculateRentalCost(startDateStr, finalDateStr, basePrice, dailyRate, status) {
+    function calculateRentalCost(startDateStr, finalDateStr, basePrice, dailyRate, status, timeRent) {
         if (!startDateStr) return { total: 0, days: 0 };
         const start = new Date(startDateStr); start.setHours(0, 0, 0, 0);
         let endDate = (status === 'FINISHED' && finalDateStr) ? new Date(finalDateStr) : new Date();
         endDate.setHours(0, 0, 0, 0);
         const diffDays = Math.ceil((endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
         const daysPassed = Math.max(0, diffDays);
-        // Cost is now fixed to basePrice since Daily Rate was removed
-        const total = parseFloat(basePrice);
+        
+        // Cumulative Calculation based on time periods
+        let units = 1;
+        if (startDateStr && finalDateStr) {
+            const sDate = new Date(startDateStr);
+            const fDate = new Date(finalDateStr);
+            if (fDate > sDate) {
+                let count = 0;
+                let temp = new Date(sDate);
+                while (temp < fDate) {
+                    if (timeRent === 'monthly') temp.setMonth(temp.getMonth() + 1);
+                    else if (timeRent === 'weekly') temp.setDate(temp.getDate() + 7);
+                    else if (timeRent === 'diary') temp.setDate(temp.getDate() + 1);
+                    else { temp.setMonth(temp.getMonth() + 1); } // Default monthly
+                    count++;
+                    if (count > 1000) break; // Safety
+                }
+                units = count;
+            }
+        }
+
+        const total = parseFloat(basePrice) * units;
         return { total: total, days: daysPassed };
     }
 
@@ -161,7 +204,7 @@
         }
 
         currentRentals.forEach((row, idx) => {
-            const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status);
+            const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
             totalAccumulated += costInfo.total;
             
             // Highlight row in red if expired (ACTIVE and date reached/passed)
@@ -263,6 +306,31 @@
                 const wasActive = (originalRentalState.status === 'ACTIVE');
                 const isActive = (status === 'ACTIVE');
                 const relChanged = (originalRentalState.release_no !== releaseNo);
+
+                // --- AUTOMATION: Advance Final Date when marking PENDING as PAID ---
+                if (originalRentalState.payment_status === 'PENDING' && paymentStatus === 'PAID') {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const today = new Date(todayStr).getTime();
+                    const oldFinalDate = originalRentalState.final_date ? new Date(originalRentalState.final_date).getTime() : 0;
+
+                    // If it was expired, we move the FINAL DATE forward for the new period
+                    // START DATE stays as the original beginning of the rental
+                    if (oldFinalDate <= today) {
+                        rentalData.start_date = originalRentalState.start_date; // Keep original start
+                        
+                        const sDate = originalRentalState.final_date ? new Date(originalRentalState.final_date) : new Date();
+                        if (timeRent === 'monthly') {
+                            sDate.setMonth(sDate.getMonth() + 1);
+                        } else if (timeRent === 'weekly') {
+                            sDate.setDate(sDate.getDate() + 7);
+                        } else if (timeRent === 'diary') {
+                            sDate.setDate(sDate.getDate() + 1);
+                        }
+                        rentalData.final_date = sDate.toISOString().split('T')[0];
+                        
+                        console.log("Auto-advancing FINAL date for new PAID period:", rentalData.final_date);
+                    }
+                }
 
                 if (wasActive && !isActive) {
                     await adjustReleaseStock(originalRentalState.release_no, 1);
