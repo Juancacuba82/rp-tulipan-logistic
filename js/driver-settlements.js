@@ -292,6 +292,10 @@
                 }
 
                 renderSettlementHistory();
+                
+                // --- AUTOMATION: Ensure sync is called after history loads ---
+                // This helps load the Last Week Balance if the driver was pre-selected (e.g. for driver role)
+                if (window.syncDriverNames) window.syncDriverNames();
             } catch (err) {
                 console.error("CRITICAL: fetchHistory failed ->", err);
             }
@@ -347,23 +351,27 @@
                     tr.style.border = '2px solid #f59e0b';
                 }
 
-                // Aging Calculation
-                let agingText = '---';
-                if (s.start_date) {
-                    const start = new Date(s.start_date + 'T00:00:00');
-                    const diff = new Date() - start;
-                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                    agingText = days >= 0 ? `${days} days` : 'Future';
-                }
-
                 const balance = s.cash_balance || 0;
                 const balanceColor = balance < 0 ? '#ef4444' : '#10b981';
 
+                // Calculate Aging (Days between start and end)
+                const start = new Date(s.start_date);
+                const end = new Date(s.end_date);
+                const diffTime = Math.abs(end - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 0;
+
+                // Status Badge Logic (Subtle indicator for Admin only)
+                let statusBadge = '';
+                const status = s.status || 'PENDING';
+                if (status === 'WAITING_REVIEW' && window.currentUserRole === 'admin') {
+                    statusBadge = `<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; font-weight: 800; border: 1px solid #fde68a; margin-left: 8px; vertical-align: middle;">CONFIRM REQ.</span>`;
+                }
+
                 tr.innerHTML = `
-                    <td style="font-weight: 700; color: #1e293b;">${s.driver_name || 'UNASSIGNED'}</td>
+                    <td style="font-weight: 700; color: #1e293b;">${s.driver_name || 'UNASSIGNED'} ${statusBadge}</td>
                     <td style="color: #475569;">${fDate(s.start_date)}</td>
                     <td style="color: #475569;">${fDate(s.end_date)}</td>
-                    <td style="color: #64748b; font-size: 0.85rem;">${agingText}</td>
+                    <td style="color: #64748b; font-size: 0.85rem;">${diffDays} Days</td>
                     <td style="font-weight: 800; color: ${balanceColor}; font-size: 1.1rem; text-align: center !important;">
                         $${balance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
                     </td>
@@ -490,6 +498,25 @@
                 display.style.color = '#166534'; // Dark green
                 display.style.background = '#dcfce7'; // Light green
                 display.style.borderColor = '#22c55e';
+                
+                // --- AUTOMATION: Auto-load Last Week Balance from History ---
+                if (!editingSettlementId) {
+                    const driverName = val.toUpperCase();
+                    // Find most recent settlement for this driver
+                    const lastSettlement = window.currentSettlements.find(s => (s.driver_name || '').toUpperCase() === driverName);
+                    const elLastBal = document.getElementById('calc-last-bal');
+                    
+                    if (elLastBal) {
+                        if (lastSettlement && lastSettlement.cash_balance > 0) {
+                            elLastBal.value = lastSettlement.cash_balance.toFixed(2);
+                            console.log(`Auto-loaded balance for ${driverName}: $${lastSettlement.cash_balance}`);
+                        } else {
+                            elLastBal.value = 0;
+                        }
+                        // Trigger recalculation
+                        if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                    }
+                }
             } else {
                 display.style.color = '#b91c1c'; // Dark red
                 display.style.background = '#fee2e2'; // Light red
@@ -619,6 +646,76 @@
             }
         }
         window.deleteSettlement = deleteSettlement;
+
+        window.confirmReportByDriver = async function() {
+            if (window.currentUserRole !== 'driver') return;
+
+            const fromField = document.getElementById('filter-from');
+            const toField = document.getElementById('filter-to');
+            const driverName = (window.currentDriverNameRef || '').toUpperCase();
+
+            if (!fromField.value || !toField.value) {
+                alert("Please select the date range (Initial and Final Date) for your report before confirming.");
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to confirm your trips from ${fromField.value} to ${toField.value} and request a review?`)) return;
+
+            // Get all values from the calculator
+            const valCashColl = parseFloat(document.getElementById('calc-cash-coll')?.value) || 0;
+            const valLastBal = parseFloat(document.getElementById('calc-last-bal')?.value) || 0;
+            const valGross = parseFloat(document.getElementById('calc-gross')?.value) || 0;
+            const valFactory = parseFloat(document.getElementById('calc-factory')?.value) || 0;
+            const valWeekly = parseFloat(document.getElementById('calc-weekly')?.value) || 0;
+            
+            // Get calculated results
+            const valNetSalary = parseFloat(document.getElementById('res-driver-salary')?.textContent.replace('$', '').replace(',', '')) || 0;
+            const valFinalCashBal = parseFloat(document.getElementById('res-cash-bal')?.textContent.replace('$', '').replace(',', '')) || 0;
+
+            const entry = {
+                driver_name: driverName,
+                start_date: fromField.value,
+                end_date: toField.value,
+                cash_collected: valCashColl,
+                last_week_balance: valLastBal,
+                gross_amount: valGross,
+                factory_fee_percent: valFactory,
+                weekly_payment: valWeekly,
+                cash_balance: valFinalCashBal,
+                status: 'WAITING_REVIEW',
+                payment_type: 'CASH',
+                created_at: new Date().toISOString()
+            };
+
+            try {
+                const { error } = await db.from('settlement_history').insert([entry]);
+                if (error) throw error;
+
+                alert("Report confirmed! Admin will be notified to process your payment.");
+                if (window.fetchHistory) window.fetchHistory();
+            } catch (err) {
+                console.error("Confirmation failed:", err);
+                alert("Error: " + err.message);
+            }
+        };
+
+        // UI Utility for role-based visibility
+        window.applyRoleVisibility = function() {
+            const role = window.currentUserRole || 'driver';
+            const adminEls = document.querySelectorAll('.admin-only');
+            const driverEls = document.querySelectorAll('.driver-only');
+            
+            adminEls.forEach(el => el.style.display = (role === 'admin') ? '' : 'none');
+            driverEls.forEach(el => el.style.display = (role === 'driver') ? '' : 'none');
+            
+            // Calculator is visible to both so drivers can see the breakdown
+            const calc = document.querySelector('.weekly-calculator-container');
+            if (calc) calc.style.display = ''; 
+
+            // Archive action is strictly for Admin
+            const archiveBtn = document.getElementById('btn-archive-settlement');
+            if (archiveBtn) archiveBtn.style.display = (role === 'admin') ? '' : 'none';
+        };
 
         // New logic for Release Row addition (SUPABASE)
         window.addReleaseRow = async () => {
