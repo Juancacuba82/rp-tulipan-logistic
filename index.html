@@ -29,6 +29,7 @@
     <script src="./js/profit-expenses.js?v=1700"></script>
     
     <script src="./js/docs-receipts.js?v=1700"></script>
+    <script src="./js/email-service.js?v=10"></script>
     <script src="./js/fleet.js?v=1700"></script>
 
     <!-- PDF & Email Service Libraries -->
@@ -972,9 +973,21 @@
                                 <option value="FACING PASSENGER">FACING PASSENGER</option>
                             </select>
                         </div>
-                        <div class="form-group" id="transport-miles-group" style="display:none;"><label
-                                class="sidebar-label-btn sidebar-label-btn-blue">Miles</label><input type="number"
-                                id="in-miles" placeholder="0">
+                        <div class="form-group" id="transport-miles-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-blue">Miles</label>
+                            <div class="input-paid-wrap">
+                                <input type="number" id="in-miles" placeholder="0">
+                                <div class="input-paid-badges-group">
+                                    <span class="input-paid-badge" style="background-color: #eff6ff; color: #1e40af; border-color: #bfdbfe; cursor: pointer;" title="Manual calculate" onclick="window.triggerMileageCalc(true)">
+                                        <i class="fas fa-calculator" style="font-size: 0.7rem;"></i>
+                                        <span style="margin-left: 3px;">CALC</span>
+                                    </span>
+                                    <label class="input-paid-badge" style="background-color: #f8fafc; color: #64748b; border-color: #e2e8f0;" title="Auto-calculate miles toggle">
+                                        <input type="checkbox" id="auto-calc-miles">
+                                        <span>AUTO</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group" id="transport-company-group" style="display:none;">
                             <div
@@ -3296,7 +3309,7 @@
             const adminOnlySelectors = [
                 'button[onclick*="profit-report"]',
                 '#nav-actions-container button[onclick*="profit-report"]',
-                //'#btn-email-settings' // <--- BORRA LOS // AL PRINCIPIO DE ESTA LÃ NEA PARA MOSTRAR EL BOTÃ“N
+                //'#btn-email-settings' // <--- BORRA LOS // AL PRINCIPIO DE ESTA LÍNEA PARA MOSTRAR EL BOTÓN
             ];
 
             const staffOnlySelectors = [
@@ -3611,6 +3624,7 @@
                 if (window.applyRoleVisibility) window.applyRoleVisibility();
 
                 // 5. Trigger specific loads with safety timeout
+
                 setTimeout(() => {
                     if (finalView === 'docs') {
                         // DIAGNÓSTICO DIRECTO
@@ -4438,6 +4452,140 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // --- GOOGLE MAPS MILEAGE GLOBAL LOGIC ---
+        const getApiKey = () => localStorage.getItem('google_maps_api_key') || 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
+
+        function loadGoogleMapsScript(key) {
+            return new Promise((resolve, reject) => {
+                if (typeof google !== 'undefined' && google.maps) return resolve();
+                const timeout = setTimeout(() => {
+                    reject(new Error("Tiempo de espera agotado al cargar Google Maps. Revisa tu conexión."));
+                }, 10000);
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry`;
+                script.async = true;
+                script.defer = true;
+                script.onload = () => {
+                    clearTimeout(timeout);
+                    console.log("Google Maps script loaded.");
+                    resolve();
+                };
+                script.onerror = (e) => {
+                    clearTimeout(timeout);
+                    console.error("Failed to load Google Maps script", e);
+                    reject(new Error("No se pudo cargar el script de Google. Revisa tu API Key o conexión."));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        function testGoogleConnection() {
+            if (typeof google === 'undefined' || !google.maps) {
+                alert("Google Maps no está inicializado.");
+            } else {
+                alert("Conexión con Google Maps activa.");
+            }
+        }
+
+        async function triggerMileageCalc(isManual = false) {
+            const milesInput = document.getElementById('in-miles');
+            const setStatus = (msg, color = "#fffbeb") => {
+                if (milesInput) {
+                    milesInput.placeholder = msg;
+                    milesInput.style.backgroundColor = color;
+                    console.log("Mileage Status:", msg);
+                }
+            };
+
+            try {
+                const checkbox = document.getElementById('auto-calc-miles');
+                if (!isManual && (!checkbox || !checkbox.checked)) return;
+
+                let apiKey = getApiKey();
+                if (apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE') {
+                    const userKey = prompt("Ingresa tu Google API Key:");
+                    if (userKey) {
+                        localStorage.setItem('google_maps_api_key', userKey);
+                        apiKey = userKey;
+                    } else return;
+                }
+
+                const pickupSel = document.getElementById('in-pickup-sel');
+                const pickupMan = document.getElementById('in-pickup');
+                const origin = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
+                const destination = document.getElementById('in-delivery')?.value;
+
+                if (!origin || !destination || origin.trim() === '' || destination.trim() === '') {
+                    if (isManual) setStatus("Err: Missing Address", "#fee2e2");
+                    return;
+                }
+
+                setStatus("Step 1: Connecting...");
+
+                if (typeof google === 'undefined' || !google.maps) {
+                    await loadGoogleMapsScript(apiKey);
+                }
+
+                setStatus("Step 2: Sending Req...");
+                console.log("Sending to Google:", { origin, destination });
+
+                const service = new google.maps.DistanceMatrixService();
+                
+                // Timeout manual para la respuesta de Google
+                const callbackTimeout = setTimeout(() => {
+                    setStatus("Err: Google Timeout", "#fee2e2");
+                }, 8000);
+
+                service.getDistanceMatrix({
+                    origins: [origin],
+                    destinations: [destination],
+                    travelMode: 'DRIVING',
+                    unitSystem: google.maps.UnitSystem.IMPERIAL,
+                }, (response, status) => {
+                    clearTimeout(callbackTimeout);
+                    console.log("Google Response Status:", status);
+                    
+                    try {
+                        if (status === 'OK') {
+                            const element = response.rows[0].elements[0];
+                            if (element.status === 'OK') {
+                                const miles = Math.ceil(element.distance.value * 0.000621371);
+                                milesInput.value = miles;
+                                setStatus("0", ""); 
+                            } else {
+                                setStatus("Google: " + element.status, "#fee2e2");
+                            }
+                        } else {
+                            setStatus("API: " + status, "#fee2e2");
+                        }
+                    } catch (e) {
+                        setStatus("Err inside callback", "#fee2e2");
+                        console.error(e);
+                    }
+                });
+            } catch (err) {
+                setStatus("Err: " + err.message, "#fee2e2");
+            }
+        }
+
+        // Initialize listeners
+        document.addEventListener('DOMContentLoaded', () => {
+             // Add listeners to fields if they exist
+             const monitorFields = ['in-delivery', 'in-pickup', 'in-pickup-sel', 'auto-calc-miles'];
+             monitorFields.forEach(id => {
+                 const el = document.getElementById(id);
+                 if (el) {
+                     el.addEventListener(id.includes('miles') ? 'change' : 'blur', () => {
+                         if (document.getElementById('auto-calc-miles')?.checked) triggerMileageCalc();
+                     });
+                 }
+             });
+        });
+        
+        window.triggerMileageCalc = triggerMileageCalc;
+    </script>
 </body>
 
 </html>
