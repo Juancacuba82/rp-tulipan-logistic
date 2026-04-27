@@ -31,6 +31,7 @@
     <script src="./js/docs-receipts.js?v=1700"></script>
     <script src="./js/email-service.js?v=10"></script>
     <script src="./js/fleet.js?v=1700"></script>
+    <script src="./js/tasks.js?v=10"></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -774,6 +775,10 @@
                     <button onclick="showView('rentals')" class="dash-card">
                         <i class="fas fa-key"></i>
                         <span>RENTALS</span>
+                    </button>
+                    <button onclick="showView('tasks')" class="dash-card">
+                        <i class="fas fa-tasks"></i>
+                        <span>TASKS & TO-DO</span>
                     </button>
                 </div>
             </div>
@@ -3160,6 +3165,78 @@
             </div>
         </section>
 
+        <!-- TASKS View -->
+        <section id="tasks-view" class="view-section hidden">
+            <div class="dashboard-split-container">
+                <!-- Left Panel: Task Creation (Admin Only) -->
+                <aside class="sidebar-form sidebar-narrow admin-only">
+                    <div class="sidebar-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                        <i class="fas fa-plus-circle" style="color: #1e40af;"></i>
+                        <h2 style="color: #0f172a; font-weight: 900; margin-left: 10px;">Assign New Task</h2>
+                    </div>
+                    
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e40af !important;">TASK TITLE</label>
+                            <input type="text" id="task-title" placeholder="e.g. Call client for signature">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">ASSIGNEE</label>
+                            <select id="task-assignee">
+                                <option value="" disabled selected>Loading employees...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">DESCRIPTION / NOTES</label>
+                            <textarea id="task-desc" placeholder="Detailed instructions here..."
+                                style="width: 100%; height: 100px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 0.85rem; resize: none; font-family: inherit; font-weight: 700; background: #f8fafc;"></textarea>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <button id="btn-save-task" onclick="addTask()" class="btn-add-sidebar" style="width: 100%; padding: 12px; background: #1e40af; border: none;">CREATE TASK</button>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Right Panel: Tasks List -->
+                <div class="table-area">
+                    <div class="table-toolbar">
+                        <div style="display:flex; justify-content: space-between; align-items:center;">
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <h2 style="border-left: 4px solid #1e40af; padding-left: 15px;">Pending Tasks Tracking</h2>
+                                <div class="filter-summary-card" style="margin-bottom: 0;">
+                                    <div class="filter-summary-icon" style="background: #eff6ff; color: #1e40af;">
+                                        <i class="fas fa-tasks"></i>
+                                    </div>
+                                    <div class="filter-summary-info">
+                                        <span class="filter-summary-label">Total Tasks</span>
+                                        <span class="filter-summary-value" id="tasks-count-display">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-scroll-container">
+                        <table class="drivers-report-table" id="tasks-table">
+                            <thead>
+                                <tr class="header-row" style="background: #1e40af !important;">
+                                    <th>DATE</th>
+                                    <th>TASK TITLE</th>
+                                    <th>DESCRIPTION</th>
+                                    <th>ASSIGNED TO</th>
+                                    <th>STATUS</th>
+                                    <th>COMPLETED AT</th>
+                                    <th>ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasks-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
 
     </main>
 
@@ -3273,25 +3350,24 @@
             try {
                 const session = await getSession();
                 if (session && session.user) {
-                    // Pre-fill user data even before profile loading
                     window.currentUserRole = 'user';
                     window.userEmail = session.user.email;
 
                     try {
                         const profile = await getProfile(session.user.id);
                         window.currentUserRole = profile ? profile.role : 'user';
-                        window.userEmail = session.user.email; // Asegurar aquí
+                        window.userEmail = session.user.email;
                         window.currentDriverNameRef = profile ? (profile.driver_name_ref || profile.name) : null;
                         
-                        console.log("AUTH SUCCESS:", window.userEmail, window.currentUserRole, window.currentDriverNameRef);
+                        console.log("AUTH SUCCESS:", window.userEmail, window.currentUserRole);
                     } catch (pErr) {
-                        console.warn("Profile fetch failed, defaulting to 'user' role:", pErr);
+                        console.warn("Profile fetch failed:", pErr);
+                        window.currentUserRole = 'user';
                     }
 
                     applyRoleRestrictions();
                     return true;
                 } else {
-                    console.log("No active session found.");
                     return false;
                 }
             } catch (err) {
@@ -3302,8 +3378,10 @@
         window.checkAuth = checkAuth;
 
         function applyRoleRestrictions() {
-            const isAdmin = window.currentUserRole === 'admin';
-            const isDriver = window.currentUserRole === 'driver';
+            const role = (window.currentUserRole || '').toString().toLowerCase().trim();
+            const isAdmin = role === 'admin';
+            const isEmployee = role === 'employee' || role === 'staff';
+            const isDriver = role === 'driver';
 
             // Hide restricted views from navigation & dashboard
             const adminOnlySelectors = [
@@ -3319,10 +3397,12 @@
                 'button[onclick*="calendar"]',
                 'button[onclick*="cust-invoice"]',
                 'button[onclick*="rentals"]',
+                'button[onclick*="tasks"]',
                 '#nav-actions-container button[onclick*="fleet"]',
                 '#nav-actions-container button[onclick*="releases"]',
                 '#nav-actions-container button[onclick*="calendar"]',
-                '#nav-actions-container button[onclick*="cust-invoice"]'
+                '#nav-actions-container button[onclick*="cust-invoice"]',
+                '#nav-actions-container button[onclick*="tasks"]'
             ];
 
             // Email Settings button: only visible for admin
@@ -3332,6 +3412,16 @@
             if (isAdmin) {
                 // Admin sees everything
                 [...adminOnlySelectors, ...staffOnlySelectors].forEach(sel => {
+                    const els = document.querySelectorAll(sel);
+                    els.forEach(el => el.style.display = '');
+                });
+            } else if (isEmployee) {
+                // Staff (employee) sees everything except Profit Reports
+                adminOnlySelectors.forEach(sel => {
+                    const els = document.querySelectorAll(sel);
+                    els.forEach(el => el.style.display = 'none');
+                });
+                staffOnlySelectors.forEach(sel => {
                     const els = document.querySelectorAll(sel);
                     els.forEach(el => el.style.display = '');
                 });
@@ -3720,6 +3810,8 @@
                             if (window.loadCallsData) await window.loadCallsData();
                             if (window.renderCallsTable) window.renderCallsTable();
                         })();
+                    } else if (viewId === 'tasks') {
+                        if (window.loadTasksData) window.loadTasksData();
                     }
 
                     // Always ensure data managers are loaded

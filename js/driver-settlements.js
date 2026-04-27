@@ -701,12 +701,23 @@
 
         // UI Utility for role-based visibility
         window.applyRoleVisibility = function() {
-            const role = window.currentUserRole || 'driver';
+            const role = (window.currentUserRole || 'driver').toString().toLowerCase().trim();
+            const isAdmin = (role === 'admin');
+            const isEmployee = (role === 'employee' || role === 'staff');
+            const isDriver = (role === 'driver');
+
+            console.log("Applying Visibility for role:", role, "isAdmin:", isAdmin);
+
             const adminEls = document.querySelectorAll('.admin-only');
             const driverEls = document.querySelectorAll('.driver-only');
+            const employeeEls = document.querySelectorAll('.employee-only');
+            const staffEls = document.querySelectorAll('.staff-only'); 
             
-            adminEls.forEach(el => el.style.display = (role === 'admin') ? '' : 'none');
-            driverEls.forEach(el => el.style.display = (role === 'driver') ? '' : 'none');
+            // Admin sees EVERYTHING
+            adminEls.forEach(el => el.style.display = isAdmin ? '' : 'none');
+            driverEls.forEach(el => el.style.display = (isAdmin || isDriver) ? '' : 'none');
+            employeeEls.forEach(el => el.style.display = (isAdmin || isEmployee) ? '' : 'none');
+            staffEls.forEach(el => el.style.display = (isAdmin || isEmployee) ? '' : 'none');
             
             // Calculator is visible to both so drivers can see the breakdown
             const calc = document.querySelector('.weekly-calculator-container');
@@ -714,7 +725,7 @@
 
             // Archive action is strictly for Admin
             const archiveBtn = document.getElementById('btn-archive-settlement');
-            if (archiveBtn) archiveBtn.style.display = (role === 'admin') ? '' : 'none';
+            if (archiveBtn) archiveBtn.style.display = isAdmin ? '' : 'none';
         };
 
         // New logic for Release Row addition (SUPABASE)
