@@ -76,7 +76,28 @@ function renderCallsTable() {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
+    // Split calls: Today's calls first, then the rest
+    const todayCalls = [];
+    const otherCalls = [];
+    
     filtered.forEach(c => {
+        if (c.next_call_date === todayStr) {
+            todayCalls.push(c);
+        } else {
+            otherCalls.push(c);
+        }
+    });
+
+    // Sort otherCalls by next_call_date ascending (closest first, missing dates at the bottom)
+    otherCalls.sort((a, b) => {
+        const dateA = a.next_call_date || "9999-99-99";
+        const dateB = b.next_call_date || "9999-99-99";
+        return dateA.localeCompare(dateB);
+    });
+
+    const finalSorted = [...todayCalls, ...otherCalls];
+
+    finalSorted.forEach(c => {
         const tr = document.createElement('tr');
         if (editingCallId === c.id) tr.classList.add('editing-row');
 
@@ -103,12 +124,17 @@ function renderCallsTable() {
         // Get worker alias or email
         const worker = c.created_by ? c.created_by.split('@')[0].toUpperCase() : '---';
 
+        tr.style.cursor = 'pointer';
+        tr.onclick = (e) => {
+            editCallLog(c.id);
+        };
+
         tr.innerHTML = `
             <td>${dateStr}</td>
             <td style="font-weight:900;">${(c.customer || "").toUpperCase()}</td>
             <td><span class="inv-badge inv-badge-blue">${c.service_type || 'Sales'}</span></td>
             <td>${c.phone || "---"}</td>
-            <td>${(c.city || "").toUpperCase()}</td>
+            <td style="text-align: center;">${(c.city || "").toUpperCase()}</td>
             <td>${c.zip_code || "---"}</td>
             <td>${(c.measures || "").toUpperCase()}</td>
             <td style="color: #15803d; font-weight: 800;">$${Number(c.amount || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
@@ -117,13 +143,6 @@ function renderCallsTable() {
             <td class="admin-td-assigned" style="${isAdmin ? '' : 'display:none;'} font-weight: 700; color: #1e40af;">${worker}</td>
             <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.description || ''}">
                 ${(c.description || "---").toUpperCase()}
-            </td>
-            <td>
-                <div style="display:flex; gap:5px;">
-                    <button onclick="editCallLog('${c.id}')" class="btn-manage-inline" title="Edit"><i class="fas fa-edit"></i></button>
-                    <button onclick="openTransferModal('${c.id}')" class="btn-manage-inline" style="color: #6366f1;" title="Transfer"><i class="fas fa-exchange-alt"></i></button>
-                    <button onclick="deleteCallLog('${c.id}')" class="btn-manage-inline" style="color: #ef4444;" title="Delete"><i class="fas fa-trash"></i></button>
-                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -195,7 +214,12 @@ async function executeTransfer() {
         
         alert("Client transferred successfully");
         closeTransferModal();
-        await loadCallsData();
+        
+        if (editingCallId === callIdToTransfer) {
+            resetCallForm();
+        } else {
+            await loadCallsData();
+        }
     } catch (err) {
         console.error("Error transferring client:", err);
         alert("Error: " + err.message);
@@ -308,8 +332,26 @@ function editCallLog(id) {
     document.getElementById('call-description').value = call.description || "";
 
     document.getElementById('btn-save-call').textContent = "UPDATE CALL RECORD";
+    
+    const btnTrans = document.getElementById('btn-top-transfer');
+    const btnDel = document.getElementById('btn-top-delete');
+    if (btnTrans) { btnTrans.disabled = false; btnTrans.style.opacity = '1'; btnTrans.style.cursor = 'pointer'; }
+    if (btnDel) { btnDel.disabled = false; btnDel.style.opacity = '1'; btnDel.style.cursor = 'pointer'; }
+
     renderCallsTable();
 }
+
+window.handleTopTransfer = function() {
+    if (editingCallId) {
+        openTransferModal(editingCallId);
+    }
+};
+
+window.handleTopDelete = function() {
+    if (editingCallId) {
+        deleteCallLog(editingCallId);
+    }
+};
 
 async function deleteCallLog(id) {
     if (!confirm("Are you sure you want to delete this lead?")) return;
@@ -317,7 +359,12 @@ async function deleteCallLog(id) {
     try {
         const { error } = await db.from('call_logs').delete().eq('id', id);
         if (error) throw error;
-        await loadCallsData();
+        
+        if (editingCallId === id) {
+            resetCallForm();
+        } else {
+            await loadCallsData();
+        }
     } catch (err) {
         console.error("Error deleting call:", err);
         alert("Error: " + err.message);
@@ -342,6 +389,12 @@ function resetCallForm() {
     document.getElementById('call-description').value = "";
     
     document.getElementById('btn-save-call').textContent = "SAVE CALL RECORD";
+
+    const btnTrans = document.getElementById('btn-top-transfer');
+    const btnDel = document.getElementById('btn-top-delete');
+    if (btnTrans) { btnTrans.disabled = true; btnTrans.style.opacity = '0.5'; btnTrans.style.cursor = 'not-allowed'; }
+    if (btnDel) { btnDel.disabled = true; btnDel.style.opacity = '0.5'; btnDel.style.cursor = 'not-allowed'; }
+
     renderCallsTable();
 }
 

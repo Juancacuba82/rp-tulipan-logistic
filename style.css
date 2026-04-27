@@ -605,7 +605,7 @@ main {
 .btn-cancel:hover { background-color: #cbd5e1; }
 
 /* Force Note column wrapping in expenses history */
-.drivers-report-table td:nth-child(5) {
+#expenses-body td:nth-child(5) {
     min-width: 220px !important;
     max-width: 250px !important;
     white-space: normal !important;
