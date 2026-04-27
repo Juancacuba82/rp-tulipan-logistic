@@ -194,20 +194,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 // Ensure releases are loaded
-                if (!currentReleases || currentReleases.length === 0) {
+                if (!window.currentReleases || window.currentReleases.length === 0) {
                     if (window.loadReleasesData) await loadReleasesData();
                 }
 
-                if (currentReleases && currentReleases.length > 0) {
+                if (window.currentReleases && window.currentReleases.length > 0) {
                     // SIMPLIFIED MATCHING: Just use Release # and Exact Size
-                    let matchingRows = currentReleases.filter(r =>
+                    let matchingRows = window.currentReleases.filter(r =>
                         r[0] === selectedRelease &&
                         (r[16] || '').trim() === selectedSize.trim()
                     );
 
                     // Fallback to size-based heuristic if no specific size match
                     if (matchingRows.length === 0) {
-                        matchingRows = currentReleases.filter(r => r[0] === selectedRelease);
+                        matchingRows = window.currentReleases.filter(r => r[0] === selectedRelease);
                         if (selectedSize.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
                         else if (selectedSize.startsWith("40")) matchingRows = matchingRows.filter(r => (parseInt(r[9]) > 0));
                         else if (selectedSize.startsWith("45")) matchingRows = matchingRows.filter(r => (parseInt(r[11]) > 0));
@@ -230,7 +230,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             // Bypass for editing same order
                             let bypassStockCheck = false;
                             if (editingIndex !== null) {
-                                const old = currentTrips[editingIndex];
+                                const old = window.currentTrips[editingIndex];
                                 if (old && old[4] === selectedRelease && old[2] === selectedSize && old[44] === selectedRelType && old[45] === selectedRelCond) {
                                     bypassStockCheck = true;
                                 }
@@ -288,9 +288,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Preserve existing signature and photos if editing
             let existingSig = '';
             let existingPhotos = [];
-            if (editingIndex !== null && currentTrips[editingIndex]) {
-                existingSig = currentTrips[editingIndex][54] || '';
-                existingPhotos = currentTrips[editingIndex][55] || [];
+            if (editingIndex !== null && window.currentTrips[editingIndex]) {
+                existingSig = window.currentTrips[editingIndex][54] || '';
+                existingPhotos = window.currentTrips[editingIndex][55] || [];
             }
 
             const rowData = [
@@ -518,12 +518,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         window.updateReleaseDatalist = function () {
             const relSel = document.getElementById('in-release-sel');
             const relList = document.getElementById('release-list');
-            if (typeof currentReleases === 'undefined' || !currentReleases) return;
+            if (typeof window.currentReleases === 'undefined' || !window.currentReleases) return;
 
             // 1. Group and Consolidate Stock to handle duplicates gracefully
             const consolidated = {};
             
-            currentReleases.forEach(r => {
+            window.currentReleases.forEach(r => {
                 if (!r) return;
                 // Support both Array (from mapping) and Object (direct from DB)
                 const relNo = (Array.isArray(r) ? r[0] : r.release_no || '').trim();
@@ -745,10 +745,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const selectedRelType = relType?.value;
                 const selectedRelCond = relCond?.value;
 
-                if (currentReleases.length === 0) return;
+                if (window.currentReleases.length === 0) return;
 
                 // Get all rows matching this release #, type, and condition
-                const matchingRows = currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
+                const matchingRows = window.currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
 
                 Array.from(inSizeSelect.options).forEach(opt => {
                     const val = opt.value;
@@ -784,8 +784,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
         function updateAddressDatalist() {
             const addressList = document.getElementById('address-list');
-            if (currentTrips.length > 0 && addressList) {
-                const rows = currentTrips;
+            if (window.currentTrips.length > 0 && addressList) {
+                const rows = window.currentTrips;
                 const storedValues = rows.map(r => r[7]).filter(val => val && val !== '---');
                 const existingOptions = Array.from(addressList.options).map(opt => opt.value);
                 const uniqueNewOnes = [...new Set(storedValues)].filter(val => !existingOptions.includes(val));
@@ -797,8 +797,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
 
         function loadTripToEdit(idx) {
-            if (!currentTrips[idx]) return;
-            const rowData = currentTrips[idx];
+            if (!window.currentTrips[idx]) return;
+            const rowData = window.currentTrips[idx];
 
             editingIndex = idx;
             const tripId = rowData[0];
@@ -1039,12 +1039,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // Populating dynamic filters
                 populateFilterPickers();
 
-                currentTrips = data.map(mapTripToArray);
+                window.currentTrips = data.map(mapTripToArray);
 
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded (Initial Load) ---
                 if (window.renderDriverLog) window.renderDriverLog();
 
-                currentTrips.forEach((rowData, idx) => {
+                window.currentTrips.forEach((rowData, idx) => {
                     try {
                         const tr = document.createElement('tr');
                         const isTodayEntry = (rowData[1] === todayStr);
@@ -1277,17 +1277,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     console.log(`Reverting stock for deleted trip: ${relNo}, ${size}, Qty: ${qtyVal}`);
                                     
                                     // Ensure releases are loaded
-                                    if (!currentReleases || currentReleases.length === 0) {
+                                    if (!window.currentReleases || window.currentReleases.length === 0) {
                                         if (window.loadReleasesData) await window.loadReleasesData();
                                     }
 
                                     // Find exact match
-                                    const match = currentReleases.find(r => 
+                                    const match = window.currentReleases.find(r => 
                                         r[0] === relNo && 
                                         String(r[16] || '').trim() === String(size || '').trim() &&
                                         r[2] === type &&
                                         r[3] === cond
-                                    ) || currentReleases.find(r => r[0] === relNo); // Fallback to just Rel No
+                                    ) || window.currentReleases.find(r => r[0] === relNo); // Fallback to just Rel No
 
                                     if (match) {
                                         const releaseUuid = match[15];
@@ -1344,7 +1344,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                             // Dynamic Highlighting Refresh
                             document.querySelectorAll('#table-body tr').forEach((row, rIdx) => {
-                                const rData = currentTrips[rIdx];
+                                const rData = window.currentTrips[rIdx];
                                 row.classList.remove('editing-row', 'selected-row');
                                 if (editingIndex === rIdx) row.classList.add('editing-row');
                                 else if (window.selectedTripIds.includes(rData?.[0])) row.classList.add('selected-row');

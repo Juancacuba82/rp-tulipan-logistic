@@ -32,6 +32,7 @@
     <script src="./js/email-service.js?v=10"></script>
     <script src="./js/fleet.js?v=1700"></script>
     <script src="./js/tasks.js?v=10"></script>
+    <script src="./js/master-invoice.js?v=1700"></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -430,161 +431,145 @@
         .inv-badge-green { background: #f0fdf4; color: #15803d; }
         .inv-badge-orange { background: #fff7ed; color: #c2410c; }
 
-        /* Responsive adjustments for Inventory Detail */
-        @media (max-width: 768px) {
-            .inventory-detail-modal .modal-content {
-                width: 90vw !important;
-                max-height: 85vh !important;
-                display: flex !important;
+        /* --- COMPREHENSIVE MOBILE RESPONSIVENESS (TASKS, RENTALS, ETC) --- */
+        @media (max-width: 1024px) {
+            /* Generic Split View Mobile Fix */
+            .dashboard-split-container {
                 flex-direction: column !important;
-                border-top-width: 5px !important;
-            }
-
-            .inv-detail-header {
-                padding: 15px 20px !important;
-            }
-
-            .inv-detail-title {
-                font-size: 1.2rem !important;
-            }
-
-            .inv-detail-body {
-                grid-template-columns: 1fr !important;
-                padding: 15px !important;
-                gap: 15px !important;
+                height: auto !important;
                 overflow-y: auto !important;
-                flex: 1 !important;
             }
 
-            .inv-detail-card {
-                grid-column: span 1 !important;
+            .dashboard-split-container aside,
+            .entry-sidebar, 
+            .sidebar-form,
+            .sidebar-narrow {
+                flex: 0 0 auto !important;
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                border-right: none !important;
+                border-bottom: 2px solid #cbd5e1 !important;
                 padding: 15px !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
             }
 
-            .inv-detail-info-grid {
-                grid-template-columns: 1fr 1fr !important;
+            .table-area {
+                width: 100% !important;
+                flex: 0 0 auto !important;
+                padding: 10px !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            .table-toolbar > div {
+                flex-direction: column !important;
+                align-items: center !important;
+                text-align: center !important;
+                gap: 15px !important;
+            }
+
+            .header-actions {
+                width: 100% !important;
+                justify-content: center !important;
+                flex-wrap: wrap !important;
                 gap: 10px !important;
             }
 
-            /* Financials breakdown on mobile */
-            #inventory-detail-modal .inv-detail-info-grid[style*="repeat(4, 1fr)"] {
-                grid-template-columns: 1fr 1fr !important;
-                gap: 12px !important;
-            }
-
-            .inv-info-value {
-                font-size: 0.9rem !important;
-            }
-
-            .inv-detail-footer {
-                padding: 15px 20px !important;
-            }
-        }
-
-        /* Inventory View Mobile Fixes */
-        @media (max-width: 768px) {
-            #inventory-view > div {
-                padding: 20px 10px !important;
-            }
-            #inventory-view .releases-filter-container {
-                display: grid !important;
-                grid-template-columns: 1fr 1fr !important;
-                gap: 8px !important;
-                margin-bottom: 15px !important;
-            }
-            #inventory-view .filter-item {
+            .sidebar-label-btn {
+                width: 100% !important;
                 flex: none !important;
+                margin-bottom: 5px !important;
+                margin-right: 0 !important;
+            }
+            
+            .form-group {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 5px !important;
+            }
+
+            .hybrid-input-wrapper {
                 width: 100% !important;
             }
-            #inventory-view label {
-                font-size: 0.65rem !important;
+
+            input, select, textarea, .rel-filter-input {
+                padding: 8px 12px !important;
+                font-size: 0.9rem !important;
+                height: 42px !important;
             }
-            #inventory-view input, #inventory-view select {
-                padding: 6px 8px !important;
-                font-size: 0.75rem !important;
-            }
-            #inventory-view .table-scroll-container {
-                margin: 0 -10px !important;
+
+            textarea { height: 100px !important; }
+
+            .table-scroll-container {
+                margin: 10px -10px !important;
                 border-radius: 0 !important;
                 border-left: none !important;
                 border-right: none !important;
+                width: calc(100% + 20px) !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            /* Navbar adjustments */
+            .logo-text { font-size: 1.1rem !important; letter-spacing: 1px !important; }
+            .navbar-logo-img { width: 30px !important; }
+            
+            /* Dash Cards (Hero) */
+            .dashboard-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+                padding: 0 10px !important;
+            }
+            .dash-card { padding: 15px 20px !important; }
+            .dash-card i { font-size: 1.2rem !important; width: 30px !important; }
+            .dash-card span { font-size: 0.85rem !important; }
+
+            /* Inner headers with summary cards */
+            .table-toolbar div[style*="flex"] {
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 10px !important;
             }
 
-            #inventory-view .inv-header-flex {
+            /* Inventory & Filters */
+            .inv-header-flex {
                 flex-direction: column !important;
-                align-items: flex-start !important;
+                text-align: center !important;
                 gap: 20px !important;
             }
-
-            #inventory-view .inv-header-filters {
+            .inv-header-filters {
                 width: 100% !important;
-                justify-content: space-between !important;
-            }
-
-            /* Fleet Management Mobile Responsive Fixes */
-            #fleet-view .dashboard-split-container {
-                flex-direction: column !important;
-                height: auto !important;
-                overflow: visible !important;
-            }
-            #fleet-view aside {
-                width: 100% !important;
-                height: auto !important;
-                max-height: none !important;
-                border-bottom: 2px solid #cbd5e1 !important;
-                padding: 15px !important;
-                overflow: visible !important;
-            }
-            #fleet-view .table-area {
-                padding: 10px !important;
-                height: auto !important;
-                width: 100% !important;
-            }
-            #fleet-cards-container {
-                grid-template-columns: 1fr !important;
-                gap: 15px !important;
-            }
-
-            /* Form Call & Calendar Mobile Fixes */
-            #calls-view .dashboard-split-container,
-            #calendar-view .dashboard-split-container {
-                flex-direction: column !important;
-                height: auto !important;
-            }
-            #calls-view aside, #calendar-view aside {
-                width: 100% !important;
-                padding: 15px !important;
-                border-right: none !important;
-                border-bottom: 2px solid #cbd5e1 !important;
-            }
-
-            /* Customer Invoice & Inventory Mobile Fixes */
-            .inv-header-flex, #inventory-view .inv-header-flex {
-                flex-direction: column !important;
-                align-items: stretch !important;
-                text-align: center;
-                gap: 15px;
-            }
-            .releases-filter-container {
                 flex-direction: column !important;
                 gap: 10px !important;
             }
-            .releases-filter-container .filter-item,
-            .releases-filter-container input,
-            .releases-filter-container select,
-            .releases-filter-container button {
-                width: 100% !important;
+            .releases-filter-container {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 8px !important;
             }
+            .releases-filter-container .filter-item { width: 100% !important; }
 
-            /* Auth / Login View Mobile */
+            /* Modal adjustments */
+            .inventory-detail-modal .modal-content {
+                width: 95vw !important;
+                max-height: 90vh !important;
+            }
+            .inv-detail-body { grid-template-columns: 1fr !important; }
+            .inv-detail-info-grid { grid-template-columns: 1fr 1fr !important; }
+
+            /* Auth View */
             #auth-view .auth-card {
                 margin: 20px;
                 padding: 25px !important;
             }
 
-            /* Navbar Logo Mobile size */
-            .logo-text { font-size: 1.2rem !important; }
-            .navbar-logo-img { width: 35px !important; }
+            /* Profit Report specific */
+            .report-header { flex-direction: column !important; gap: 20px !important; }
+            .profit-summary-grid { grid-template-columns: 1fr !important; }
+            .report-details-grid { grid-template-columns: 1fr !important; }
         }
         .btn-manage-inline {
             background: #f8fafc;
@@ -681,6 +666,8 @@
                     & RECEIPTS</button>
                 <button onclick="closeMenu(); showView('calendar')" class="btn-calendar"><i
                         class="fas fa-calendar-check"></i> DELIVERY CALENDAR</button>
+                <button onclick="closeMenu(); showView('master-invoice')" class="btn-calendar"><i
+                        class="fas fa-file-invoice-dollar"></i> MASTER INVOICE</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -747,6 +734,10 @@
                     <button onclick="showView('releases')" class="dash-card">
                         <i class="fas fa-file-signature"></i>
                         <span>FORM RELEASES</span>
+                    </button>
+                    <button onclick="showView('master-invoice')" class="dash-card">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>MASTER INVOICE</span>
                     </button>
                     <button onclick="showView('docs')" class="dash-card">
                         <i class="fas fa-receipt"></i>
@@ -3236,7 +3227,128 @@
                 </div>
             </div>
         </section>
+        
+        <!-- MASTER INVOICE View -->
+        <section id="master-invoice-view" class="view-section hidden">
+            <div style="max-width: 1200px; margin: 0 auto; padding: 30px 20px;">
+                <div class="inv-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
+                    <div>
+                        <h2 style="font-size: 2rem; color: #1e293b; margin-bottom: 5px;">Master Invoice Generator</h2>
+                        <p style="color: #64748b; font-size: 0.9rem;">Generate and send detailed invoices by Order #</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div style="position: relative;">
+                            <input type="text" id="mi-search-order" placeholder="Enter Order #..." 
+                                style="padding: 12px 15px; border: 2px solid #3b82f6; border-radius: 8px; width: 250px; font-weight: bold; font-size: 1rem;">
+                            <button onclick="loadMasterInvoiceByOrder()" 
+                                style="position: absolute; right: 5px; top: 5px; background: #3b82f6; color: white; border: none; padding: 7px 15px; border-radius: 6px; cursor: pointer; font-weight: 800;">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <button onclick="resetMasterInvoice()" 
+                            style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: all 0.3s; display: flex; align-items: center; gap: 8px;"
+                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                            <i class="fas fa-undo-alt"></i> RESET
+                        </button>
+                    </div>
+                </div>
 
+                <div id="mi-invoice-preview" class="invoice-container" style="display: none; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+                    <!-- Invoice Header -->
+                    <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px;">
+                        <div>
+                            <h1 style="margin: 0; color: #1e293b; font-size: 2.2rem; font-weight: 900;">INVOICE</h1>
+                            <p style="margin: 5px 0; color: #000000; font-weight: 700;">RP TULIPAN TRANSPORT INC</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div id="mi-status-badge" style="display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: 900; font-size: 0.75rem; margin-bottom: 10px;"></div>
+                            <p style="margin: 0; font-weight: 800; color: #1e293b;">Order #: <span id="mi-order-display">---</span></p>
+                            <p style="margin: 0; color: #000000; font-size: 0.85rem;">Date: <span id="mi-date-display">---</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Client Info -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+                        <div>
+                            <h4 style="text-transform: uppercase; color: #000000; font-size: 0.75rem; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Bill To:</h4>
+                            <p style="margin: 0; font-size: 1.1rem; font-weight: 900; color: #1e293b;">Nationwide Transport Services LLC</p>
+                            <p style="margin: 5px 0; color: #000000; line-height: 1.4;">2765 West Cypress Creek RD<br>Ft Lauderdale, FL 33309</p>
+                        </div>
+                        <div>
+                            <h4 style="text-transform: uppercase; color: #000000; font-size: 0.75rem; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">SERVICE LOCATION/DELIVERY ADDRESS:</h4>
+                            <p style="margin: 0; font-weight: 700; color: #1e293b;">FROM: <span style="font-weight: 400; color: #000000;">4121 Dillon St.</span></p>
+                            <p style="margin: 5px 0; font-weight: 700; color: #1e293b;">TO: <span style="font-weight: 400; color: #000000;">10122 Authentic Loop</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Services Table -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                        <thead>
+                            <tr style="background: #1e293b; color: white;">
+                                <th style="padding: 12px 15px; text-align: left; font-size: 0.75rem; text-transform: uppercase;">Description</th>
+                                <th style="padding: 12px 15px; text-align: center; font-size: 0.75rem; text-transform: uppercase;">QTY</th>
+                                <th style="padding: 12px 15px; text-align: right; font-size: 0.75rem; text-transform: uppercase;">Unit Cost</th>
+                                <th style="padding: 12px 15px; text-align: right; font-size: 0.75rem; text-transform: uppercase;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mi-services-body">
+                            <!-- Rows injected by JS -->
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" style="padding: 15px; text-align: right; font-weight: 700; color: #000000;">Subtotal:</td>
+                                <td id="mi-subtotal" style="padding: 15px; text-align: right; font-weight: 700; color: #1e293b;">$0.00</td>
+                            </tr>
+                            <tr id="mi-tax-row" style="display: none;">
+                                <td colspan="3" style="padding: 10px 15px; text-align: right; font-weight: 700; color: #000000;">Tax (<span id="mi-tax-rate">0</span>%):</td>
+                                <td id="mi-tax-amount" style="padding: 10px 15px; text-align: right; font-weight: 700; color: #ef4444;">$0.00</td>
+                            </tr>
+                            <tr style="background: #f8fafc; border-top: 2px solid #1e293b;">
+                                <td colspan="3" style="padding: 20px 15px; text-align: right; font-size: 1.2rem; font-weight: 900; color: #1e293b;">GRAND TOTAL:</td>
+                                <td id="mi-total" style="padding: 20px 15px; text-align: right; font-size: 1.2rem; font-weight: 900; color: #1e40af;">$0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <!-- ACH / Wire Payment Info -->
+                    <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; border-left: 5px solid #1e40af;">
+                        <h4 style="margin: 0 0 15px 0; color: #1e293b; font-size: 1rem; display: flex; align-items: center; gap: 10px; font-weight: 800;">
+                            <i class="fas fa-university" style="color: #1e40af;"></i> ACH / WIRE PAYMENT INFORMATION
+                        </h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 0.9rem; color: #000000;">
+                            <div>
+                                <p style="margin: 5px 0;"><strong>Bank Name:</strong> Bank Of America</p>
+                                <p style="margin: 5px 0;"><strong>Company Name:</strong> RP TULIPAN TRANSPORT INC</p>
+                                <p style="margin: 5px 0;"><strong>Account Number:</strong> 898111245429</p>
+                            </div>
+                            <div>
+                                <p style="margin: 5px 0;"><strong>Routing Number:</strong> 063100277</p>
+                                <p style="margin: 5px 0;"><strong>Wire/Swift Code:</strong> BOFAUS3N</p>
+                                <p style="margin: 5px 0;"><strong>Bank Address:</strong> 900 W 49 ST, Hialeah, FL 33012</p>
+                                <p style="margin: 5px 0; color: #1e40af; font-weight: 800;"><strong>ZELLE:</strong> 786-768-4409</p>
+                            </div>
+                        </div>
+                        <p style="margin-top: 15px; font-size: 0.8rem; color: #000000; font-style: italic;">* Please include the Invoice or Order number in the payment reference.</p>
+                    </div>
+
+                    <!-- Actions -->
+                    <div id="mi-invoice-actions" style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #e2e8f0; padding-top: 30px;">
+                        <button onclick="sendMasterInvoiceEmail()" class="btn-calendar" style="background: #1e40af; padding: 12px 30px; font-size: 1rem;">
+                            <i class="fas fa-envelope"></i> SEND EMAIL
+                        </button>
+                        <button onclick="downloadMasterInvoicePDF()" class="btn-calendar" style="background: #10b981; padding: 12px 30px; font-size: 1rem;">
+                            <i class="fas fa-download"></i> DOWNLOAD PDF
+                        </button>
+                    </div>
+                </div>
+
+                <div id="mi-empty-state" style="text-align: center; padding: 100px 0; color: #000000;">
+                    <i class="fas fa-search" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.2;"></i>
+                    <h3>No Order Loaded</h3>
+                    <p>Enter an order number above to generate a master invoice.</p>
+                </div>
+            </div>
+        </section>
 
     </main>
 
@@ -3398,11 +3510,13 @@
                 'button[onclick*="cust-invoice"]',
                 'button[onclick*="rentals"]',
                 'button[onclick*="tasks"]',
+                'button[onclick*="master-invoice"]',
                 '#nav-actions-container button[onclick*="fleet"]',
                 '#nav-actions-container button[onclick*="releases"]',
                 '#nav-actions-container button[onclick*="calendar"]',
                 '#nav-actions-container button[onclick*="cust-invoice"]',
-                '#nav-actions-container button[onclick*="tasks"]'
+                '#nav-actions-container button[onclick*="tasks"]',
+                '#nav-actions-container button[onclick*="master-invoice"]'
             ];
 
             // Email Settings button: only visible for admin
@@ -3812,6 +3926,9 @@
                         })();
                     } else if (viewId === 'tasks') {
                         if (window.loadTasksData) window.loadTasksData();
+                    } else if (finalView === 'master-invoice') {
+                        // Ensure data is loaded but don't reset preview
+                        if (window.loadTableData) window.loadTableData();
                     }
 
                     // Always ensure data managers are loaded
