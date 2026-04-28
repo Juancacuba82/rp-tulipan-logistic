@@ -277,3 +277,169 @@ window.resetCustInvoiceFilters = function () {
     if (document.getElementById('ci-f-invoice')) document.getElementById('ci-f-invoice').value = '';
     renderCustInvoiceTable();
 };
+
+window.downloadCustInvoiceSummary = async function(format, btnElement = null) {
+    const table = document.getElementById('cust-invoice-table');
+    if (!table) return;
+
+    const btn = btnElement || (window.event ? window.event.currentTarget : null);
+    const originalContent = btn ? btn.innerHTML : '';
+
+    const customerSelector = document.getElementById('ci-f-customer');
+    const customerName = customerSelector ? customerSelector.value || 'All Customers' : 'All Customers';
+    
+    // Create a temporary container for the report to be captured
+    const reportContainer = document.createElement('div');
+    reportContainer.style.padding = '40px';
+    reportContainer.style.background = 'white';
+    reportContainer.style.width = '1200px';
+    reportContainer.style.position = 'fixed';
+    reportContainer.style.left = '-9999px';
+    reportContainer.style.top = '0';
+    reportContainer.style.fontFamily = 'Arial, sans-serif';
+    document.body.appendChild(reportContainer);
+
+    // Add Header
+    reportContainer.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px;">
+            <div>
+                <h1 style="margin: 0; color: #1e293b; font-size: 2.2rem; font-weight: 900;">PENDING PAYMENTS SUMMARY</h1>
+                <h3 style="margin: 5px 0; color: #475569; text-transform: uppercase;">CUSTOMER: ${customerName}</h3>
+            </div>
+            <div style="text-align: right;">
+                <p style="margin: 0; color: #64748b; font-weight: bold;">Date: ${new Date().toLocaleDateString()}</p>
+                <p style="margin: 5px 0; font-weight: 900; color: #1e40af; font-size: 1.1rem;">RP TULIPAN TRANSPORT INC</p>
+            </div>
+        </div>
+    `;
+
+    // Clone the table
+    const tableClone = table.cloneNode(true);
+    tableClone.style.width = '100%';
+    tableClone.style.borderCollapse = 'collapse';
+    tableClone.style.fontSize = '0.85rem';
+    
+    // Remove the Actions column from header
+    const headerRow = tableClone.querySelector('thead tr');
+    if (headerRow && headerRow.lastElementChild) headerRow.lastElementChild.remove();
+    
+    // Remove Actions column from all rows and fix styles
+    tableClone.querySelectorAll('tbody tr').forEach(tr => {
+        if (tr.lastElementChild) tr.lastElementChild.remove();
+        // Ensure colors are preserved in capture
+        const cells = tr.querySelectorAll('td');
+        cells.forEach(td => {
+            td.style.borderBottom = '1px solid #e2e8f0';
+            td.style.padding = '10px';
+        });
+    });
+
+    reportContainer.appendChild(tableClone);
+
+    // Calculate Total
+    let totalPending = 0;
+    const bodyRows = document.querySelectorAll('#cust-invoice-body tr');
+    bodyRows.forEach(row => {
+        if (row.cells.length >= 9) {
+            const transStr = row.cells[7].textContent.replace(/[$,]/g, '').trim();
+            const salesStr = row.cells[8].textContent.replace(/[$,]/g, '').trim();
+            const trans = parseFloat(transStr) || 0;
+            const sales = parseFloat(salesStr) || 0;
+            totalPending += (trans + sales);
+        }
+    });
+
+    // Add Footer with Total
+    const footer = document.createElement('div');
+    footer.style.marginTop = '40px';
+    footer.style.textAlign = 'right';
+    footer.style.borderTop = '3px solid #1e293b';
+    footer.style.paddingTop = '20px';
+    footer.innerHTML = `
+        <h2 style="margin: 0; color: #1e293b; font-size: 1.8rem; font-weight: 900;">TOTAL BALANCE DUE: <span style="color: #dc2626;">$${totalPending.toLocaleString('en-US', {minimumFractionDigits: 2})}</span></h2>
+        <p style="margin-top: 15px; font-size: 0.9rem; color: #475569; font-style: italic; font-weight: bold;">Please process payment at your earliest convenience. Thank you for your business!</p>
+    `;
+    reportContainer.appendChild(footer);
+
+    // Capture process
+    try {
+        const canvas = await html2canvas(reportContainer, { 
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff'
+        });
+
+        if (format === 'IMAGE') {
+            const url = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Pending_Summary_${customerName.replace(/\s+/g, '_')}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else if (format === 'PDF') {
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'mm', 'a4'); 
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const margin = 10;
+            const imgWidth = pageWidth - (margin * 2);
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight);
+            pdf.save(`Pending_Summary_${customerName.replace(/\s+/g, '_')}.pdf`);
+        } else if (format === 'EMAIL') {
+            if (!window.custInvoiceRows || window.custInvoiceRows.length === 0) {
+                alert("No data to send.");
+                return;
+            }
+
+            const customerEmail = window.custInvoiceRows[0][36];
+            if (!customerEmail || customerEmail === '---') {
+                alert("Selected customer has no email registered.");
+                return;
+            }
+
+            const confirmSend = confirm(`Send Pending Summary to ${customerEmail}?`);
+            if (!confirmSend) return;
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SENDING...';
+            }
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const margin = 10;
+            const imgWidth = pageWidth - (margin * 2);
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight);
+            const blob = pdf.output('blob');
+
+            // Prepare rowData dummy for the email service
+            const emailData = [...window.custInvoiceRows[0]];
+            emailData[5] = "PENDING_SUMMARY_" + (new Date().toLocaleDateString().replace(/\//g, '-'));
+            emailData[1] = new Date().toLocaleDateString();
+
+            try {
+                await window.sendReceiptEmail(emailData, blob);
+                alert("Summary successfully sent to " + customerEmail);
+            } catch (err) {
+                console.error(err);
+                alert("Failed to send email.");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Error generating summary:", err);
+        alert("There was an error generating the summary.");
+    } finally {
+        document.body.removeChild(reportContainer);
+    }
+};

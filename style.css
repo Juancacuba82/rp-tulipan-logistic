@@ -169,12 +169,14 @@ main {
 .nav-actions {
     display: flex; /* Enabled to allow quick navigation between views */
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .nav-actions .btn-calendar {
-    padding: 6px 12px;
-    font-size: 0.75rem;
+    padding: 4px 8px;
+    font-size: 0.65rem;
     border-width: 1px;
 }
 

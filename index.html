@@ -670,18 +670,19 @@
             </button>
 
             <div class="nav-actions" id="nav-actions-container">
-                <button onclick="closeMenu(); showView('fleet')" class="btn-calendar"><i
-                        class="fas fa-truck"></i> FLEET & EQUIPMENT</button>
-                <button onclick="closeMenu(); showView('reports')" class="btn-calendar"><i
-                        class="fas fa-truck-loading"></i> DRIVERS REPORTS</button>
-                <button onclick="closeMenu(); showView('releases')" class="btn-calendar"><i
-                        class="fas fa-file-signature"></i> FORM RELEASES</button>
-                <button onclick="closeMenu(); showView('docs')" class="btn-calendar"><i class="fas fa-receipt"></i> DOCS
-                    & RECEIPTS</button>
-                <button onclick="closeMenu(); showView('calendar')" class="btn-calendar"><i
-                        class="fas fa-calendar-check"></i> DELIVERY CALENDAR</button>
-                <button onclick="closeMenu(); showView('master-invoice')" class="btn-calendar"><i
-                        class="fas fa-file-invoice-dollar"></i> MASTER INVOICE</button>
+                <button onclick="closeMenu(); showView('fleet')" class="btn-calendar" title="FLEET & EQUIPMENT"><i class="fas fa-truck"></i> FLEET</button>
+                <button onclick="closeMenu(); showView('profit-report')" class="btn-calendar" title="PROFIT REPORT"><i class="fas fa-chart-line"></i> PROFIT</button>
+                <button onclick="closeMenu(); showView('reports')" class="btn-calendar" title="DRIVERS REPORTS"><i class="fas fa-truck-loading"></i> DRIVERS</button>
+                <button onclick="closeMenu(); showView('releases')" class="btn-calendar" title="FORM RELEASES"><i class="fas fa-file-signature"></i> RELEASES</button>
+                <button onclick="closeMenu(); showView('master-invoice')" class="btn-calendar" title="MASTER INVOICE"><i class="fas fa-file-invoice-dollar"></i> MASTER INV.</button>
+                <button onclick="closeMenu(); showView('docs')" class="btn-calendar" title="DOCS & RECEIPTS"><i class="fas fa-receipt"></i> DOCS</button>
+                <button onclick="closeMenu(); showView('calendar')" class="btn-calendar" title="DELIVERY CALENDAR"><i class="fas fa-calendar-check"></i> CALENDAR</button>
+                <button onclick="closeMenu(); showView('cust-invoice')" class="btn-calendar" title="CUSTOMERS INVOICE"><i class="fas fa-file-invoice"></i> INVOICES</button>
+                <button onclick="closeMenu(); showView('expenses')" class="btn-calendar" title="EXPENSES MANAGEMENT"><i class="fas fa-money-bill-wave"></i> EXPENSES</button>
+                <button onclick="closeMenu(); showView('inventory')" class="btn-calendar" title="FORM INVENTOR"><i class="fas fa-boxes"></i> INVENTORY</button>
+                <button onclick="closeMenu(); showView('calls')" class="btn-calendar" title="FORM CALL"><i class="fas fa-phone-alt"></i> CALLS</button>
+                <button onclick="closeMenu(); showView('rentals')" class="btn-calendar" title="RENTALS"><i class="fas fa-key"></i> RENTALS</button>
+                <button onclick="closeMenu(); showView('tasks')" class="btn-calendar" title="TASKS & TO-DO"><i class="fas fa-tasks"></i> TASKS</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -1321,6 +1322,12 @@
                                 <label style="font-size: 0.65rem; font-weight: 900; color: #1e40af; letter-spacing: 0.5px;">CALLS TRANSFER</label>
                                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 4px; display: flex; justify-content: center; align-items: center; height: 32px; border-style: dashed;">
                                     <input type="checkbox" id="f-transferred" onchange="applyAdvancedFilters()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #1e40af;">
+                                </div>
+                            </div>
+                            <div class="filter-item" style="text-align: center;">
+                                <label style="font-size: 0.65rem; font-weight: 900; color: #b91c1c; letter-spacing: 0.5px;">PAST DUE (PENDING)</label>
+                                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 4px; display: flex; justify-content: center; align-items: center; height: 32px; border-style: dashed;">
+                                    <input type="checkbox" id="f-past-due" onchange="applyAdvancedFilters()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #b91c1c;">
                                 </div>
                             </div>
                         </div>
@@ -2782,7 +2789,18 @@
                             <option value="NO">No</option>
                         </select>
                     </div>
-                    <button onclick="resetCustInvoiceFilters()" class="btn-reset-report" style="align-self: flex-end; margin-bottom: 5px; background: #64748b; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Reset</button>
+                    <div style="display: flex; gap: 10px; align-self: flex-end; margin-bottom: 5px;">
+                        <button onclick="downloadCustInvoiceSummary('IMAGE', this)" class="btn-calendar" style="background: #10b981; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.75rem;">
+                            <i class="fas fa-camera"></i> CAPTURE (WHATSAPP)
+                        </button>
+                        <button onclick="downloadCustInvoiceSummary('PDF', this)" class="btn-calendar" style="background: #1e40af; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.75rem;">
+                            <i class="fas fa-file-pdf"></i> PDF SUMMARY
+                        </button>
+                        <button onclick="downloadCustInvoiceSummary('EMAIL', this)" class="btn-calendar" style="background: #6366f1; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.75rem;">
+                            <i class="fas fa-paper-plane"></i> SEND BY EMAIL
+                        </button>
+                        <button onclick="resetCustInvoiceFilters()" class="btn-reset-report" style="background: #64748b; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Reset</button>
+                    </div>
                 </div>
 
                 <div class="table-scroll-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto;">
@@ -3262,12 +3280,20 @@
                         <h2 style="font-size: 2rem; color: #1e293b; margin-bottom: 5px;">Master Invoice Generator</h2>
                         <p style="color: #64748b; font-size: 0.9rem;">Generate and send detailed invoices by Order #</p>
                     </div>
-                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="font-size: 0.7rem; font-weight: 900; color: #3b82f6; text-transform: uppercase;">BILLING COMPANY:</label>
+                            <select id="mi-company-selector" onchange="updateMasterInvoiceCompany()" 
+                                style="padding: 10px; border: 2px solid #3b82f6; border-radius: 8px; font-weight: bold; font-size: 0.9rem; background: white; cursor: pointer; min-width: 220px;">
+                                <option value="RP TULIPAN TRANSPORT INC">RP TULIPAN TRANSPORT INC</option>
+                                <option value="JR SUPER CRAME INC">JR SUPER CRAME INC</option>
+                            </select>
+                        </div>
                         <div style="position: relative;">
+                            <label style="font-size: 0.7rem; font-weight: 900; color: #3b82f6; text-transform: uppercase; display: block; margin-bottom: 5px;">SEARCH ORDER #:</label>
                             <input type="text" id="mi-search-order" placeholder="Enter Order #..." 
                                 style="padding: 12px 15px; border: 2px solid #3b82f6; border-radius: 8px; width: 250px; font-weight: bold; font-size: 1rem;">
                             <button onclick="loadMasterInvoiceByOrder()" 
-                                style="position: absolute; right: 5px; top: 5px; background: #3b82f6; color: white; border: none; padding: 7px 15px; border-radius: 6px; cursor: pointer; font-weight: 800;">
+                                style="position: absolute; right: 5px; bottom: 5px; background: #3b82f6; color: white; border: none; padding: 7px 15px; border-radius: 6px; cursor: pointer; font-weight: 800;">
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
@@ -3284,12 +3310,13 @@
                     <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px;">
                         <div>
                             <h1 style="margin: 0; color: #1e293b; font-size: 2.2rem; font-weight: 900;">INVOICE</h1>
-                            <p style="margin: 5px 0; color: #000000; font-weight: 700;">RP TULIPAN TRANSPORT INC</p>
+                            <p id="mi-company-name-display" style="margin: 5px 0; color: #000000; font-weight: 700;">RP TULIPAN TRANSPORT INC</p>
                         </div>
                         <div style="text-align: right;">
                             <div id="mi-status-badge" style="display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: 900; font-size: 0.75rem; margin-bottom: 10px;"></div>
                             <p style="margin: 0; font-weight: 800; color: #1e293b;">Order #: <span id="mi-order-display">---</span></p>
                             <p style="margin: 0; color: #000000; font-size: 0.85rem;">Date: <span id="mi-date-display">---</span></p>
+                            <p style="margin: 5px 0 0 0; color: #000000; font-size: 0.85rem; font-weight: 700;">Payment Term : NET 15</p>
                         </div>
                     </div>
 
@@ -3297,13 +3324,13 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
                         <div>
                             <h4 style="text-transform: uppercase; color: #000000; font-size: 0.75rem; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Bill To:</h4>
-                            <p style="margin: 0; font-size: 1.1rem; font-weight: 900; color: #1e293b;">Nationwide Transport Services LLC</p>
-                            <p style="margin: 5px 0; color: #000000; line-height: 1.4;">2765 West Cypress Creek RD<br>Ft Lauderdale, FL 33309</p>
+                            <p id="mi-bill-to-name" style="margin: 0; font-size: 1.1rem; font-weight: 900; color: #1e293b;">Nationwide Transport Services LLC</p>
+                            <p id="mi-bill-to-address" style="margin: 5px 0; color: #000000; line-height: 1.4; display: none;">2765 West Cypress Creek RD<br>Ft Lauderdale, FL 33309</p>
                         </div>
                         <div>
                             <h4 style="text-transform: uppercase; color: #000000; font-size: 0.75rem; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">SERVICE LOCATION/DELIVERY ADDRESS:</h4>
-                            <p style="margin: 0; font-weight: 700; color: #1e293b;">FROM: <span style="font-weight: 400; color: #000000;">4121 Dillon St.</span></p>
-                            <p style="margin: 5px 0; font-weight: 700; color: #1e293b;">TO: <span style="font-weight: 400; color: #000000;">10122 Authentic Loop</span></p>
+                            <p style="margin: 0; font-weight: 700; color: #1e293b;">FROM: <span id="mi-from-address" style="font-weight: 400; color: #000000;">4121 Dillon St.</span></p>
+                            <p style="margin: 5px 0; font-weight: 700; color: #1e293b;">TO: <span id="mi-to-address" style="font-weight: 400; color: #000000;">10122 Authentic Loop</span></p>
                         </div>
                     </div>
 
@@ -3537,12 +3564,18 @@
                 'button[onclick*="rentals"]',
                 'button[onclick*="tasks"]',
                 'button[onclick*="master-invoice"]',
+                'button[onclick*="inventory"]',
+                'button[onclick*="calls"]',
                 '#nav-actions-container button[onclick*="fleet"]',
                 '#nav-actions-container button[onclick*="releases"]',
                 '#nav-actions-container button[onclick*="calendar"]',
                 '#nav-actions-container button[onclick*="cust-invoice"]',
                 '#nav-actions-container button[onclick*="tasks"]',
-                '#nav-actions-container button[onclick*="master-invoice"]'
+                '#nav-actions-container button[onclick*="master-invoice"]',
+                '#nav-actions-container button[onclick*="inventory"]',
+                '#nav-actions-container button[onclick*="calls"]',
+                '#nav-actions-container button[onclick*="expenses"]',
+                '#nav-actions-container button[onclick*="rentals"]'
             ];
 
             // Email Settings button: only visible for admin
@@ -3659,9 +3692,7 @@
                 if (docsPhotoBtn) docsPhotoBtn.style.display = '';
             }
 
-            // Toggle Logout button visibility (hidden on auth view)
-            const logoutBtns = document.querySelectorAll('.btn-logout-header');
-            logoutBtns.forEach(btn => btn.style.display = (window.currentUserRole ? 'flex' : 'none'));
+            // Toggle Logout button visibility is now handled by showView
         }
 
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
@@ -3808,8 +3839,12 @@
             }
             
             // Driver Redirection (Hero is too empty for them, go straight to Docs)
-            if (window.currentUserRole === 'driver' && finalView === 'hero') {
-                finalView = 'docs';
+            const forbiddenForDrivers = ['fleet', 'profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
+            if (window.currentUserRole === 'driver') {
+                if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
+                    console.warn("Driver redirected to Docs from:", finalView);
+                    finalView = 'docs';
+                }
             }
 
             // 2. Hide ALL sections
@@ -3831,11 +3866,18 @@
 
                 // Navbar styling
                 const navActions = document.getElementById('nav-actions-container');
+                const btnEmail = document.getElementById('btn-email-settings');
+                const btnLogout = document.getElementById('btn-logout');
+
                 if (header) {
                     if (finalView === 'hero') {
                         header.classList.remove('navbar-fixed-solid');
+                        if (btnEmail && window.currentUserRole === 'admin') btnEmail.style.display = 'inline-flex';
+                        if (btnLogout) btnLogout.style.display = 'inline-flex';
                     } else {
                         header.classList.add('navbar-fixed-solid');
+                        if (btnEmail) btnEmail.style.display = 'none';
+                        if (btnLogout) btnLogout.style.display = 'none';
                     }
 
                     if (navActions) {
@@ -4166,7 +4208,8 @@
                 phone: document.getElementById('f-phone')?.value.toLowerCase() || '',
                 fromDate: document.getElementById('f-from-date')?.value || '',
                 toDate: document.getElementById('f-to-date')?.value || '',
-                transferredOnly: document.getElementById('f-transferred')?.checked || false
+                transferredOnly: document.getElementById('f-transferred')?.checked || false,
+                pastDueOnly: document.getElementById('f-past-due')?.checked || false
             };
 
             const rows = document.querySelectorAll('#table-body tr');
@@ -4264,12 +4307,20 @@
                         matchServiceType = hasTrans && !hasSales;
                     } else if (filters.serviceType === 'yard') {
                         // Yard Services: SOLO órdenes con yard y SIN transport ni ventas
-                        matchServiceType = hasYard && !hasTrans && !hasSales;
+                        matchServiceType = hasYard;
                     }
                 }
 
+                const todayStr = new Date().toISOString().split('T')[0];
+                const isPastDue = (isoValDate && isoValDate < todayStr && tripStatus === 'PENDING_PAYMENT');
+                
+                let matchPastDue = true;
+                if (filters.pastDueOnly) {
+                    matchPastDue = isPastDue;
+                }
+
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
-                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred) {
+                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue) {
                     tr.style.display = '';
                 } else {
                     tr.style.display = 'none';

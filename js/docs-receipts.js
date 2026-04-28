@@ -73,18 +73,16 @@
             const vY = parseFloat(trip[13]) || 0;
             const vR = parseFloat(trip[18]) || 0;
             const vS = parseFloat(trip[20]) || 0;
-            const vA = parseFloat(trip[22]) || 0;
             const vRent = parseFloat(trip[27]) || 0;
             const takeTax = (trip[49] === true || trip[49] === 'true' || trip[49] === 'YES' || trip[49] === 'on' || trip[49] === 1);
 
             const clearY = (trip[30] === 'PAID' || vY <= 0.01);
             const clearR = (trip[32] === 'PAID' || vR <= 0.01);
             const clearS = (trip[33] === 'PAID' || vS <= 0.01);
-            const clearA = (trip[34] === 'PAID' || vA <= 0.01);
             const clearRent = (trip[31] === 'PAID' || vRent <= 0.01);
             const clearTax = (!takeTax || trip[52] === 'PAID');
 
-            const isFullyPaid = (clearY && clearR && clearS && clearA && clearRent && clearTax);
+            const isFullyPaid = (clearY && clearR && clearS && clearRent && clearTax);
 
             const dropdownDriverMatch = !docsDriverFilter || drv === docsDriverFilter || drv.includes(docsDriverFilter);
             const dropdownCustomerMatch = !docsCustomerFilter || cust === docsCustomerFilter || cust.includes(docsCustomerFilter);

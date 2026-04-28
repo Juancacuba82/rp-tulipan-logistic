@@ -1073,6 +1073,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             tr.style.border = '2px solid #f59e0b'; // Amber Priority
                         }
 
+                        // Past Due (Pending) Highlight
+                        if (rowData[41] === 'PENDING_PAYMENT' && rowData[1] < todayStr) {
+                            tr.style.backgroundColor = '#fee2e2'; // Light Red
+                            tr.style.border = '2px solid #ef4444'; // Red Border
+                        }
+
                         // Numerical values to handle $0.00 entries in filters
                         tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;

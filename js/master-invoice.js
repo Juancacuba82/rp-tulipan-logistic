@@ -65,16 +65,39 @@
         document.getElementById('mi-order-display').textContent = mainRow[5] || '---';
         document.getElementById('mi-date-display').textContent = window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(mainRow[1]) : mainRow[1];
         
-        // Status Badge
-        const status = (mainRow[41] || 'PENDING').toUpperCase();
+        // Update company name from selector
+        const coSelector = document.getElementById('mi-company-selector');
+        const coDisplay = document.getElementById('mi-company-name-display');
+        if (coSelector && coDisplay) coDisplay.textContent = coSelector.value;
+        
+        // Payment Status Calculation
+        let isEntireInvoicePaid = true;
+        rows.forEach(r => {
+            const hasTrans = r[42] === 'YES';
+            const hasSales = r[43] === 'YES';
+            const yardRate = parseFloat(r[13]) || 0;
+            const takeTax = r[49] === true || r[49] === 'true' || r[49] === 'YES' || r[49] === 'on' || r[49] === 1;
+
+            const transPaid = !hasTrans || r[32] === 'PAID';
+            const salesPaid = !hasSales || r[33] === 'PAID';
+            const yardPaid = yardRate <= 0.01 || r[30] === 'PAID';
+            const taxPaid = !takeTax || r[52] === 'PAID';
+
+            if (!transPaid || !salesPaid || !yardPaid || !taxPaid) {
+                isEntireInvoicePaid = false;
+            }
+        });
+
         const badge = document.getElementById('mi-status-badge');
-        badge.textContent = status;
-        badge.style.background = status === 'PAID' || status === 'COMPLETE' ? '#dcfce7' : '#fee2e2';
-        badge.style.color = status === 'PAID' || status === 'COMPLETE' ? '#15803d' : '#991b1b';
+        badge.textContent = isEntireInvoicePaid ? 'PAID' : 'PENDING';
+        badge.style.background = isEntireInvoicePaid ? '#dcfce7' : '#fee2e2';
+        badge.style.color = isEntireInvoicePaid ? '#15803d' : '#991b1b';
 
-        // Service Location / Delivery Address (Now static in HTML)
-
-
+        // Service Location / Delivery Address
+        document.getElementById('mi-bill-to-name').textContent = mainRow[11] && mainRow[11] !== '---' ? mainRow[11] : 'No Customer Provided';
+        document.getElementById('mi-from-address').textContent = mainRow[7] && mainRow[7] !== '---' ? mainRow[7] : 'N/A';
+        document.getElementById('mi-to-address').textContent = mainRow[8] && mainRow[8] !== '---' ? mainRow[8] : 'N/A';
+        
         let subtotal = 0;
         
         // Loop through all rows for this order and collect services
@@ -217,5 +240,13 @@
         actions.style.display = 'flex'; // Restore actions
         return pdf.output('blob');
     }
+
+    window.updateMasterInvoiceCompany = function () {
+        const selector = document.getElementById('mi-company-selector');
+        const display = document.getElementById('mi-company-name-display');
+        if (selector && display) {
+            display.textContent = selector.value;
+        }
+    };
 
 })();
