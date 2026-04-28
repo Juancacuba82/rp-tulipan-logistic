@@ -33,6 +33,7 @@
     <script src="./js/fleet.js?v=1700"></script>
     <script src="./js/tasks.js?v=10"></script>
     <script src="./js/master-invoice.js?v=1700"></script>
+    <script src="./js/attendance.js?v=1"></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -690,6 +691,11 @@
                 <i class="fas fa-envelope-open-text"></i> EMAIL SETTINGS
             </button>
 
+            <button onclick="handleClockIn()" id="btn-clockin" class="btn-calendar"
+                style="display: none; background: #10b981; color: white; margin-right: 10px; font-weight: 900;">
+                <i class="fas fa-clock"></i> CLOCK IN
+            </button>
+
             <button onclick="handleLogout()" id="btn-logout" class="btn-logout-header" style="display: none;">
                 <i class="fas fa-sign-out-alt"></i> LOGOUT
             </button>
@@ -786,6 +792,52 @@
                         <i class="fas fa-tasks"></i>
                         <span>TASKS & TO-DO</span>
                     </button>
+                    <button onclick="showView('attendance')" class="dash-card" id="card-attendance" style="display: none;">
+                        <i class="fas fa-user-clock"></i>
+                        <span>ATTENDANCE</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Attendance View -->
+        <section id="attendance-view" class="view-section hidden">
+            <div class="table-area" style="width: 100%; height: 100%; background: #f8fafc;">
+                <div class="table-toolbar">
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
+                        <h2 style="margin: 0; color: #1e293b; font-weight: 900; letter-spacing: -0.5px; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user-clock" style="color: #10b981;"></i> ATTENDANCE REPORT
+                        </h2>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <label style="font-size: 0.7rem; font-weight: 800; color: #64748b;">FROM:</label>
+                                <input type="date" id="att-start-date" class="form-input" style="width: 140px;" onchange="loadAttendanceData()">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <label style="font-size: 0.7rem; font-weight: 800; color: #64748b;">TO:</label>
+                                <input type="date" id="att-end-date" class="form-input" style="width: 140px;" onchange="loadAttendanceData()">
+                            </div>
+                            <button onclick="loadAttendanceData()" class="btn-action-primary" style="background: #1e40af;">
+                                <i class="fas fa-sync-alt"></i> REFRESH
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-scroll-container" style="margin: 20px;">
+                    <table id="attendance-table">
+                        <thead>
+                            <tr class="header-row">
+                                <th>Date & Time</th>
+                                <th>Employee</th>
+                                <th>Email</th>
+                                <th>Action</th>
+                                <th>Location (GPS)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-body">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -3833,6 +3885,8 @@
 
             // 1. Determine final view based on auth
             let finalView = viewId;
+            const normalizedRole = (window.currentUserRole || '').toString().toLowerCase().trim();
+            
             if (!window.currentUserRole && finalView !== 'auth') {
                 console.log("Forcing Auth view.");
                 finalView = 'auth';
@@ -3840,7 +3894,7 @@
             
             // Driver Redirection (Hero is too empty for them, go straight to Docs)
             const forbiddenForDrivers = ['fleet', 'profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
-            if (window.currentUserRole === 'driver') {
+            if (normalizedRole === 'driver') {
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
                     console.warn("Driver redirected to Docs from:", finalView);
                     finalView = 'docs';
@@ -3868,16 +3922,36 @@
                 const navActions = document.getElementById('nav-actions-container');
                 const btnEmail = document.getElementById('btn-email-settings');
                 const btnLogout = document.getElementById('btn-logout');
+                const btnClockIn = document.getElementById('btn-clockin');
 
                 if (header) {
                     if (finalView === 'hero') {
                         header.classList.remove('navbar-fixed-solid');
-                        if (btnEmail && window.currentUserRole === 'admin') btnEmail.style.display = 'inline-flex';
+                        if (btnEmail && normalizedRole === 'admin') btnEmail.style.display = 'inline-flex';
                         if (btnLogout) btnLogout.style.display = 'inline-flex';
+                        
+                        // Clock in is only for admin/staff, not for drivers
+                        if (btnClockIn) {
+                            btnClockIn.style.display = (normalizedRole !== 'driver') ? 'inline-flex' : 'none';
+                        }
+                        
+                        // Show attendance card for admins
+                        const cardAtt = document.getElementById('card-attendance');
+                        if (cardAtt && normalizedRole === 'admin') {
+                            cardAtt.style.display = 'flex';
+                        }
                     } else {
                         header.classList.add('navbar-fixed-solid');
                         if (btnEmail) btnEmail.style.display = 'none';
-                        if (btnLogout) btnLogout.style.display = 'none';
+                        
+                        // Drivers keep Logout visible because they have space, but Clock In is hidden for them
+                        if (normalizedRole === 'driver') {
+                            if (btnLogout) btnLogout.style.display = 'inline-flex';
+                            if (btnClockIn) btnClockIn.style.display = 'none';
+                        } else {
+                            if (btnLogout) btnLogout.style.display = 'none';
+                            if (btnClockIn) btnClockIn.style.display = 'none';
+                        }
                     }
 
                     if (navActions) {
