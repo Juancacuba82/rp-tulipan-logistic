@@ -537,6 +537,7 @@
             }
         };
 
+
         window.resetExpenseForm = () => {
             window.editingExpenseId = null;
             document.getElementById('exp-date').value = '';
@@ -557,3 +558,94 @@
             document.querySelectorAll('#expenses-body tr').forEach(r => r.classList.remove('editing-row'));
         };
 
+        // New logic for Release Row addition (SUPABASE)
+        window.addReleaseRow = async () => {
+            const relNo = document.getElementById('rel-no-releases').value;
+            const dte = document.getElementById('rel-date').value || '---';
+            const cty = document.getElementById('rel-city').value || '---';
+            const dpt = document.getElementById('rel-depot').value || '---';
+            const adr = document.getElementById('rel-address').value || '---';
+            const slr = document.getElementById('rel-seller').value || '---';
+
+            // Unified Inputs
+            const fullSize = document.getElementById('rel-size-detail').value;
+            const qty = parseInt(document.getElementById('rel-qty-unified').value) || 0;
+            const price = parseFloat(document.getElementById('rel-price-unified').value) || 0;
+            const type = document.querySelector('input[name="rel-uni-type"]:checked').value;
+            const condition = document.querySelector('input[name="rel-uni-cond"]:checked').value;
+
+            if (!relNo) { alert('Please enter a Release Number'); return; }
+            if (!fullSize) { alert('Please select a container size'); return; }
+            if (qty <= 0 && !editingReleaseId) { alert('Please enter a quantity greater than 0'); return; }
+
+            // Map specific size to the old base columns for backward compatibility
+            let q20 = 0, q40 = 0, q45 = 0;
+            let p20 = 0, p40 = 0, p45 = 0;
+
+            if (fullSize.startsWith("20")) { q20 = qty; p20 = price; }
+            else if (fullSize.startsWith("40")) { q40 = qty; p40 = price; }
+            else if (fullSize.startsWith("45")) { q45 = qty; p45 = price; }
+
+            // STOCK LOGIC: Directly use the value from the new manual 'rel-stock-unified' field
+            const finalStock = parseInt(document.getElementById('rel-stock-unified').value) || 0;
+
+            const relObj = {
+                release_no: relNo,
+                date: dte === '---' ? null : dte,
+                type: type,
+                condition: condition,
+                depot: dpt,
+                depot_address: adr,
+                city: cty,
+                qty_20: q20,
+                price_20: p20,
+                qty_40: q40,
+                price_40: p40,
+                qty_45: q45,
+                price_45: p45,
+                seller: slr,
+                total_stock: finalStock,
+                container_size: fullSize,
+                paid: document.getElementById('rel-paid').checked,
+                is_cash: document.getElementById('rel-is-cash').checked
+            };
+
+            try {
+                if (editingReleaseId) {
+                    const targets = (window.selectedReleaseIds && window.selectedReleaseIds.length > 1) ? window.selectedReleaseIds : [editingReleaseId];
+                    if (targets.length > 1) {
+                        if (!confirm(`¿Actualizar estos ${targets.length} releases con la nueva información?`)) return;
+                    }
+
+                    for (const targetId of targets) {
+                        let finalRelObj = { ...relObj };
+
+                        // For single-record edits, use the exact value from the UI field.
+                        // For bulk updates, we still use the 'smart' deduction logic to preserve individual sold counts.
+                        if (targets.length > 1) {
+                            const targetRel = currentReleases.find(r => r[15] === targetId);
+                            if (targetRel) {
+                                const oldInitial = (parseInt(targetRel[7]) || 0) + (parseInt(targetRel[9]) || 0) + (parseInt(targetRel[11]) || 0);
+                                const oldStock = parseInt(targetRel[14]) || 0;
+                                const sold = Math.max(0, oldInitial - oldStock);
+                                finalRelObj.total_stock = Math.max(0, qty - sold);
+                            }
+                        } else {
+                            finalRelObj.total_stock = finalStock;
+                        }
+
+                        await updateRelease(targetId, finalRelObj);
+                    }
+                    alert("Releases actualizados correctamente.");
+                    window.selectedReleaseIds = []; // Clear selection after update
+                } else {
+                    await addRelease(relObj);
+                    alert("Release added successfully!");
+                }
+                resetReleaseForm();
+                await loadReleasesData();
+                if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+            } catch (err) {
+                alert("Operation failed: " + err.message);
+            }
+        };

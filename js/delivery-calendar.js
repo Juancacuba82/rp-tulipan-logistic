@@ -40,13 +40,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             updateData[fieldName] = value;
             if (fieldName === 'st_amount') updateData.paid = (value === 'PAID');
 
-            // --- PAY VALIDATION LOGIC ---
-            if (['st_yard', 'st_rate', 'st_sales'].includes(fieldName)) {
-                const isYard = document.getElementById('in-yardpaid').checked;
-                const isRate = document.getElementById('in-ratepaid').checked;
-                const isSales = document.getElementById('in-salespaid').checked;
-                updateData.status = (isYard && isRate && isSales) ? 'PAID' : 'PENDING_PAYMENT';
-            }
+            // --- PAY VALIDATION LOGIC REMOVED (User manages status manually) ---
+            // Status now depends strictly on the manual 'Status' toggle.
+            if (fieldName === 'st_amount') updateData.paid = (value === 'PAID');
 
             try {
                 console.log(`Syncing ${fieldName} -> ${value} for ${tripId}`);
@@ -141,10 +137,29 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const yardOnly = yardVal === 'YES' && (parseFloat(document.getElementById('in-sales')?.value || '0') === 0);
             const modeVal = document.getElementById('in-mode')?.value || 'SALE';
             const isSalesFlag = document.getElementById('in-flag3')?.checked || false;
-            const releaseExists = (currentReleases || []).some(r => r[0] === selectedRelease);
+            
+            // NEW: Only deduct if selected from the List, not entered manually
+            const isReleaseListMode = (relSel && relSel.style.display !== 'none');
+            const selectedReleaseNormalized = (selectedRelease || '').trim().toUpperCase();
+            const selectedSizeNormalized = (selectedSize || '').trim().toUpperCase();
+            
+            // Use window.currentReleases to ensure we access the global inventory
+            const releasesSource = window.currentReleases || [];
+            const releaseExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
+            
+            // isDeductionCandidate: Current state check
             const isDeductionCandidate = (selectedRelease && selectedRelease !== '---' && !yardOnly && 
                                          ((modeVal === 'SALE' && isSalesFlag) || modeVal === 'RENT') && 
                                          releaseExists);
+
+            console.log("STOCK DEBUG (New State):", { 
+                isReleaseListMode, 
+                selectedReleaseNormalized, 
+                releaseExists, 
+                isDeductionCandidate,
+                modeVal,
+                isSalesFlag
+            });
             const isYardPaid = document.getElementById('in-yardpaid').checked;
             const isRatePaid = document.getElementById('in-ratepaid').checked;
             const isSalesPaid = document.getElementById('in-salespaid').checked;
@@ -165,28 +180,76 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             // Stock deduction only triggers when the toggle is switched TO green AND
             // it is a new order or was previously not finalized
-            let newlyFinalized = false;
-            let newlyPending = false;
+            let wasFinalized = false;
+            let wasDeductionCandidate = false;
+            let oldRelData = null;
 
             if (editingIndex !== null) {
-                const oldRow = currentTrips[editingIndex];
+                // Use window.currentTrips to ensure we have the latest global data
+                const tripsSource = window.currentTrips || [];
+                const oldRow = tripsSource[editingIndex];
+                
                 if (oldRow) {
-                    const wasFinalized = (oldRow[41] === 'PAID');
-                    if (isFinalized && !wasFinalized) newlyFinalized = true;
-                    if (!isFinalized && wasFinalized) newlyPending = true;
+                    wasFinalized = (oldRow[41] === 'PAID');
+                    
+                    const oldYard = oldRow[12]; // in-yard
+                    const oldSales = parseFloat(oldRow[20]) || 0; // in-sales
+                    const oldYardOnly = oldYard === 'YES' && oldSales === 0;
+                    const oldMode = oldRow[26] || 'SALE'; // in-mode
+                    const oldFlag3 = oldRow[43] === 'YES'; // isSalesFlag
+                    const oldRel = (oldRow[4] || '').trim().toUpperCase();
+                    const oldRelExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === oldRel);
+
+                    wasDeductionCandidate = (oldRel && oldRel !== '---' && !oldYardOnly && 
+                                            ((oldMode === 'SALE' && oldFlag3) || oldMode === 'RENT') && 
+                                            oldRelExists);
+                    
+                    console.log("STOCK DEBUG (Old State):", { 
+                        oldRel, 
+                        oldRelExists, 
+                        wasDeductionCandidate,
+                        wasFinalized 
+                    });
+
+                    if (wasDeductionCandidate) {
+                        oldRelData = {
+                            release: oldRel,
+                            size: (oldRow[2] || '---').trim().toUpperCase(),
+                            qty: parseInt(oldRow[53]) || 1,
+                            type: oldRow[44],
+                            cond: oldRow[45]
+                        };
+                    }
                 }
-            } else {
-                if (isFinalized) newlyFinalized = true;
             }
 
-            // TRIGGER LOGIC: Deduct ONLY if the order is or becomes finalized (Green).
-            // Revert if it was finalized and now is marked as pending (Red).
-            const triggerStockUpdate = newlyFinalized && isDeductionCandidate;
-            const triggerStockRevert = newlyPending && isDeductionCandidate;
+            // We need to determine the stock operations:
+            // 1. If it WAS deducted, we might need to revert it.
+            // 2. If it IS to be deducted, we might need to apply it.
+            let revertOld = wasFinalized && wasDeductionCandidate;
+            let deductNew = isFinalized && isDeductionCandidate && isReleaseListMode; // Only deduct NEW stock if from List
+            const newQtyVal = parseInt(document.getElementById('in-qty')?.value) || 1;
+
+            // Optimization: If nothing relevant changed, cancel both out
+            if (revertOld && deductNew && oldRelData) {
+                const sameRel = oldRelData.release === selectedReleaseNormalized;
+                const sameSize = oldRelData.size === selectedSizeNormalized;
+                const sameQty = oldRelData.qty === newQtyVal;
+                
+                // If the key inventory data hasn't changed, do nothing to stock
+                if (sameRel && sameSize && sameQty) {
+                    console.log("STOCK DEBUG: No change in Release/Size/Qty. Skipping stock update.");
+                    revertOld = false;
+                    deductNew = false;
+                }
+            }
+
+            // Array to hold the stock update operations { id: string, stockChange: number }
+            let pendingStockUpdates = [];
 
             // Stock validation: run whenever an order involves a Release
-            if (isDeductionCandidate) {
-                if (!selectedRelType || !selectedRelCond) {
+            if (isDeductionCandidate || deductNew || revertOld) {
+                if (isDeductionCandidate && (!selectedRelType || !selectedRelCond)) {
                     alert("ERROR: Para movimientos con Release, debes seleccionar TIPO y CONDICIÓN para validar stock.");
                     isSaving = false;
                     restoreTripArchiveButtonUI();
@@ -199,63 +262,60 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 if (window.currentReleases && window.currentReleases.length > 0) {
-                    // SIMPLIFIED MATCHING: Just use Release # and Exact Size
-                    let matchingRows = window.currentReleases.filter(r =>
-                        r[0] === selectedRelease &&
-                        (r[16] || '').trim() === selectedSize.trim()
-                    );
-
-                    // Fallback to size-based heuristic if no specific size match
-                    if (matchingRows.length === 0) {
-                        matchingRows = window.currentReleases.filter(r => r[0] === selectedRelease);
-                        if (selectedSize.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
-                        else if (selectedSize.startsWith("40")) matchingRows = matchingRows.filter(r => (parseInt(r[9]) > 0));
-                        else if (selectedSize.startsWith("45")) matchingRows = matchingRows.filter(r => (parseInt(r[11]) > 0));
+                    // 1. REVERT OLD STOCK IF NECESSARY
+                    if (revertOld && oldRelData) {
+                        let oldRows = window.currentReleases.filter(r =>
+                            (r[0] || '').trim().toUpperCase() === oldRelData.release &&
+                            (r[16] || '').trim().toUpperCase() === oldRelData.size
+                        );
+                        if (oldRows.length === 0) {
+                            oldRows = window.currentReleases.filter(r => (r[0] || '').trim().toUpperCase() === oldRelData.release);
+                            if (oldRelData.size.startsWith("20")) oldRows = oldRows.filter(r => (parseInt(r[7]) > 0));
+                            else if (oldRelData.size.startsWith("40")) oldRows = oldRows.filter(r => (parseInt(r[9]) > 0));
+                            else if (oldRelData.size.startsWith("45")) oldRows = oldRows.filter(r => (parseInt(r[11]) > 0));
+                        }
+                        if (oldRows.length > 0) {
+                            pendingStockUpdates.push({
+                                targetReleaseId: oldRows[0][15],
+                                stockChange: oldRelData.qty // Revert by adding back
+                            });
+                        }
                     }
 
-                    if (matchingRows.length > 0) {
-                        let totalStockFound = 0;
-                        let dbField = '';
-                        let sizeBase = '';
-                        let stockIdx = -1;
+                    // 2. DEDUCT NEW STOCK IF NECESSARY
+                    if (deductNew) {
+                        let matchingRows = window.currentReleases.filter(r =>
+                            (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized &&
+                            (r[16] || '').trim().toUpperCase() === selectedSizeNormalized
+                        );
 
-                        if (selectedSize.startsWith("20")) { stockIdx = 7; dbField = 'qty_20'; sizeBase = "20'"; }
-                        else if (selectedSize.startsWith("40")) { stockIdx = 9; dbField = 'qty_40'; sizeBase = "40'"; }
-                        else if (selectedSize.startsWith("45")) { stockIdx = 11; dbField = 'qty_45'; sizeBase = "45'"; }
+                        // Fallback to size-based heuristic if no specific size match
+                        if (matchingRows.length === 0) {
+                            matchingRows = window.currentReleases.filter(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
+                            if (selectedSizeNormalized.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
+                            else if (selectedSizeNormalized.startsWith("40")) matchingRows = matchingRows.filter(r => (parseInt(r[9]) > 0));
+                            else if (selectedSizeNormalized.startsWith("45")) matchingRows = matchingRows.filter(r => (parseInt(r[11]) > 0));
+                        }
 
-                        if (stockIdx !== -1) {
-                            // VALIDATION: Check total_stock (index 14) instead of initial investment columns
-                            totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[14]) || 0), 0);
+                        if (matchingRows.length > 0) {
+                            let totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[14]) || 0), 0);
 
-                            // Bypass for editing same order
-                            let bypassStockCheck = false;
-                            if (editingIndex !== null) {
-                                const old = window.currentTrips[editingIndex];
-                                if (old && old[4] === selectedRelease && old[2] === selectedSize && old[44] === selectedRelType && old[45] === selectedRelCond) {
-                                    bypassStockCheck = true;
-                                }
-                            }
+                            // Bypass for editing same order is handled by the optimization block above cancelling deductNew
 
-                            if (totalStockFound <= 0 && !bypassStockCheck) {
+                            if (totalStockFound <= 0) {
                                 alert(`Sin stock disponible para contenedores de ${selectedSize} en la combinación ${selectedRelType}/${selectedRelCond}.`);
                                 isSaving = false;
                                 restoreTripArchiveButtonUI();
                                 return;
                             }
 
-                            // Preparation for actual deduction/reversion
-                            if (triggerStockUpdate || triggerStockRevert) {
-                                const qtyVal = parseInt(document.getElementById('in-qty')?.value) || 1;
-                                const change = triggerStockUpdate ? -qtyVal : qtyVal;
-                                // ALWAYS update total_stock, NEVER touch the initial investment columns (qty_20, etc)
-                                window.calculatedNewStock = (parseInt(matchingRows[0][14]) || 0) + change;
-                                window.stockUpdateField = 'total_stock';
-                                window.targetReleaseNo = selectedRelease;
-                                window.targetReleaseId = matchingRows[0][15]; // DB UUID
-                            }
+                            pendingStockUpdates.push({
+                                targetReleaseId: matchingRows[0][15],
+                                stockChange: -newQtyVal // Deduct by subtracting
+                            });
+                        } else {
+                            console.log("Saving order with manual/external release (no exact stock match found for deduction).");
                         }
-                    } else {
-                        console.log("Saving order with manual/external release (no exact stock match found).");
                     }
                 }
             } else if (isDeductionCandidate && !isFinalized) {
@@ -366,24 +426,38 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
 
                 // STOCK UPDATE EXECUTION (Deduction OR Reversion)
-                if ((triggerStockUpdate || triggerStockRevert) && window.stockUpdateField && window.calculatedNewStock !== undefined) {
-                    const upObj = {};
-                    upObj[window.stockUpdateField] = window.calculatedNewStock;
+                if (pendingStockUpdates.length > 0) {
+                    // Consolidate updates by targetReleaseId
+                    const consolidatedUpdates = {};
+                    pendingStockUpdates.forEach(update => {
+                        if (!consolidatedUpdates[update.targetReleaseId]) {
+                            consolidatedUpdates[update.targetReleaseId] = 0;
+                        }
+                        consolidatedUpdates[update.targetReleaseId] += update.stockChange;
+                    });
 
-                    const logMsg = triggerStockUpdate ? `Executing Stock Deduction (-1)` : `Executing Stock Reversion (+1)`;
-                    console.log(`${logMsg} in ${window.stockUpdateField} for release ${window.targetReleaseNo}`);
+                    // Fetch current stock values and apply updates sequentially
+                    for (const [releaseId, change] of Object.entries(consolidatedUpdates)) {
+                        if (change === 0) continue; // Skip net-zero changes
 
-                    await db.from('releases')
-                        .update(upObj)
-                        .eq('id', window.targetReleaseId);
+                        // Get current release data to find current stock
+                        const releaseRow = releasesSource.find(r => r[15] === releaseId);
+                        if (!releaseRow) {
+                            console.warn(`STOCK DEBUG: Could not find release row for UUID ${releaseId} in global cache.`);
+                            continue;
+                        }
 
-                    // Clean up
-                    delete window.stockUpdateField;
-                    delete window.calculatedNewStock;
-                    delete window.targetReleaseNo;
-                    delete window.targetReleaseType;
-                    delete window.targetReleaseCond;
-                    delete window.targetReleaseId;
+                        let currentStock = parseInt(releaseRow[14]) || 0;
+                        let newStock = Math.max(0, currentStock + change); // Prevent negative stock
+
+                        console.log(`STOCK DEBUG: Executing Update for UUID ${releaseId}: ${change > 0 ? '+' : ''}${change} (Stock ${currentStock} -> ${newStock})`);
+
+                        const { error: stockError } = await db.from('releases')
+                            .update({ total_stock: newStock })
+                            .eq('id', releaseId);
+                        
+                        if (stockError) throw stockError;
+                    }
                 }
 
                 alert('¡ORDEN CONFIRMADA CORRECTAMENTE!');
@@ -532,7 +606,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const city = (Array.isArray(r) ? r[6] : r.city || '---');
                 const type = (Array.isArray(r) ? r[2] : r.type || 'DRY');
                 const cond = (Array.isArray(r) ? r[3] : r.condition || 'USED');
-                const pickup = (Array.isArray(r) ? r[4] : r.depot || '---');
+                const pickup = (Array.isArray(r) ? r[5] : r.depot_address || '---'); // index 5 is depot_address
 
                 if (!relNo || relNo === '---') return;
 
@@ -699,7 +773,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         rowData = {
                             city: match[6],
                             size: match[16],
-                            pickup: match[4],
+                            pickup: match[5], // Use index 5 (depot_address) instead of index 4 (depot name)
                             type: match[2],
                             cond: match[3]
                         };
@@ -712,12 +786,54 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     if (inCity) inCity.value = rowData.city || '';
 
                     const inSize = document.getElementById('in-size');
-                    if (inSize && rowData.size && rowData.size !== '---') {
-                        inSize.value = rowData.size;
+                    const inSizeSel = document.getElementById('in-size-sel');
+                    if (rowData.size && rowData.size !== '---') {
+                        // 1. Update Manual Input
+                        if (inSize) inSize.value = rowData.size;
+                        
+                        // 2. Try to update Select Dropdown
+                        if (inSizeSel) {
+                            let sizeExistsInSel = false;
+                            for (let opt of inSizeSel.options) {
+                                if (opt.value === rowData.size) {
+                                    inSizeSel.value = rowData.size;
+                                    sizeExistsInSel = true;
+                                    break;
+                                }
+                            }
+                            // 3. If size not in list, switch to manual mode to ensure it's visible/used
+                            if (!sizeExistsInSel && window.toggleSizeMode) {
+                                window.toggleSizeMode('manual');
+                            } else if (sizeExistsInSel && window.toggleSizeMode) {
+                                window.toggleSizeMode('list');
+                            }
+                        }
                     }
 
                     const inPickup = document.getElementById('in-pickup');
-                    if (inPickup) inPickup.value = rowData.pickup || '';
+                    const inPickupSel = document.getElementById('in-pickup-sel');
+                    if (rowData.pickup && rowData.pickup !== '---') {
+                        if (inPickup) inPickup.value = rowData.pickup;
+                        
+                        if (inPickupSel) {
+                            let addressExistsInSel = false;
+                            for (let opt of inPickupSel.options) {
+                                if (opt.value === rowData.pickup) {
+                                    inPickupSel.value = rowData.pickup;
+                                    addressExistsInSel = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (typeof window.togglePickupAddressMode === 'function') {
+                                if (addressExistsInSel) {
+                                    window.togglePickupAddressMode('list');
+                                } else {
+                                    window.togglePickupAddressMode('manual');
+                                }
+                            }
+                        }
+                    }
 
                     const inType = document.getElementById('in-rel-type');
                     if (inType) inType.value = rowData.type || 'DRY';
@@ -903,9 +1019,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Final check to ensure stock label updates
             if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
 
-            // Set Additional Fields (rel_type, rel_condition)
-            if (document.getElementById('in-rel-type')) document.getElementById('in-rel-type').value = rowData[44] === '---' ? '' : (rowData[44] || '');
-            if (document.getElementById('in-rel-condition')) document.getElementById('in-rel-condition').value = rowData[45] === '---' ? '' : (rowData[45] || '');
+            // Populate Release Type and Condition
+            const typeVal = rowData[44] === '---' ? 'DRY' : (rowData[44] || 'DRY');
+            const condVal = rowData[45] === '---' ? 'USED' : (rowData[45] || 'USED');
+            if (document.getElementById('in-rel-type')) document.getElementById('in-rel-type').value = typeVal;
+            if (document.getElementById('in-rel-condition')) document.getElementById('in-rel-condition').value = condVal;
 
             // Re-trigger Toggles based on values loaded (Fixed Absolute Indices)
             const isYardChecked = (rowData[12] === 'YES');

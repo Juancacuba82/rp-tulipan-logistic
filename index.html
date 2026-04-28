@@ -4824,18 +4824,20 @@
         function loadGoogleMapsScript(key) {
             return new Promise((resolve, reject) => {
                 if (typeof google !== 'undefined' && google.maps) return resolve();
+                
+                window.__initGoogleMaps = () => {
+                    console.log("Google Maps script initialized via callback.");
+                    resolve();
+                };
+
                 const timeout = setTimeout(() => {
                     reject(new Error("Tiempo de espera agotado al cargar Google Maps. Revisa tu conexión."));
                 }, 10000);
+                
                 const script = document.createElement('script');
-                script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry`;
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry&callback=__initGoogleMaps`;
                 script.async = true;
                 script.defer = true;
-                script.onload = () => {
-                    clearTimeout(timeout);
-                    console.log("Google Maps script loaded.");
-                    resolve();
-                };
                 script.onerror = (e) => {
                     clearTimeout(timeout);
                     console.error("Failed to load Google Maps script", e);
@@ -4878,11 +4880,16 @@
 
                 const pickupSel = document.getElementById('in-pickup-sel');
                 const pickupMan = document.getElementById('in-pickup');
-                const origin = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
-                const destination = document.getElementById('in-delivery')?.value;
+                let origin = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
+                let destination = document.getElementById('in-delivery')?.value;
+
+                // Cleanup placeholders
+                if (origin === '---' || (origin && origin.toLowerCase().includes('select'))) origin = '';
+                if (destination === '---' || (destination && destination.toLowerCase().includes('select'))) destination = '';
 
                 if (!origin || !destination || origin.trim() === '' || destination.trim() === '') {
                     if (isManual) setStatus("Err: Missing Address", "#fee2e2");
+                    console.log("Mileage Calc aborted: missing origin or destination.");
                     return;
                 }
 
@@ -4897,10 +4904,11 @@
 
                 const service = new google.maps.DistanceMatrixService();
                 
-                // Timeout manual para la respuesta de Google
+                // Increased timeout for slow connections or complex geocoding
                 const callbackTimeout = setTimeout(() => {
                     setStatus("Err: Google Timeout", "#fee2e2");
-                }, 8000);
+                    console.warn("Google Distance Matrix request timed out after 15s.");
+                }, 15000);
 
                 service.getDistanceMatrix({
                     origins: [origin],
@@ -4917,12 +4925,19 @@
                             if (element.status === 'OK') {
                                 const miles = Math.ceil(element.distance.value * 0.000621371);
                                 milesInput.value = miles;
+                                milesInput.dispatchEvent(new Event('change', { bubbles: true }));
                                 setStatus("0", ""); 
                             } else {
                                 setStatus("Google: " + element.status, "#fee2e2");
                             }
                         } else {
                             setStatus("API: " + status, "#fee2e2");
+                            if (status === 'REQUEST_DENIED') {
+                                alert("Google Maps API REQUEST_DENIED.\n\nAsegúrate de que:\n1. La API Key sea correcta y tenga la 'Maps JavaScript API' habilitada.\n2. Las restricciones de Referrer coincidan con tu URL actual.\n\nLa clave actual se ha borrado para que puedas ingresar una nueva la próxima vez que intentes calcular.");
+                                localStorage.removeItem('google_maps_api_key');
+                            } else {
+                                console.error("Distance Matrix Error: ", status);
+                            }
                         }
                     } catch (e) {
                         setStatus("Err inside callback", "#fee2e2");
