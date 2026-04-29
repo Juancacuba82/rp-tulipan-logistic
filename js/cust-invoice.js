@@ -28,16 +28,17 @@ window.renderCustInvoiceTable = function () {
         if (!isReady) return false;
 
         // 2. Component Payment Check (Only show if there's actually a debt)
-        // Check if the order involves Transport and/or Sales components
         const hasTrans = (row[42] === 'YES');
         const hasSales = (row[43] === 'YES');
+        const hasYard  = (row[12] === 'YES');
 
         // Check if those components are still PENDING
-        const isRatePend = hasTrans && (row[32] === 'PEND');
+        const isRatePend  = hasTrans && (row[32] === 'PEND');
         const isSalesPend = hasSales && (row[33] === 'PEND');
+        const isYardPend  = hasYard  && (row[30] === 'PEND');
 
         // Only show if at least ONE required component is still PENDING
-        if (!isRatePend && !isSalesPend) return false;
+        if (!isRatePend && !isSalesPend && !isYardPend) return false;
 
         // 3. User UI Filters
         const orderNo = (row[5] || '').toString().toLowerCase();
@@ -80,7 +81,15 @@ window.renderCustInvoiceTable = function () {
         const qtyVal = parseInt(row[53]) || 1;
         const totalSales = salesPrice * qtyVal;
         
+        // Define cash flags from indices 46, 47 and 48
+        const isYCash = row[46] === true || row[46] === 'true';
+        const isRCash = row[47] === true || row[47] === 'true';
+        const isSCash = row[48] === true || row[48] === 'true';
+        
+        const yardRate = parseFloat(row[13]) || 0;
+        
         let cashAmountValue = 0;
+        if (isYCash) cashAmountValue += yardRate;
         if (isRCash) cashAmountValue += transPay;
         if (isSCash) cashAmountValue += totalSales;
         

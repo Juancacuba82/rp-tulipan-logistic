@@ -684,6 +684,7 @@
                 <button onclick="closeMenu(); showView('calls')" class="btn-calendar" title="FORM CALL"><i class="fas fa-phone-alt"></i> CALLS</button>
                 <button onclick="closeMenu(); showView('rentals')" class="btn-calendar" title="RENTALS"><i class="fas fa-key"></i> RENTALS</button>
                 <button onclick="closeMenu(); showView('tasks')" class="btn-calendar" title="TASKS & TO-DO"><i class="fas fa-tasks"></i> TASKS</button>
+                <button onclick="closeMenu(); showView('attendance')" class="btn-calendar" title="ATTENDANCE"><i class="fas fa-calendar-check"></i> ATTENDANCE</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -692,8 +693,12 @@
             </button>
 
             <button onclick="handleClockIn()" id="btn-clockin" class="btn-calendar"
-                style="display: none; background: #10b981; color: white; margin-right: 10px; font-weight: 900;">
-                <i class="fas fa-clock"></i> CLOCK IN
+                style="display: none; background: #10b981; color: white; margin-right: 5px; font-weight: 900; height: 34px; padding: 0 15px; border-radius: 6px; align-items: center; justify-content: center; gap: 6px;">
+                <i class="fas fa-clock"></i> IN
+            </button>
+            <button onclick="handleClockOut()" id="btn-clockout-nav" class="btn-calendar"
+                style="display: none; background: #f59e0b; color: white; margin-right: 10px; font-weight: 900; height: 34px; padding: 0 15px; border-radius: 6px; align-items: center; justify-content: center; gap: 6px;">
+                <i class="fas fa-sign-out-alt"></i> OUT
             </button>
 
             <button onclick="handleLogout()" id="btn-logout" class="btn-logout-header" style="display: none;">
@@ -793,7 +798,7 @@
                         <span>TASKS & TO-DO</span>
                     </button>
                     <button onclick="showView('attendance')" class="dash-card" id="card-attendance" style="display: none;">
-                        <i class="fas fa-user-clock"></i>
+                        <i class="fas fa-calendar-check"></i>
                         <span>ATTENDANCE</span>
                     </button>
                 </div>
@@ -817,21 +822,34 @@
                                 <label style="font-size: 0.7rem; font-weight: 800; color: #64748b;">TO:</label>
                                 <input type="date" id="att-end-date" class="form-input" style="width: 140px;" onchange="loadAttendanceData()">
                             </div>
-                            <button onclick="loadAttendanceData()" class="btn-action-primary" style="background: #1e40af;">
-                                <i class="fas fa-sync-alt"></i> REFRESH
+                            <button onclick="resetAttendanceFilters()" class="btn-action-primary" style="background: #64748b;">
+                                <i class="fas fa-undo"></i> RESET
                             </button>
                         </div>
                     </div>
                 </div>
                 <div class="table-scroll-container" style="margin: 20px;">
-                    <table id="attendance-table">
+                    <table id="attendance-table" style="width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1;">
+                        <style>
+                            #attendance-table th, #attendance-table td {
+                                border: 1px solid #cbd5e1;
+                                padding: 12px;
+                                text-align: center;
+                            }
+                            #attendance-table th {
+                                background: #1e293b;
+                                color: white;
+                                font-weight: 800;
+                            }
+                        </style>
                         <thead>
                             <tr class="header-row">
-                                <th>Date & Time</th>
-                                <th>Employee</th>
-                                <th>Email</th>
-                                <th>Action</th>
-                                <th>Location (GPS)</th>
+                                <th>DATE</th>
+                                <th>EMPLOYEE</th>
+                                <th>TIME IN</th>
+                                <th>LOC IN</th>
+                                <th>TIME OUT</th>
+                                <th>LOC OUT</th>
                             </tr>
                         </thead>
                         <tbody id="attendance-body">
@@ -2894,6 +2912,12 @@
                     </div>
                     <div class="sidebar-form">
                         <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;">Assign To</label>
+                            <select id="call-assigned">
+                                <option value="" disabled selected>Loading employees...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e40af !important;">Date</label>
                             <input type="date" id="call-date">
                         </div>
@@ -3215,12 +3239,16 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="header-actions">
-                                <div style="text-align: right;">
-                                    <span style="font-size: 0.7rem; color: #64748b; font-weight: 800; display: block; text-transform: uppercase;">Total Accumulated</span>
-                                    <h3 id="rentals-total-income" style="margin: 0; color: #10b981; font-size: 1.5rem; font-weight: 900;">$0.00</h3>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <button id="btn-delete-rental-global" onclick="removeSelectedRental()" 
+                                        style="display: none; height: 34px; padding: 0 15px; font-size: 0.7rem; font-weight: 800; background: #dc2626; border: none; color: white; border-radius: 6px; cursor: pointer; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);">
+                                        <i class="fas fa-trash-alt" style="font-size: 0.8rem;"></i> DELETE
+                                    </button>
+                                    <div style="text-align: right;">
+                                        <span style="font-size: 0.7rem; color: #64748b; font-weight: 800; display: block; text-transform: uppercase;">Total Accumulated</span>
+                                        <h3 id="rentals-total-income" style="margin: 0; color: #10b981; font-size: 1.5rem; font-weight: 900;">$0.00</h3>
+                                    </div>
                                 </div>
-                            </div>
                         </div>
                     </div>
 
@@ -3242,7 +3270,6 @@
                                     <th>STATUS</th>
                                     <th>PAYMENT</th>
                                     <th>NOTES</th>
-                                    <th>ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="rentals-body"></tbody>
@@ -3676,7 +3703,9 @@
 
                 const reportDrvFilterSel = document.getElementById('filter-search');
                 if (reportDrvFilterSel && window.currentDriverNameRef) {
-                    if (!isSuperDriver) {
+                    // Force hide for Robert Cortez only in this view
+                    const isRobert = (window.userEmail === 'cortes410@aol.com');
+                    if (!isSuperDriver || isRobert) {
                         reportDrvFilterSel.value = window.currentDriverNameRef;
                         if (reportDrvFilterSel.parentElement) reportDrvFilterSel.parentElement.style.display = 'none';
                     } else {
@@ -3923,6 +3952,8 @@
                 const btnEmail = document.getElementById('btn-email-settings');
                 const btnLogout = document.getElementById('btn-logout');
                 const btnClockIn = document.getElementById('btn-clockin');
+                const btnClockOut = document.getElementById('btn-clockout-nav');
+                const btnAttendanceNav = document.getElementById('btn-attendance-nav');
 
                 if (header) {
                     if (finalView === 'hero') {
@@ -3930,10 +3961,9 @@
                         if (btnEmail && normalizedRole === 'admin') btnEmail.style.display = 'inline-flex';
                         if (btnLogout) btnLogout.style.display = 'inline-flex';
                         
-                        // Clock in is only for admin/staff, not for drivers
-                        if (btnClockIn) {
-                            btnClockIn.style.display = (normalizedRole !== 'driver') ? 'inline-flex' : 'none';
-                        }
+                        // Clock in/out are only for admin/staff, not for drivers
+                        if (btnClockIn) btnClockIn.style.display = (normalizedRole !== 'driver') ? 'inline-flex' : 'none';
+                        if (btnClockOut) btnClockOut.style.display = (normalizedRole !== 'driver') ? 'inline-flex' : 'none';
                         
                         // Show attendance card for admins
                         const cardAtt = document.getElementById('card-attendance');
@@ -3944,13 +3974,15 @@
                         header.classList.add('navbar-fixed-solid');
                         if (btnEmail) btnEmail.style.display = 'none';
                         
-                        // Drivers keep Logout visible because they have space, but Clock In is hidden for them
+                        // Drivers keep Logout visible because they have space, but Clock In/Out are hidden for them
                         if (normalizedRole === 'driver') {
                             if (btnLogout) btnLogout.style.display = 'inline-flex';
                             if (btnClockIn) btnClockIn.style.display = 'none';
+                            if (btnClockOut) btnClockOut.style.display = 'none';
                         } else {
                             if (btnLogout) btnLogout.style.display = 'none';
                             if (btnClockIn) btnClockIn.style.display = 'none';
+                            if (btnClockOut) btnClockOut.style.display = 'none';
                         }
                     }
 
@@ -4010,6 +4042,8 @@
                         if (window.loadReleasesData) window.loadReleasesData();
                     } else if (finalView === 'fleet') {
                         if (window.loadFleetData) window.loadFleetData();
+                    } else if (finalView === 'attendance') {
+                        if (window.loadAttendanceData) window.loadAttendanceData();
                     } else if (finalView === 'rentals') {
                         if (window.loadCustomersData) window.loadCustomersData();
                         if (window.loadRentalsData) window.loadRentalsData();

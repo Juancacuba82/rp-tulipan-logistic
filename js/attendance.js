@@ -60,6 +60,65 @@ window.handleClockIn = async function() {
     } catch (err) {
         console.error("Clock In Error:", err);
         alert(`Error during Clock In: ${err.message || JSON.stringify(err)}\nPlease try again or contact support.`);
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.handleClockOut = async function() {
+    if (!db) return alert("Database not connected");
+
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) return alert("You must be logged in.");
+
+    const btn = document.getElementById('btn-clockout');
+    if (btn) btn.disabled = true;
+
+    try {
+        let position = null;
+        if (navigator.geolocation) {
+            position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    timeout: 10000,
+                    maximumAge: 0,
+                    enableHighAccuracy: true
+                });
+            }).catch(e => {
+                console.warn("Geolocation denied or failed:", e);
+                return null;
+            });
+        }
+
+        let gpsData = 'No GPS Data';
+        if (position) {
+            gpsData = `${position.coords.latitude}, ${position.coords.longitude}`;
+        }
+
+        const now = new Date();
+        const viewDate = now.toISOString().split('T')[0];
+        
+        const user = session.user;
+        const email = user.email;
+        let driverName = email.split('@')[0];
+        
+        const { data: profile } = await db.from('profiles').select('*').eq('id', user.id).single();
+        if (profile) {
+            driverName = profile.driver_name_ref || profile.full_name || profile.name || driverName;
+        }
+
+        const { error } = await db.from('activity_logs').insert([{
+            user_email: email.trim(),
+            action_type: 'CLOCK_OUT',
+            details: `GPS: ${gpsData}`,
+            view_date: viewDate,
+            driver_name: driverName.toString().trim()
+        }]);
+
+        if (error) throw error;
+        
+        alert(`Successfully Clocked Out at ${now.toLocaleTimeString()}\nLocation: ${gpsData}`);
+    } catch (err) {
+        console.error("Clock Out Error:", err);
+        alert(`Error during Clock Out: ${err.message || JSON.stringify(err)}`);
     } finally {
         if (btn) btn.disabled = false;
     }
@@ -71,7 +130,7 @@ window.loadAttendanceData = async function() {
     const tbody = document.getElementById('attendance-body');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>';
 
     const startDate = document.getElementById('att-start-date').value;
     const endDate = document.getElementById('att-end-date').value;
@@ -79,13 +138,14 @@ window.loadAttendanceData = async function() {
     try {
         let query = db.from('activity_logs')
             .select('*')
-            .eq('action_type', 'CLOCK_IN')
-            .order('created_at', { ascending: false });
+            .in('action_type', ['CLOCK_IN', 'CLOCK_OUT'])
+            .order('created_at', { ascending: true });
 
-        if (startDate) {
+        // Apply filters only if they have a non-empty value
+        if (startDate && startDate.trim() !== '') {
             query = query.gte('view_date', startDate);
         }
-        if (endDate) {
+        if (endDate && endDate.trim() !== '') {
             query = query.lte('view_date', endDate);
         }
 
@@ -94,40 +154,71 @@ window.loadAttendanceData = async function() {
 
         tbody.innerHTML = '';
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No records found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No records found.</td></tr>';
             return;
         }
 
+        // Group by Date + Employee
+        const sessions = {};
         data.forEach(log => {
-            const tr = document.createElement('tr');
-            
-            const dt = new Date(log.created_at);
-            const mm = String(dt.getMonth() + 1).padStart(2, '0');
-            const dd = String(dt.getDate()).padStart(2, '0');
-            const yyyy = dt.getFullYear();
-            const dateStr = `${mm}/${dd}/${yyyy}`;
-            const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const date = log.view_date;
+            const employee = log.driver_name || 'Unknown';
+            const key = `${date}_${employee}`;
 
+            if (!sessions[key]) {
+                sessions[key] = { date, employee, inTime: null, inLoc: null, outTime: null, outLoc: null };
+            }
+
+            const timeStr = new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const gpsInfo = (log.details || '').replace('GPS: ', '');
             let locationHtml = gpsInfo;
             if (gpsInfo !== 'No GPS Data' && gpsInfo.includes(',')) {
-                locationHtml = `<a href="https://www.google.com/maps/search/?api=1&query=${gpsInfo}" target="_blank" style="color:#1e40af; text-decoration:underline;">View on Map</a>`;
+                locationHtml = `<a href="https://www.google.com/maps/search/?api=1&query=${gpsInfo}" target="_blank" style="color:#1e40af; text-decoration:underline;">Map</a>`;
             }
 
+            if (log.action_type === 'CLOCK_IN') {
+                sessions[key].inTime = timeStr;
+                sessions[key].inLoc = locationHtml;
+            } else {
+                sessions[key].outTime = timeStr;
+                sessions[key].outLoc = locationHtml;
+            }
+        });
+
+        // Render sorted by date descending
+        const sortedKeys = Object.keys(sessions).sort().reverse();
+        sortedKeys.forEach(key => {
+            const s = sessions[key];
+            const tr = document.createElement('tr');
+            
+            const dParts = s.date.split('-');
+            const dateStr = dParts.length === 3 ? `${dParts[1]}/${dParts[2]}/${dParts[0]}` : s.date;
+
             tr.innerHTML = `
-                <td><strong>${dateStr}</strong> <span style="color:#64748b; font-size:0.85rem;">${timeStr}</span></td>
-                <td><strong style="color:#1e293b;">${log.driver_name || 'Unknown'}</strong></td>
-                <td>${log.user_email || ''}</td>
-                <td><span style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">CLOCK IN</span></td>
-                <td>${locationHtml}</td>
+                <td><strong>${dateStr}</strong></td>
+                <td><strong style="color:#1e293b;">${s.employee}</strong></td>
+                <td><span style="color:#166534; font-weight:bold;">${s.inTime || '---'}</span></td>
+                <td>${s.inLoc || '---'}</td>
+                <td><span style="color:#9a3412; font-weight:bold;">${s.outTime || '---'}</span></td>
+                <td>${s.outLoc || '---'}</td>
             `;
             tbody.appendChild(tr);
         });
 
     } catch (err) {
         console.error("Failed to load attendance:", err);
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Failed to load data.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Failed to load data.</td></tr>';
     }
+};
+
+window.resetAttendanceFilters = function() {
+    const startInput = document.getElementById('att-start-date');
+    const endInput = document.getElementById('att-end-date');
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+    
+    // Reload everything
+    window.loadAttendanceData();
 };
 
 // Hook into app initialization or view changes to show/hide the admin card
@@ -146,22 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 500);
 
-    // Default range to last 30 days
+    // Default range REMOVED as per user request to see all records by default
     const startInput = document.getElementById('att-start-date');
     const endInput = document.getElementById('att-end-date');
     if (startInput && endInput) {
-        const today = new Date();
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(today.getDate() - 30);
-
-        const formatDate = (date) => {
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, '0');
-            const dd = String(date.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        };
-
-        startInput.value = formatDate(thirtyDaysAgo);
-        endInput.value = formatDate(today);
+        startInput.value = '';
+        endInput.value = '';
     }
 });

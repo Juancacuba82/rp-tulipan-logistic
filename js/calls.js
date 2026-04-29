@@ -20,9 +20,56 @@ async function loadCallsData() {
         if (error) throw error;
         currentCalls = data || [];
         renderCallsTable();
-        updateCallSellerDropdown();
+        await updateCallSellerDropdown();
+        await populateCallAssignedSelect();
     } catch (err) {
         console.error("Error loading calls:", err);
+    }
+}
+
+async function populateCallAssignedSelect() {
+    const sel = document.getElementById('call-assigned');
+    if (!sel) return;
+
+    const currentVal = sel.value;
+    try {
+        const { data, error } = await db.from('profiles')
+            .select('email')
+            .in('role', ['admin', 'employee', 'staff'])
+            .order('email');
+
+        if (error) throw error;
+
+        sel.innerHTML = '';
+        data.forEach(p => {
+            if (p.email) {
+                const opt = document.createElement('option');
+                opt.value = p.email;
+                opt.textContent = p.email.split('@')[0].toUpperCase();
+                sel.appendChild(opt);
+            }
+        });
+
+        // Set default to current user if it's a new entry and no value selected
+        if (!currentVal && window.userEmail) {
+            sel.value = window.userEmail;
+        } else if (currentVal) {
+            sel.value = currentVal;
+        }
+    } catch (err) {
+        console.error("Error populating assigned select:", err);
+        // Fallback: use existing creators if profiles fetch fails
+        const emails = [...new Set(currentCalls.map(c => c.created_by).filter(e => !!e))];
+        if (window.userEmail && !emails.includes(window.userEmail)) emails.push(window.userEmail);
+        
+        sel.innerHTML = '';
+        emails.sort().forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e;
+            opt.textContent = e.split('@')[0].toUpperCase();
+            sel.appendChild(opt);
+        });
+        if (window.userEmail) sel.value = window.userEmail;
     }
 }
 
@@ -254,7 +301,7 @@ async function saveCallLog() {
         next_call_date: document.getElementById('call-next-date').value || null,
         status: document.getElementById('call-status').value,
         description: document.getElementById('call-description').value,
-        created_by: window.userEmail || null
+        created_by: document.getElementById('call-assigned').value || window.userEmail || null
     };
 
     if (!payload.customer) {
@@ -330,6 +377,9 @@ function editCallLog(id) {
     document.getElementById('call-next-date').value = call.next_call_date || "";
     document.getElementById('call-status').value = call.status || "PENDING";
     document.getElementById('call-description').value = call.description || "";
+    
+    const assignSel = document.getElementById('call-assigned');
+    if (assignSel) assignSel.value = call.created_by || window.userEmail || "";
 
     document.getElementById('btn-save-call').textContent = "UPDATE CALL RECORD";
     
@@ -388,6 +438,9 @@ function resetCallForm() {
     document.getElementById('call-status').value = "PENDING";
     document.getElementById('call-description').value = "";
     
+    const assignSel = document.getElementById('call-assigned');
+    if (assignSel && window.userEmail) assignSel.value = window.userEmail;
+    
     document.getElementById('btn-save-call').textContent = "SAVE CALL RECORD";
 
     const btnTrans = document.getElementById('btn-top-transfer');
@@ -409,20 +462,41 @@ function resetCallFilters() {
     renderCallsTable();
 }
 
-function updateCallSellerDropdown() {
+async function updateCallSellerDropdown() {
     const sel = document.getElementById('cf-seller');
     if (!sel) return;
 
     const currentVal = sel.value;
-    const sellers = [...new Set(currentCalls.map(c => c.created_by).filter(e => !!e))].sort();
+    
+    try {
+        // Fetch all potential sellers (admins, employees, staff)
+        const { data, error } = await db.from('profiles')
+            .select('email')
+            .in('role', ['admin', 'employee', 'staff'])
+            .order('email');
 
-    sel.innerHTML = '<option value="">All Employees</option>';
-    sellers.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s;
-        opt.textContent = s.split('@')[0].toUpperCase();
-        sel.appendChild(opt);
-    });
+        if (error) throw error;
+
+        sel.innerHTML = '<option value="">All Employees</option>';
+        data.forEach(p => {
+            if (p.email) {
+                const opt = document.createElement('option');
+                opt.value = p.email;
+                opt.textContent = p.email.split('@')[0].toUpperCase();
+                sel.appendChild(opt);
+            }
+        });
+    } catch (err) {
+        console.warn("Fallback: updating seller dropdown from call data", err);
+        const sellers = [...new Set(currentCalls.map(c => c.created_by).filter(e => !!e))].sort();
+        sel.innerHTML = '<option value="">All Employees</option>';
+        sellers.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s.split('@')[0].toUpperCase();
+            sel.appendChild(opt);
+        });
+    }
 
     if (currentVal) sel.value = currentVal;
 }

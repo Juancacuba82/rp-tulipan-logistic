@@ -211,9 +211,16 @@
             const isExpired = row.status === 'ACTIVE' && row.final_date && new Date(row.final_date) <= new Date().setHours(0,0,0,0);
             
             const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
             if (isExpired) {
                 tr.style.backgroundColor = '#fee2e2'; // Light Red background
             }
+            if (editingRentalId === row.id) {
+                tr.classList.add('selected-row');
+            }
+
+            tr.onclick = () => editRental(idx);
+
             tr.innerHTML = `
                 <td style="color: #000000; font-weight: 700;">${formatDate(row.start_date)}</td>
                 <td style="font-weight: 700; color: ${isExpired ? '#ef4444' : '#000000'};">
@@ -240,15 +247,13 @@
                     </span>
                 </td>
                 <td style="font-size: 0.75rem; color: #000000; font-weight: 700; min-width: 140px; max-width: 140px; white-space: normal; word-wrap: break-word; line-height: 1.2;">${row.notes || ''}</td>
-                <td>
-                    <div style="display: flex; gap: 5px;">
-                        <button class="btn-manage-inline" onclick="editRental(${idx})"><i class="fas fa-edit"></i></button>
-                        <button class="btn-manage-inline" style="color: #ef4444;" onclick="removeRental('${row.id}')"><i class="fas fa-trash"></i></button>
-                    </div>
-                </td>
             `;
             body.appendChild(tr);
         });
+
+        // Show/Hide global delete button
+        const delBtn = document.getElementById('btn-delete-rental-global');
+        if (delBtn) delBtn.style.display = editingRentalId ? 'flex' : 'none';
         const totalEl = document.getElementById('rentals-total-income');
         if (totalEl) totalEl.textContent = `$${totalAccumulated.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     }
@@ -415,7 +420,15 @@
         document.getElementById('rental-payment-status').value = row.payment_status || 'PENDING';
         document.getElementById('rental-notes').value = row.notes || '';
         document.getElementById('btn-save-rental').textContent = "UPDATE RENTAL RECORD";
+        
+        // Refresh table to show highlighting and delete button
+        renderRentalsTable();
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function removeSelectedRental() {
+        if (!editingRentalId) return;
+        await removeRental(editingRentalId);
     }
 
     async function removeRental(id) {
@@ -444,6 +457,7 @@
         document.getElementById('rental-payment-status').value = 'PENDING';
         document.getElementById('rental-notes').value = '';
         document.getElementById('btn-save-rental').textContent = "SAVE RENTAL RECORD";
+        renderRentalsTable(); // Hide delete button and clear highlight
     }
 
     function formatDate(dateStr) {
@@ -464,5 +478,6 @@
     window.populateRentalCustomerSelect = populateRentalCustomerSelect;
     window.populateAllRentalSelects = populateAllRentalSelects;
     window.calculateRentalCost = calculateRentalCost;
+    window.removeSelectedRental = removeSelectedRental;
 
 })();

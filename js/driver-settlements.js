@@ -1,10 +1,22 @@
         function renderDriverLog() {
             window.renderDriverLog = renderDriverLog; // Export to window
             const body = document.getElementById('dl-body');
+            const searchInput = document.getElementById('filter-search');
             if (!body) return;
+
+            // AUTO-FILL FOR DRIVERS: Pre-fill search with their name if empty
+            if (window.currentUserRole === 'driver') {
+                if (searchInput) {
+                    searchInput.value = window.currentDriverNameRef || '';
+                    // Hide the search filter for drivers so they don't see other names
+                    const filterItem = searchInput.closest('.filter-item');
+                    if (filterItem) filterItem.style.display = 'none';
+                }
+            }
+
             body.innerHTML = '';
 
-            const searchTerm = (document.getElementById('filter-search')?.value || '').toLowerCase();
+            const searchTerm = (searchInput?.value || '').toLowerCase();
             const dateFrom = document.getElementById('filter-from')?.value;
             const dateTo = document.getElementById('filter-to')?.value;
 

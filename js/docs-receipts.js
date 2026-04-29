@@ -98,8 +98,14 @@
             let roleDriverMatch = true;
             if (window.currentUserRole === 'driver') {
                 const drvRef = (window.currentDriverNameRef || '').toUpperCase();
-                if (drvRef === "ROBERT CORTEZ") {
-                    roleDriverMatch = true;
+                const userEmail = (window.userEmail || '').toLowerCase();
+                const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ");
+
+                if (isRobert) {
+                    // Robert sees all orders from TODAY onwards
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const isTodayOrFuture = (date >= todayStr);
+                    roleDriverMatch = isTodayOrFuture;
                 } else {
                     const isMyTrip = (drv === drvRef.toLowerCase());
                     const isComplete = (trip[41] === 'PAID');
@@ -193,6 +199,17 @@
             alert('Please select a trip first.');
             input.value = '';
             return;
+        }
+
+        // --- ROBERT CORTEZ SPECIAL RESTRICTION ---
+        const userEmail = (window.userEmail || '').toLowerCase();
+        if (userEmail === 'cortes410@aol.com') {
+            const tripDriver = (window.currentDocTrip[17] || '').toUpperCase();
+            if (tripDriver !== "ROBERT CORTEZ") {
+                alert("Restricted: You can only upload photos to trips assigned to ROBERT CORTEZ.");
+                input.value = '';
+                return;
+            }
         }
 
         const file = input.files[0];
@@ -361,7 +378,8 @@
             salesStatus: trip[33] === 'PAID' ? 'PAID' : 'PENDING',
             taxStatus: (trip[52] === 'PAID' || trip[52] === true || trip[52] === 'true') ? 'PAID' : 'PENDING',
             signature: trip[54] || '',
-            signature_driver: trip[56] || ''
+            signature_driver: trip[56] || '',
+            customer: (trip[11] && trip[11] !== '---') ? trip[11] : ''
         };
 
         // Parse Phone # field: format is "CLIENT NAME 305-555-1234"
@@ -387,7 +405,9 @@
 
         const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver);
         const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
-        const clientContent = f('CUSTOMER NAME', data.clientName) + f('PHONE', data.phone);
+        
+        const isComplete = (data.status === 'PAID' || data.status === 'COMPLETE' || data.status === 'DELIVERED');
+        const clientContent = (isComplete ? f('CUSTOMER', data.customer) : '') + f('CUSTOMER NAME', data.clientName) + f('PHONE', data.phone);
 
         let inspectionContent = '';
         const checkIcon = '<span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px; font-weight:bold; font-size:10px; margin-right:5px;">X</span>';
@@ -600,6 +620,16 @@
         if (!window.currentDocTrip) {
             alert('Please select a trip first.');
             return;
+        }
+
+        // --- ROBERT CORTEZ SPECIAL RESTRICTION ---
+        const userEmail = (window.userEmail || '').toLowerCase();
+        if (userEmail === 'cortes410@aol.com') {
+            const tripDriver = (window.currentDocTrip[17] || '').toUpperCase();
+            if (tripDriver !== "ROBERT CORTEZ") {
+                alert("Restricted: You can only sign for trips assigned to ROBERT CORTEZ.");
+                return;
+            }
         }
         _sigType = type || 'customer';
         const modal = document.getElementById('signature-modal');
