@@ -3893,7 +3893,7 @@
             }
             
             // Driver Redirection (Hero is too empty for them, go straight to Docs)
-            const forbiddenForDrivers = ['fleet', 'profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
+            const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
             if (normalizedRole === 'driver') {
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
                     console.warn("Driver redirected to Docs from:", finalView);

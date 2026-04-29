@@ -209,10 +209,11 @@
                     const hasTrans   = (row[42] === 'YES');
                     const hasSales   = (row[43] === 'YES');
 
-                    // A. Sales Component — Net profit = sales_price minus container purchase cost
+                    // A. Sales Component — Net profit = (sales_price - unitCost) * qty
                     if (hasSales && salesPrice > 0) {
                         const relNo      = (row[4] || '').toString().trim();
                         const tripSize   = (row[2] || '').toString();
+                        const qty        = parseInt(row[53]) || 1; // index 53 is qty
                         const releaseData = relMap.get(relNo);
 
                         let unitCost = 0;
@@ -227,9 +228,12 @@
                             }
                         }
 
-                        const salesProfit = salesPrice - unitCost;
+                        const totalSales = salesPrice * qty;
+                        const totalCost  = unitCost * qty;
+                        const salesProfit = totalSales - totalCost;
+
                         totals.sales += salesProfit;
-                        totals.releases += unitCost; // Track container cost (informational only)
+                        totals.releases += totalCost; // Track total container cost
                     }
 
                     // B. Yard / Storage Component

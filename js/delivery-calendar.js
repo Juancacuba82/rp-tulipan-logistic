@@ -335,14 +335,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             baseValues[6] = selectedPickup || '---';
             baseValues[10] = selectedCustomer || '---';
 
-            // Calculate Pending Balance (matches logic in report view)
+            // Calculate Pending Balance (multiplied by qty for Sales and Yard components)
             let pending = 0;
-            if (stYard === 'PEND') pending += parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0;
-            if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate')?.value || '0') || 0;
-            if (stSales === 'PEND') pending += parseFloat(document.getElementById('in-sales')?.value || '0') || 0;
+            const qtyMultiplier = parseInt(document.getElementById('in-qty')?.value) || 1;
+            
+            if (stYard === 'PEND') pending += (parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0) * qtyMultiplier;
+            if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate')?.value || '0') || 0; // Rate is usually per trip
+            if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
             if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount')?.value || '0') || 0;
             if (stRent === 'PEND' && (document.getElementById('in-mode')?.value || '') === 'RENT') {
-                pending += parseFloat(document.getElementById('in-mrate')?.value || '0') || 0;
+                pending += (parseFloat(document.getElementById('in-mrate')?.value || '0') || 0) * qtyMultiplier;
             }
 
             // Preserve existing signature and photos if editing

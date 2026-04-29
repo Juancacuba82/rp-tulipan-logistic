@@ -77,12 +77,12 @@ window.renderCustInvoiceTable = function () {
         const salesPrice = parseFloat(row[20]) || 0;
         const note = row[25] && row[25] !== '---' ? row[25] : '';
         
-        const isRCash = (row[47] === true || row[47] === 'true');
-        const isSCash = (row[48] === true || row[48] === 'true');
+        const qtyVal = parseInt(row[53]) || 1;
+        const totalSales = salesPrice * qtyVal;
         
         let cashAmountValue = 0;
         if (isRCash) cashAmountValue += transPay;
-        if (isSCash) cashAmountValue += salesPrice;
+        if (isSCash) cashAmountValue += totalSales;
         
         const cashDisplay = cashAmountValue > 0 ? `$${cashAmountValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '---';
 
@@ -112,7 +112,7 @@ window.renderCustInvoiceTable = function () {
             <td style="${cellStyle}">${miles}</td>
             <td style="${cellStyle}">${customerCol}</td>
             <td style="${cellStyle}">$${transPay.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-            <td style="${cellStyle}">$${salesPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="${cellStyle}">$${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             <td style="${cellStyle} color: #10b981;">${cashDisplay}</td>
             <td style="${cellStyle} white-space: normal; min-width: 150px; text-align: left; font-size: 0.75rem;">${note}</td>
             <td style="${cellStyle}">

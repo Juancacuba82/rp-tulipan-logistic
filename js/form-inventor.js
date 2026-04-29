@@ -114,10 +114,13 @@
                     }
                 }
 
-                const gross = salesPrice - unitCost;
+                const qty = parseInt(row[53]) || 1;
+                const totalItemSales = salesPrice * qty;
+                const totalItemCost = unitCost * qty;
+                const gross = totalItemSales - totalItemCost;
 
-                totalSales += salesPrice;
-                totalCost += unitCost;
+                totalSales += totalItemSales;
+                totalCost += totalItemCost;
                 totalGross += gross;
 
                 const tr = document.createElement('tr');
@@ -134,8 +137,8 @@
                     <td style="${cellStyle}">${phone}</td>
                     <td style="${cellStyle}">${seller}</td>
                     <td style="${cellStyle} font-weight: 800; color: #1e293b;">${customer}</td>
-                    <td style="${cellStyle} color: #ef4444;">$${unitCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td style="${cellStyle} color: #0f172a; font-weight: 900;">$${salesPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="${cellStyle} color: #ef4444;">$${totalItemCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="${cellStyle} color: #0f172a; font-weight: 900;">$${totalItemSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style="${cellStyle} color: ${gross >= 0 ? '#10b981' : '#ef4444'}; font-weight: 900;">$${gross.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style="${cellStyle} white-space: normal; min-width: 150px; max-width: 250px; text-align: left;">${note}</td>
                 `;
@@ -294,12 +297,15 @@
             document.getElementById('inv-det-date').textContent = formatDate(row[1]);
 
             // Financials
+            const qty = parseInt(row[53]) || 1;
             const sPrice = parseFloat(row[20]) || 0;
             const uCost = parseFloat(unitCost) || 0;
-            const net = sPrice - uCost;
+            const totalS = sPrice * qty;
+            const totalC = uCost * qty;
+            const net = totalS - totalC;
 
-            document.getElementById('inv-det-cost').textContent = fmt(uCost);
-            document.getElementById('inv-det-sales').textContent = fmt(sPrice);
+            document.getElementById('inv-det-cost').textContent = fmt(totalC);
+            document.getElementById('inv-det-sales').textContent = fmt(totalS);
             document.getElementById('inv-det-profit').textContent = fmt(net);
             document.getElementById('inv-det-profit').style.color = net >= 0 ? '#10b981' : '#ef4444';
 
