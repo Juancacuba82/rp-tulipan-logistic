@@ -1125,7 +1125,8 @@
                 r.qty_45 || 0, r.price_45 || 0, r.seller || '---', r.total_stock || 0, r.id,
                 r.container_size || '---',
                 r.paid || false, // Index 17
-                r.is_cash || false // Index 18
+                r.is_cash || false, // Index 18
+                r.created_by || '---' // Index 19
             ];
         }
 
@@ -1149,6 +1150,7 @@
                 total_stock: parseInt(row[14]) || 0,
                 container_size: row[16] || '---',
                 paid: row[17] || false,
-                is_cash: row[18] || false
+                is_cash: row[18] || false,
+                created_by: row[19] || null
             };
         }

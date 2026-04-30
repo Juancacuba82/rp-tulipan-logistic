@@ -223,6 +223,14 @@
             dataToRender.forEach((rowData, idx) => {
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
+                
+                // AUTHOR TOOLTIP: Dynamically resolve creator name from global map
+                const creatorEmail = rowData[19];
+                if (creatorEmail && creatorEmail !== '---') {
+                    const cleanEmail = creatorEmail.trim().toLowerCase();
+                    const creatorName = window.globalUserNameMap ? window.globalUserNameMap[cleanEmail] : null;
+                    tr.title = `Creado por: ${creatorName || creatorEmail}`;
+                }
                 const originalIdx = currentReleases.indexOf(rowData);
                 tr.onclick = (e) => {
                     const relId = rowData[15];
@@ -607,7 +615,8 @@
                 total_stock: finalStock,
                 container_size: fullSize,
                 paid: document.getElementById('rel-paid').checked,
-                is_cash: document.getElementById('rel-is-cash').checked
+                is_cash: document.getElementById('rel-is-cash').checked,
+                created_by: window.userEmail || '' // Captures current author
             };
 
             try {

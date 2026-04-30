@@ -386,7 +386,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 existingSig,    // 54
                 existingPhotos, // 55
                 '',             // 56 (driver sig placeholder - handled by dbObj mapping)
-                document.getElementById('in-invoice-sent')?.value || 'NO' // 57
+                document.getElementById('in-invoice-sent')?.value || 'NO', // 57
+                window.userEmail || '' // 58: created_by (Captures current author)
             ];
 
             const dbObj = mapArrayToTrip(rowData);
@@ -1176,6 +1177,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 window.currentTrips.forEach((rowData, idx) => {
                     try {
                         const tr = document.createElement('tr');
+                        
+                        // AUTHOR TOOLTIP: Dynamically resolve creator name from global map
+                        const creatorEmail = rowData[58];
+                        if (creatorEmail && creatorEmail !== '---') {
+                            const cleanEmail = creatorEmail.trim().toLowerCase();
+                            const creatorName = window.globalUserNameMap ? window.globalUserNameMap[cleanEmail] : null;
+                            tr.title = `Creado por: ${creatorName || creatorEmail}`;
+                        }
+                        
                         const isTodayEntry = (rowData[1] === todayStr);
                         const mode = rowData[26];
                         const stYard = rowData[30];

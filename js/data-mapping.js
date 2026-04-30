@@ -93,7 +93,8 @@
                 t.signature || '',           // 54
                 safeParse(t.photos, []),      // 55
                 t.signature_driver || '',     // 56
-                t.invoice_sent || 'NO'        // 57
+                t.invoice_sent || 'NO',       // 57
+                t.created_by || '---'         // 58
             ];
         }
 
@@ -156,7 +157,8 @@
                 qty: parseInt(row[53]) || 1,
                 signature: row[54] || '',
                 photos: row[55] || [],
-                invoice_sent: row[57] || 'NO'
+                invoice_sent: row[57] || 'NO',
+                created_by: row[58] || null
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB
