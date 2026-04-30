@@ -227,7 +227,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // 1. If it WAS deducted, we might need to revert it.
             // 2. If it IS to be deducted, we might need to apply it.
             let revertOld = wasFinalized && wasDeductionCandidate;
-            let deductNew = isFinalized && isDeductionCandidate && isReleaseListMode; // Only deduct NEW stock if from List
+            let deductNew = isFinalized && isDeductionCandidate; // REMOVED strict isReleaseListMode requirement for edits to be more robust
             const newQtyVal = parseInt(document.getElementById('in-qty')?.value) || 1;
 
             // Optimization: If nothing relevant changed, cancel both out
@@ -302,8 +302,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                             // Bypass for editing same order is handled by the optimization block above cancelling deductNew
 
-                            if (totalStockFound <= 0) {
-                                alert(`Sin stock disponible para contenedores de ${selectedSize} en la combinación ${selectedRelType}/${selectedRelCond}.`);
+                            if (totalStockFound < newQtyVal) {
+                                alert(`STOCK INSUFICIENTE: Intentas descontar ${newQtyVal} unidades pero solo quedan ${totalStockFound} disponibles para ${selectedSize} (${selectedRelType}/${selectedRelCond}).`);
                                 isSaving = false;
                                 restoreTripArchiveButtonUI();
                                 return;
@@ -953,14 +953,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         // Hybrid Logic: Check if value exists in Select
                         const sel = document.getElementById('in-release-sel');
                         let exists = false;
+                        let vMatched = '';
                         if (sel) {
+                            const vClean = (v || '').toString().trim().toUpperCase();
                             for (let opt of sel.options) {
-                                if (opt.value === v) { exists = true; break; }
+                                if (opt.value.trim().toUpperCase() === vClean) { 
+                                    exists = true; 
+                                    vMatched = opt.value;
+                                    break; 
+                                }
                             }
                         }
                         if (exists && v !== '---' && v !== '') {
                             toggleReleaseMode('list');
-                            sel.value = v;
+                            sel.value = vMatched;
                         } else {
                             toggleReleaseMode('manual');
                             el.value = (v === '---' || v === undefined || v === null) ? '' : v;
@@ -1163,6 +1169,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded (Initial Load) ---
                 if (window.renderDriverLog) window.renderDriverLog();
+                
+                // --- TOP SCROLLBAR SYNC ---
+                setTimeout(syncTopScroll, 100); 
 
                 window.currentTrips.forEach((rowData, idx) => {
                     try {
@@ -1757,4 +1766,34 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
             }, 25000);
         })();
+
+// Helper for Dual Scrollbars in Calendar
+function syncTopScroll() {
+    const topContainer = document.getElementById('top-scrollbar-container');
+    const topDummy = document.getElementById('top-scrollbar-dummy');
+    const tableContainer = document.getElementById('calendar-table-container');
+    const table = document.getElementById('logistics-table');
+
+    if (!topContainer || !topDummy || !tableContainer || !table) return;
+
+    // Only show if table is wider than container
+    if (table.offsetWidth > tableContainer.offsetWidth) {
+        topContainer.style.display = 'block';
+        topDummy.style.width = table.offsetWidth + 'px';
+        
+        // Sync scroll events
+        topContainer.onscroll = () => {
+            tableContainer.scrollLeft = topContainer.scrollLeft;
+        };
+        tableContainer.onscroll = () => {
+            topContainer.scrollLeft = tableContainer.scrollLeft;
+        };
+    } else {
+        topContainer.style.display = 'none';
+    }
+}
+
+window.addEventListener('resize', syncTopScroll);
+// Initial setup
+setTimeout(syncTopScroll, 1000);
 

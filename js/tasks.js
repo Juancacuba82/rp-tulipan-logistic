@@ -6,6 +6,7 @@
 (function() {
     let currentTasks = [];
     let employeeProfiles = [];
+    let editingTaskId = null;
 
     // --- INITIALIZATION ---
     window.loadTasksData = async function() {
@@ -25,24 +26,39 @@
             if (error) throw error;
             
             currentTasks = data || [];
-            renderTasksTable();
-            populateEmployeeDropdown();
+            await populateEmployeeDropdown();
+            applyTaskFilters();
         } catch (err) {
             console.error("Error loading tasks:", err);
         }
     };
 
-    // --- RENDER LOGIC ---
     function renderTasksTable() {
         const body = document.getElementById('tasks-body');
         const countEl = document.getElementById('tasks-count-display');
         if (!body) return;
+
+        const filterEmail = document.getElementById('task-filter-email')?.value || '';
         
+        const filteredTasks = currentTasks.filter(task => {
+            if (filterEmail && task.assigned_to_email !== filterEmail) return false;
+            return true;
+        });
+
         body.innerHTML = '';
-        if (countEl) countEl.textContent = currentTasks.length;
+        if (countEl) countEl.textContent = filteredTasks.length;
         
-        currentTasks.forEach(task => {
+        filteredTasks.forEach(task => {
             const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            if (editingTaskId === task.id) tr.style.background = '#eff6ff';
+
+            tr.onclick = (e) => {
+                // Don't trigger if clicking an action button
+                if (e.target.closest('button')) return;
+                loadTaskToEdit(task.id);
+            };
+
             const isCompleted = task.status === 'COMPLETED';
             
             // MM/DD/YYYY Formatting
@@ -81,6 +97,16 @@
                     </div>
                 </td>
             `;
+            
+            let creatorName = task.created_by || '---';
+            if (window.globalUserNameMap && task.created_by) {
+                const lookupEmail = task.created_by.toString().toLowerCase().trim();
+                if (window.globalUserNameMap[lookupEmail]) {
+                    creatorName = window.globalUserNameMap[lookupEmail];
+                }
+            }
+            tr.title = `Created by: ${creatorName}`;
+            
             body.appendChild(tr);
         });
     }
@@ -100,34 +126,83 @@
 
         const btn = document.getElementById('btn-save-task');
         btn.disabled = true;
-        btn.textContent = "SAVING...";
+        btn.textContent = editingTaskId ? "UPDATING..." : "SAVING...";
 
         try {
-            const { error } = await db.from('tasks').insert([{
-                title: title,
-                description: desc,
-                assigned_to: assigneeName,
-                assigned_to_email: assigneeEmail,
-                created_by: window.userEmail,
-                status: 'PENDING'
-            }]);
+            if (editingTaskId) {
+                const { error } = await db.from('tasks').update({
+                    title: title,
+                    description: desc,
+                    assigned_to: assigneeName,
+                    assigned_to_email: assigneeEmail
+                }).eq('id', editingTaskId);
+                if (error) throw error;
+                if (window.showToast) window.showToast("Task updated successfully!", "success");
+            } else {
+                const { error } = await db.from('tasks').insert([{
+                    title: title,
+                    description: desc,
+                    assigned_to: assigneeName,
+                    assigned_to_email: assigneeEmail,
+                    created_by: window.userEmail,
+                    status: 'PENDING'
+                }]);
+                if (error) throw error;
+                if (window.showToast) window.showToast("Task created successfully!", "success");
+            }
 
-            if (error) throw error;
-
-            // Reset form
-            document.getElementById('task-title').value = '';
-            document.getElementById('task-desc').value = '';
-            document.getElementById('task-assignee').value = '';
-            
+            resetTaskForm();
             await loadTasksData();
-            if (window.showToast) window.showToast("Task created successfully!", "success");
         } catch (err) {
             console.error("Error adding task:", err);
             alert("Error creating task. Make sure the 'tasks' table exists in Supabase.");
         } finally {
             btn.disabled = false;
-            btn.textContent = "CREATE TASK";
+            btn.textContent = editingTaskId ? "UPDATE TASK" : "CREATE TASK";
         }
+    };
+
+    window.loadTaskToEdit = function(id) {
+        const task = currentTasks.find(t => t.id === id);
+        if (!task) return;
+
+        editingTaskId = id;
+        document.getElementById('task-title').value = task.title;
+        document.getElementById('task-desc').value = task.description || '';
+        document.getElementById('task-assignee').value = task.assigned_to_email;
+
+        const btn = document.getElementById('btn-save-task');
+        if (btn) {
+            btn.textContent = "UPDATE TASK";
+            btn.style.background = "#0f172a";
+        }
+        
+        const resetBtn = document.getElementById('btn-reset-task');
+        if (resetBtn) resetBtn.style.display = 'block';
+
+        renderTasksTable(); // Highlight selected row
+    };
+
+    window.resetTaskForm = function() {
+        editingTaskId = null;
+        document.getElementById('task-title').value = '';
+        document.getElementById('task-desc').value = '';
+        document.getElementById('task-assignee').value = '';
+
+        const btn = document.getElementById('btn-save-task');
+        if (btn) {
+            btn.textContent = "CREATE TASK";
+            btn.style.background = "#1e40af";
+        }
+        
+        const resetBtn = document.getElementById('btn-reset-task');
+        if (resetBtn) resetBtn.style.display = 'none';
+
+        renderTasksTable();
+    };
+
+    window.applyTaskFilters = function() {
+        renderTasksTable();
     };
 
     window.markTaskDone = async function(id) {
@@ -168,18 +243,25 @@
         
         try {
             console.log("Fetching employees for dropdown...");
-            // Use only 'email' and 'role' to avoid errors if name columns don't exist
+            // Select '*' to safely get available columns without crashing if some don't exist
             const { data, error } = await db.from('profiles')
-                .select('email, role')
+                .select('*')
                 .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'user']);
             
             if (error) {
-                console.error("Supabase Error fetching employees:", error);
-                sel.innerHTML = `<option value="">Error: ${error.message}</option>`;
+                console.error("Error fetching employees:", error);
                 return;
             }
             
             employeeProfiles = data || [];
+            if (!window.globalUserNameMap) window.globalUserNameMap = {};
+            employeeProfiles.forEach(p => {
+                if (p.email) {
+                    const name = p.driver_name_ref || p.full_name || p.name;
+                    const key = p.email.toString().toLowerCase().trim();
+                    if (name) window.globalUserNameMap[key] = name;
+                }
+            });
             console.log("Employees found:", employeeProfiles.length);
             
             if (employeeProfiles.length === 0) {
@@ -198,6 +280,20 @@
             });
             
             if (currentVal) sel.value = currentVal;
+
+            // Also populate the filter dropdown if it exists
+            const filterSel = document.getElementById('task-filter-email');
+            if (filterSel) {
+                const fVal = filterSel.value;
+                filterSel.innerHTML = '<option value="">All Employees</option>';
+                employeeProfiles.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.email;
+                    opt.textContent = p.email;
+                    filterSel.appendChild(opt);
+                });
+                if (fVal) filterSel.value = fVal;
+            }
         } catch (err) {
             console.error("Critical Error fetching employees for tasks:", err);
             sel.innerHTML = '<option value="">Critical Error Loading</option>';
