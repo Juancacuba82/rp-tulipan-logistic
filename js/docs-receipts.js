@@ -95,21 +95,39 @@
             const matchesDate = (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
 
             // DRIVER RESTRICTION: Only show their own trips (EXCEPT Robert Cortez)
+            // Time restriction: Only show today's orders. Show tomorrow's orders ONLY after 8:00 PM.
             let roleDriverMatch = true;
             if (window.currentUserRole === 'driver') {
                 const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                 const userEmail = (window.userEmail || '').toLowerCase();
                 const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ");
 
+                // --- Calculate visibility window ---
+                const now = new Date();
+                const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+                
+                const tom = new Date(now);
+                tom.setDate(now.getDate() + 1);
+                const tomorrowStr = tom.getFullYear() + '-' + String(tom.getMonth() + 1).padStart(2, '0') + '-' + String(tom.getDate()).padStart(2, '0');
+                
+                const currentHour = now.getHours();
+                const canSeeTomorrow = currentHour >= 20; // 8:00 PM
+
+                const tripDateOnly = (date || '').split(' ')[0].split('T')[0];
+
+                let dateVisible = (tripDateOnly === todayStr);
+                if (tripDateOnly === tomorrowStr && canSeeTomorrow) {
+                    dateVisible = true;
+                }
+
                 if (isRobert) {
-                    // Robert sees all orders from TODAY onwards
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    const isTodayOrFuture = (date >= todayStr);
-                    roleDriverMatch = isTodayOrFuture;
+                    // Robert can see everyone's orders, but restricted by the time window
+                    roleDriverMatch = dateVisible;
                 } else {
                     const isMyTrip = (drv === drvRef.toLowerCase());
-                    const isComplete = (trip[41] === 'PAID');
-                    roleDriverMatch = isMyTrip && !isComplete;
+                    const isComplete = (trip[41] === 'PAID' || trip[41] === 'COMPLETE');
+                    // Standard drivers: only their trips, not complete, and within the time window
+                    roleDriverMatch = isMyTrip && !isComplete && dateVisible;
                 }
             }
 

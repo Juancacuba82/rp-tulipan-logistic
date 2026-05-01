@@ -199,8 +199,8 @@
                 const rowDate = row[1];
                 const orderStatus = (row[41] || '').toString().toUpperCase();
 
-                // Only include orders marked as Complete (status value = 'PAID')
-                if (orderStatus !== 'PAID') return;
+                // Only include orders marked as Complete (status value = 'PAID' or 'COMPLETE')
+                if (orderStatus !== 'PAID' && orderStatus !== 'COMPLETE') return;
 
                 // Date filter
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {

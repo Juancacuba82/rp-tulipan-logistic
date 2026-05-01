@@ -175,8 +175,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Green = order finalized (money visible in Profit Report, stock deducted if sale)
             // Red  = order pending  (money hidden from Profit Report, no stock deduction)
             const finalizeVal = document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT';
-            const isFinalized = finalizeVal === 'PAID';
-            const globalStatus = isFinalized ? 'PAID' : 'PENDING_PAYMENT';
+            const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');
+            const globalStatus = isFinalized ? 'COMPLETE' : 'PENDING_PAYMENT';
 
             // Stock deduction only triggers when the toggle is switched TO green AND
             // it is a new order or was previously not finalized
@@ -190,7 +190,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const oldRow = tripsSource[editingIndex];
                 
                 if (oldRow) {
-                    wasFinalized = (oldRow[41] === 'PAID');
+                    wasFinalized = (oldRow[41] === 'PAID' || oldRow[41] === 'COMPLETE');
                     
                     const oldYard = oldRow[12]; // in-yard
                     const oldSales = parseFloat(oldRow[20]) || 0; // in-sales
@@ -1051,6 +1051,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Set Checkboxes (Fixed Absolute Indices)
             if (document.getElementById('in-status-toggle')) {
                 const sval = rowData[41] || 'PENDING_PAYMENT';
+                const isFin = (sval === 'PAID' || sval === 'COMPLETE');
                 document.getElementById('in-status-toggle').value = sval;
                 updateStatusColor(sval);
             }
@@ -1410,7 +1411,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             if (!confirm('¿Seguro que quieres borrar este viaje? Esta acción no se puede deshacer.')) return;
                             try {
                                 // --- STOCK REVERSION LOGIC ---
-                                const wasFinalized = rowData[41] === 'PAID';
+                                const wasFinalized = (rowData[41] === 'PAID' || rowData[41] === 'COMPLETE');
                                 const mode = rowData[26];
                                 const relNo = rowData[4];
                                 const size = rowData[2];

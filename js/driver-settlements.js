@@ -1,5 +1,11 @@
         function renderDriverLog() {
             window.renderDriverLog = renderDriverLog; // Export to window
+            
+            // NEW: Filter driver dropdown based on dates
+            if (window.updateAvailableDriversForReport) {
+                window.updateAvailableDriversForReport();
+            }
+
             const body = document.getElementById('dl-body');
             const searchInput = document.getElementById('filter-search');
             if (!body) return;
@@ -44,7 +50,7 @@
                         || rCont.toLowerCase().includes(searchTerm)
                         || rOrder.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
-                    const isComplete = (rStatus === 'PAID');
+                    const isComplete = (rStatus === 'PAID' || rStatus === 'COMPLETE');
 
                     return matchesSearch && matchesDate && isComplete;
                 });
@@ -738,4 +744,87 @@
             // Archive action is strictly for Admin
             const archiveBtn = document.getElementById('btn-archive-settlement');
             if (archiveBtn) archiveBtn.style.display = isAdmin ? '' : 'none';
+        };
+
+        window.updateAvailableDriversForReport = function() {
+            // Avoid messing with driver role as they have a restricted/fixed view
+            if (window.currentUserRole === 'driver') return;
+            
+            const from = document.getElementById('filter-from')?.value;
+            const to = document.getElementById('filter-to')?.value;
+            const select = document.getElementById('filter-search');
+            if (!select) return;
+
+            // If no dates are selected, restore the full driver list
+            if (!from && !to) {
+                if (window.refreshDriverSelects) {
+                    // We only want to refresh THIS select, not all of them
+                    // But refreshDriverSelects is what we have. 
+                    // To avoid a loop if refreshDriverSelects calls renderDriverLog, 
+                    // we use a flag or just do it manually here.
+                    const currentVal = select.value;
+                    select.innerHTML = '<option value="">All Drivers</option>';
+                    if (window.currentDrivers) {
+                        window.currentDrivers.forEach(d => {
+                            const opt = document.createElement('option');
+                            opt.value = d.name;
+                            opt.textContent = d.name;
+                            select.appendChild(opt);
+                        });
+                    }
+                    select.value = currentVal;
+                }
+                return;
+            }
+
+            // Filter trips for the date range to find active drivers
+            const trips = window.currentTrips || [];
+            const driversInPeriod = new Set();
+            
+            trips.forEach(t => {
+                const tDate = t[1]; // Date index
+                const tDriver = t[17]; // Driver index
+                const tStatus = t[41]; // Order status index (needs to be PAID/COMPLETED?)
+                // Note: renderDriverLog filters by isComplete (rStatus === 'PAID')
+                
+                if (tDriver && tDriver !== '---' && tDriver !== 'UNASSIGNED') {
+                    const matchesDate = (!from || tDate >= from) && (!to || tDate <= to);
+                    const isPaid = (tStatus === 'PAID' || tStatus === 'COMPLETE'); 
+                    if (matchesDate && isPaid) {
+                        driversInPeriod.add(tDriver.toString().trim().toUpperCase());
+                    }
+                }
+            });
+
+            const currentVal = select.value;
+            const currentText = select.selectedIndex !== -1 ? select.options[select.selectedIndex].text : '';
+            
+            select.innerHTML = '<option value="">All Drivers</option>';
+            
+            // Convert set to sorted array
+            const sortedDrivers = Array.from(driversInPeriod).sort();
+            
+            sortedDrivers.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+
+            // Try to restore selection if the driver still has orders in this period
+            // We check against the text/name because values might be slightly different in some cases
+            let found = false;
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === currentVal) {
+                    select.value = currentVal;
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found && currentVal !== '') {
+                // If the selected driver is no longer in the list, we reset to "All Drivers"
+                select.value = '';
+                if (window.syncDriverNames) window.syncDriverNames();
+            }
         };

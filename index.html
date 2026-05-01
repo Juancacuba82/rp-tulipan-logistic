@@ -1236,7 +1236,7 @@
                                 style="background-color: #fee2e2; font-weight: 700; color: #991b1b; transition: all 0.3s ease;">
                                 <option value="PENDING_PAYMENT" style="background-color: #fee2e2; color: #991b1b;">
                                     Pending</option>
-                                <option value="PAID" style="background-color: #dcfce7; color: #166534;">Complete
+                                <option value="COMPLETE" style="background-color: #dcfce7; color: #166534;">Complete
                                 </option>
                             </select>
                         </div>
@@ -4386,7 +4386,11 @@
                 let matchStatus = true;
                 const tripStatus = tr.dataset.status || 'PENDING_PAYMENT';
                 if (filters.status) {
-                    matchStatus = (tripStatus === filters.status);
+                    if (filters.status === 'PAID' || filters.status === 'COMPLETE') {
+                        matchStatus = (tripStatus === 'PAID' || tripStatus === 'COMPLETE');
+                    } else {
+                        matchStatus = (tripStatus === filters.status);
+                    }
                 }
 
                 // Granular Payment Status Filter (Checking dataset styard, strate, stsales, stamount + Actual Values)
@@ -4473,7 +4477,7 @@
         function updateStatusColor(val) {
             const el = document.getElementById('in-status-toggle');
             if (!el) return;
-            if (val === 'PAID') {
+            if (val === 'COMPLETE' || val === 'PAID') {
                 el.style.backgroundColor = '#dcfce7'; // Verde suave
                 el.style.color = '#166534';           // Verde oscuro texto
             } else {
