@@ -1442,6 +1442,15 @@
                                     <th>Email</th>
                                     <th style="width: 100px;">Actions</th>
                                 </tr>
+                                <tr id="table-totals-row" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white; font-weight: 900; font-size: 0.75rem; letter-spacing: 0.3px;">
+                                    <td colspan="11" style="padding: 7px 12px; text-align: right; color: #64748b; font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;"><i class="fas fa-sigma" style="margin-right:5px; color:#475569;"></i>TOTALS</td>
+                                    <td id="total-yard-rate" style="padding: 7px 8px; text-align: center; color: #86efac; border-left: 1px solid #334155; white-space: nowrap;">$0.00</td>
+                                    <td id="total-price-per-day" style="padding: 7px 8px; text-align: center; color: #86efac; white-space: nowrap;">$0.00</td>
+                                    <td colspan="3" style="background: transparent;"></td>
+                                    <td id="total-trans-pay" style="padding: 7px 8px; text-align: center; color: #93c5fd; border-left: 1px solid #334155; white-space: nowrap;">$0.00</td>
+                                    <td id="total-sales-price" style="padding: 7px 8px; text-align: center; color: #fde68a; white-space: nowrap;">$0.00</td>
+                                    <td colspan="6" style="background: transparent;"></td>
+                                </tr>
                             </thead>
                             <tbody id="table-body">
                                 <!-- Dynamic rows go here -->
@@ -4464,8 +4473,97 @@
                 // Highlight if filtered
                 countEl.style.color = (visibleRows < rows.length) ? '#10b981' : '#1e293b';
             }
+
+            // Update column totals
+            updateCalendarTotals();
         }
 
+
+        // --- CALENDAR COLUMN TOTALS (NET PROFIT) ---
+        // Computes net profit for each visible row using the same logic as the Profit Report:
+        //   Yard Rate    → direct revenue (sum as-is)
+        //   Price/Day    → direct revenue (sum as-is)
+        //   Trans. Pay   → Trans.Pay − Paid Driver  (what the company keeps after paying driver)
+        //   Sales Price  → (Sales Price × qty) − (Purchase Price from Release × qty)  = Gross Margin
+        function updateCalendarTotals() {
+            const fmt = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+            // --- Build Release purchase-price lookup (same as renderProfitReport) ---
+            const relMap = new Map();
+            (window.currentReleases || []).forEach(r => {
+                if (r && r[0]) {
+                    const rNo = r[0].toString().trim();
+                    const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0 };
+                    relMap.set(rNo, {
+                        p20: (parseFloat(r[8])  || 0) || existing.p20,
+                        p40: (parseFloat(r[10]) || 0) || existing.p40,
+                        p45: (parseFloat(r[12]) || 0) || existing.p45
+                    });
+                }
+            });
+
+            let totYard = 0, totPpd = 0, totTransNet = 0, totSalesNet = 0;
+
+            // Iterate visible DOM rows — index maps 1-to-1 with window.currentTrips
+            const domRows = document.querySelectorAll('#table-body tr');
+            domRows.forEach((tr, i) => {
+                if (tr.style.display === 'none') return;
+
+                const trip = (window.currentTrips || [])[i];
+                if (!trip) return;
+
+                // Yard Rate — pure revenue
+                totYard += parseFloat(trip[13]) || 0;
+
+                // Price per Day — pure revenue
+                totPpd  += parseFloat(trip[14]) || 0;
+
+                // Trans. Pay NET:
+                // - RP TULIPAN / JR SUPER CRAME → driver gets 30% of Paid Driver value
+                //   Net = Trans.Pay − (Paid Driver × 0.30)
+                // - Any other company → driver gets the full Paid Driver value
+                //   Net = Trans.Pay − Paid Driver
+                const transPay   = parseFloat(trip[18]) || 0;
+                const paidDriver = parseFloat(trip[24]) || 0;
+                const company    = (trip[16] || '').toString().toUpperCase().trim();
+                const isOwnFleet = (company === 'RP TULIPAN' || company === 'JR SUPER CRAME');
+                const driverCost = isOwnFleet ? (paidDriver * 0.30) : paidDriver;
+                totTransNet += (transPay - driverCost);
+
+                // Sales Price NET = (Sales Price × qty) − (Purchase Price × qty)
+                const salesPrice = parseFloat(trip[20]) || 0;
+                const hasSales   = (trip[43] === 'YES');
+                if (hasSales && salesPrice > 0) {
+                    const relNo  = (trip[4] || '').toString().trim();
+                    const size   = (trip[2] || '').toString();
+                    const qty    = parseInt(trip[53]) || 1;
+                    const rel    = relMap.get(relNo);
+
+                    let unitCost = 0;
+                    if (rel) {
+                        if (size.includes('20'))      unitCost = rel.p20;
+                        else if (size.includes('40')) unitCost = rel.p40;
+                        else if (size.includes('45')) unitCost = rel.p45;
+                        if (unitCost === 0) unitCost = rel.p20 || rel.p40 || rel.p45 || 0;
+                    }
+                    totSalesNet += (salesPrice * qty) - (unitCost * qty);
+                } else if (!hasSales && salesPrice > 0) {
+                    // No release attached — treat full price as revenue
+                    totSalesNet += salesPrice;
+                }
+            });
+
+            const elYard  = document.getElementById('total-yard-rate');
+            const elPpd   = document.getElementById('total-price-per-day');
+            const elTrans = document.getElementById('total-trans-pay');
+            const elSales = document.getElementById('total-sales-price');
+
+            if (elYard)  elYard.textContent  = fmt(totYard);
+            if (elPpd)   elPpd.textContent   = fmt(totPpd);
+            if (elTrans) elTrans.textContent  = fmt(totTransNet);
+            if (elSales) elSales.textContent  = fmt(totSalesNet);
+        }
+        window.updateCalendarTotals = updateCalendarTotals;
 
         function resetAdvancedFilters() {
             const inputs = document.querySelectorAll('.advanced-filter-panel select, .advanced-filter-panel input');
