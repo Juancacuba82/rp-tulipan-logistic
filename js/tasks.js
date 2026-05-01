@@ -18,7 +18,8 @@
             let query = db.from('tasks').select('*').eq('is_deleted', false);
             
             // If employee or user, only show tasks assigned to them
-            if (role !== 'admin') {
+            const isStaff = (role === 'admin' || role === 'employee' || role === 'staff');
+            if (!isStaff) {
                 query = query.eq('assigned_to_email', email);
             }
             
