@@ -672,38 +672,28 @@
             const toField = document.getElementById('filter-to');
             const driverName = (window.currentDriverNameRef || '').toUpperCase();
 
-            if (!fromField.value || !toField.value) {
+            if (!fromField || !fromField.value || !toField || !toField.value) {
                 alert("Please select the date range (Initial and Final Date) for your report before confirming.");
                 return;
             }
 
             if (!confirm(`Are you sure you want to confirm your trips from ${fromField.value} to ${toField.value} and request a review?`)) return;
 
-            // Get all values from the calculator
-            const valCashColl = parseFloat(document.getElementById('calc-cash-coll')?.value) || 0;
-            const valLastBal = parseFloat(document.getElementById('calc-last-bal')?.value) || 0;
-            const valGross = parseFloat(document.getElementById('calc-gross')?.value) || 0;
-            const valFactory = parseFloat(document.getElementById('calc-factory')?.value) || 0;
-            const valWeekly = parseFloat(document.getElementById('calc-weekly')?.value) || 0;
-            
-            // Get calculated results
-            const valNetSalary = parseFloat(document.getElementById('res-driver-salary')?.textContent.replace('$', '').replace(',', '')) || 0;
-            const valFinalCashBal = parseFloat(document.getElementById('res-cash-bal')?.textContent.replace('$', '').replace(',', '')) || 0;
+            // Get final result for the balance
+            const resCashBal = document.getElementById('res-cash-bal');
+            const valFinalCashBal = parseFloat(resCashBal?.dataset.value) || 0;
 
+            // Minimalist entry: only the 6 core fields used in the original archive function
             const entry = {
                 driver_name: driverName,
                 start_date: fromField.value,
                 end_date: toField.value,
-                cash_collected: valCashColl,
-                last_week_balance: valLastBal,
-                gross_amount: valGross,
-                factory_fee_percent: valFactory,
-                weekly_payment: valWeekly,
                 cash_balance: valFinalCashBal,
                 status: 'WAITING_REVIEW',
-                payment_type: 'CASH',
-                created_at: new Date().toISOString()
+                payment_type: 'CASH'
             };
+
+            console.log("Submitting driver confirmation (Minimalist):", entry);
 
             try {
                 const { error } = await db.from('settlement_history').insert([entry]);
@@ -713,7 +703,10 @@
                 if (window.fetchHistory) window.fetchHistory();
             } catch (err) {
                 console.error("Confirmation failed:", err);
-                alert("Error: " + err.message);
+                let msg = err.message || "Unknown database error";
+                if (err.details) msg += " (Details: " + err.details + ")";
+                if (err.hint) msg += " (Hint: " + err.hint + ")";
+                alert("Error: " + msg);
             }
         };
 
