@@ -684,7 +684,7 @@
                 <button onclick="closeMenu(); showView('calls')" class="btn-calendar" title="FORM CALL"><i class="fas fa-phone-alt"></i> CALLS</button>
                 <button onclick="closeMenu(); showView('rentals')" class="btn-calendar" title="RENTALS"><i class="fas fa-key"></i> RENTALS</button>
                 <button onclick="closeMenu(); showView('tasks')" class="btn-calendar" title="TASKS & TO-DO"><i class="fas fa-tasks"></i> TASKS</button>
-                <button onclick="closeMenu(); showView('attendance')" class="btn-calendar" title="ATTENDANCE"><i class="fas fa-calendar-check"></i> ATTENDANCE</button>
+                <button onclick="closeMenu(); showView('attendance')" id="btn-attendance-nav" class="btn-calendar" title="ATTENDANCE"><i class="fas fa-calendar-check"></i> ATTENDANCE</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -3415,7 +3415,8 @@
                     <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px;">
                         <div>
                             <h1 style="margin: 0; color: #1e293b; font-size: 2.2rem; font-weight: 900;">INVOICE</h1>
-                            <p id="mi-company-name-display" style="margin: 5px 0; color: #000000; font-weight: 700;">RP TULIPAN TRANSPORT INC</p>
+                            <p id="mi-company-name-display" style="margin: 5px 0 0 0; color: #000000; font-weight: 700;">RP TULIPAN TRANSPORT INC</p>
+                            <p style="margin: 2px 0 0 0; color: #000000; font-weight: 700; font-size: 0.9rem;">9804 NW 80th Ave, Hialeah Gardens FL 33016</p>
                         </div>
                         <div style="text-align: right;">
                             <div id="mi-status-badge" style="display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: 900; font-size: 0.75rem; margin-bottom: 10px;"></div>
@@ -3657,6 +3658,8 @@
             const adminOnlySelectors = [
                 'button[onclick*="profit-report"]',
                 '#nav-actions-container button[onclick*="profit-report"]',
+                'button[onclick*="attendance"]',
+                '#nav-actions-container button[onclick*="attendance"]',
                 //'#btn-email-settings' // <--- BORRA LOS // AL PRINCIPIO DE ESTA LÍNEA PARA MOSTRAR EL BOTÓN
             ];
 
@@ -3761,6 +3764,12 @@
                 
                 const fleetMgmtDashboard = document.getElementById('fleet-mgmt-dashboard');
                 if (fleetMgmtDashboard) fleetMgmtDashboard.style.display = 'none';
+
+                const cardAtt = document.getElementById('card-attendance');
+                if (cardAtt) cardAtt.style.display = 'none';
+
+                const btnAttNav = document.getElementById('btn-attendance-nav');
+                if (btnAttNav) btnAttNav.style.display = 'none';
 
             } else {
                 // Staff (employee/user) sees everything except Profit
