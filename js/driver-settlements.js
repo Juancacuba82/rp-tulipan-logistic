@@ -412,71 +412,73 @@
                 return;
             }
 
+            // Set editing ID FIRST — this prevents updateSelectionSummary from resetting
+            // the calculator to 0 when renderDriverLog clears the selection
             editingSettlementId = id;
 
-            // Load filters to match the report data if possible
-            const fromField = document.getElementById('filter-from');
-            const toField = document.getElementById('filter-to');
+            // --- Apply saved settlement values into the calculator IMMEDIATELY ---
+            const elCashColl = document.getElementById('calc-cash-coll');
+            const elLastBal  = document.getElementById('calc-last-bal');
+            const elGross    = document.getElementById('calc-gross');
+            const elFactory  = document.getElementById('calc-factory');
+            const elWeekly   = document.getElementById('calc-weekly');
+
+            if (elCashColl) elCashColl.value = settlement.cash_collected    ?? "0";
+            if (elLastBal)  elLastBal.value  = settlement.last_week_balance ?? "0";
+            if (elGross) {
+                elGross.value            = settlement.gross_amount  ?? "0";
+                elGross.dataset.adjusted = settlement.gross_adjusted ?? settlement.gross_amount ?? "0";
+            }
+            if (elFactory) elFactory.value = settlement.factory_fee_percent ?? "0";
+            if (elWeekly)  elWeekly.value  = settlement.weekly_payment      ?? "0";
+
+            // Load Status / Type dropdowns
+            const statusField = document.getElementById('settlement-status');
+            const typeField   = document.getElementById('settlement-payment-type');
+            if (statusField) statusField.value = settlement.status       || 'PENDING';
+            if (typeField)   typeField.value   = settlement.payment_type || 'CASH';
+
+            // Recalculate with the saved values
+            if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+
+            // Update date filters (without triggering calculator reset from renderDriverLog)
+            const fromField   = document.getElementById('filter-from');
+            const toField     = document.getElementById('filter-to');
             const searchField = document.getElementById('filter-search');
 
             if (fromField) fromField.value = settlement.start_date || '';
-            if (toField) toField.value = settlement.end_date || '';
-            
+            if (toField)   toField.value   = settlement.end_date   || '';
+
             if (searchField) {
-                // Try to find the driver name in the options text
                 const options = Array.from(searchField.options);
                 const matchingOpt = options.find(opt => opt.text.toUpperCase() === (settlement.driver_name || '').toUpperCase());
-                if (matchingOpt) {
-                    searchField.value = matchingOpt.value;
-                }
+                if (matchingOpt) searchField.value = matchingOpt.value;
             }
-            
-            // Sync UI names and table
+
+            // Sync UI driver name display
             if (window.syncDriverNames) window.syncDriverNames();
-            if (window.renderDriverLog) window.renderDriverLog();
 
-            // Use a small timeout to ensure any immediate UI resets from renderDriverLog are bypassed
-            setTimeout(() => {
-                // Load Calculator Inputs
-                const elCashColl = document.getElementById('calc-cash-coll');
-                const elLastBal = document.getElementById('calc-last-bal');
-                const elGross = document.getElementById('calc-gross');
-                const elFactory = document.getElementById('calc-factory');
-                const elWeekly = document.getElementById('calc-weekly');
+            // Update button UI to "UPDATE" mode
+            const btnArchive = document.getElementById('btn-archive-settlement');
+            const btnCancel  = document.getElementById('btn-cancel-settlement-edit');
+            if (btnArchive) {
+                btnArchive.innerHTML = '<i class="fas fa-save"></i> UPDATE SETTLEMENT';
+                btnArchive.style.background = '#2563eb';
+            }
+            if (btnCancel) btnCancel.style.display = 'block';
 
-                if (elCashColl) elCashColl.value = settlement.cash_collected || "0";
-                if (elLastBal) elLastBal.value = settlement.last_week_balance || "0";
-                if (elGross) {
-                    elGross.value = settlement.gross_amount || "0";
-                    elGross.dataset.adjusted = settlement.gross_adjusted || settlement.gross_amount || "0";
-                }
-                if (elFactory) elFactory.value = settlement.factory_fee_percent || "0";
-                if (elWeekly) elWeekly.value = settlement.weekly_payment || "0";
+            // Scroll to calculator
+            document.querySelector('.weekly-calculator-container')?.scrollIntoView({ behavior: 'smooth' });
 
-                // Load Status/Type
-                const statusField = document.getElementById('settlement-status');
-                const typeField = document.getElementById('settlement-payment-type');
-                if (statusField) statusField.value = settlement.status || 'PENDING';
-                if (typeField) typeField.value = settlement.payment_type || 'CASH';
+            // Refresh history highlight (to show which row is selected)
+            renderSettlementHistory();
 
-                // Recalculate
-                if (window.updateWeeklyCalc) window.updateWeeklyCalc();
-                
-                // Update Buttons UI
-                const btnArchive = document.getElementById('btn-archive-settlement');
-                const btnCancel = document.getElementById('btn-cancel-settlement-edit');
-                if (btnArchive) {
-                    btnArchive.innerHTML = '<i class="fas fa-save"></i> UPDATE SETTLEMENT';
-                    btnArchive.style.background = '#2563eb';
-                }
-                if (btnCancel) btnCancel.style.display = 'block';
-
-                // Scroll to calculator
-                document.querySelector('.weekly-calculator-container')?.scrollIntoView({ behavior: 'smooth' });
-                
-                // Refresh History Highlight
-                renderSettlementHistory();
-            }, 50);
+            console.log("Settlement loaded into calculator:", {
+                driver: settlement.driver_name,
+                gross: settlement.gross_amount,
+                cash_collected: settlement.cash_collected,
+                cash_balance: settlement.cash_balance
+            });
         };
 
         window.resetSettlementEdit = function() {
@@ -679,21 +681,41 @@
 
             if (!confirm(`Are you sure you want to confirm your trips from ${fromField.value} to ${toField.value} and request a review?`)) return;
 
-            // Get final result for the balance
-            const resCashBal = document.getElementById('res-cash-bal');
-            const valFinalCashBal = parseFloat(resCashBal?.dataset.value) || 0;
+            // Get all calculator input values (raw numbers, no locale issues)
+            const valCashColl  = parseFloat(document.getElementById('calc-cash-coll')?.value)  || 0;
+            const valLastBal   = parseFloat(document.getElementById('calc-last-bal')?.value)   || 0;
+            const elGross      = document.getElementById('calc-gross');
+            const valGross     = parseFloat(elGross?.value) || 0;
+            const valGrossAdj  = parseFloat(elGross?.dataset.adjusted) || valGross;
+            const valFactory   = parseFloat(document.getElementById('calc-factory')?.value)   || 0;
+            const valWeekly    = parseFloat(document.getElementById('calc-weekly')?.value)    || 0;
 
-            // Minimalist entry: only the 6 core fields used in the original archive function
+            // Get the computed result from the displayed balance element
+            const resCashBal = document.getElementById('res-cash-bal');
+            // Try dataset.value first (set by updateWeeklyCalc), fall back to parsing text
+            let valFinalCashBal = parseFloat(resCashBal?.dataset.value);
+            if (isNaN(valFinalCashBal)) {
+                const rawText = (resCashBal?.textContent || '0').replace('$', '').replace(/\./g, '').replace(',', '.');
+                valFinalCashBal = parseFloat(rawText) || 0;
+            }
+
+            // Full entry with all calculator fields so admin can see the breakdown
             const entry = {
-                driver_name: driverName,
-                start_date: fromField.value,
-                end_date: toField.value,
-                cash_balance: valFinalCashBal,
-                status: 'WAITING_REVIEW',
-                payment_type: 'CASH'
+                driver_name:        driverName,
+                start_date:         fromField.value,
+                end_date:           toField.value,
+                cash_collected:     valCashColl,
+                last_week_balance:  valLastBal,
+                gross_amount:       valGross,
+                gross_adjusted:     valGrossAdj,
+                factory_fee_percent: valFactory,
+                weekly_payment:     valWeekly,
+                cash_balance:       valFinalCashBal,
+                status:             'WAITING_REVIEW',
+                payment_type:       'CASH'
             };
 
-            console.log("Submitting driver confirmation (Minimalist):", entry);
+            console.log("Submitting driver confirmation:", entry);
 
             try {
                 const { error } = await db.from('settlement_history').insert([entry]);
@@ -705,8 +727,8 @@
                 console.error("Confirmation failed:", err);
                 let msg = err.message || "Unknown database error";
                 if (err.details) msg += " (Details: " + err.details + ")";
-                if (err.hint) msg += " (Hint: " + err.hint + ")";
-                alert("Error: " + msg);
+                if (err.hint)    msg += " (Hint: " + err.hint + ")";
+                alert("Error submitting report: " + msg);
             }
         };
 
