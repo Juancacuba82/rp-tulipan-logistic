@@ -27,7 +27,8 @@
 
                 const matchDate = (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
                 const matchCat = !category || rowCat === category;
-                const matchDriver = !driverName || rowDesc.includes(driverName.toLowerCase()) || rowNote.includes(driverName.toLowerCase());
+                const driverRegex = driverName ? new RegExp(`\\b${driverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i') : null;
+                const matchDriver = !driverName || driverRegex.test(rowDesc) || driverRegex.test(rowNote);
                 const matchSearch = !search || rowDesc.includes(search) || rowNote.includes(search);
 
                 return matchDate && matchCat && matchDriver && matchSearch;

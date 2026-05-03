@@ -46,7 +46,7 @@
 
                     const rStatus = r[41];
 
-                    const matchesSearch = !searchTerm || rDriver.toLowerCase().includes(searchTerm)
+                    const matchesSearch = !searchTerm || rDriver.toLowerCase().trim() === searchTerm.trim()
                         || rCont.toLowerCase().includes(searchTerm)
                         || rOrder.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
@@ -345,7 +345,7 @@
                 }
 
                 const matchLocal = sDrv.includes(filterValue);
-                const matchGlobalDriver = sDrv.includes(globalDriver);
+                const matchGlobalDriver = !globalDriver || sDrv.trim() === globalDriver.trim();
                 // Currently history table only has driver_name filter but we prepare for others
                 return matchLocal && matchGlobalDriver;
             });
