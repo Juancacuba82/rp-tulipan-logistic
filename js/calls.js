@@ -409,11 +409,14 @@ async function deleteCallLog(id) {
     try {
         const { error } = await db.from('call_logs').delete().eq('id', id);
         if (error) throw error;
-        
+
+        // Remove from in-memory array immediately so the UI updates without a full reload
+        currentCalls = currentCalls.filter(c => c.id !== id);
+
         if (editingCallId === id) {
-            resetCallForm();
+            resetCallForm(); // also calls renderCallsTable()
         } else {
-            await loadCallsData();
+            renderCallsTable();
         }
     } catch (err) {
         console.error("Error deleting call:", err);

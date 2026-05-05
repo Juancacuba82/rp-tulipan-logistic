@@ -932,29 +932,29 @@
             }
         };
         // --- EXPENSE CATEGORY MANAGEMENT LOGIC ---
+        // Uses localStorage as storage since expense_categories table may not exist in DB.
         let currentExpenseCategories = [];
-        window.loadExpenseCategoriesData = async function () {
+        const CATEGORIES_KEY = 'rp_expense_categories';
+        const DEFAULT_CATEGORIES = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
+
+        function _getCategoriesFromStorage() {
             try {
-                const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
-                
-                const { data, error } = await db.from('expense_categories').select('*').order('name', { ascending: true });
-                
-                if (error) {
-                    console.error("Supabase error loading expense categories:", error);
-                    currentExpenseCategories = defaults.map((s, i) => ({ id: i, name: s }));
-                } else if (!data || data.length === 0) {
-                    const seedObjs = defaults.map(s => ({ name: s }));
-                    await db.from('expense_categories').insert(seedObjs);
-                    const { data: freshData } = await db.from('expense_categories').select('*').order('name', { ascending: true });
-                    currentExpenseCategories = (freshData && freshData.length > 0) ? freshData : defaults.map((s, i) => ({ id: i, name: s }));
-                } else {
-                    currentExpenseCategories = data;
-                }
-                
-                refreshExpenseCategorySelects();
-            } catch (err) {
-                console.error("Critical error in loadExpenseCategoriesData:", err);
-            }
+                const raw = localStorage.getItem(CATEGORIES_KEY);
+                if (raw) return JSON.parse(raw);
+            } catch(e) {}
+            // First time: seed defaults
+            const seeded = DEFAULT_CATEGORIES.map((name, i) => ({ id: Date.now() + i, name }));
+            localStorage.setItem(CATEGORIES_KEY, JSON.stringify(seeded));
+            return seeded;
+        }
+
+        function _saveCategoriesToStorage(cats) {
+            localStorage.setItem(CATEGORIES_KEY, JSON.stringify(cats));
+        }
+
+        window.loadExpenseCategoriesData = async function () {
+            currentExpenseCategories = _getCategoriesFromStorage();
+            refreshExpenseCategorySelects();
         };
 
         function refreshExpenseCategorySelects() {
@@ -1007,27 +1007,31 @@
             const input = document.getElementById('new-expense-category-name');
             const name = input.value.trim();
             if (!name) return;
-            try {
-                const { error } = await db.from('expense_categories').insert([{ name: name }]);
-                if (error) throw error;
-                input.value = '';
-                await loadExpenseCategoriesData();
-                renderExpenseCategoryManagerList();
-            } catch (err) {
-                alert("Error adding category: " + err.message);
+
+            // Check for duplicates
+            if (currentExpenseCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+                alert('This category already exists.');
+                return;
             }
+
+            const newCat = { id: Date.now(), name: name };
+            currentExpenseCategories.push(newCat);
+            // Sort alphabetically
+            currentExpenseCategories.sort((a, b) => a.name.localeCompare(b.name));
+            _saveCategoriesToStorage(currentExpenseCategories);
+
+            input.value = '';
+            refreshExpenseCategorySelects();
+            renderExpenseCategoryManagerList();
         };
 
         window.deleteExpenseCategory = async function (id) {
             if (!confirm("Are you sure you want to delete this category?")) return;
-            try {
-                const { error } = await db.from('expense_categories').delete().eq('id', id);
-                if (error) throw error;
-                await loadExpenseCategoriesData();
-                renderExpenseCategoryManagerList();
-            } catch (err) {
-                console.error("Delete err:", err);
-            }
+            // id comes from HTML as a string
+            currentExpenseCategories = currentExpenseCategories.filter(c => String(c.id) !== String(id));
+            _saveCategoriesToStorage(currentExpenseCategories);
+            refreshExpenseCategorySelects();
+            renderExpenseCategoryManagerList();
         };
 
 

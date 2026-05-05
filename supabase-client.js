@@ -11,6 +11,7 @@ let db;
 try {
     if (typeof supabase !== 'undefined') {
         db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        window.db = db; // Export to window for global access
     } else {
         console.error("Supabase library not loaded. Ensure the CDN script is present.");
     }

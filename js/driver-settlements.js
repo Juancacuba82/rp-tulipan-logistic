@@ -162,10 +162,13 @@
 
                 // Render simple flat list of 11 columns
                 currentFilteredRows = filtered;
+                window.currentFilteredRowsDriver = filtered; // Expose for driver confirmation total
+                const isAdminView = (window.currentUserRole === 'admin');
                 filtered.forEach((r, idx) => {
                     const tr = document.createElement('tr');
                     tr.style.cursor = 'pointer';
                     tr.onclick = (e) => {
+                        if (e.target.closest('.cash-edit-btn')) return; // don't select when clicking edit
                         if (selectedIndices.has(idx)) {
                             selectedIndices.delete(idx);
                             tr.classList.remove('selected-row');
@@ -178,6 +181,7 @@
 
                     // Columns Map: Date(1), Size(2), N.Cont(3), Order(5), City(6), PickUp(7), Delivery(8), Miles(10), Driver(17), PaidDriver(24), Cash(22)
                     const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 17, 24, 22];
+                    const tripId = r[0]; // Index 0 = trip_id
 
                     cellIndices.forEach((idx, i) => {
                         const td = document.createElement('td');
@@ -186,15 +190,29 @@
                         if (idx === 1) {
                             value = window.formatDateMMDDYYYY(value);
                         }
-                        // Specific logic for 'Paid Driver' column in Reports: show raw Paid Driver (Index 24)
                         else if (idx === 24) { 
                             value = parseFloat(r[24]) || 0;
                         }
 
-                        // Specific logic for the LAST column (Cash): only show if 'CASH' was checked (r[34] === 'PAID')
+                        // Cash column: show value with inline edit button for admin
                         if (i === 10) { 
                             const isCashMarked = (r[34] === 'PAID');
-                            value = isCashMarked ? (r[22] || '0.00') : '---';
+                            const cashVal = isCashMarked ? parseFloat(r[22] || 0) : 0;
+                            
+                            if (isAdminView && isCashMarked) {
+                                td.innerHTML = `
+                                    <span style="display:flex; align-items:center; gap:6px;">
+                                        <span class="cash-display-${tripId}" style="font-weight:700;">$${cashVal.toFixed(2)}</span>
+                                        <button class="cash-edit-btn" onclick="window.editTripCash('${tripId}', ${cashVal})"
+                                            style="background:#e0f2fe; border:none; color:#0284c7; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:0.7rem; font-weight:700;">
+                                            <i class='fas fa-pen'></i>
+                                        </button>
+                                    </span>`;
+                            } else {
+                                td.textContent = isCashMarked ? `$${cashVal.toFixed(2)}` : '---';
+                            }
+                            tr.appendChild(td);
+                            return;
                         }
 
                         td.textContent = value;
@@ -219,8 +237,46 @@
 
                 // Initialize the Selection Summary (Resets calculator to 0 if nothing selected)
                 updateSelectionSummary();
+
+                // Check if this driver/week was already confirmed and color rows
+                window.checkAndColorConfirmedTrips();
             }
         }
+
+        // --- INLINE CASH EDITOR (Admin only) ---
+        window.editTripCash = async function(tripId, currentVal) {
+            if (window.currentUserRole !== 'admin') return;
+
+            const newValStr = prompt(
+                `Edit cash received for this trip:\n(Current: $${parseFloat(currentVal).toFixed(2)})\n\nEnter new amount (0 if already fully collected):`,
+                parseFloat(currentVal).toFixed(2)
+            );
+            if (newValStr === null) return; // cancelled
+
+            const newVal = parseFloat(newValStr);
+            if (isNaN(newVal) || newVal < 0) {
+                alert('Please enter a valid number (0 or greater).');
+                return;
+            }
+
+            try {
+                const { error } = await db.from('trips').update({ amount: newVal }).eq('trip_id', tripId);
+                if (error) throw error;
+
+                // Update in-memory data so the UI reflects the change instantly
+                if (window.currentTrips) {
+                    const tripRow = window.currentTrips.find(t => t[0] === tripId);
+                    if (tripRow) tripRow[22] = newVal;
+                }
+
+                // Update the displayed cash value in the cell without full re-render
+                const displaySpan = document.querySelector(`.cash-display-${tripId}`);
+                if (displaySpan) displaySpan.textContent = `$${newVal.toFixed(2)}`;
+            } catch (err) {
+                console.error('Error updating cash:', err);
+                alert('Failed to update: ' + err.message);
+            }
+        };
 
         window.updateNetPayInfo = function () {
             const elComp = document.getElementById('in-company');
@@ -671,64 +727,99 @@
             if (window.currentUserRole !== 'driver') return;
 
             const fromField = document.getElementById('filter-from');
-            const toField = document.getElementById('filter-to');
-            const driverName = (window.currentDriverNameRef || '').toUpperCase();
+            const toField   = document.getElementById('filter-to');
+            const fromVal   = fromField?.value || '';
+            const toVal     = toField?.value   || '';
 
-            if (!fromField || !fromField.value || !toField || !toField.value) {
-                alert("Please select the date range (Initial and Final Date) for your report before confirming.");
+            if (!fromVal || !toVal) {
+                alert('Please select your week dates (Initial and Final Date) before confirming.');
                 return;
             }
 
-            if (!confirm(`Are you sure you want to confirm your trips from ${fromField.value} to ${toField.value} and request a review?`)) return;
-
-            // Get all calculator input values (raw numbers, no locale issues)
-            const valCashColl  = parseFloat(document.getElementById('calc-cash-coll')?.value)  || 0;
-            const valLastBal   = parseFloat(document.getElementById('calc-last-bal')?.value)   || 0;
-            const elGross      = document.getElementById('calc-gross');
-            const valGross     = parseFloat(elGross?.value) || 0;
-            const valGrossAdj  = parseFloat(elGross?.dataset.adjusted) || valGross;
-            const valFactory   = parseFloat(document.getElementById('calc-factory')?.value)   || 0;
-            const valWeekly    = parseFloat(document.getElementById('calc-weekly')?.value)    || 0;
-
-            // Get the computed result from the displayed balance element
-            const resCashBal = document.getElementById('res-cash-bal');
-            // Try dataset.value first (set by updateWeeklyCalc), fall back to parsing text
-            let valFinalCashBal = parseFloat(resCashBal?.dataset.value);
-            if (isNaN(valFinalCashBal)) {
-                const rawText = (resCashBal?.textContent || '0').replace('$', '').replace(/\./g, '').replace(',', '.');
-                valFinalCashBal = parseFloat(rawText) || 0;
+            const driverName = (window.currentDriverNameRef || '').toUpperCase();
+            if (!driverName) {
+                alert('Could not identify your driver profile. Please log in again.');
+                return;
             }
 
-            // Full entry with all calculator fields so admin can see the breakdown
-            const entry = {
-                driver_name:        driverName,
-                start_date:         fromField.value,
-                end_date:           toField.value,
-                cash_collected:     valCashColl,
-                last_week_balance:  valLastBal,
-                gross_amount:       valGross,
-                gross_adjusted:     valGrossAdj,
-                factory_fee_percent: valFactory,
-                weekly_payment:     valWeekly,
-                cash_balance:       valFinalCashBal,
-                status:             'WAITING_REVIEW',
-                payment_type:       'CASH'
-            };
+            const totalPaidDriver = (window.currentFilteredRowsDriver || []).reduce((sum, r) => {
+                return sum + (parseFloat(r[24]) || 0);
+            }, 0);
 
-            console.log("Submitting driver confirmation:", entry);
+            if (!confirm(`Confirm that your trips from ${fromVal} to ${toVal} are correct?\n\nBy confirming, you are letting the admin know that you have reviewed your trips for this week.\n\nContinue?`)) return;
+
+            const btn = document.getElementById('btn-driver-confirm-report');
+            if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
 
             try {
-                const { error } = await db.from('settlement_history').insert([entry]);
+                // Store confirmation in activity_logs — does NOT touch settlement_history
+                const { data: { session } } = await db.auth.getSession();
+                const { error } = await db.from('activity_logs').insert([{
+                    user_email:  session?.user?.email || driverName,
+                    action_type: 'DRIVER_CONFIRMED',
+                    details:     JSON.stringify({ driver_name: driverName, start_date: fromVal, end_date: toVal, total: totalPaidDriver }),
+                    view_date:   new Date().toISOString().split('T')[0]
+                }]);
                 if (error) throw error;
 
-                alert("Report confirmed! Admin will be notified to process your payment.");
-                if (window.fetchHistory) window.fetchHistory();
+                alert(`✅ Confirmed! Admin will see your trips marked as reviewed.`);
+                // Re-render so rows turn green immediately for the driver too
+                if (window.renderDriverLog) window.renderDriverLog();
             } catch (err) {
-                console.error("Confirmation failed:", err);
-                let msg = err.message || "Unknown database error";
-                if (err.details) msg += " (Details: " + err.details + ")";
-                if (err.hint)    msg += " (Hint: " + err.hint + ")";
-                alert("Error submitting report: " + msg);
+                console.error('Confirmation failed:', err);
+                alert('Error: ' + (err.message || 'Unknown error'));
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-double"></i> MY TRIPS ARE CORRECT — NOTIFY ADMIN'; }
+            }
+        };
+
+        // Checks activity_logs for a DRIVER_CONFIRMED record matching current filter.
+        // If found, paints all trip rows green so admin can see the driver reviewed them.
+        window.checkAndColorConfirmedTrips = async function() {
+            const body = document.getElementById('dl-body');
+            if (!body) return;
+
+            const filterFrom   = document.getElementById('filter-from')?.value || '';
+            const filterTo     = document.getElementById('filter-to')?.value   || '';
+            const driverFilter = (document.getElementById('filter-search')?.value || '').toUpperCase();
+
+            // Need both dates AND a specific driver selected to check
+            if (!filterFrom || !filterTo || !driverFilter) return;
+
+            try {
+                const { data, error } = await db.from('activity_logs')
+                    .select('details')
+                    .eq('action_type', 'DRIVER_CONFIRMED');
+
+                if (error || !data || data.length === 0) return;
+
+                const isConfirmed = data.some(log => {
+                    try {
+                        const d = JSON.parse(log.details || '{}');
+                        return d.driver_name === driverFilter &&
+                               d.start_date  === filterFrom   &&
+                               d.end_date    === filterTo;
+                    } catch { return false; }
+                });
+
+                const rows = body.querySelectorAll('tr');
+                const indicator = document.getElementById('driver-confirmed-indicator');
+
+                if (isConfirmed) {
+                    rows.forEach(tr => {
+                        tr.style.backgroundColor = '#dcfce7';
+                        tr.style.borderLeft = '4px solid #16a34a';
+                    });
+                    if (indicator) indicator.style.display = 'flex';
+                } else {
+                    rows.forEach(tr => {
+                        tr.style.backgroundColor = '';
+                        tr.style.borderLeft = '';
+                    });
+                    if (indicator) indicator.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Error checking confirmations:', err);
             }
         };
 
@@ -746,19 +837,30 @@
             const employeeEls = document.querySelectorAll('.employee-only');
             const staffEls = document.querySelectorAll('.staff-only'); 
             
-            // Admin sees EVERYTHING
             adminEls.forEach(el => el.style.display = isAdmin ? '' : 'none');
             driverEls.forEach(el => el.style.display = (isAdmin || isDriver) ? '' : 'none');
             employeeEls.forEach(el => el.style.display = (isAdmin || isEmployee) ? '' : 'none');
             staffEls.forEach(el => el.style.display = (isAdmin || isEmployee) ? '' : 'none');
-            
-            // Calculator is visible to both so drivers can see the breakdown
+
+            // Calculator: visible to all but READ-ONLY for drivers
             const calc = document.querySelector('.weekly-calculator-container');
-            if (calc) calc.style.display = ''; 
+            if (calc) {
+                calc.style.display = '';
+                calc.querySelectorAll('input').forEach(inp => {
+                    inp.readOnly = isDriver;
+                    inp.style.background = isDriver ? '#f1f5f9' : '';
+                    inp.style.cursor = isDriver ? 'not-allowed' : '';
+                });
+            }
 
             // Archive action is strictly for Admin
             const archiveBtn = document.getElementById('btn-archive-settlement');
             if (archiveBtn) archiveBtn.style.display = isAdmin ? '' : 'none';
+
+            // Drivers cannot select all rows
+            document.querySelectorAll('button[onclick*="toggleSelectAllDrivers"]').forEach(b => {
+                b.style.display = isDriver ? 'none' : '';
+            });
         };
 
         window.updateAvailableDriversForReport = function() {

@@ -834,6 +834,10 @@
                         </div>
                     </div>
                 </div>
+                <div id="attendance-summary" style="margin: 20px; display: none; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                    <!-- Summary cards will be injected here -->
+                </div>
+
                 <div class="table-scroll-container" style="margin: 20px;">
                     <table id="attendance-table" style="width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1;">
                         <style>
@@ -856,6 +860,8 @@
                                 <th>LOC IN</th>
                                 <th>TIME OUT</th>
                                 <th>LOC OUT</th>
+                                <th>HOURS</th>
+                                <th class="admin-only">EST. PAY</th>
                             </tr>
                         </thead>
                         <tbody id="attendance-body">
@@ -2237,12 +2243,17 @@
                                     <input type="hidden" id="settlement-status" value="PAID">
                                     <input type="hidden" id="settlement-payment-type" value="CASH">
 
-                                    <!-- Driver Only: Confirmation Action -->
+                                    <!-- Driver Only: Simple Trip Confirmation -->
                                     <div class="driver-only" style="margin-top: 10px;">
-                                        <button id="btn-driver-confirm-report" onclick="confirmReportByDriver()" 
-                                            class="btn-add-sidebar" style="width: 100%; background: #2563eb; font-size: 0.75rem; height: 38px;">
-                                            <i class="fas fa-check-double"></i> CONFIRM REPORT & REQUEST REVIEW
-                                        </button>
+                                        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px; text-align: center;">
+                                            <p style="margin: 0 0 10px; font-size: 0.78rem; color: #1e40af; font-weight: 700;">
+                                                <i class="fas fa-info-circle"></i> Review your trips above and confirm they are correct.
+                                            </p>
+                                            <button id="btn-driver-confirm-report" onclick="confirmReportByDriver()"
+                                                class="btn-add-sidebar" style="width: 100%; background: linear-gradient(135deg, #2563eb, #1d4ed8); font-size: 0.8rem; height: 42px; border-radius: 8px; letter-spacing: 0.5px;">
+                                                <i class="fas fa-check-double"></i> MY TRIPS ARE CORRECT — NOTIFY ADMIN
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -2261,6 +2272,12 @@
                                     ALL DISPLAYED</button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Driver confirmed indicator - shown automatically by JS when driver confirmed this week -->
+                    <div id="driver-confirmed-indicator" style="display:none; align-items:center; gap:10px; background:#dcfce7; border:2px solid #16a34a; border-radius:8px; padding:10px 16px; margin-bottom:12px;">
+                        <i class="fas fa-check-circle" style="color:#16a34a; font-size:1.2rem;"></i>
+                        <span style="font-weight:800; color:#15803d; font-size:0.85rem;">DRIVER CONFIRMED — This driver reviewed and agreed with their trips for the selected week.</span>
                     </div>
 
                     <div class="table-scroll-container">
@@ -2796,12 +2813,13 @@
 
                 <!-- Table -->
                 <div class="table-scroll-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto;">
-                    <table id="inventor-table" style="width: 100%; min-width: 1100px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
+                    <table id="inventor-table" style="width: 100%; min-width: 1200px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
                         <thead>
                             <tr class="header-row">
                                 <th>Date</th>
                                 <th>Size</th>
                                 <th>N. Cont</th>
+                                <th>Releases</th>
                                 <th>Phone</th>
                                 <th>Seller</th>
                                 <th>Customer</th>
