@@ -1512,6 +1512,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 });
                 // Apply existing filters if any (for real-time persistence)
                 applyAdvancedFilters();
+                if (window.loadDocTrips) window.loadDocTrips();
             } catch (err) {
                 console.error("Error loading table:", err);
             } finally {

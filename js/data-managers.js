@@ -1043,19 +1043,16 @@
         }
 
         // --- UI STATE ---
-        let currentTrips = []; // Cache from Supabase
-        let currentReleases = []; // Cache from Supabase
-        let currentExpenses = []; // Cache from Supabase
-        let currentFleet = []; // Cache from Supabase
+        window.currentTrips = []; // Cache from Supabase
+        window.currentReleases = []; // Cache from Supabase
+        window.currentExpenses = []; // Cache from Supabase
+        window.currentFleet = []; // Cache from Supabase
         let editingReleaseId = null;
 
         function newTripIdForDb() {
             return 'TRIP-' + Date.now().toString().slice(-6);
         }
         window.newTripIdForDb = newTripIdForDb;
-        window.currentTrips = currentTrips; // Expose globally for fleet module suggestions
-        window.currentReleases = currentReleases;
-        window.currentExpenses = currentExpenses;
 
         // --- FLEET DATA MAPPERS ---
         function mapFleetToUI(f) {

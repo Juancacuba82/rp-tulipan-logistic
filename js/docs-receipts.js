@@ -41,10 +41,10 @@
         if (!list) return;
 
         // Ensure data is available
-        if (currentTrips.length === 0) {
+        if (!window.currentTrips || window.currentTrips.length === 0) {
             try {
                 const data = await getTrips();
-                currentTrips = data.map(mapTripToArray);
+                window.currentTrips = data.map(mapTripToArray);
             } catch (e) {
                 console.error("Failed to load trips for Docs:", e);
                 return;
@@ -54,7 +54,7 @@
         list.innerHTML = '';
 
         // Custom sorting for drivers: based on numeric prefix in Notes (index 25)
-        const sortedTrips = [...currentTrips].sort((a, b) => {
+        const sortedTrips = [...(window.currentTrips || [])].sort((a, b) => {
             const getOrder = (trip) => {
                 const note = trip[25] || '';
                 const match = note.trim().match(/^(\d+)\./);
@@ -275,8 +275,8 @@
 
             // Update local cache
             window.currentDocTrip[55] = currentPhotos;
-            const idx = currentTrips.findIndex(t => t[0] === tripId);
-            if (idx !== -1) currentTrips[idx][55] = currentPhotos;
+            const idx = window.currentTrips.findIndex(t => t[0] === tripId);
+            if (idx !== -1) window.currentTrips[idx][55] = currentPhotos;
 
             // Refresh UI
             window.renderTripPhotos();
@@ -337,8 +337,8 @@
 
             // Update local cache
             window.currentDocTrip[55] = photos;
-            const tripIdx = currentTrips.findIndex(t => t[0] === tripId);
-            if (tripIdx !== -1) currentTrips[tripIdx][55] = photos;
+            const tripIdx = window.currentTrips.findIndex(t => t[0] === tripId);
+            if (tripIdx !== -1) window.currentTrips[tripIdx][55] = photos;
 
             // Refresh UI
             window.renderTripPhotos();
@@ -374,7 +374,7 @@
             yard: parseFloat(trip[13]) || 0,
             storage: parseFloat(trip[27]) || 0,
             transp: parseFloat(trip[18]) || 0,
-            sales: parseFloat(trip[20]) || 0,
+            sales: (parseFloat(trip[20]) || 0) * (parseInt(trip[53]) || 1),
             qty: parseInt(trip[53]) || 1,
             taxRate: taxRate,
             takeTax: takeTax,
@@ -739,10 +739,10 @@
             }
 
             // Also update in currentTrips array
-            const idx = currentTrips.findIndex(t => t[0] === tripId);
+            const idx = window.currentTrips.findIndex(t => t[0] === tripId);
             if (idx !== -1) {
-                if (_sigType === 'driver') currentTrips[idx][56] = dataUrl;
-                else currentTrips[idx][54] = dataUrl;
+                if (_sigType === 'driver') window.currentTrips[idx][56] = dataUrl;
+                else window.currentTrips[idx][54] = dataUrl;
             }
 
             window.closeSignatureModal();
