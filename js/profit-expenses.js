@@ -70,10 +70,12 @@
                         if (!confirm('Are you sure you want to delete this expense?')) return;
                         try {
                             await deleteExpense(expenseId);
-                            await loadExpensesData();
+                            // Update local state instead of full reload
+                            currentExpenses = currentExpenses.filter(row => row[5] !== expenseId);
+                            renderExpensesHistory();
                         } catch (e) {
                             console.error("Error deleting expense:", e);
-                            alert("Failed to delete expense from database.");
+                            alert("Failed to delete expense.");
                         }
                     };
                     actionsTd.appendChild(delBtn);

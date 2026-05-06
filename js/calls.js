@@ -8,14 +8,18 @@ let editingCallId = null;
 async function loadCallsData() {
     console.log("Loading calls data...");
     try {
-        let query = db.from('call_logs').select('*');
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
+        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+
+        let query = db.from('call_logs').select('*').gte('date', dateStr);
         
         // If the user is not admin, only show their own records
         if (window.currentUserRole !== 'admin' && window.userEmail) {
             query = query.eq('created_by', window.userEmail);
         }
 
-        const { data, error } = await query.order('date', { ascending: false });
+        const { data, error } = await query.order('date', { ascending: false }).limit(1000);
 
         if (error) throw error;
         currentCalls = data || [];

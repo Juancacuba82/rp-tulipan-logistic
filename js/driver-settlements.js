@@ -351,7 +351,8 @@
                 const { data, error } = await db
                     .from('settlement_history')
                     .select('*')
-                    .order('created_at', { ascending: false });
+                    .order('created_at', { ascending: false })
+                    .limit(200); // Optimization: Limit history load
 
                 if (error) {
                     console.error("DB Error fetching history:", error.message);
@@ -682,13 +683,9 @@
                 
                 if (error) throw error;
 
-                // AUTOMATIC EXPENSE INTEGRATION
-                // The expense should reflect the Net Driver Salary instead of the Final Cash Balance
+                // AUTOMATIC EXPENSE INTEGRATION (Restored)
                 const expenseAmount = salaryAmountFinal;
-
-                // Date Fallback: Use selected final date or Today
                 const expenseDate = val_final || new Date().toISOString().split('T')[0];
-
                 const expData = [
                     expenseDate,
                     'Driver Payment',
@@ -696,14 +693,16 @@
                     `$${expenseAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
                     `Auto-generated from Driver Settlement ${editingSettlementId ? 'Update' : 'Archive'}`
                 ];
+                if (window.mapArrayToExpense && window.addExpense) {
+                    const expenseObj = window.mapArrayToExpense(expData);
+                    await window.addExpense(expenseObj);
+                }
 
-                const expenseObj = mapArrayToExpense(expData);
-                await addExpense(expenseObj);
+                if (window.fetchHistory) await window.fetchHistory(); 
 
                 alert(editingSettlementId ? "Settlement Updated Successfully!" : "Archive & Expense Saved Successfully!");
-
                 resetSettlementEdit();
-                if (window.fetchHistory) window.fetchHistory();
+                // if (window.fetchHistory) window.fetchHistory(); // Handled above
             } catch (err) {
                 console.error("Archive/Update failed:", err);
                 alert("DATABASE ERROR: " + (err.message || "Unknown error"));

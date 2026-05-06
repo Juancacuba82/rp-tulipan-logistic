@@ -246,16 +246,24 @@ window.loadAttendanceData = async function() {
             .in('action_type', ['CLOCK_IN', 'CLOCK_OUT'])
             .order('created_at', { ascending: true });
 
-        // Apply filters only if they have a non-empty value
+        // Apply filters - Default to last 90 days if no dates provided
         if (startDate && startDate.trim() !== '') {
             query = query.gte('view_date', startDate);
+        } else {
+            // Default: 90 days ago
+            const d = new Date();
+            d.setDate(d.getDate() - 90);
+            query = query.gte('view_date', d.toISOString().split('T')[0]);
         }
+        
         if (endDate && endDate.trim() !== '') {
             query = query.lte('view_date', endDate);
         }
         if (filterEmployee) {
             query = query.eq('driver_name', filterEmployee);
         }
+
+        query = query.limit(1000); // Safety limit
 
         const { data, error } = await query;
         if (error) throw error;

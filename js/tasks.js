@@ -130,33 +130,46 @@
         btn.textContent = editingTaskId ? "UPDATING..." : "SAVING...";
 
         try {
+            let result;
             if (editingTaskId) {
-                const { error } = await db.from('tasks').update({
+                const { data, error } = await db.from('tasks').update({
                     title: title,
                     description: desc,
                     assigned_to: assigneeName,
                     assigned_to_email: assigneeEmail
-                }).eq('id', editingTaskId);
+                }).eq('id', editingTaskId).select();
                 if (error) throw error;
+                result = data ? data[0] : null;
                 if (window.showToast) window.showToast("Task updated successfully!", "success");
+
+                // Update local array
+                if (result) {
+                    const idx = currentTasks.findIndex(t => t.id === editingTaskId);
+                    if (idx !== -1) currentTasks[idx] = result;
+                }
             } else {
-                const { error } = await db.from('tasks').insert([{
+                const { data, error } = await db.from('tasks').insert([{
                     title: title,
                     description: desc,
                     assigned_to: assigneeName,
                     assigned_to_email: assigneeEmail,
                     created_by: window.userEmail,
                     status: 'PENDING'
-                }]);
+                }]).select();
                 if (error) throw error;
+                result = data ? data[0] : null;
                 if (window.showToast) window.showToast("Task created successfully!", "success");
+
+                // Add to local array
+                if (result) currentTasks.unshift(result);
             }
 
             resetTaskForm();
-            await loadTasksData();
+            // await loadTasksData(); // REMOVED: No more full reload
+            applyTaskFilters(); // Just re-render
         } catch (err) {
             console.error("Error adding task:", err);
-            alert("Error creating task. Make sure the 'tasks' table exists in Supabase.");
+            alert("Error creating task.");
         } finally {
             btn.disabled = false;
             btn.textContent = editingTaskId ? "UPDATE TASK" : "CREATE TASK";
@@ -215,7 +228,15 @@
             }).eq('id', id);
 
             if (error) throw error;
-            await loadTasksData();
+            
+            // Update local state
+            const task = currentTasks.find(t => t.id === id);
+            if (task) {
+                task.status = 'COMPLETED';
+                task.completed_at = new Date().toISOString();
+            }
+            applyTaskFilters();
+
             if (window.showToast) window.showToast("Task marked as done!", "success");
         } catch (err) {
             console.error("Error updating task:", err);
@@ -232,7 +253,10 @@
         try {
             const { error } = await db.from('tasks').update({ is_deleted: true }).eq('id', id);
             if (error) throw error;
-            await loadTasksData();
+
+            // Update local state
+            currentTasks = currentTasks.filter(t => t.id !== id);
+            applyTaskFilters();
         } catch (err) {
             console.error("Error deleting task:", err);
         }

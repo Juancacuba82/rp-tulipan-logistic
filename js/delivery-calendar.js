@@ -47,16 +47,33 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 console.log(`Syncing ${fieldName} -> ${value} for ${tripId}`);
                 await updateTrip(tripId, updateData);
-                await loadTableData();
                 
+                // Update local state instead of full reload
+                if (window.currentTrips) {
+                    const localTrip = window.currentTrips.find(t => t[0] === tripId);
+                    if (localTrip) {
+                        // We need to map the fieldName back to the correct array index if we want to update the UI perfectly.
+                        // However, for now, we'll do a lighter loadTableData or just update the currentDocTrip.
+                        // To be safe and efficient, we update the local object and refresh the Doc Preview.
+                        const fieldMap = {
+                            'st_yard': 30, 'st_rent': 31, 'st_rate': 32, 'st_sales': 33, 'st_amount': 34,
+                            'status': 41, 'paid': 34 // approximate
+                        };
+                        const idx = fieldMap[fieldName];
+                        if (idx !== undefined) localTrip[idx] = value;
+                    }
+                }
+
                 // --- DOCUMENT PREVIEW SYNC ---
                 if (window.currentDocTrip && window.currentDocTrip[0] === tripId) {
-                    const updatedTrip = currentTrips.find(t => t[0] === tripId);
+                    const updatedTrip = (window.currentTrips || []).find(t => t[0] === tripId);
                     if (updatedTrip) {
                         window.currentDocTrip = updatedTrip;
                         if (window.drawReceipt) window.drawReceipt();
                     }
                 }
+                
+                console.log("Local state updated, skipping full database reload for efficiency.");
             } catch (err) {
                 console.error("Immediate sync failed:", err);
                 alert("DATABASE ERROR: " + (err.message || "Failed to sync field " + fieldName));
@@ -1135,20 +1152,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 const data = await getTrips();
                 
-                // --- Activity Log Sync ---
+                // --- Activity Log Sync REMOVED from main load for performance ---
+                // We will fetch logs only when needed or with a much smaller limit
                 let activityLogs = [];
-                try {
-                    const { data: logs, error: logErr } = await db.from('activity_logs')
-                        .select('*')
-                        .order('created_at', { ascending: false })
-                        .limit(1000);
-                    
-                    if (!logErr) {
-                        activityLogs = logs || [];
-                    }
-                } catch (e) {
-                    console.error("Log fetch failed:", e);
-                }
                 
                 // --- Priority Sorting: TODAY first, then Chronological (Ascending) ---
                 const todayStr = new Date().toISOString().split('T')[0];

@@ -45,16 +45,38 @@ async function getProfile(userId) {
 
 async function getTrips() {
     try {
+        // Calculate date from 6 months ago (180 days)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
+        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+
         const { data, error } = await db
             .from('trips')
             .select('*')
-            .order('date', { ascending: false }); // <--- ¡Añade esta línea!
+            .gte('date', dateStr) // Only last 6 months for performance
+            .order('date', { ascending: false });
 
         if (error) throw error;
-        console.log("Viajes obtenidos de Supabase:", data.length);
+        console.log("Viajes obtenidos de Supabase (últimos 6 meses):", data.length);
         return data || [];
     } catch (err) {
         console.error('Error fetching trips:', err);
+        return [];
+    }
+}
+
+// Dedicated function for Activity Logs to be used only when needed
+async function getActivityLogs(limit = 100) {
+    try {
+        const { data, error } = await db
+            .from('activity_logs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching activity logs:', err);
         return [];
     }
 }
@@ -80,9 +102,17 @@ async function deleteTrip(tripId) {
 
 // Helper for Releases
 async function getReleases() {
-    const { data, error } = await db.from('releases').select('*');
-    if (error) { console.error('Error fetching releases:', error); return []; }
-    return data;
+    try {
+        const { data, error } = await db.from('releases')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(500); // Protect against infinite growth
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching releases:', err);
+        return [];
+    }
 }
 
 async function addRelease(releaseData) {
@@ -99,9 +129,21 @@ async function updateRelease(id, updateData) {
 
 // Helper for Expenses
 async function getExpenses() {
-    const { data, error } = await db.from('expenses').select('*');
-    if (error) { console.error('Error fetching expenses:', error); return []; }
-    return data;
+    try {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
+        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+
+        const { data, error } = await db.from('expenses')
+            .select('*')
+            .gte('date', dateStr)
+            .order('date', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching expenses:', err);
+        return [];
+    }
 }
 
 async function addExpense(expenseData) {
@@ -136,9 +178,21 @@ window.supabaseDeleteFleetUnit = supabaseDeleteFleetUnit;
 
 // Helper for Rentals
 async function getRentals() {
-    const { data, error } = await db.from('rentals').select('*').order('start_date', { ascending: false });
-    if (error) { console.error('Error fetching rentals:', error); return []; }
-    return data;
+    try {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
+        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+
+        const { data, error } = await db.from('rentals')
+            .select('*')
+            .gte('start_date', dateStr)
+            .order('start_date', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching rentals:', err);
+        return [];
+    }
 }
 
 async function addRental(rentalData) {
@@ -301,6 +355,7 @@ async function uploadReceipt(blob, filename) {
 
 // Global Exports
 window.getTrips = getTrips;
+window.getActivityLogs = getActivityLogs;
 window.addTrip = addTrip;
 window.updateTrip = updateTrip;
 window.deleteTrip = deleteTrip;
