@@ -932,30 +932,74 @@
             }
         };
         // --- EXPENSE CATEGORY MANAGEMENT LOGIC ---
-        // Uses localStorage as storage since expense_categories table may not exist in DB.
         let currentExpenseCategories = [];
-        const CATEGORIES_KEY = 'rp_expense_categories';
-        const DEFAULT_CATEGORIES = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
-
-        function _getCategoriesFromStorage() {
-            try {
-                const raw = localStorage.getItem(CATEGORIES_KEY);
-                if (raw) return JSON.parse(raw);
-            } catch(e) {}
-            // First time: seed defaults
-            const seeded = DEFAULT_CATEGORIES.map((name, i) => ({ id: Date.now() + i, name }));
-            localStorage.setItem(CATEGORIES_KEY, JSON.stringify(seeded));
-            return seeded;
-        }
-
-        function _saveCategoriesToStorage(cats) {
-            localStorage.setItem(CATEGORIES_KEY, JSON.stringify(cats));
-        }
 
         window.loadExpenseCategoriesData = async function () {
-            currentExpenseCategories = _getCategoriesFromStorage();
-            refreshExpenseCategorySelects();
+            if (!db) return;
+            try {
+                // 1. Load current categories from Supabase
+                const { data: dbData, error } = await db.from('expense_categories').select('*').order('name', { ascending: true });
+                
+                if (error) {
+                    console.error("Supabase error loading categories:", error);
+                    // Fallback to defaults if table doesn't exist
+                    const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
+                    currentExpenseCategories = defaults.map((name, i) => ({ id: i, name }));
+                    refreshExpenseCategorySelects();
+                    return;
+                }
+
+                let finalCategories = dbData || [];
+
+                // 2. Check if we have local categories to migrate/sync
+                try {
+                    const localRaw = localStorage.getItem('rp_expense_categories');
+                    if (localRaw) {
+                        const localData = JSON.parse(localRaw);
+                        if (Array.isArray(localData) && localData.length > 0) {
+                            // Find categories that exist locally but NOT in the database
+                            const missingInDb = localData.filter(localCat => 
+                                !finalCategories.some(dbCat => dbCat.name.toLowerCase() === localCat.name.toLowerCase())
+                            );
+
+                            if (missingInDb.length > 0) {
+                                console.log(`Syncing ${missingInDb.length} local categories to Supabase...`);
+                                const toInsert = missingInDb.map(c => ({ name: c.name }));
+                                const { error: syncError } = await db.from('expense_categories').insert(toInsert);
+                                
+                                if (!syncError) {
+                                    // Reload from DB to get the full updated list with IDs
+                                    const { data: updatedData } = await db.from('expense_categories').select('*').order('name', { ascending: true });
+                                    finalCategories = updatedData || finalCategories;
+                                    // Clear local storage now that it's synced
+                                    // localStorage.removeItem('rp_expense_categories'); 
+                                } else {
+                                    console.error("Failed to sync local categories:", syncError);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Could not sync local categories:", e);
+                }
+
+                // 3. If still empty (new DB), seed with defaults
+                if (finalCategories.length === 0) {
+                    const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
+                    const seedObjs = defaults.map(name => ({ name: name }));
+                    await db.from('expense_categories').insert(seedObjs);
+                    const { data: freshData } = await db.from('expense_categories').select('*').order('name', { ascending: true });
+                    finalCategories = freshData || [];
+                }
+
+                currentExpenseCategories = finalCategories;
+                refreshExpenseCategorySelects();
+            } catch (err) {
+                console.error("Critical error in loadExpenseCategoriesData:", err);
+            }
         };
+
+
 
         function refreshExpenseCategorySelects() {
             const expSel = document.getElementById('exp-category');
@@ -1008,31 +1052,38 @@
             const name = input.value.trim();
             if (!name) return;
 
-            // Check for duplicates
-            if (currentExpenseCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-                alert('This category already exists.');
-                return;
+            try {
+                // Check for duplicates locally
+                if (currentExpenseCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+                    alert('This category already exists.');
+                    return;
+                }
+
+                const { error } = await db.from('expense_categories').insert([{ name: name }]);
+                if (error) throw error;
+
+                input.value = '';
+                await loadExpenseCategoriesData();
+                renderExpenseCategoryManagerList();
+            } catch (err) {
+                console.error("Failed to add category:", err);
+                alert("Error adding category: " + (err.message || "Unknown error"));
             }
-
-            const newCat = { id: Date.now(), name: name };
-            currentExpenseCategories.push(newCat);
-            // Sort alphabetically
-            currentExpenseCategories.sort((a, b) => a.name.localeCompare(b.name));
-            _saveCategoriesToStorage(currentExpenseCategories);
-
-            input.value = '';
-            refreshExpenseCategorySelects();
-            renderExpenseCategoryManagerList();
         };
 
         window.deleteExpenseCategory = async function (id) {
             if (!confirm("Are you sure you want to delete this category?")) return;
-            // id comes from HTML as a string
-            currentExpenseCategories = currentExpenseCategories.filter(c => String(c.id) !== String(id));
-            _saveCategoriesToStorage(currentExpenseCategories);
-            refreshExpenseCategorySelects();
-            renderExpenseCategoryManagerList();
+            try {
+                const { error } = await db.from('expense_categories').delete().eq('id', id);
+                if (error) throw error;
+                await loadExpenseCategoriesData();
+                renderExpenseCategoryManagerList();
+            } catch (err) {
+                console.error("Failed to delete category:", err);
+                alert("Error deleting category.");
+            }
         };
+
 
 
         function calculateFinalPay(company, grossPay) {
