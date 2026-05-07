@@ -121,10 +121,8 @@
 
             if (!catFound) {
                 sel.value = 'Other';
-                document.getElementById('exp-other-desc').value = rowData[2] || '';
-            } else {
-                document.getElementById('exp-other-desc').value = '';
             }
+            document.getElementById('exp-other-desc').value = rowData[2] || '';
             window.toggleOtherExpense();
 
             const amountStr = (rowData[3] || '0').replace('$', '').replace(/,/g, '');

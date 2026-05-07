@@ -502,10 +502,8 @@
 
         // EXPENSE MANAGEMENT LOGIC
         window.toggleOtherExpense = () => {
-            const cat = document.getElementById('exp-category').value;
             const groupOther = document.getElementById('group-exp-other');
-            
-            if (groupOther) groupOther.style.display = (cat === 'Other') ? 'block' : 'none';
+            if (groupOther) groupOther.style.display = 'block';
         };
 
         window.editingExpenseId = null;
@@ -522,7 +520,7 @@
             if (!date || date === '---') return alert("Please select a date.");
             if (!cat) return alert("Please select a category.");
 
-            let desc = (cat === 'Other') ? otherVal : cat;
+            let desc = otherVal || cat;
             const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note];
 
             try {
@@ -551,7 +549,7 @@
             document.getElementById('exp-date').value = '';
             document.getElementById('exp-category').selectedIndex = 0;
             const otherGroup = document.getElementById('group-exp-other');
-            if (otherGroup) otherGroup.style.display = 'none';
+            if (otherGroup) otherGroup.style.display = 'block';
             document.getElementById('exp-other-desc').value = '';
             document.getElementById('exp-amount').value = '0';
             document.getElementById('exp-note').value = '';
