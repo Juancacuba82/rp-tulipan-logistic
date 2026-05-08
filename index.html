@@ -1342,10 +1342,9 @@
                                 <label>Status</label>
                                 <select id="f-status" onchange="applyAdvancedFilters()" style="font-weight: 700;">
                                     <option value="" style="color: #64748b;">All</option>
-                                    <option value="PENDING_PAYMENT" style="background-color: #fee2e2; color: #991b1b;">
-                                        Pending</option>
-                                    <option value="PAID" style="background-color: #dcfce7; color: #166534;">Complete
-                                    </option>
+                                    <option value="PENDING_PAYMENT" style="background-color: #fee2e2; color: #991b1b;">Pending</option>
+                                    <option value="COMPLETE" style="background-color: #dcfce7; color: #166534;">Complete</option>
+                                    <option value="PAID" style="background-color: #fefce8; color: #92400e;">Legacy (Paid)</option>
                                 </select>
                             </div>
 
@@ -4422,10 +4421,12 @@
                 let matchStatus = true;
                 const tripStatus = tr.dataset.status || 'PENDING_PAYMENT';
                 if (filters.status) {
-                    if (filters.status === 'PAID' || filters.status === 'COMPLETE') {
-                        matchStatus = (tripStatus === 'PAID' || tripStatus === 'COMPLETE');
-                    } else {
-                        matchStatus = (tripStatus === filters.status);
+                    if (filters.status === 'COMPLETE') {
+                        matchStatus = (tripStatus === 'COMPLETE');
+                    } else if (filters.status === 'PAID') {
+                        matchStatus = (tripStatus === 'PAID');
+                    } else if (filters.status === 'PENDING_PAYMENT') {
+                        matchStatus = (tripStatus === 'PENDING_PAYMENT');
                     }
                 }
 
@@ -4515,69 +4516,17 @@
         function updateCalendarTotals() {
             const fmt = (n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-            // --- Build Release purchase-price lookup (same as renderProfitReport) ---
-            const relMap = new Map();
-            (window.currentReleases || []).forEach(r => {
-                if (r && r[0]) {
-                    const rNo = r[0].toString().trim();
-                    const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0 };
-                    relMap.set(rNo, {
-                        p20: (parseFloat(r[8])  || 0) || existing.p20,
-                        p40: (parseFloat(r[10]) || 0) || existing.p40,
-                        p45: (parseFloat(r[12]) || 0) || existing.p45
-                    });
-                }
-            });
-
-            let totYard = 0, totPpd = 0, totTransNet = 0, totSalesNet = 0;
-
-            // Iterate visible DOM rows — index maps 1-to-1 with window.currentTrips
+            let totYard = 0, totPpd = 0, totTrans = 0, totSales = 0;
             const domRows = document.querySelectorAll('#table-body tr');
             domRows.forEach((tr, i) => {
                 if (tr.style.display === 'none') return;
-
                 const trip = (window.currentTrips || [])[i];
                 if (!trip) return;
 
-                // Yard Rate — pure revenue
                 totYard += parseFloat(trip[13]) || 0;
-
-                // Price per Day — pure revenue
                 totPpd  += parseFloat(trip[14]) || 0;
-
-                // Trans. Pay NET:
-                // - RP TULIPAN / JR SUPER CRAME → driver gets 30% of Paid Driver value
-                //   Net = Trans.Pay − (Paid Driver × 0.30)
-                // - Any other company → driver gets the full Paid Driver value
-                //   Net = Trans.Pay − Paid Driver
-                const transPay   = parseFloat(trip[18]) || 0;
-                const paidDriver = parseFloat(trip[24]) || 0;
-                const company    = (trip[16] || '').toString().toUpperCase().trim();
-                const isOwnFleet = (company === 'RP TULIPAN' || company === 'JR SUPER CRAME');
-                const driverCost = isOwnFleet ? (paidDriver * 0.30) : paidDriver;
-                totTransNet += (transPay - driverCost);
-
-                // Sales Price NET = (Sales Price × qty) − (Purchase Price × qty)
-                const salesPrice = parseFloat(trip[20]) || 0;
-                const hasSales   = (trip[43] === 'YES');
-                if (hasSales && salesPrice > 0) {
-                    const relNo  = (trip[4] || '').toString().trim();
-                    const size   = (trip[2] || '').toString();
-                    const qty    = parseInt(trip[53]) || 1;
-                    const rel    = relMap.get(relNo);
-
-                    let unitCost = 0;
-                    if (rel) {
-                        if (size.includes('20'))      unitCost = rel.p20;
-                        else if (size.includes('40')) unitCost = rel.p40;
-                        else if (size.includes('45')) unitCost = rel.p45;
-                        if (unitCost === 0) unitCost = rel.p20 || rel.p40 || rel.p45 || 0;
-                    }
-                    totSalesNet += (salesPrice * qty) - (unitCost * qty);
-                } else if (!hasSales && salesPrice > 0) {
-                    // No release attached — treat full price as revenue
-                    totSalesNet += salesPrice;
-                }
+                totTrans += parseFloat(trip[18]) || 0;
+                totSales += parseFloat(trip[20]) || 0;
             });
 
             const elYard  = document.getElementById('total-yard-rate');
@@ -4587,8 +4536,8 @@
 
             if (elYard)  elYard.textContent  = fmt(totYard);
             if (elPpd)   elPpd.textContent   = fmt(totPpd);
-            if (elTrans) elTrans.textContent  = fmt(totTransNet);
-            if (elSales) elSales.textContent  = fmt(totSalesNet);
+            if (elTrans) elTrans.textContent  = fmt(totTrans);
+            if (elSales) elSales.textContent  = fmt(totSales);
         }
         window.updateCalendarTotals = updateCalendarTotals;
 

@@ -247,15 +247,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             let deductNew = isFinalized && isDeductionCandidate; // REMOVED strict isReleaseListMode requirement for edits to be more robust
             const newQtyVal = parseInt(document.getElementById('in-qty')?.value) || 1;
 
-            // Optimization: If nothing relevant changed, cancel both out
-            if (revertOld && deductNew && oldRelData) {
-                const sameRel = oldRelData.release === selectedReleaseNormalized;
-                const sameSize = oldRelData.size === selectedSizeNormalized;
-                const sameQty = oldRelData.qty === newQtyVal;
+            // Optimization: If it's an update and container details haven't changed, skip all stock logic
+            if (editingIndex !== null) {
+                const oldRow = window.currentTrips[editingIndex];
+                const clean = (v) => (v || '').toString().split('(')[0].trim().toUpperCase();
                 
-                // If the key inventory data hasn't changed, do nothing to stock
-                if (sameRel && sameSize && sameQty) {
-                    console.log("STOCK DEBUG: No change in Release/Size/Qty. Skipping stock update.");
+                const sameRel  = clean(oldRow[4])  === clean(selectedReleaseNormalized);
+                const sameSize = clean(oldRow[2])  === clean(selectedSizeNormalized);
+                const sameType = clean(oldRow[44]) === clean(selectedRelType);
+                const sameCond = clean(oldRow[45]) === clean(selectedRelCond);
+                const sameQty  = (parseInt(oldRow[53]) || 1) === newQtyVal;
+                
+                if (sameRel && sameSize && sameType && sameCond && sameQty) {
+                    console.log("STOCK DEBUG: Update mode - Container details unchanged. Skipping stock operations.");
                     revertOld = false;
                     deductNew = false;
                 }
@@ -738,7 +742,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if (editingIndex !== null) {
                     const oldTripData = currentTrips[editingIndex];
-                    if (oldTripData && oldTripData[4] === selectedRel && oldTripData[2] === selectedSize && oldTripData[44] === selectedRelType && oldTripData[45] === selectedRelCond) {
+                    // Clean function to ignore emojis/extra info in parentheses
+                    const cleanVal = (v) => (v || '').toString().split('(')[0].trim().toUpperCase();
+
+                    const sameRel  = cleanVal(oldTripData[4])  === cleanVal(selectedRel);
+                    const sameSize = cleanVal(oldTripData[2])  === cleanVal(selectedSize);
+                    const sameType = cleanVal(oldTripData[44]) === cleanVal(selectedRelType);
+                    const sameCond = cleanVal(oldTripData[45]) === cleanVal(selectedRelCond);
+
+                    if (oldTripData && sameRel && sameSize && sameType && sameCond) {
                         bypass = true;
                     }
                 }

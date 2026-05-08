@@ -42,7 +42,8 @@
             // Filter: COMPLETE orders with Sales
             const filtered = logisticsData.filter(row => {
                 const orderStatus = (row[41] || '').toString().toUpperCase();
-                if (orderStatus !== 'PAID') return false;
+                // Show ONLY COMPLETE orders (ignore payment status as per user request)
+                if (orderStatus !== 'COMPLETE') return false;
 
                 const hasSales = (row[43] === 'YES');
                 if (!hasSales) return false;
