@@ -17,7 +17,7 @@ window.renderCustInvoiceTable = function () {
     const fTo = document.getElementById('ci-f-to')?.value || '';
     const fInvoice = document.getElementById('ci-f-invoice')?.value || '';
 
-    const logisticsData = currentTrips || [];
+    const logisticsData = window.currentTrips || [];
 
     const filtered = logisticsData.filter(row => {
         // 1. Basic Status Filter (Only Complete/Delivered/Finalized-PAID rows)
@@ -237,8 +237,8 @@ window.populateCustInvoiceFilters = function () {
     const places = new Set();
     const customers = new Set();
 
-    if (typeof currentTrips !== 'undefined') {
-        currentTrips.forEach(row => {
+    if (typeof window.currentTrips !== 'undefined') {
+        window.currentTrips.forEach(row => {
             const orderStatus = (row[41] || '').toString().toUpperCase();
             const isReady = (orderStatus === 'COMPLETE' || orderStatus === 'DELIVERED' || orderStatus === 'PAID');
             if (!isReady) return;

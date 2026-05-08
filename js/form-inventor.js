@@ -19,12 +19,12 @@
             const fRelease = (document.getElementById('inv-f-release')?.value || '').trim();
             const fCity = (document.getElementById('inv-f-city')?.value || '').trim();
 
-            const logisticsData = currentTrips || [];
+            const logisticsData = window.currentTrips || [];
 
             // Build Release Lookup Map for Purchase Prices
             const relMap = new Map();
-            if (typeof currentReleases !== 'undefined') {
-                currentReleases.forEach(r => {
+            if (typeof window.currentReleases !== 'undefined') {
+                window.currentReleases.forEach(r => {
                     if (r && r[0]) {
                         const rNo = r[0].toString().trim();
                         const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0, seller: '---', city: '---' };
@@ -42,8 +42,8 @@
             // Filter: COMPLETE orders with Sales
             const filtered = logisticsData.filter(row => {
                 const orderStatus = (row[41] || '').toString().toUpperCase();
-                // Show ONLY COMPLETE orders (ignore payment status as per user request)
-                if (orderStatus !== 'COMPLETE') return false;
+                // Show COMPLETE, PAID or DELIVERED orders
+                if (orderStatus !== 'COMPLETE' && orderStatus !== 'PAID' && orderStatus !== 'DELIVERED') return false;
 
                 const hasSales = (row[43] === 'YES');
                 if (!hasSales) return false;
@@ -129,11 +129,12 @@
                 tr.title = 'Click to view full details';
                 tr.onclick = () => window.showInventoryDetails(row, unitCost, seller);
 
-                const cellStyle = 'padding: 10px 14px; border: 1px solid #dee2e6; color: #000; font-weight: 700; text-align: center; vertical-align: middle; white-space: nowrap;';
+                const cellStyle = 'padding: 8px 10px; border: 1px solid #dee2e6; color: #000; font-weight: 700; text-align: center; vertical-align: middle; white-space: nowrap;';
 
                 tr.innerHTML = `
                     <td style="${cellStyle}">${window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(date) : date}</td>
                     <td style="${cellStyle}">${size}</td>
+                    <td style="${cellStyle} color: #1e40af; font-weight: 800;">${qty}</td>
                     <td style="${cellStyle}">${nCont}</td>
                     <td style="${cellStyle}">${relNo}</td>
                     <td style="${cellStyle}">${phone}</td>
@@ -176,6 +177,27 @@
                 const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
                 countEl.style.color = isFiltered ? '#f59e0b' : '#1e293b';
             }
+
+            // --- SYNC TOP SCROLLBAR ---
+            setTimeout(() => {
+                const topScroll = document.getElementById('inv-top-scroll-container');
+                const topContent = document.getElementById('inv-top-scroll-content');
+                const bottomScroll = document.getElementById('inv-table-container');
+                const table = document.getElementById('inventor-table');
+
+                if (topScroll && topContent && bottomScroll && table) {
+                    // Sync width
+                    topContent.style.width = table.offsetWidth + 'px';
+
+                    // Sync scrolls
+                    topScroll.onscroll = () => {
+                        bottomScroll.scrollLeft = topScroll.scrollLeft;
+                    };
+                    bottomScroll.onscroll = () => {
+                        topScroll.scrollLeft = bottomScroll.scrollLeft;
+                    };
+                }
+            }, 100);
         };
 
         // Populate dropdown filters with unique values from existing data

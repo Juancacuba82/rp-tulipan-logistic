@@ -3,32 +3,57 @@
     let editingRentalId = null;
     let originalRentalState = null;
 
-    async function loadRentalsData() {
+    async function loadRentalsData(force = false) {
+        if (!force && window.currentRentals && window.currentRentals.length > 0) {
+            renderRentalsTable();
+            return;
+        }
         try {
             const data = await getRentals();
             
             // --- AUTOMATION: Auto-Pending for expired PAID rentals ---
-            // If a rental is ACTIVE and PAID but reached its final date, it should flip to PENDING
-            const todayStr = new Date().toISOString().split('T')[0];
-            const today = new Date(todayStr).getTime();
-            let needsReload = false;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            let updateCount = 0;
 
+            console.log("Checking for expired rentals... Today is:", new Date(today).toLocaleDateString());
+
+            const expiredIds = [];
             for (let row of data) {
-                if (row.status === 'ACTIVE' && row.payment_status === 'PAID' && row.final_date) {
-                    const fDate = new Date(row.final_date).getTime();
-                    if (fDate <= today) {
-                        console.log(`Auto-Pending rental ${row.id} (expired)`);
-                        await updateRental(row.id, { payment_status: 'PENDING' });
-                        needsReload = true;
+                const status = (row.status || '').trim().toUpperCase();
+                const pStatus = (row.payment_status || '').trim().toUpperCase();
+
+                if (status === 'ACTIVE' && pStatus === 'PAID' && row.final_date) {
+                    let fDate;
+                    if (row.final_date.includes('-')) {
+                        const [fy, fm, fd] = row.final_date.split('-').map(Number);
+                        fDate = new Date(fy, fm - 1, fd).getTime();
+                    } else {
+                        fDate = new Date(row.final_date).getTime();
+                    }
+
+                    if (!isNaN(fDate) && fDate <= today) {
+                        row.payment_status = 'PENDING';
+                        expiredIds.push(row.id);
                     }
                 }
             }
 
-            if (needsReload) {
-                window.currentRentals = await getRentals();
-            } else {
-                window.currentRentals = data || [];
+            if (expiredIds.length > 0) {
+                console.log(`Auto-Pending: Batch updating ${expiredIds.length} expired rentals...`);
+                if (window.updateRentalsBatch) {
+                    window.updateRentalsBatch(expiredIds, { payment_status: 'PENDING' })
+                        .then(() => console.log(`DB confirmed PENDING for ${expiredIds.length} rentals.`))
+                        .catch(err => console.error(`Batch update failed:`, err));
+                }
             }
+
+            if (updateCount > 0) {
+                console.log(`Marked ${updateCount} rentals as PENDING locally.`);
+            }
+
+            // Always use the locally-mutated data — never re-fetch (that would overwrite our changes)
+            window.currentRentals = data || [];
 
             if (typeof window.loadReleasesData === 'function' && (!window.currentReleases || window.currentReleases.length === 0)) {
                 await window.loadReleasesData();
@@ -37,6 +62,7 @@
             renderRentalsTable();
         } catch (err) { console.error("Error loading rentals:", err); }
     }
+
 
     function populateAllRentalSelects() {
         populateRentalCustomerSelect();
@@ -351,52 +377,14 @@
                 await addRental(rentalData);
             }
             resetRentalForm();
-            loadRentalsData();
+            loadRentalsData(true);
 
-            // --- AUTOMATION: Create Order in Delivery Calendar ---
-            // Only for NEW rentals (not edits)
-            if (!editingRentalId) {
-                try {
-                    // 1. Generate Order ID
-                    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                    let ordSuffix = '';
-                    for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
-                    const newOrderId = 'ORD-' + ordSuffix;
 
-                    // 2. Prepare Trip Data for Calendar
-                    const tripData = {
-                        trip_id: newOrderId,
-                        date: startDate,
-                        size: size,
-                        n_cont: container.toUpperCase(),
-                        release_no: releaseNo,
-                        delivery_place: deliveryPlace,
-                        customer: customer,
-                        phone_no: phone,
-                        amount: parseFloat(basePrice),
-                        monthly_rate: parseFloat(basePrice),
-                        service_mode: 'RENTAL',
-                        status: 'PENDING_PAYMENT',
-                        note: notes,
-                        st_rent: 'PEND',
-                        has_trans: 'YES',
-                        has_sales: 'NO'
-                    };
-
-                    // 3. Save to trips table via Supabase
-                    if (window.addTrip) {
-                        await window.addTrip(tripData);
-                        console.log("Automation: Calendar Order created successfully:", newOrderId);
-                    }
-                } catch (autoErr) {
-                    console.error("Automation Error (Creating Calendar Order):", autoErr);
-                }
-            }
         } catch (err) { alert("Error saving record: " + (err.message || "Unknown error")); }
     }
 
     function editRental(idx) {
-        const row = currentRentals[idx];
+        const row = window.currentRentals[idx];
         if (!row) return;
         editingRentalId = row.id; originalRentalState = { ...row };
         document.getElementById('rental-start-date').value = row.start_date;
@@ -433,10 +421,10 @@
 
     async function removeRental(id) {
         if (!confirm("Are you sure?")) return;
-        const row = currentRentals.find(r => r.id === id);
+        const row = (window.currentRentals || []).find(r => r.id === id);
         try { 
             if (row && row.status === 'ACTIVE' && row.release_no) await adjustReleaseStock(row.release_no, 1);
-            await deleteRental(id); loadRentalsData(); 
+            await deleteRental(id); loadRentalsData(true); 
         } catch (err) { console.error(err); }
     }
 

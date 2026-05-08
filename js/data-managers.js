@@ -125,7 +125,8 @@
                 });
                 
                 // If it's a driver logged in, force their value (EXCEPT Robert Cortez)
-                if (isFilter && sel.id === 'filter-search' && window.currentDriverNameRef) {
+                const isDriverRole = (window.currentUserRole === 'driver');
+                if (isFilter && sel.id === 'filter-search' && window.currentDriverNameRef && isDriverRole) {
                     const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                     if (drvRef === "ROBERT CORTEZ") {
                         // Let him pick anything
@@ -162,6 +163,7 @@
             if (window.syncDriverNames) window.syncDriverNames();
             if (window.renderDriverLog) window.renderDriverLog();
         }
+        window.refreshDriverSelects = refreshDriverSelects;
 
         function populateDriverAuditList() {
             const list = document.getElementById('fleet-drivers-list');

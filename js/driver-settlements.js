@@ -10,15 +10,9 @@
             const searchInput = document.getElementById('filter-search');
             if (!body) return;
 
-            // AUTO-FILL FOR DRIVERS: Pre-fill search with their name if empty
-            if (window.currentUserRole === 'driver') {
-                if (searchInput) {
-                    searchInput.value = window.currentDriverNameRef || '';
-                    // Hide the search filter for drivers so they don't see other names
-                    const filterItem = searchInput.closest('.filter-item');
-                    if (filterItem) filterItem.style.display = 'none';
-                }
-            }
+            // REMOVED: Auto-fill for drivers - ensures clean filters upon entry
+            // If the user is a driver, the hard security filter below (line 38)
+            // will still ensure they only see their own trips.
 
             body.innerHTML = '';
 
@@ -26,8 +20,8 @@
             const dateFrom = document.getElementById('filter-from')?.value;
             const dateTo = document.getElementById('filter-to')?.value;
 
-            if (currentTrips.length > 0) {
-                const allRows = currentTrips;
+            if (window.currentTrips && window.currentTrips.length > 0) {
+                const allRows = window.currentTrips;
 
                 // 1. Filter the rows first
                 const filtered = allRows.filter(r => {
@@ -345,7 +339,12 @@
         window.currentSettlements = [];
         let editingSettlementId = null;
 
-        async function fetchHistory() {
+        async function fetchHistory(force = false) {
+            if (!force && window.currentSettlements && window.currentSettlements.length > 0) {
+                renderSettlementHistory();
+                if (window.syncDriverNames) window.syncDriverNames();
+                return;
+            }
             console.log("Attempting to fetch history from Supabase...");
             try {
                 const { data, error } = await db

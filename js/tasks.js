@@ -9,8 +9,12 @@
     let editingTaskId = null;
 
     // --- INITIALIZATION ---
-    window.loadTasksData = async function() {
+    window.loadTasksData = async function(force = false) {
         if (!db) return;
+        if (!force && currentTasks && currentTasks.length > 0) {
+            applyTaskFilters();
+            return;
+        }
         try {
             const role = (window.currentUserRole || 'user').toLowerCase();
             const email = window.userEmail;

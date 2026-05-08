@@ -29,12 +29,12 @@
                 if (window.updateCashBadgeStyle) window.updateCashBadgeStyle(false);
             }
 
-            loadReleasesData();
+            loadReleasesData(true);
         };
 
         window.loadReleaseToEdit = function (idx) {
-            if (!currentReleases[idx]) return;
-            const row = currentReleases[idx];
+            if (!window.currentReleases[idx]) return;
+            const row = window.currentReleases[idx];
             editingReleaseId = row[15]; // DB UUID
 
             document.getElementById('rel-no-releases').value = row[0];
@@ -179,7 +179,17 @@
 
         window.togglePickupAddressMode = togglePickupAddressMode;
 
-        async function loadReleasesData() {
+        async function loadReleasesData(force = false) {
+            if (!force && window.currentReleases && window.currentReleases.length > 0) {
+                if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+                if (window.populateInventorDropdowns) window.populateInventorDropdowns();
+                const body = document.getElementById('releases-body');
+                if (body) {
+                    applyReleasesFilters();
+                    refreshReleaseNoFilter();
+                }
+                return;
+            }
             try {
                 const data = await getReleases();
                 const sorted = (data || []).sort((a, b) => {
@@ -404,7 +414,7 @@
                 if (error) throw error;
 
                 alert("Release eliminado correctamente.");
-                await loadReleasesData();
+                await loadReleasesData(true);
             } catch (err) {
                 console.error("Error deleting release:", err);
                 alert("Error al eliminar de la base de datos.");
@@ -433,7 +443,7 @@
                 else if (el) el.classList.remove('rel-filter-active');
             });
 
-            const filtered = currentReleases.filter(r => {
+            const filtered = (window.currentReleases || []).filter(r => {
                 let match = true;
                 const curStock = parseInt(r[14]) || 0; // Use total_stock column
 
@@ -535,7 +545,7 @@
                     alert("Expense saved successfully!");
                 }
 
-                await loadExpensesData(); // Reload from Supabase
+                await loadExpensesData(true); // Reload from Supabase
                 window.resetExpenseForm();
             } catch (err) {
                 console.error("Error saving expense:", err);
@@ -630,7 +640,7 @@
                         // For single-record edits, use the exact value from the UI field.
                         // For bulk updates, we still use the 'smart' deduction logic to preserve individual sold counts.
                         if (targets.length > 1) {
-                            const targetRel = currentReleases.find(r => r[15] === targetId);
+                            const targetRel = window.currentReleases.find(r => r[15] === targetId);
                             if (targetRel) {
                                 const oldInitial = (parseInt(targetRel[7]) || 0) + (parseInt(targetRel[9]) || 0) + (parseInt(targetRel[11]) || 0);
                                 const oldStock = parseInt(targetRel[14]) || 0;
@@ -650,7 +660,7 @@
                     alert("Release added successfully!");
                 }
                 resetReleaseForm();
-                await loadReleasesData();
+                await loadReleasesData(true);
                 if (window.updateReleaseDatalist) window.updateReleaseDatalist();
             } catch (err) {
                 alert("Operation failed: " + err.message);

@@ -1,7 +1,12 @@
-        async function loadExpensesData() {
+        async function loadExpensesData(force = false) {
+            if (!force && window.currentExpenses && window.currentExpenses.length > 0) {
+                renderExpensesHistory();
+                return;
+            }
             try {
                 const data = await getExpenses();
-                currentExpenses = data.map(mapExpenseToArray);
+                const mappedData = data.map(mapExpenseToArray);
+                window.currentExpenses = mappedData; // Sync global cache
                 renderExpensesHistory();
             } catch (err) {
                 console.error("Error loading expenses:", err);
@@ -9,7 +14,30 @@
         }
         window.loadExpensesData = loadExpensesData;
 
+        window.updateExpenseDescriptionHistory = function() {
+            const datalist = document.getElementById('expense-descriptions-list');
+            if (!datalist) return;
+            
+            const uniqueDescriptions = new Set();
+            (window.currentExpenses || []).forEach(row => {
+                const desc = row[2]; // Index 2 is description
+                if (desc && desc !== '---') {
+                    uniqueDescriptions.add(desc.trim());
+                }
+            });
+            
+            datalist.innerHTML = '';
+            [...uniqueDescriptions].sort().forEach(desc => {
+                const option = document.createElement('option');
+                option.value = desc;
+                datalist.appendChild(option);
+            });
+        };
+
         window.renderExpensesHistory = function () {
+            // Update description history whenever we render/refresh expenses
+            window.updateExpenseDescriptionHistory();
+
             const body = document.getElementById('expenses-body');
             if (!body) return;
 
@@ -19,7 +47,7 @@
             const driverName = document.getElementById('exp-filter-driver')?.value;
             const search = (document.getElementById('exp-filter-search')?.value || '').toLowerCase();
 
-            const filtered = (currentExpenses || []).filter(row => {
+            const filtered = (window.currentExpenses || []).filter(row => {
                 const rowDate = row[0];
                 const rowCat = row[1];
                 const rowDesc = (row[2] || '').toLowerCase();
@@ -163,16 +191,22 @@
         }
 
         // PROFIT REPORT CALCULATIONS
-        window.renderProfitReport = function () {
+        window.renderProfitReport = async function () {
+            try {
+                // Ensure rentals data is loaded if we are going to use it independently
+            if (typeof window.loadRentalsData === 'function' && (!window.currentRentals || window.currentRentals.length === 0)) {
+                await window.loadRentalsData();
+            }
+
             const dateFrom = document.getElementById('profit-date-from').value;
             const dateTo = document.getElementById('profit-date-to').value;
 
-            const logisticsData = currentTrips || [];
-            const expensesData = currentExpenses || [];
+            const logisticsData = window.currentTrips || [];
+            const expensesData = window.currentExpenses || [];
 
             // 0. Build Release Lookup Map for Container Purchase Costs
             const relMap = new Map();
-            currentReleases.forEach(r => {
+            (window.currentReleases || []).forEach(r => {
                 if (r && r[0]) {
                     const rNo = r[0].toString().trim();
                     const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0 };
@@ -185,7 +219,7 @@
             });
 
             let totals = {
-                sales: 0,        // Net Sales Profit (sales_price - container_cost)
+                sales: 0,        // Gross Sales Revenue (sales_price * qty)
                 yard: 0,         // Yard / Storage income
                 rentals: 0,      // PAID rentals income
                 tulipan: 0,      // RP Tulipan transport revenue
@@ -200,21 +234,21 @@
                 const rowDate = row[1];
                 const orderStatus = (row[41] || '').toString().toUpperCase();
 
-                // Only include orders marked as Complete (status value = 'PAID' or 'COMPLETE')
-                if (orderStatus !== 'PAID' && orderStatus !== 'COMPLETE') return;
+                // Only include orders marked as Complete, Paid or Delivered
+                if (orderStatus !== 'COMPLETE' && orderStatus !== 'PAID' && orderStatus !== 'DELIVERED') return;
 
                 // Date filter
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
+                    const qty        = parseInt(row[53]) || 1; // index 53 is qty
                     const salesPrice = parseFloat(row[20]) || 0;
                     const hasYard    = (row[12] === 'YES');
                     const hasTrans   = (row[42] === 'YES');
                     const hasSales   = (row[43] === 'YES');
 
-                    // A. Sales Component — Net profit = (sales_price - unitCost) * qty
+                    // A. Sales Component — Gross Revenue = sales_price * qty
                     if (hasSales && salesPrice > 0) {
                         const relNo      = (row[4] || '').toString().trim();
                         const tripSize   = (row[2] || '').toString();
-                        const qty        = parseInt(row[53]) || 1; // index 53 is qty
                         const releaseData = relMap.get(relNo);
 
                         let unitCost = 0;
@@ -229,11 +263,10 @@
                             }
                         }
 
-                        const totalSales = salesPrice * qty;
-                        const totalCost  = unitCost * qty;
-                        const salesProfit = totalSales - totalCost;
+                        const totalSales = (salesPrice || 0) * (qty || 1);
+                        const totalCost  = (unitCost || 0) * (qty || 1);
 
-                        totals.sales += salesProfit;
+                        totals.sales += totalSales;
                         totals.releases += totalCost; // Track total container cost
                     }
 
@@ -245,36 +278,32 @@
                         if (pricePerDay > 0 && row[1] && row[15] && row[15] !== '---') {
                             const dateIn  = new Date(row[1]);
                             const dateOut = new Date(row[15]);
-                            const days = Math.max(0, Math.round((dateOut - dateIn) / (1000 * 60 * 60 * 24)));
-                            storage = pricePerDay * days;
+                            if (!isNaN(dateIn.getTime()) && !isNaN(dateOut.getTime())) {
+                                const diffMs = (dateOut.getTime() - dateIn.getTime());
+                                const days = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24))) || 0;
+                                storage = pricePerDay * days;
+                            }
                         }
-                        totals.yard += yardVal + storage;
+                        totals.yard += ((yardVal || 0) + (storage || 0)) * (qty || 1);
                     }
 
                     // C. Transport Component — assign to company bucket
                     if (hasTrans) {
-                        const transVal = parseFloat(row[18]) || 0;
-                        const company  = (row[16] || '').toString().toUpperCase();
-                        if (company === 'RP TULIPAN')       totals.tulipan    += transVal;
-                        else if (company === 'JR SUPER CRAME') totals.jr      += transVal;
-                        else if (company === 'CONTRACTOR')  totals.contractor += transVal;
+                        const transVal   = parseFloat(row[18]) || 0;
+                        const company    = (row[16] || '').toString().toUpperCase();
+
+                        if (company === 'RP TULIPAN')       totals.tulipan    += (transVal || 0);
+                        else if (company === 'JR SUPER CRAME') totals.jr      += (transVal || 0);
+                        else if (company === 'CONTRACTOR')  totals.contractor += (transVal || 0);
                     }
                 }
-            });
-
-            // 1.5 Process PAID Rentals
+            });            // 1.5 Process Rentals Independently (Accumulated Total)
             if (window.currentRentals && window.calculateRentalCost) {
                 window.currentRentals.forEach(row => {
-                    if (row.payment_status === 'PAID') {
-                        const rowDate = row.start_date;
-                        if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
-                            const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
-                            totals.rentals += costInfo.total;
-                        }
-                    }
+                    const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
+                    totals.rentals += costInfo.total;
                 });
             }
-
             // 2. Process Business Expenses
             expensesData.forEach(row => {
                 const rowDate = row[0];
@@ -286,9 +315,9 @@
             });
 
             // 3. Final Summaries
-            const totalRevenue = totals.tulipan + totals.jr + totals.contractor + totals.sales + totals.yard + totals.rentals;
-            const totalGlobalExpenses = totals.expenses;
-            const netProfit = totalRevenue - totalGlobalExpenses;
+            const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0);
+            const totalGlobalExpenses = (totals.expenses || 0);
+            const netProfit = totalRevenue - totalGlobalExpenses - (totals.releases || 0);
 
             // 4. Update Summary Cards
             document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
@@ -329,6 +358,9 @@
             if (document.getElementById('bar-contractor')) document.getElementById('bar-contractor').style.width = `${(totals.contractor / maxVal) * 100}%`;
             if (document.getElementById('bar-expenses'))   document.getElementById('bar-expenses').style.width   = `${(totalGlobalExpenses / maxVal) * 100}%`;
             if (document.getElementById('bar-releases'))   document.getElementById('bar-releases').style.width   = `${(totals.releases / maxVal) * 100}%`;
+            } catch (err) {
+                console.error("CRITICAL ERROR in renderProfitReport:", err);
+            }
         };
 
         window.resetProfitFilters = function () {

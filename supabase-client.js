@@ -45,10 +45,10 @@ async function getProfile(userId) {
 
 async function getTrips() {
     try {
-        // Calculate date from 6 months ago (180 days)
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
-        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+        // Calculate date from 3 months ago (90 days)
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+        const dateStr = threeMonthsAgo.toISOString().split('T')[0];
 
         const { data, error } = await db
             .from('trips')
@@ -57,7 +57,7 @@ async function getTrips() {
             .order('date', { ascending: false });
 
         if (error) throw error;
-        console.log("Viajes obtenidos de Supabase (últimos 6 meses):", data.length);
+        console.log("Viajes obtenidos de Supabase (últimos 90 días):", data.length);
         return data || [];
     } catch (err) {
         console.error('Error fetching trips:', err);
@@ -130,9 +130,9 @@ async function updateRelease(id, updateData) {
 // Helper for Expenses
 async function getExpenses() {
     try {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
-        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+        const dateStr = threeMonthsAgo.toISOString().split('T')[0];
 
         const { data, error } = await db.from('expenses')
             .select('*')
@@ -179,9 +179,9 @@ window.supabaseDeleteFleetUnit = supabaseDeleteFleetUnit;
 // Helper for Rentals
 async function getRentals() {
     try {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
-        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+        const dateStr = threeMonthsAgo.toISOString().split('T')[0];
 
         const { data, error } = await db.from('rentals')
             .select('*')
@@ -202,8 +202,15 @@ async function addRental(rentalData) {
 }
 
 async function updateRental(id, updateData) {
-    const { data, error } = await db.from('rentals').update(updateData).eq('id', id);
+    const { data, error } = await db.from('rentals').update(updateData).eq('id', id).select();
     if (error) { console.error('Error updating rental:', error); throw error; }
+    return data;
+}
+
+async function updateRentalsBatch(ids, updateData) {
+    if (!ids || ids.length === 0) return;
+    const { data, error } = await db.from('rentals').update(updateData).in('id', ids).select();
+    if (error) { console.error('Error updating rentals batch:', error); throw error; }
     return data;
 }
 
@@ -362,6 +369,7 @@ window.deleteTrip = deleteTrip;
 window.getRentals = getRentals;
 window.addRental = addRental;
 window.updateRental = updateRental;
+window.updateRentalsBatch = updateRentalsBatch;
 window.deleteRental = deleteRental;
 window.getReleases = getReleases;
 window.addRelease = addRelease;

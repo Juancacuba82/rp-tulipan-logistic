@@ -205,7 +205,7 @@
                     }]);
                 }
 
-                await loadFleetData();
+                await loadFleetData(true);
                 resetFleetForm();
                 alert('Unit saved successfully!');
             } catch (err) { alert("Failed to save: " + err.message); }
@@ -379,7 +379,13 @@
         }
         window.resetFleetForm = resetFleetForm;
 
-        async function loadFleetData() {
+        async function loadFleetData(force = false) {
+            if (!force && window.currentFleet && window.currentFleet.length > 0) {
+                renderFleetCards();
+                refreshQuickFleetSelect();
+                if (window.populateDriverAuditList) window.populateDriverAuditList();
+                return;
+            }
             try {
                 const data = await getFleet();
                 if (typeof currentFleet !== 'undefined') currentFleet = data.map(mapFleetToUI).sort((a, b) => (parseInt(a.num) || 0) - (parseInt(b.num) || 0));

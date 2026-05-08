@@ -155,6 +155,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const modeVal = document.getElementById('in-mode')?.value || 'SALE';
             const isSalesFlag = document.getElementById('in-flag3')?.checked || false;
             
+            // SECURITY VALIDATION: If sales is enabled, Sales Price must not be 0
+            if (isSalesFlag) {
+                const salesPrice = parseFloat(document.getElementById('in-sales')?.value || '0');
+                if (salesPrice <= 0) {
+                    alert("ERROR: Para órdenes con ventas habilitadas, el 'Sales Price' no puede ser cero ni estar vacío.");
+                    isSaving = false;
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
+            }
+
             // NEW: Only deduct if selected from the List, not entered manually
             const isReleaseListMode = (relSel && relSel.style.display !== 'none');
             const selectedReleaseNormalized = (selectedRelease || '').trim().toUpperCase();
@@ -499,7 +510,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 resetForm();
                 await loadTableData();
-                if (window.loadReleasesData) await window.loadReleasesData();
+                if (window.loadReleasesData) await window.loadReleasesData(true);
                 if (window.updateReleaseDatalist) window.updateReleaseDatalist();
                 if (window.updateAddressDatalist) window.updateAddressDatalist();
                 if (window.renderDriverLog) window.renderDriverLog();
@@ -1463,7 +1474,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                             .update({ total_stock: newStock })
                                             .eq('id', releaseUuid);
                                             
-                                        if (window.loadReleasesData) await window.loadReleasesData();
+                                        if (window.loadReleasesData) await window.loadReleasesData(true);
                                     }
                                 }
 

@@ -5,7 +5,11 @@
 let currentCalls = [];
 let editingCallId = null;
 
-async function loadCallsData() {
+async function loadCallsData(force = false) {
+    if (!force && currentCalls && currentCalls.length > 0) {
+        renderCallsTable();
+        return;
+    }
     console.log("Loading calls data...");
     try {
         const sixMonthsAgo = new Date();
@@ -341,7 +345,7 @@ async function saveCallLog() {
         }
         
         resetCallForm();
-        await loadCallsData();
+        await loadCallsData(true);
     } catch (err) {
         console.error("Error saving call:", err);
         alert("Error saving record: " + err.message);

@@ -1344,7 +1344,6 @@
                                     <option value="" style="color: #64748b;">All</option>
                                     <option value="PENDING_PAYMENT" style="background-color: #fee2e2; color: #991b1b;">Pending</option>
                                     <option value="COMPLETE" style="background-color: #dcfce7; color: #166534;">Complete</option>
-                                    <option value="PAID" style="background-color: #fefce8; color: #92400e;">Legacy (Paid)</option>
                                 </select>
                             </div>
 
@@ -2458,7 +2457,8 @@
 
                         <div class="form-group" id="group-exp-other">
                             <label class="sidebar-label-btn" style="background: #64748b !important;">DESCRIPTION</label>
-                            <input type="text" id="exp-other-desc" placeholder="Specify expense type">
+                            <input type="text" id="exp-other-desc" placeholder="Specify expense type" list="expense-descriptions-list">
+                            <datalist id="expense-descriptions-list"></datalist>
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #059669 !important;">AMOUNT ($)</label>
@@ -2597,7 +2597,7 @@
                             <div class="breakdown-item">
                                 <div class="item-label">
                                     <span class="dot sales"></span>
-                                    Total Sales Profit
+                                    Total Sales
                                 </div>
                                 <div class="item-value" id="val-sales">$0.00</div>
                             </div>
@@ -2618,21 +2618,21 @@
                             <div class="breakdown-item">
                                 <div class="item-label">
                                     <span class="dot" style="background: #2dd4bf;"></span>
-                                    RP TULIPAN Profit
+                                    RP TULIPAN Total
                                 </div>
                                 <div class="item-value" id="val-tulipan">$0.00</div>
                             </div>
                             <div class="breakdown-item">
                                 <div class="item-label">
                                     <span class="dot" style="background: #3b82f6;"></span>
-                                    JR SUPER CRAME Profit
+                                    JR SUPER CRAME Total
                                 </div>
                                 <div class="item-value" id="val-jr">$0.00</div>
                             </div>
                             <div class="breakdown-item">
                                 <div class="item-label">
                                     <span class="dot" style="background: #a855f7;"></span>
-                                    CONTRACTOR Profit
+                                    CONTRACTOR Total
                                 </div>
                                 <div class="item-value" id="val-contractor">$0.00</div>
                             </div>
@@ -2668,7 +2668,7 @@
                         <h3>Revenue Distribution</h3>
                         <div class="simple-bar-chart" style="flex: 1;">
                             <div class="bar-group">
-                                <label>Sales Profit</label>
+                                <label>Total Sales</label>
                                 <div class="bar-container">
                                     <div id="bar-sales" class="bar sales" style="width: 0%"></div>
                                 </div>
@@ -2724,7 +2724,7 @@
 
         <!-- FORM INVENTOR View -->
         <section id="inventory-view" class="view-section hidden">
-            <div style="max-width: 1400px; margin: 0 auto; padding: 30px 20px;">
+            <div style="max-width: 98%; margin: 0 auto; padding: 30px 20px;">
                 <div class="inv-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
                     <div style="display: flex; align-items: center; gap: 30px;">
                         <div>
@@ -2810,13 +2810,19 @@
                     </div>
                 </div>
 
+                <!-- Top Scrollbar -->
+                <div id="inv-top-scroll-container" style="overflow-x: auto; overflow-y: hidden; margin-bottom: 5px; height: 20px; display: block;">
+                    <div id="inv-top-scroll-content" style="height: 20px;"></div>
+                </div>
+
                 <!-- Table -->
-                <div class="table-scroll-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto;">
-                    <table id="inventor-table" style="width: 100%; min-width: 1200px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
+                <div id="inv-table-container" class="table-scroll-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto;">
+                    <table id="inventor-table" style="width: 100%; min-width: 1400px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
                         <thead>
                             <tr class="header-row">
                                 <th>Date</th>
                                 <th>Size</th>
+                                <th>Qty</th>
                                 <th>N. Cont</th>
                                 <th>Releases</th>
                                 <th>Phone</th>
@@ -3747,8 +3753,10 @@
                 const historyThs = document.querySelectorAll('.drivers-report-table th');
                 if (historyThs.length > 0) historyThs[historyThs.length - 1].style.display = 'none';
 
+                const isDriverRole = (window.currentUserRole === 'driver');
                 const reportDrvFilterSel = document.getElementById('filter-search');
-                if (reportDrvFilterSel && window.currentDriverNameRef) {
+                
+                if (reportDrvFilterSel && isDriverRole && window.currentDriverNameRef) {
                     // Force hide for Robert Cortez only in this view
                     const isRobert = (window.userEmail === 'cortes410@aol.com');
                     if (!isSuperDriver || isRobert) {
@@ -3757,10 +3765,6 @@
                     } else {
                         if (reportDrvFilterSel.parentElement) reportDrvFilterSel.parentElement.style.display = '';
                     }
-                    // Trigger internal refreshes to load their data immediately
-                    if (window.syncDriverNames) window.syncDriverNames();
-                    if (window.renderDriverLog) window.renderDriverLog();
-                    if (window.fetchHistory) window.fetchHistory();
                 }
                 
                 // Allow Driver to see Fleet & Equipment buttons (Dashboard & Navbar)
@@ -3826,6 +3830,11 @@
             }
 
             // Toggle Logout button visibility is now handled by showView
+            
+            // Trigger internal refreshes to load data immediately after auth/role sync
+            if (window.syncDriverNames) window.syncDriverNames();
+            if (window.renderDriverLog) window.renderDriverLog();
+            if (window.fetchHistory) window.fetchHistory();
         }
 
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
@@ -4066,12 +4075,37 @@
                         
                         if (window.loadDocTrips) window.loadDocTrips();
                     } else if (finalView === 'reports') {
+                        // CLEAN FILTERS UPON ENTRY (User Request)
+                        const searchInput = document.getElementById('filter-search');
+                        const fromInput = document.getElementById('filter-from');
+                        const toInput = document.getElementById('filter-to');
+                        const historyInput = document.getElementById('history-local-filter');
+                        
+                        // Only clear if the user is NOT a restricted driver
+                        const isRestrictedDriver = (window.currentUserRole === 'driver' && window.userEmail !== 'cortes410@aol.com');
+                        
+                        if (!isRestrictedDriver) {
+                            if (searchInput) searchInput.value = '';
+                        }
+                        if (fromInput) fromInput.value = '';
+                        if (toInput) toInput.value = '';
+                        if (historyInput) historyInput.value = '';
+
                         (async () => {
                             if (window.loadTableData) await window.loadTableData();
                             if (window.renderDriverLog) window.renderDriverLog();
                             if (window.fetchHistory) window.fetchHistory();
                         })();
                     } else if (finalView === 'calendar') {
+                        // Clear calendar filters on entry to avoid invisible filter issues
+                        ['f-city','f-size','f-customer','f-driver','f-company','f-status','f-pay-status','f-service-type'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.value = '';
+                        });
+                        ['f-ncont','f-order'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.value = '';
+                        });
                         if (window.loadTableData) window.loadTableData();
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
                         if (window.loadReleasesData) window.loadReleasesData();
@@ -4127,15 +4161,24 @@
                         // -------------------------------------------
                     } else if (finalView === 'profit-report') {
                         (async () => {
+                            // Clear date filters before rendering (no invisible filters)
+                            const pfrom = document.getElementById('profit-date-from');
+                            const pto = document.getElementById('profit-date-to');
+                            if (pfrom) pfrom.value = '';
+                            if (pto) pto.value = '';
+                            // If trips not loaded yet, load them first
+                            if (!window.currentTrips || window.currentTrips.length === 0) {
+                                if (window.loadTableData) await window.loadTableData();
+                            }
                             if (window.loadExpensesData) await window.loadExpensesData();
                             if (window.loadReleasesData) await window.loadReleasesData();
-                            if (window.loadTableData) await window.loadTableData();
-                            if (window.renderProfitReport) window.renderProfitReport();
+                            if (window.renderProfitReport) await window.renderProfitReport();
                         })();
                     } else if (finalView === 'expenses') {
                         if (window.loadExpensesData) window.loadExpensesData();
                     } else if (finalView === 'inventory') {
                         (async () => {
+                            if (window.resetInventorFilters) window.resetInventorFilters();
                             if (window.loadTableData) await window.loadTableData();
                             if (window.loadReleasesData) await window.loadReleasesData();
                             if (window.renderInventorTable) window.renderInventorTable();
@@ -4144,6 +4187,9 @@
                         if (window.renderInventorTable) window.renderInventorTable();
                     } else if (viewId === 'cust-invoice') {
                         (async () => {
+                            // Clear filters then load & render
+                            ['ci-f-order','ci-f-from','ci-f-to'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                            ['ci-f-city','ci-f-place','ci-f-customer','ci-f-invoice'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
                             if (window.loadTableData) await window.loadTableData();
                             if (window.renderCustInvoiceTable) window.renderCustInvoiceTable();
                         })();
@@ -4423,8 +4469,6 @@
                 if (filters.status) {
                     if (filters.status === 'COMPLETE') {
                         matchStatus = (tripStatus === 'COMPLETE');
-                    } else if (filters.status === 'PAID') {
-                        matchStatus = (tripStatus === 'PAID');
                     } else if (filters.status === 'PENDING_PAYMENT') {
                         matchStatus = (tripStatus === 'PENDING_PAYMENT');
                     }
