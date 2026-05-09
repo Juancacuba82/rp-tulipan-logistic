@@ -32,6 +32,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
 // --- IMMEDIATE SYNC FOR EDIT MODE ---
         async function syncImmediate(fieldName, value) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                console.warn("Student attempted syncImmediate (blocked)");
+                return;
+            }
             if (editingIndex === null) return;
             const tripId = editingTripDbId;
             if (!tripId) return;
@@ -83,6 +88,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
         let isSaving = false;
         async function addRow() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot create or modify calendar orders.");
+                return;
+            }
             if (isSaving) return;
 
             const tripBtn = getTripArchiveButton();
@@ -1437,6 +1447,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         delBtn.style.padding = '4px 8px';
                         delBtn.onclick = async (e) => {
                             e.stopPropagation();
+                            const role = (window.currentUserRole || '').toLowerCase().trim();
+                            if (role === 'student') {
+                                alert("Students cannot delete orders.");
+                                return;
+                            }
                             if (!confirm('¿Seguro que quieres borrar este viaje? Esta acción no se puede deshacer.')) return;
                             try {
                                 // --- STOCK REVERSION LOGIC ---
@@ -1587,6 +1602,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
 
         async function markTripAsPaid(tripId) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify settlement status.");
+                return;
+            }
             const tripIdx = currentTrips.findIndex(r => r[0] === tripId);
             if (tripIdx !== -1) {
                 // Toggle status (Index 42)
@@ -1604,6 +1624,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
 
         async function settleDriverGroup(driverName) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify settlement status.");
+                return;
+            }
             if (!confirm(`Are you sure you want to mark ALL pending trips for ${driverName} as PAID?`)) return;
 
             const toUpdate = currentTrips.filter(r => (r[16] || 'UNASSIGNED') === driverName && r[42] !== 'PAID');
@@ -1622,6 +1647,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
 
         async function revertDriverGroup(driverName) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify settlement status.");
+                return;
+            }
             if (!confirm(`Do you want to REVERT all trips for ${driverName} back to PENDING?`)) return;
 
             const toUpdate = currentTrips.filter(r => (r[16] || 'UNASSIGNED') === driverName && r[42] === 'PAID');

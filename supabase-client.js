@@ -19,6 +19,25 @@ try {
     console.error("Supabase client failed to initialize:", e);
 }
 
+// --- PERMISSION HELPERS ---
+function isStudent() {
+    return (window.currentUserRole || '').toLowerCase().trim() === 'student';
+}
+
+function checkStudentPermission(moduleName, action = 'modify') {
+    if (isStudent()) {
+        // Whitelist: Allow creating Tasks and Calls
+        if (action === 'create' && (moduleName === 'tasks' || moduleName === 'calls')) {
+            return true;
+        }
+        const msg = `Students cannot ${action} data in ${moduleName}.`;
+        console.warn(msg);
+        alert(msg);
+        return false;
+    }
+    return true;
+}
+
 // --- AUTHENTICATION HELPERS ---
 async function signIn(email, password) {
     const { data, error } = await db.auth.signInWithPassword({ email, password });
@@ -84,18 +103,21 @@ async function getActivityLogs(limit = 100) {
 
 
 async function addTrip(tripData) {
+    if (!checkStudentPermission('calendar', 'create')) return null;
     const { data, error } = await db.from('trips').insert([tripData]);
     if (error) { console.error('Error adding trip:', error); throw error; }
     return data;
 }
 
 async function updateTrip(tripId, updateData) {
+    if (!checkStudentPermission('calendar', 'update')) return null;
     const { data, error } = await db.from('trips').update(updateData).eq('trip_id', tripId);
     if (error) { console.error('Error updating trip:', error); throw error; }
     return data;
 }
 
 async function deleteTrip(tripId) {
+    if (!checkStudentPermission('calendar', 'delete')) return;
     const { error } = await db.from('trips').delete().eq('trip_id', tripId);
     if (error) { console.error('Error deleting trip:', error); throw error; }
 }
@@ -116,12 +138,14 @@ async function getReleases() {
 }
 
 async function addRelease(releaseData) {
+    if (!checkStudentPermission('releases', 'create')) return null;
     const { data, error } = await db.from('releases').insert([releaseData]);
     if (error) { console.error('Error adding release:', error); throw error; }
     return data;
 }
 
 async function updateRelease(id, updateData) {
+    if (!checkStudentPermission('releases', 'update')) return null;
     const { data, error } = await db.from('releases').update(updateData).eq('id', id);
     if (error) { console.error('Error updating release:', error); throw error; }
     return data;
@@ -147,12 +171,14 @@ async function getExpenses() {
 }
 
 async function addExpense(expenseData) {
+    if (!checkStudentPermission('expenses', 'create')) return null;
     const { data, error } = await db.from('expenses').insert([expenseData]);
     if (error) { console.error('Error adding expense:', error); throw error; }
     return data;
 }
 
 async function deleteExpense(expenseId) {
+    if (!checkStudentPermission('expenses', 'delete')) return;
     const { error } = await db.from('expenses').delete().eq('id', expenseId);
     if (error) { console.error('Error deleting expense:', error); throw error; }
 }
@@ -165,12 +191,14 @@ async function getFleet() {
 }
 
 async function saveFleet(fleetData) {
+    if (!checkStudentPermission('fleet', 'save')) return null;
     const { data, error } = await db.from('fleet').upsert([fleetData], { onConflict: 'unit_id' });
     if (error) { console.error('Error saving fleet:', error); throw error; }
     return data;
 }
 
 async function supabaseDeleteFleetUnit(unitId) {
+    if (!checkStudentPermission('fleet', 'delete')) return;
     const { error } = await db.from('fleet').delete().eq('unit_id', unitId);
     if (error) { console.error('Error deleting unit:', error); throw error; }
 }
@@ -196,18 +224,21 @@ async function getRentals() {
 }
 
 async function addRental(rentalData) {
+    if (!checkStudentPermission('rentals', 'create')) return null;
     const { data, error } = await db.from('rentals').insert([rentalData]);
     if (error) { console.error('Error adding rental:', error); throw error; }
     return data;
 }
 
 async function updateRental(id, updateData) {
+    if (!checkStudentPermission('rentals', 'update')) return null;
     const { data, error } = await db.from('rentals').update(updateData).eq('id', id).select();
     if (error) { console.error('Error updating rental:', error); throw error; }
     return data;
 }
 
 async function updateRentalsBatch(ids, updateData) {
+    if (!checkStudentPermission('rentals', 'update-batch')) return;
     if (!ids || ids.length === 0) return;
     const { data, error } = await db.from('rentals').update(updateData).in('id', ids).select();
     if (error) { console.error('Error updating rentals batch:', error); throw error; }
@@ -215,6 +246,7 @@ async function updateRentalsBatch(ids, updateData) {
 }
 
 async function deleteRental(id) {
+    if (!checkStudentPermission('rentals', 'delete')) return;
     const { error } = await db.from('rentals').delete().eq('id', id);
     if (error) { console.error('Error deleting rental:', error); throw error; }
 }

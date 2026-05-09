@@ -195,6 +195,11 @@
         }
 
         async function addNewDriver() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage drivers.");
+                return;
+            }
             const input = document.getElementById('new-driver-name');
             const name = input.value.trim().toUpperCase();
             if (!name) return;
@@ -216,6 +221,11 @@
         window.addNewDriver = addNewDriver;
 
         async function deleteDriver(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage drivers.");
+                return;
+            }
             if (!confirm("Are you sure you want to remove this driver from the active list?")) return;
             try {
                 const { error } = await db.from('drivers').delete().eq('id', id);
@@ -332,6 +342,11 @@
         }
 
         async function addNewCustomer() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage customers.");
+                return;
+            }
             const input = document.getElementById('new-customer-name');
             const emailInput = document.getElementById('new-customer-email');
             const name = input.value.trim().toUpperCase();
@@ -356,6 +371,11 @@
         window.addNewCustomer = addNewCustomer;
 
         async function deleteCustomer(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage customers.");
+                return;
+            }
             if (!confirm("Are you sure you want to remove this customer from the active list?")) return;
             try {
                 const { error } = await db.from('customers').delete().eq('id', id);
@@ -468,6 +488,11 @@
         }
 
         async function addNewPickupAddress() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage pickup addresses.");
+                return;
+            }
             const input = document.getElementById('new-pickup-address-name');
             const name = input.value.trim().toUpperCase();
             if (!name) return;
@@ -489,6 +514,11 @@
         window.addNewPickupAddress = addNewPickupAddress;
 
         async function deletePickupAddress(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage pickup addresses.");
+                return;
+            }
             if (!confirm("Are you sure you want to remove this address from the active list?")) return;
             try {
                 const { error } = await db.from('pickup_addresses').delete().eq('id', id);
@@ -577,6 +607,11 @@
         }
 
         async function addNewDepot() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage depots.");
+                return;
+            }
             const input = document.getElementById('new-depot-name');
             const name = input.value.trim().toUpperCase();
             if (!name) return;
@@ -598,6 +633,11 @@
         window.addNewDepot = addNewDepot;
 
         async function deleteDepot(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage depots.");
+                return;
+            }
             if (!confirm("Are you sure you want to remove this depot?")) return;
             try {
                 const { error } = await db.from('depots').delete().eq('id', id);
@@ -688,6 +728,11 @@
         }
 
         async function addNewSeller() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage sellers.");
+                return;
+            }
             const input = document.getElementById('new-seller-name');
             const name = input.value.trim().toUpperCase();
             if (!name) return;
@@ -709,6 +754,11 @@
         window.addNewSeller = addNewSeller;
 
         async function deleteSeller(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage sellers.");
+                return;
+            }
             if (!confirm("Are you sure you want to remove this seller?")) return;
             try {
                 const { error } = await db.from('sellers').delete().eq('id', id);
@@ -793,6 +843,11 @@
         }
 
         async function addNewCompany() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage companies.");
+                return;
+            }
             const input = document.getElementById('new-company-name');
             const name = input.value.trim().toUpperCase();
             if (!name) return;
@@ -814,6 +869,11 @@
         window.addNewCompany = addNewCompany;
 
         async function deleteCompany(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage companies.");
+                return;
+            }
             if (!confirm("Are you sure you want to remove this company from the active list?")) return;
             try {
                 const { error } = await db.from('companies').delete().eq('id', id);
@@ -908,6 +968,11 @@
         }
 
         window.addNewContainerSize = async function () {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage container sizes.");
+                return;
+            }
             const input = document.getElementById('new-size-name');
             const name = input.value.trim().toUpperCase();
             if (!name) return;
@@ -923,6 +988,11 @@
         };
 
         window.deleteContainerSize = async function (id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage container sizes.");
+                return;
+            }
             if (!confirm("Are you sure you want to delete this size option?")) return;
             try {
                 const { error } = await db.from('container_sizes').delete().eq('id', id);
@@ -1050,6 +1120,11 @@
         }
 
         window.addNewExpenseCategory = async function () {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage expense categories.");
+                return;
+            }
             const input = document.getElementById('new-expense-category-name');
             const name = input.value.trim();
             if (!name) return;

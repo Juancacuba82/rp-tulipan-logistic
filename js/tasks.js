@@ -22,7 +22,7 @@
             let query = db.from('tasks').select('*').eq('is_deleted', false);
             
             // If employee or user, only show tasks assigned to them
-            const isStaff = (role === 'admin' || role === 'employee' || role === 'staff');
+            const isStaff = (role === 'admin' || role === 'employee' || role === 'staff' || role === 'student');
             if (!isStaff) {
                 query = query.eq('assigned_to_email', email);
             }
@@ -129,6 +129,12 @@
             return;
         }
 
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role === 'student' && editingTaskId) {
+            alert("Students can only create tasks, not modify existing ones.");
+            return;
+        }
+
         const btn = document.getElementById('btn-save-task');
         btn.disabled = true;
         btn.textContent = editingTaskId ? "UPDATING..." : "SAVING...";
@@ -224,6 +230,11 @@
     };
 
     window.markTaskDone = async function(id) {
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role === 'student') {
+            alert("Students cannot mark tasks as completed.");
+            return;
+        }
         if (!confirm("Mark this task as completed?")) return;
         try {
             const { error } = await db.from('tasks').update({
@@ -275,7 +286,7 @@
             // Select '*' to safely get available columns without crashing if some don't exist
             const { data, error } = await db.from('profiles')
                 .select('*')
-                .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'user']);
+                .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'user', 'student', 'STUDENT']);
             
             if (error) {
                 console.error("Error fetching employees:", error);

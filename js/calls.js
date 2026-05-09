@@ -18,8 +18,9 @@ async function loadCallsData(force = false) {
 
         let query = db.from('call_logs').select('*').gte('date', dateStr);
         
-        // If the user is not admin, only show their own records
-        if (window.currentUserRole !== 'admin' && window.userEmail) {
+        // If the user is not admin, only show their own records (Students see everything for learning)
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role !== 'admin' && role !== 'student' && window.userEmail) {
             query = query.eq('created_by', window.userEmail);
         }
 
@@ -43,7 +44,7 @@ async function populateCallAssignedSelect() {
     try {
         const { data, error } = await db.from('profiles')
             .select('email')
-            .in('role', ['admin', 'employee', 'staff'])
+            .in('role', ['admin', 'employee', 'staff', 'student'])
             .order('email');
 
         if (error) throw error;
@@ -317,6 +318,18 @@ async function saveCallLog() {
         return;
     }
 
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role === 'student') {
+        if (editingCallId) {
+            alert("Students can only create call records, not modify existing ones.");
+            return;
+        }
+        if (payload.status === 'SOLD') {
+            alert("Students cannot set status to SOLD (leads to calendar creation).");
+            return;
+        }
+    }
+
     btn.disabled = true;
     btn.textContent = "Saving...";
 
@@ -412,6 +425,11 @@ window.handleTopDelete = function() {
 };
 
 async function deleteCallLog(id) {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role === 'student') {
+        alert("Students cannot delete records.");
+        return;
+    }
     if (!confirm("Are you sure you want to delete this lead?")) return;
 
     try {
@@ -483,7 +501,7 @@ async function updateCallSellerDropdown() {
         // Fetch all potential sellers (admins, employees, staff)
         const { data, error } = await db.from('profiles')
             .select('email')
-            .in('role', ['admin', 'employee', 'staff'])
+            .in('role', ['admin', 'employee', 'staff', 'student'])
             .order('email');
 
         if (error) throw error;

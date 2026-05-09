@@ -53,6 +53,11 @@
         };
 
         window.saveMaintenanceEntry = async function() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify fleet data.");
+                return;
+            }
             const unitId = document.getElementById('active-history-unit-id').value;
             const task = document.getElementById('hist-task').value.trim();
             const miles = parseInt(document.getElementById('hist-miles').value) || null;
@@ -78,6 +83,11 @@
         };
 
         window.deleteMaintenanceEntry = async function(entryId, unitId) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot delete records.");
+                return;
+            }
             if (!confirm("Delete this record permanently?")) return;
             try {
                 const { error } = await db.from('fleet_maintenance_log').delete().eq('id', entryId);
@@ -90,6 +100,11 @@
         };
 
         window.resetOilFromCard = async function(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify fleet data.");
+                return;
+            }
             const unit = currentFleet.find(u => u.id === id);
             if (!unit) return;
             if (!confirm(`Confirm OIL SERVICE completed for Unit #${unit.num}?`)) return;
@@ -135,6 +150,11 @@
         };
 
         window.clearCurrentFleetNote = async function() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot clear alerts.");
+                return;
+            }
             const id = document.getElementById('active-fleet-note-id').value;
             if (!id) return;
             const unit = currentFleet.find(u => u.id === id);
@@ -148,6 +168,11 @@
         };
 
         window.saveFleetUnit = async function () {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify fleet data.");
+                return;
+            }
             try {
                 const id = document.getElementById('f-id').value;
                 const miles = document.getElementById('f-miles').value;
@@ -411,6 +436,11 @@
         }
 
         window.quickUpdateMileage = async function() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot update mileage.");
+                return;
+            }
             const truckId = document.getElementById('quick-truck-sel').value;
             const driverName = document.getElementById('quick-driver-name').value.trim();
             const noteText = document.getElementById('quick-note').value.trim();

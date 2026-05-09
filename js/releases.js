@@ -403,6 +403,11 @@
         window.renderReleasesTable = renderReleasesTable;
 
         async function deleteRelease(id, relNo) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot delete records.");
+                return;
+            }
             if (!id || id === 'undefined') {
                 alert("Error: No se puede borrar un release sin ID (posiblemente no se guardó en la base de datos).");
                 return;
@@ -576,6 +581,11 @@
 
         // New logic for Release Row addition (SUPABASE)
         window.addReleaseRow = async () => {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify or create releases.");
+                return;
+            }
             const relNo = document.getElementById('rel-no-releases').value;
             const dte = document.getElementById('rel-date').value || '---';
             const cty = document.getElementById('rel-city').value || '---';

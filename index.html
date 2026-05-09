@@ -3697,14 +3697,17 @@
             const isAdmin = role === 'admin';
             const isEmployee = role === 'employee' || role === 'staff';
             const isDriver = role === 'driver';
+            const isStudent = role === 'student';
 
             // Hide restricted views from navigation & dashboard
             const adminOnlySelectors = [
                 'button[onclick*="profit-report"]',
+                '.dash-card[onclick*="profit-report"]',
                 '#nav-actions-container button[onclick*="profit-report"]',
                 'button[onclick*="attendance"]',
+                '.dash-card[onclick*="attendance"]',
+                '#card-attendance',
                 '#nav-actions-container button[onclick*="attendance"]',
-                //'#btn-email-settings' // <--- BORRA LOS // AL PRINCIPIO DE ESTA LÍNEA PARA MOSTRAR EL BOTÓN
             ];
 
             const staffOnlySelectors = [
@@ -3740,8 +3743,8 @@
                     const els = document.querySelectorAll(sel);
                     els.forEach(el => el.style.display = '');
                 });
-            } else if (isEmployee) {
-                // Staff (employee) sees everything except Profit Reports
+            } else if (isStudent || isEmployee) {
+                // Student and Staff see staff modules, but NOT admin-only (Profit/Attendance)
                 adminOnlySelectors.forEach(sel => {
                     const els = document.querySelectorAll(sel);
                     els.forEach(el => el.style.display = 'none');
@@ -4005,10 +4008,17 @@
             
             // Driver Redirection (Hero is too empty for them, go straight to Docs)
             const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
+            const forbiddenForStudents = ['profit-report', 'attendance'];
+            
             if (normalizedRole === 'driver') {
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
                     console.warn("Driver redirected to Docs from:", finalView);
                     finalView = 'docs';
+                }
+            } else if (normalizedRole === 'student' || normalizedRole === 'employee') {
+                if (forbiddenForStudents.includes(finalView)) {
+                    console.warn("Restricted user redirected to Hero from:", finalView);
+                    finalView = 'hero';
                 }
             }
 
@@ -4043,9 +4053,10 @@
                         if (btnEmail && normalizedRole === 'admin') btnEmail.style.display = 'inline-flex';
                         if (btnLogout) btnLogout.style.display = 'inline-flex';
                         
-                        // Clock in/out are only for admin/staff, not for drivers
-                        if (btnClockIn) btnClockIn.style.display = (normalizedRole !== 'driver') ? 'inline-flex' : 'none';
-                        if (btnClockOut) btnClockOut.style.display = (normalizedRole !== 'driver') ? 'inline-flex' : 'none';
+                        // Clock in/out are only for admin/staff, not for drivers or students
+                        const canClock = (normalizedRole !== 'driver' && normalizedRole !== 'student');
+                        if (btnClockIn) btnClockIn.style.display = canClock ? 'inline-flex' : 'none';
+                        if (btnClockOut) btnClockOut.style.display = canClock ? 'inline-flex' : 'none';
                         
                         // Show attendance card for admins
                         const cardAtt = document.getElementById('card-attendance');

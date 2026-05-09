@@ -285,6 +285,11 @@
     }
 
     async function saveRentalData() {
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role === 'student') {
+            alert("Students cannot create or modify rental records.");
+            return;
+        }
         const startDate = document.getElementById('rental-start-date').value;
         const timeRent = document.getElementById('rental-time-rent').value;
         
@@ -420,6 +425,11 @@
     }
 
     async function removeRental(id) {
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role === 'student') {
+            alert("Students cannot delete rental records.");
+            return;
+        }
         const msg = "⚠️ WARNING: Deleting this record will PERMANENTLY REMOVE all earnings associated with this rental from the Profit Reports.\n\n" +
                     "If the rental has simply ended, it is recommended to change the status to 'FINISHED' instead of deleting it to preserve financial history.\n\n" +
                     "Are you sure you want to proceed with the deletion?";

@@ -239,6 +239,11 @@
 
         // --- INLINE CASH EDITOR (Admin only) ---
         window.editTripCash = async function(tripId, currentVal) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot modify cash records.");
+                return;
+            }
             if (window.currentUserRole !== 'admin') return;
 
             const newValStr = prompt(
@@ -602,6 +607,11 @@
         }
 
         async function archiveSettlement() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot create or modify settlements.");
+                return;
+            }
             // SCOPED CAPTURE: Searching specifically within the reports panel to avoid grabbing dates from 'New Trip Entry'
             const panel = document.getElementById('reports-view');
             if (!panel) return;
@@ -710,6 +720,11 @@
         window.archiveSettlement = archiveSettlement;
 
         async function deleteSettlement(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot delete settlements.");
+                return;
+            }
             if (!confirm("Are you sure you want to delete this historical record?")) return;
             try {
                 const { error } = await db.from('settlement_history').delete().eq('id', id);

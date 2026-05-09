@@ -75,6 +75,11 @@ window.updateAttendanceButtons = async function() {
 };
 
 window.handleClockIn = async function() {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role === 'student') {
+        alert("Students cannot use attendance features.");
+        return;
+    }
     if (!window.db) return alert("Database not connected");
 
     const { data: { session } } = await window.db.auth.getSession();
@@ -154,6 +159,11 @@ window.handleClockIn = async function() {
 };
 
 window.handleClockOut = async function() {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role === 'student') {
+        alert("Students cannot use attendance features.");
+        return;
+    }
     if (!window.db) return alert("Database not connected");
 
     const { data: { session } } = await window.db.auth.getSession();
@@ -430,6 +440,11 @@ window.loadAttendanceData = async function() {
 
         // --- PAYROLL PAYMENT FUNCTION ---
         window.payEmployee = async function(employeeName, employeeEmail, amount) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot register payments.");
+                return;
+            }
             const today = new Date().toISOString().split('T')[0];
             const startDate = document.getElementById('att-start-date')?.value || '';
             const endDate = document.getElementById('att-end-date')?.value || '';
@@ -496,6 +511,11 @@ window.loadAttendanceData = async function() {
 };
 
 window.deleteAttendanceSession = async function(inId, outId) {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role === 'student') {
+        alert("Students cannot delete attendance records.");
+        return;
+    }
     if (!confirm("Are you sure you want to delete this attendance session?")) return;
     
     // Clean up IDs - they might come as literal strings 'null' or 'undefined' from the HTML template
