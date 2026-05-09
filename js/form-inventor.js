@@ -85,6 +85,7 @@
             let totalCost = 0;
             let totalTransport = 0;
             let totalGross = 0;
+            let totalQty = 0;
 
             body.innerHTML = '';
 
@@ -123,6 +124,7 @@
                 totalSales += totalItemSales;
                 totalCost += totalItemCost;
                 totalGross += gross;
+                totalQty += qty;
 
                 const tr = document.createElement('tr');
                 tr.style.cssText = 'border-bottom: 1px solid #dee2e6; cursor: pointer; transition: background 0.2s;';
@@ -176,6 +178,21 @@
                 // Visual feedback: orange if filtering
                 const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
                 countEl.style.color = isFiltered ? '#f59e0b' : '#1e293b';
+            }
+
+            const qtyEl = document.getElementById('inventor-total-qty-display');
+            if (qtyEl) {
+                qtyEl.textContent = totalQty;
+                const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
+                qtyEl.style.color = isFiltered ? '#1e40af' : '#1e293b';
+            }
+
+            const avgEl = document.getElementById('inventor-avg-profit-display');
+            if (avgEl) {
+                const avg = totalQty > 0 ? (totalGross / totalQty) : 0;
+                avgEl.textContent = fmt(avg);
+                const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
+                avgEl.style.color = isFiltered ? '#10b981' : '#1e293b';
             }
 
             // --- SYNC TOP SCROLLBAR ---

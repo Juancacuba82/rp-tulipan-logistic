@@ -420,7 +420,11 @@
     }
 
     async function removeRental(id) {
-        if (!confirm("Are you sure?")) return;
+        const msg = "⚠️ WARNING: Deleting this record will PERMANENTLY REMOVE all earnings associated with this rental from the Profit Reports.\n\n" +
+                    "If the rental has simply ended, it is recommended to change the status to 'FINISHED' instead of deleting it to preserve financial history.\n\n" +
+                    "Are you sure you want to proceed with the deletion?";
+        
+        if (!confirm(msg)) return;
         const row = (window.currentRentals || []).find(r => r.id === id);
         try { 
             if (row && row.status === 'ACTIVE' && row.release_no) await adjustReleaseStock(row.release_no, 1);

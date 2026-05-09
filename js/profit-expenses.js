@@ -325,6 +325,8 @@
 
             const netEl = document.getElementById('net-profit-val');
             const profitCard = document.getElementById('profit-card-status');
+            const percentEl = document.getElementById('net-profit-percent');
+
             netEl.textContent = `$${netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
             if (netProfit >= 0) {
@@ -333,6 +335,18 @@
             } else {
                 netEl.className = 'negative';
                 profitCard.className = 'summary-card profit negative';
+            }
+
+            // Update Percentage Badge
+            if (percentEl) {
+                if (totalRevenue > 0) {
+                    const margin = (netProfit / totalRevenue) * 100;
+                    percentEl.textContent = `${margin >= 0 ? '+' : ''}${margin.toFixed(2)}%`;
+                    percentEl.style.display = 'inline-flex';
+                    percentEl.className = 'profit-percent-badge ' + (margin >= 0 ? 'positive' : 'negative');
+                } else {
+                    percentEl.style.display = 'none';
+                }
             }
 
             // 5. Update Breakdown List

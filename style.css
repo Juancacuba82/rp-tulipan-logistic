@@ -2051,6 +2051,29 @@ main {
 #net-profit-val.positive { color: #10b981; }
 #net-profit-val.negative { color: #ef4444; }
 
+.profit-percent-badge {
+    font-size: 1.1rem;
+    font-weight: 900;
+    padding: 4px 15px;
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.profit-percent-badge.positive {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+}
+
+.profit-percent-badge.negative {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
 /* Fleet Tabs Styling */
 .btn-fleet-tab {
     flex: 1;
