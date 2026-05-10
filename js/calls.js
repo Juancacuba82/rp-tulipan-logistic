@@ -111,8 +111,8 @@ function renderCallsTable() {
             (c.customer || "").toLowerCase().includes(search) || 
             (c.phone || "").toLowerCase().includes(search);
         
-        const matchFrom = !fFrom || c.date >= fFrom;
-        const matchTo = !fTo || c.date <= fTo;
+        const matchFrom = !fFrom || (c.next_call_date && c.next_call_date >= fFrom);
+        const matchTo = !fTo || (c.next_call_date && c.next_call_date <= fTo);
         const matchService = !fService || c.service_type === fService;
         const matchCity = !fCity || c.city === fCity;
         const matchStatus = !fStatus || c.status === fStatus;
@@ -265,17 +265,27 @@ async function executeTransfer() {
     if (!confirm(`Are you sure you want to transfer this client to ${email}? You will lose access to this record.`)) return;
 
     try {
-        const { error } = await db.from('call_logs').update({ created_by: email }).eq('id', callIdToTransfer);
+        const { data, error } = await db.from('call_logs').update({ created_by: email }).eq('id', callIdToTransfer).select();
         if (error) throw error;
         
         alert("Client transferred successfully");
         closeTransferModal();
+
+        // Update local state: if not admin/student, remove it as it's no longer theirs
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role !== 'admin' && role !== 'student') {
+            currentCalls = currentCalls.filter(c => c.id !== callIdToTransfer);
+        } else if (data && data.length > 0) {
+            const idx = currentCalls.findIndex(c => c.id === callIdToTransfer);
+            if (idx !== -1) currentCalls[idx] = data[0];
+        }
         
         if (editingCallId === callIdToTransfer) {
             resetCallForm();
         } else {
-            await loadCallsData();
+            renderCallsTable();
         }
+        if (window.populateCityFilter) populateCityFilter();
     } catch (err) {
         console.error("Error transferring client:", err);
         alert("Error: " + err.message);
@@ -342,23 +352,32 @@ async function saveCallLog() {
                 // Remove from call_logs since it's now in the calendar
                 const { error: delErr } = await db.from('call_logs').delete().eq('id', editingCallId);
                 if (delErr) console.warn("Note: Transferred to calendar but failed to remove from call logs:", delErr);
+                
+                // Remove from local state
+                currentCalls = currentCalls.filter(c => c.id !== editingCallId);
             }
             alert("¡Lead convertido a VENDIDO y transferido al Delivery Calendar!");
         } else {
-            let error;
             if (editingCallId) {
-                const { error: err } = await db.from('call_logs').update(payload).eq('id', editingCallId);
-                error = err;
+                const { data, error } = await db.from('call_logs').update(payload).eq('id', editingCallId).select();
+                if (error) throw error;
+                if (data && data.length > 0) {
+                    const idx = currentCalls.findIndex(c => c.id === editingCallId);
+                    if (idx !== -1) currentCalls[idx] = data[0];
+                }
+                alert("Call updated successfully");
             } else {
-                const { error: err } = await db.from('call_logs').insert([payload]);
-                error = err;
+                const { data, error } = await db.from('call_logs').insert([payload]).select();
+                if (error) throw error;
+                if (data && data.length > 0) {
+                    currentCalls.unshift(data[0]);
+                }
+                alert("Call registered successfully");
             }
-            if (error) throw error;
-            alert(editingCallId ? "Call updated successfully" : "Call registered successfully");
         }
         
         resetCallForm();
-        await loadCallsData(true);
+        if (window.populateCityFilter) populateCityFilter();
     } catch (err) {
         console.error("Error saving call:", err);
         alert("Error saving record: " + err.message);
@@ -444,6 +463,7 @@ async function deleteCallLog(id) {
         } else {
             renderCallsTable();
         }
+        if (window.populateCityFilter) populateCityFilter();
     } catch (err) {
         console.error("Error deleting call:", err);
         alert("Error: " + err.message);
