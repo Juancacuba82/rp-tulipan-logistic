@@ -5,6 +5,8 @@
 
     async function loadRentalsData(force = false) {
         if (!force && window.currentRentals && window.currentRentals.length > 0) {
+            // If we have data but want to ensure we have the full 1-year range, we could check a flag
+            // For now, let's just render what we have.
             renderRentalsTable();
             return;
         }
@@ -223,13 +225,18 @@
         body.innerHTML = '';
         let totalAccumulated = 0;
 
-        // Update Summary Card Counter
-        const countEl = document.getElementById('rental-count-display');
-        if (countEl) {
-            countEl.textContent = currentRentals.length;
-        }
+        const showAll = document.getElementById('rental-show-all')?.checked;
+        let visibleCount = 0;
 
-        currentRentals.forEach((row, idx) => {
+        if (!window.currentRentals) return;
+        window.currentRentals.forEach((row, idx) => {
+            const statusStr = (row.status || '').trim().toUpperCase();
+            
+            // Default: Show only ACTIVE. If showAll is checked, show EVERYTHING.
+            if (!showAll && statusStr !== 'ACTIVE') return;
+            
+            visibleCount++;
+            
             const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
             totalAccumulated += costInfo.total;
             
@@ -277,6 +284,10 @@
             body.appendChild(tr);
         });
 
+        // Update Summary Card Counter with filtered count
+        const countEl = document.getElementById('rental-count-display');
+        if (countEl) countEl.textContent = visibleCount;
+
         // Show/Hide global delete button
         const delBtn = document.getElementById('btn-delete-rental-global');
         if (delBtn) delBtn.style.display = editingRentalId ? 'flex' : 'none';
@@ -320,7 +331,7 @@
 
         if (!startDate || !container || !customer) { alert("Please fill in Start Date, Container #, and Customer."); return; }
 
-        const rentalData = {
+        const payload = {
             start_date: startDate, 
             final_date: finalDate, 
             time_rent: timeRent,
@@ -349,10 +360,8 @@
                     const today = new Date(todayStr).getTime();
                     const oldFinalDate = originalRentalState.final_date ? new Date(originalRentalState.final_date).getTime() : 0;
 
-                    // If it was expired, we move the FINAL DATE forward for the new period
-                    // START DATE stays as the original beginning of the rental
                     if (oldFinalDate <= today) {
-                        rentalData.start_date = originalRentalState.start_date; // Keep original start
+                        payload.start_date = originalRentalState.start_date; 
                         
                         const sDate = originalRentalState.final_date ? new Date(originalRentalState.final_date) : new Date();
                         if (timeRent === 'monthly') {
@@ -362,12 +371,11 @@
                         } else if (timeRent === 'diary') {
                             sDate.setDate(sDate.getDate() + 1);
                         }
-                        rentalData.final_date = sDate.toISOString().split('T')[0];
-                        
-                        console.log("Auto-advancing FINAL date for new PAID period:", rentalData.final_date);
+                        payload.final_date = sDate.toISOString().split('T')[0];
                     }
                 }
 
+                // Adjust Stock
                 if (wasActive && !isActive) {
                     await adjustReleaseStock(originalRentalState.release_no, 1);
                 } else if (!wasActive && isActive) {
@@ -376,16 +384,33 @@
                     await adjustReleaseStock(originalRentalState.release_no, 1);
                     await adjustReleaseStock(releaseNo, -1);
                 }
-                await updateRental(editingRentalId, rentalData);
             } else {
-                if (status === 'ACTIVE') await adjustReleaseStock(releaseNo, -1);
-                await addRental(rentalData);
+                if (status === 'ACTIVE' && releaseNo) {
+                    await adjustReleaseStock(releaseNo, -1);
+                }
             }
+
+            let resultData = null;
+            if (editingRentalId) {
+                const { data: updatedData, error } = await db.from('rentals').update(payload).eq('id', editingRentalId).select();
+                if (error) throw error;
+                resultData = updatedData[0];
+                const idx = window.currentRentals.findIndex(r => r.id === editingRentalId);
+                if (idx !== -1) window.currentRentals[idx] = resultData;
+            } else {
+                const { data: insertedData, error } = await db.from('rentals').insert([payload]).select();
+                if (error) throw error;
+                resultData = insertedData[0];
+                window.currentRentals.unshift(resultData);
+            }
+
+            alert(editingRentalId ? "Rental record updated!" : "New rental record saved!");
             resetRentalForm();
-            loadRentalsData(true);
-
-
-        } catch (err) { alert("Error saving record: " + (err.message || "Unknown error")); }
+            renderRentalsTable();
+        } catch (err) {
+            console.error('Error saving rental:', err);
+            alert("Error saving record: " + err.message);
+        }
     }
 
     function editRental(idx) {
@@ -421,25 +446,35 @@
 
     async function removeSelectedRental() {
         if (!editingRentalId) return;
-        await removeRental(editingRentalId);
+        await removeRental();
     }
 
-    async function removeRental(id) {
+    async function removeRental() {
+        if (!editingRentalId) return;
+        if (!confirm("Are you sure you want to delete this rental record?")) return;
+
         const role = (window.currentUserRole || '').toLowerCase().trim();
         if (role === 'student') {
             alert("Students cannot delete rental records.");
             return;
         }
-        const msg = "⚠️ WARNING: Deleting this record will PERMANENTLY REMOVE all earnings associated with this rental from the Profit Reports.\n\n" +
-                    "If the rental has simply ended, it is recommended to change the status to 'FINISHED' instead of deleting it to preserve financial history.\n\n" +
-                    "Are you sure you want to proceed with the deletion?";
-        
-        if (!confirm(msg)) return;
-        const row = (window.currentRentals || []).find(r => r.id === id);
+
+        const row = window.currentRentals.find(r => r.id === editingRentalId);
         try { 
-            if (row && row.status === 'ACTIVE' && row.release_no) await adjustReleaseStock(row.release_no, 1);
-            await deleteRental(id); loadRentalsData(true); 
-        } catch (err) { console.error(err); }
+            if (row && row.status === 'ACTIVE' && row.release_no) {
+                await adjustReleaseStock(row.release_no, 1);
+            }
+            await deleteRental(editingRentalId); 
+            
+            // Local-first removal
+            window.currentRentals = window.currentRentals.filter(r => r.id !== editingRentalId);
+            
+            resetRentalForm(); 
+            renderRentalsTable();
+        } catch (err) { 
+            console.error(err);
+            alert("Error deleting record: " + err.message);
+        }
     }
 
     function resetRentalForm() {
@@ -468,6 +503,7 @@
         return `${m}/${d}/${y}`;
     }
 
+    window.renderRentalsTable = renderRentalsTable;
     window.loadRentalsData = loadRentalsData;
     window.saveRentalData = saveRentalData;
     window.editRental = editRental;

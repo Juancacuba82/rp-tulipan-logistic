@@ -433,7 +433,45 @@
         .inv-badge-orange { background: #fff7ed; color: #c2410c; }
 
         /* --- COMPREHENSIVE MOBILE RESPONSIVENESS (TASKS, RENTALS, ETC) --- */
+        /* --- UNIVERSAL RECEIPT & DOCS CENTER --- */
+        #docs-view .dashboard-split-container {
+            display: grid !important;
+            grid-template-areas: 
+                "toolbar toolbar"
+                "selector preview";
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: auto 1fr;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+            gap: 0;
+            touch-action: pan-y;
+        }
+
+        .receipt-preview-toolbar { grid-area: toolbar; }
+        .trip-selector-panel { grid-area: selector; height: 100%; overflow-y: auto; }
+        .receipt-preview-panel { grid-area: preview; height: 100%; overflow-y: auto; }
+
         @media (max-width: 1024px) {
+            #docs-view .dashboard-split-container {
+                display: flex !important;
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: 100vh;
+                overflow: visible !important;
+            }
+
+            .trip-selector-panel {
+                width: 100% !important;
+                height: 400px !important; 
+                border-right: none;
+                border-bottom: 2px solid #cbd5e1;
+            }
+
+            .receipt-preview-panel {
+                padding: 10px;
+                width: 100%;
+            }
+
             /* Generic Split View Mobile Fix */
             .dashboard-split-container {
                 flex-direction: column !important;
@@ -1467,81 +1505,82 @@
 
         <!-- Unified Docs Center View -->
         <section id="docs-view" class="view-section hidden">
-            <div class="dashboard-split-container">
-                <!-- PANEL 1: Trip Selector (Left) -->
+            <div class="dashboard-split-container docs-grid-layout">
+                <!-- Row 1: Unified Toolbar (Full Width) -->
+                <div class="receipt-preview-toolbar">
+                    <!-- Row 1: Title & Action Buttons -->
+                    <div class="toolbar-row-main">
+                        <h3 class="toolbar-doc-title">
+                            <i class="fas fa-file-invoice"></i> Receipt Preview
+                        </h3>
+                        
+                        <div class="toolbar-doc-actions">
+                            <button id="btn-docs-photos" onclick="document.getElementById('trip-photo-input').click()" class="btn-photo-docs" title="Upload Delivery Photo">
+                                <i class="fas fa-camera"></i> PHOTOS
+                            </button>
+                            <input type="file" id="trip-photo-input" accept="image/*" style="display: none;" onchange="handleTripPhotoUpload(this)">
+                            
+                            <button onclick="openSignatureModal('customer')" class="btn-signature-docs" style="background: #1e293b;">
+                                <i class="fas fa-file-signature"></i> CLIENT SIG
+                            </button>
+                            <button onclick="openSignatureModal('driver')" class="btn-signature-docs" style="background: #b91c1c;">
+                                <i class="fas fa-user-tie"></i> DRIVER SIG
+                            </button>
+                            <button onclick="printA4Document()" class="btn-print-docs">
+                                <i class="fas fa-print"></i> PRINT
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Comprehensive Filters -->
+                    <div class="toolbar-row-filters">
+                        <div class="docs-filters-grid">
+                            <div class="date-range-compact">
+                                <span class="filter-mini-label">DATES:</span>
+                                <div class="date-inputs-wrap">
+                                    <input type="date" id="trip-from-date" class="form-input" onchange="loadDocTrips()">
+                                    <span class="date-sep">-</span>
+                                    <input type="date" id="trip-to-date" class="form-input" onchange="loadDocTrips()">
+                                </div>
+                            </div>
+                            <select id="docs-driver-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
+                                <option value="">All Drivers</option>
+                            </select>
+
+                            <select id="docs-customer-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
+                                <option value="">All Customers</option>
+                            </select>
+
+                            <select id="docs-status-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
+                                <option value="">Status: All</option>
+                                <option value="PENDING_PAYMENT">Pending</option>
+                                <option value="PAID">Complete</option>
+                            </select>
+
+                            <select id="docs-payment-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
+                                <option value="">Payment: All</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="PAID">Paid</option>
+                            </select>
+
+
+
+                            <button onclick="clearDocsFilters()" class="btn-clear-docs">
+                                <i class="fas fa-times-circle"></i> CLEAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Content (Aside + Preview) -->
                 <aside class="trip-selector-panel">
-                    <!-- Trip list scroll remains here -->
                     <div id="trip-list-scroll" class="trip-list-scroll" style="height: 100%;">
                         <!-- Populated via JS -->
                     </div>
                 </aside>
 
-                <!-- PANEL 2: Simplified A4 Preview & Controls (Combined) -->
                 <section class="receipt-preview-panel"
-                    style="flex:1; display:flex; flex-direction:column; background:#475569; overflow:hidden; padding:0;">
-                    <!-- Toolbar for Controls -->
-                    <div class="receipt-preview-toolbar">
-                        <!-- Row 1: Title & Action Buttons -->
-                        <div class="toolbar-row-main">
-                            <h3 class="toolbar-doc-title">
-                                <i class="fas fa-file-invoice"></i> Receipt Preview
-                            </h3>
-                            
-                            <div class="toolbar-doc-actions">
-                                <button id="btn-docs-photos" onclick="document.getElementById('trip-photo-input').click()" class="btn-photo-docs" title="Upload Delivery Photo">
-                                    <i class="fas fa-camera"></i> PHOTOS
-                                </button>
-                                <input type="file" id="trip-photo-input" accept="image/*" style="display: none;" onchange="handleTripPhotoUpload(this)">
-                                
-                                <button onclick="openSignatureModal('customer')" class="btn-signature-docs" style="background: #1e293b;">
-                                    <i class="fas fa-file-signature"></i> CLIENT SIG
-                                </button>
-                                <button onclick="openSignatureModal('driver')" class="btn-signature-docs" style="background: #b91c1c;">
-                                    <i class="fas fa-user-tie"></i> DRIVER SIG
-                                </button>
-                                <button onclick="printA4Document()" class="btn-print-docs">
-                                    <i class="fas fa-print"></i> PRINT
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Row 2: Comprehensive Filters -->
-                        <div class="toolbar-row-filters">
-                            <div class="docs-filters-grid">
-                                <div class="date-range-compact">
-                                    <span class="filter-mini-label">DATES:</span>
-                                    <div class="date-inputs-wrap">
-                                        <input type="date" id="trip-from-date" class="form-input" onchange="loadDocTrips()">
-                                        <span class="date-sep">-</span>
-                                        <input type="date" id="trip-to-date" class="form-input" onchange="loadDocTrips()">
-                                    </div>
-                                </div>
-                                <select id="docs-driver-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
-                                    <option value="">All Drivers</option>
-                                </select>
-
-                                <select id="docs-customer-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
-                                    <option value="">All Customers</option>
-                                </select>
-
-                                <select id="docs-status-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
-                                    <option value="">Status: All</option>
-                                    <option value="PENDING_PAYMENT">Pending</option>
-                                    <option value="PAID">Complete</option>
-                                </select>
-
-                                <select id="docs-payment-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
-                                    <option value="">Payment: All</option>
-                                    <option value="PENDING">Pending</option>
-                                    <option value="PAID">Paid</option>
-                                </select>
-
-                                <button onclick="clearDocsFilters()" class="btn-clear-docs">
-                                    <i class="fas fa-times-circle"></i> CLEAR
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    style="display:flex; flex-direction:column; background:#475569; overflow:hidden; padding:0;">
 
                     <!-- Scrollable Preview Area -->
                     <div
@@ -3300,6 +3339,10 @@
                                         <span class="filter-summary-label">Rental Units</span>
                                         <span class="filter-summary-value" id="rental-count-display">0</span>
                                     </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; background: #fff; padding: 5px 12px; border-radius: 6px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                    <input type="checkbox" id="rental-show-all" onchange="renderRentalsTable()" style="width: 16px; height: 16px; cursor: pointer; accent-color: #0f172a;">
+                                    <label for="rental-show-all" style="font-size: 0.65rem; font-weight: 800; color: #0f172a; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">Show All (Inc. Finished)</label>
                                 </div>
                             </div>
                                 <div style="display: flex; align-items: center; gap: 15px;">

@@ -213,7 +213,7 @@ async function getRentals() {
 
         const { data, error } = await db.from('rentals')
             .select('*')
-            .gte('start_date', dateStr)
+            .or(`status.eq.ACTIVE,start_date.gte.${dateStr}`)
             .order('start_date', { ascending: false });
         if (error) throw error;
         return data || [];
