@@ -1283,3 +1283,6 @@
                 created_by: row[19] || null
             };
         }
+
+        window.mapReleaseToArray = mapReleaseToArray;
+        window.mapArrayToRelease = mapArrayToRelease;

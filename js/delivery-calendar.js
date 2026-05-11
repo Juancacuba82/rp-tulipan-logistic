@@ -279,8 +279,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const sameCond = clean(oldRow[45]) === clean(selectedRelCond);
                 const sameQty  = (parseInt(oldRow[53]) || 1) === newQtyVal;
                 
-                if (sameRel && sameSize && sameType && sameCond && sameQty) {
-                    console.log("STOCK DEBUG: Update mode - Container details unchanged. Skipping stock operations.");
+                if (sameRel && sameSize && sameType && sameCond && sameQty && (wasFinalized === isFinalized)) {
+                    console.log("STOCK DEBUG: Update mode - Container details and status unchanged. Skipping stock operations.");
                     revertOld = false;
                     deductNew = false;
                 }
@@ -331,7 +331,29 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             (r[16] || '').trim().toUpperCase() === selectedSizeNormalized
                         );
 
-                        // Fallback to size-based heuristic if no specific size match
+                        // --- NEW: Targeted Fetch if Cache Miss ---
+                        if (matchingRows.length === 0) {
+                            console.log(`STOCK DEBUG: Release ${selectedReleaseNormalized} not in cache. Fetching from DB...`);
+                            const { data: freshRels, error: fetchErr } = await db.from('releases')
+                                .select('*')
+                                .eq('release_no', selectedReleaseNormalized);
+                            
+                            if (!fetchErr && freshRels && freshRels.length > 0) {
+                                const mappedFresh = freshRels.map(window.mapReleaseToArray);
+                                // Add to global cache to avoid refetching
+                                window.currentReleases = [...(window.currentReleases || []), ...mappedFresh];
+                                // Retry matching
+                                matchingRows = mappedFresh.filter(r => (r[16] || '').trim().toUpperCase() === selectedSizeNormalized);
+                                if (matchingRows.length === 0) {
+                                    // Fallback to size heuristic on fresh data
+                                    if (selectedSizeNormalized.startsWith("20")) matchingRows = mappedFresh.filter(r => (parseInt(r[7]) > 0));
+                                    else if (selectedSizeNormalized.startsWith("40")) matchingRows = mappedFresh.filter(r => (parseInt(r[9]) > 0));
+                                    else if (selectedSizeNormalized.startsWith("45")) matchingRows = mappedFresh.filter(r => (parseInt(r[11]) > 0));
+                                }
+                            }
+                        }
+
+                        // Fallback to size-based heuristic if no specific size match in existing cache
                         if (matchingRows.length === 0) {
                             matchingRows = window.currentReleases.filter(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
                             if (selectedSizeNormalized.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
