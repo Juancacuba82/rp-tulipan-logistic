@@ -3101,9 +3101,8 @@
                             </select>
                         </div>
                         <div class="form-group" style="flex-direction: column; align-items: flex-start;">
-                            <label class="sidebar-label-btn" style="background: #1e293b !important; width: 100% !important; margin-bottom: 8px;">DESCRIPTION</label>
-                            <textarea id="call-description" placeholder="Notes about this lead..."
-                                style="width: 100%; height: 100px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: inherit; font-size: 0.9rem; resize: none;"></textarea>
+                            <textarea id="call-description" placeholder="DESCRIPTION / NOTES..."
+                                style="width: 100%; height: 250px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: inherit; font-size: 0.9rem; resize: none; font-weight: 700; background: #f8fafc;"></textarea>
                         </div>
                         <div style="margin-top: 20px;">
                             <button onclick="saveCallLog()" class="btn-add-sidebar" style="width: 100%; padding: 12px; margin-bottom: 10px;" id="btn-save-call">SAVE CALL RECORD</button>
@@ -3182,6 +3181,14 @@
                                 <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">ASSIGNED TO</label>
                                 <select id="cf-seller" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
                                     <option value="">All Employees</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label style="font-size: 0.65rem; font-weight: 800; color: #64748b; margin-bottom: 4px; display: block;">SOURCE</label>
+                                <select id="cf-source" onchange="renderCallsTable()" style="width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                                    <option value="">All Sources</option>
+                                    <option value="manual">MANUAL</option>
+                                    <option value="website">WEBSITE (ONLINE)</option>
                                 </select>
                             </div>
                             <div class="filter-item" style="grid-column: span 1;">

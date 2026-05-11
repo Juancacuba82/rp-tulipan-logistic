@@ -102,6 +102,7 @@ function renderCallsTable() {
     const fCity = document.getElementById('cf-city')?.value || "";
     const fStatus = document.getElementById('cf-status')?.value || "";
     const fSeller = document.getElementById('cf-seller')?.value || "";
+    const fSource = document.getElementById('cf-source')?.value || "";
     const search = document.getElementById('call-search')?.value.toLowerCase() || "";
 
     tbody.innerHTML = "";
@@ -117,8 +118,9 @@ function renderCallsTable() {
         const matchCity = !fCity || c.city === fCity;
         const matchStatus = !fStatus || c.status === fStatus;
         const matchSeller = !fSeller || c.created_by === fSeller;
+        const matchSource = !fSource || c.source === fSource;
 
-        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus && matchSeller;
+        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus && matchSeller && matchSource;
     });
 
     // Update Summary Card Counter
@@ -126,7 +128,7 @@ function renderCallsTable() {
     if (callsCountEl) {
         callsCountEl.textContent = filtered.length;
         // Visual feedback: blue if filtering
-        const isFiltered = fFrom || fTo || fService || fCity || fStatus || fSeller || search;
+        const isFiltered = fFrom || fTo || fService || fCity || fStatus || fSeller || fSource || search;
         callsCountEl.style.color = isFiltered ? '#1e40af' : '#1e293b';
     }
 
@@ -187,7 +189,10 @@ function renderCallsTable() {
 
         tr.innerHTML = `
             <td>${dateStr}</td>
-            <td style="font-weight:900;">${(c.customer || "").toUpperCase()}</td>
+            <td style="font-weight:900;">
+                ${(c.customer || "").toUpperCase()}
+                ${c.source === 'website' ? '<span class="inv-badge inv-badge-green" style="font-size: 0.55rem; padding: 1px 4px; margin-left: 4px;">WEB</span>' : ''}
+            </td>
             <td><span class="inv-badge inv-badge-blue">${c.service_type || 'Sales'}</span></td>
             <td>${c.phone || "---"}</td>
             <td style="text-align: center;">${(c.city || "").toUpperCase()}</td>
@@ -320,7 +325,8 @@ async function saveCallLog() {
         next_call_date: document.getElementById('call-next-date').value || null,
         status: document.getElementById('call-status').value,
         description: document.getElementById('call-description').value,
-        created_by: document.getElementById('call-assigned').value || window.userEmail || null
+        created_by: document.getElementById('call-assigned').value || window.userEmail || null,
+        source: editingCallId ? (currentCalls.find(c => c.id === editingCallId)?.source || 'manual') : 'manual'
     };
 
     if (!payload.customer) {
@@ -507,6 +513,7 @@ function resetCallFilters() {
     document.getElementById('cf-city').value = "";
     document.getElementById('cf-status').value = "";
     document.getElementById('cf-seller').value = "";
+    document.getElementById('cf-source').value = "";
     document.getElementById('call-search').value = "";
     renderCallsTable();
 }
