@@ -265,7 +265,7 @@
                 <td style="font-weight: 900; color: #000000;">${row.container_no || '---'}</td>
                 <td style="font-weight: 700; color: #000000;">${row.delivery_place || '---'}</td>
                 <td style="font-weight: 700; color: #000000;">${row.customer_name || '---'}</td>
-                <td style="color: #000000; font-weight: 700; text-align: center !important;">${row.phone || '---'}</td>
+                <td style="color: #000000; font-weight: 700; text-align: center !important;">${window.formatUSPhone(row.phone) || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">$${parseFloat(row.base_price).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td style="font-weight: 800; color: #000000;">${costInfo.days} days</td>
                 <td style="font-weight: 900; color: ${row.status === 'ACTIVE' ? '#10b981' : '#000000'}; font-size: 1rem;">$${costInfo.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
@@ -432,7 +432,7 @@
         if (selS.value === "" && row.size) { selS.style.display = 'none'; inpS.style.display = 'block'; inpS.value = row.size; }
 
         document.getElementById('rental-delivery-place').value = row.delivery_place || '';
-        document.getElementById('rental-phone').value = row.phone || '';
+        document.getElementById('rental-phone').value = window.formatUSPhone(row.phone || '');
         document.getElementById('rental-base-price').value = row.base_price;
         document.getElementById('rental-status').value = row.status || 'ACTIVE';
         document.getElementById('rental-payment-status').value = row.payment_status || 'PENDING';
@@ -502,6 +502,24 @@
         const [y, m, d] = dateStr.split('-');
         return `${m}/${d}/${y}`;
     }
+
+    // Phone formatting listener for rentals
+    document.addEventListener('DOMContentLoaded', () => {
+        const phoneInp = document.getElementById('rental-phone');
+        if (phoneInp) {
+            phoneInp.addEventListener('input', (e) => {
+                const cursor = e.target.selectionStart;
+                const oldLen = e.target.value.length;
+                e.target.value = window.formatUSPhone(e.target.value);
+                const newLen = e.target.value.length;
+                if (newLen > oldLen) {
+                    e.target.setSelectionRange(cursor + (newLen - oldLen), cursor + (newLen - oldLen));
+                } else {
+                    e.target.setSelectionRange(cursor, cursor);
+                }
+            });
+        }
+    });
 
     window.renderRentalsTable = renderRentalsTable;
     window.loadRentalsData = loadRentalsData;

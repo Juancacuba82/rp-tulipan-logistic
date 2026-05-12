@@ -139,7 +139,7 @@
                     <td style="${cellStyle} color: #1e40af; font-weight: 800;">${qty}</td>
                     <td style="${cellStyle}">${nCont}</td>
                     <td style="${cellStyle}">${relNo}</td>
-                    <td style="${cellStyle}">${phone}</td>
+                    <td style="${cellStyle}">${window.formatUSPhone(phone)}</td>
                     <td style="${cellStyle}">${seller}</td>
                     <td style="${cellStyle} font-weight: 800; color: #1e293b;">${customer}</td>
                     <td style="${cellStyle} color: #ef4444;">$${totalItemCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>

@@ -194,7 +194,7 @@ function renderCallsTable() {
                 ${c.source === 'website' ? '<span class="inv-badge inv-badge-green" style="font-size: 0.55rem; padding: 1px 4px; margin-left: 4px;">WEB</span>' : ''}
             </td>
             <td><span class="inv-badge inv-badge-blue">${c.service_type || 'Sales'}</span></td>
-            <td>${c.phone || "---"}</td>
+            <td style="font-weight: 700;">${window.formatUSPhone(c.phone) || "---"}</td>
             <td style="text-align: center;">${(c.city || "").toUpperCase()}</td>
             <td>${c.zip_code || "---"}</td>
             <td>${(c.measures || "").toUpperCase()}</td>
@@ -402,7 +402,7 @@ function editCallLog(id) {
     document.getElementById('call-date').value = call.date || "";
     document.getElementById('call-customer').value = call.customer || "";
     document.getElementById('call-service').value = call.service_type || "Sales";
-    document.getElementById('call-phone').value = call.phone || "";
+    document.getElementById('call-phone').value = window.formatUSPhone(call.phone || "");
     document.getElementById('call-city').value = call.city || "";
     document.getElementById('call-zip').value = call.zip_code || "";
     const sizeVal = call.measures || "";
@@ -650,8 +650,26 @@ async function transferSoldCallToCalendar(call) {
     }
 }
 
-// Initial set date
+// Initial set date and phone formatting listener
 document.addEventListener('DOMContentLoaded', () => {
     const d = document.getElementById('call-date');
     if (d) d.value = new Date().toISOString().split('T')[0];
+
+    const phoneInp = document.getElementById('call-phone');
+    if (phoneInp) {
+        phoneInp.addEventListener('input', (e) => {
+            const cursor = e.target.selectionStart;
+            const oldLen = e.target.value.length;
+            
+            e.target.value = window.formatUSPhone(e.target.value);
+            
+            // Adjust cursor position if characters were added/removed (simplified)
+            const newLen = e.target.value.length;
+            if (newLen > oldLen) {
+                e.target.setSelectionRange(cursor + (newLen - oldLen), cursor + (newLen - oldLen));
+            } else {
+                e.target.setSelectionRange(cursor, cursor);
+            }
+        });
+    }
 });

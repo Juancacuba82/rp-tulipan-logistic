@@ -25,6 +25,30 @@
                 return ds;
             };
 
+            /** Global Utility to format phone number to US standard */
+            window.formatUSPhone = (val) => {
+                if (!val) return "";
+                const isPlusOne = val.startsWith('+1') || val === '+';
+                if (val === '+') return '+';
+                const digits = val.replace(/\D/g, '');
+                if (isPlusOne) {
+                    let d = digits;
+                    if (d.startsWith('1')) d = d.substring(1);
+                    let res = '+1';
+                    if (d.length > 0) res += '(' + d.substring(0, 3);
+                    if (d.length > 3) res += ')-' + d.substring(3, 6);
+                    if (d.length > 6) res += '-' + d.substring(6, 10);
+                    return res;
+                } else {
+                    let d = digits;
+                    let res = '';
+                    if (d.length > 0) res += d.substring(0, 3);
+                    if (d.length > 3) res += '-' + d.substring(3, 6);
+                    if (d.length > 6) res += '-' + d.substring(6, 10);
+                    return res;
+                }
+            };
+
             const safeParse = (val, fallback) => {
                 if (!val) return fallback;
                 if (typeof val === 'object') return val;
