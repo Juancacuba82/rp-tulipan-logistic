@@ -71,7 +71,7 @@ async function getTrips() {
 
         const { data, error } = await db
             .from('trips')
-            .select('trip_id, date, size, n_cont, release_no, order_no, city, pickup_address, delivery_place, doors_direction, miles, customer, yard_services, yard_rate, date_out, day_rate, company, driver, trans_pay, type_payment, sales_price, collect_payment, amount, phone_no, paid_driver, note, service_mode, monthly_rate, start_date_rent, next_due, st_yard, st_rent, st_rate, st_sales, st_amount, pending_balance, payout_status, email, truck_unit, trailer_unit, final_driver_pay, yard_rate_paid, status, has_trans, has_sales, rel_type, rel_condition, y_cash, r_cash, s_cash, take_tax, tax_percent, hide_amounts, st_tax, qty, signature, photos, signature_driver, invoice_sent, created_by')
+            .select('*')
             .gte('date', dateStr) 
             .order('date', { ascending: false });
 
@@ -212,7 +212,7 @@ async function getRentals() {
         const dateStr = threeMonthsAgo.toISOString().split('T')[0];
 
         const { data, error } = await db.from('rentals')
-            .select('id, customer_name, start_date, final_date, base_price, daily_rate, status, time_rent, last_payment_date, next_due_date, total_paid, note, created_at')
+            .select('*')
             .or(`status.eq.ACTIVE,start_date.gte.${dateStr}`)
             .order('start_date', { ascending: false });
         if (error) throw error;
