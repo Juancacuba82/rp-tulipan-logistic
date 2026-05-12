@@ -32,7 +32,11 @@ window.getLastAttendanceState = async function(email) {
             }
         } else if (last.action_type === 'CLOCK_OUT') {
             if (isToday) {
-                return 'ALREADY_FINISHED_TODAY'; // Already clocked out today, no more actions
+                if (currentTimeMinutes > fiveOneMinutes) {
+                    return 'ALREADY_FINISHED_TODAY'; // Past 5:01 PM today, no more actions
+                }
+                // Clocked out today but it's still before 5:01 PM, allow Clock In again
+                return 'CLOCK_OUT'; 
             }
             return 'CLOCK_OUT'; // Last was yesterday or before, allow CLOCK_IN today
         }
