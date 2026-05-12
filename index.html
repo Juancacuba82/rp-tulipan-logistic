@@ -3914,7 +3914,7 @@
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
         (function setupRealtime() {
             if (!db) return;
-            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories', 'cust-invoice', 'rentals'];
+            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories', 'cust-invoice', 'rentals', 'call_logs'];
             channels.forEach(table => {
                 db.channel(`${table}_changes`)
                     .on('postgres_changes', { event: '*', schema: 'public', table: table }, async payload => {
@@ -3932,6 +3932,7 @@
                         if (table === 'container_sizes') await loadContainerSizesData();
                         if (table === 'expense_categories') await loadExpenseCategoriesData();
                         if (table === 'rentals') await loadRentalsData();
+                        if (table === 'call_logs') await loadCallsData(true);
                     })
                     .subscribe();
             });
