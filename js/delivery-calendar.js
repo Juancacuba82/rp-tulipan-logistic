@@ -1733,9 +1733,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (!db || !currentTrips || currentTrips.length === 0) return;
             try {
                 const { data: logs, error } = await db.from('activity_logs')
-                    .select('*')
+                    .select('created_at, driver_name, user_email, view_date, action_type, details') // Select specific columns
                     .order('created_at', { ascending: false })
-                    .limit(500);
+                    .limit(100); // Reduced from 500 to 100 for better DB performance
                 if (error || !logs) return;
 
                 const clean = (s) => (s || '').toString()
@@ -1812,6 +1812,68 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
         }
         window.refreshReadReceiptIcons = refreshReadReceiptIcons;
+        
+        // TARGETED UI UPDATE: Updates a single row's icon based on a new log payload
+        function updateIconFromLog(log) {
+            if (!currentTrips || currentTrips.length === 0 || !log) return;
+            const clean = (s) => (s || '').toString()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            const toYYYYMMDD = (d) => {
+                if (!d) return '';
+                const s = d.toString().trim();
+                if (s.includes('-')) return s.split('T')[0].replace(/-/g, '');
+                if (s.includes('/')) {
+                    const p = s.split('/');
+                    if (p[0].length === 4) return p.join('');
+                    return p[2] + p[0].padStart(2, '0') + p[1].padStart(2, '0');
+                }
+                return s.replace(/[^0-9]/g, '');
+            };
+
+            const logDriverClean = clean(log.driver_name || '');
+            const logEmailClean = clean((log.user_email || '').split('@')[0]);
+            const logDate = toYYYYMMDD(log.view_date);
+
+            const rows = document.querySelectorAll('#table-body tr');
+            rows.forEach((tr, idx) => {
+                const rowData = currentTrips[idx];
+                if (!rowData) return;
+                const driverText = rowData[17] || '';
+                if (!driverText || driverText === '---') return;
+
+                const driverNameClean = clean(driverText);
+                const myGroup = _SYNC_DRIVER_GROUPS.find(g => g.includes(driverNameClean));
+                if (!myGroup) return;
+
+                // Check if this log belongs to this driver group
+                if (!myGroup.includes(logDriverClean) && !myGroup.includes(logEmailClean)) return;
+
+                const orderDate = toYYYYMMDD(rowData[1]);
+                if (logDate !== orderDate) return;
+
+                const tripId = rowData[0];
+                let isMatch = false;
+                if (log.action_type === 'VIEW_TRIP_DETAILS') {
+                    isMatch = !!(log.details && log.details.includes(tripId));
+                } else {
+                    isMatch = true; 
+                }
+
+                if (isMatch) {
+                    const tds = tr.querySelectorAll('td');
+                    const driverTd = tds[15]; 
+                    if (!driverTd) return;
+                    const icon = driverTd.querySelector('.fa-check-double');
+                    if (icon) {
+                        icon.style.color = '#3b82f6';
+                        icon.style.opacity = '1';
+                        icon.title = 'Seen by driver on: ' + new Date(log.created_at).toLocaleString();
+                    }
+                }
+            });
+        }
+        window.updateIconFromLog = updateIconFromLog;
 
         // --- Mechanism 1: Same-tab custom event ---
         window.addEventListener('activityLogged', (e) => {
@@ -1833,8 +1895,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     { event: 'INSERT', schema: 'public', table: 'activity_logs' },
                     (payload) => {
                         console.log('Realtime INSERT on activity_logs!', payload.new);
-                        if (window.realtimeSyncTimer) clearTimeout(window.realtimeSyncTimer);
-                        window.realtimeSyncTimer = setTimeout(() => refreshReadReceiptIcons(), 600);
+                        // TARGETED UPDATE: Instead of fetching 500 rows, we just update the specific row UI
+                        if (typeof updateIconFromLog === 'function') {
+                            updateIconFromLog(payload.new);
+                        } else {
+                            if (window.realtimeSyncTimer) clearTimeout(window.realtimeSyncTimer);
+                            window.realtimeSyncTimer = setTimeout(() => refreshReadReceiptIcons(), 1000);
+                        }
                     }
                 )
                 .subscribe((status) => {
@@ -1849,16 +1916,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         // --- Mechanism 3: Polling fallback every 25 seconds ---
         // Guarantees icons stay in sync even if Realtime has issues.
         // Only fires when the calendar table is visible on screen.
-        (function startIconPolling() {
-            if (window._iconPollInterval) clearInterval(window._iconPollInterval);
-            window._iconPollInterval = setInterval(() => {
-                const tableBody = document.getElementById('table-body');
-                if (tableBody && tableBody.offsetParent !== null &&
-                    currentTrips && currentTrips.length > 0) {
-                    refreshReadReceiptIcons();
-                }
-            }, 25000);
-        })();
+        // --- Mechanism 3: Polling fallback REMOVED for performance ---
+        // (Realtime and initial load are sufficient for 8+ concurrent users)
 
 // Helper for Dual Scrollbars in Calendar
 function syncTopScroll() {

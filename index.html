@@ -3912,31 +3912,47 @@
         }
 
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
+        const _rtTimeouts = {};
+        const _rtLoaders = {
+            'trips': () => typeof loadTableData === 'function' && loadTableData(),
+            'releases': () => typeof loadReleasesData === 'function' && loadReleasesData(),
+            'expenses': () => typeof loadExpensesData === 'function' && loadExpensesData(),
+            'fleet': () => typeof loadFleetData === 'function' && loadFleetData(),
+            'drivers': () => typeof loadDriversData === 'function' && loadDriversData(),
+            'customers': () => typeof loadCustomersData === 'function' && loadCustomersData(),
+            'pickup_addresses': () => typeof loadPickupAddressesData === 'function' && loadPickupAddressesData(),
+            'companies': () => typeof loadCompaniesData === 'function' && loadCompaniesData(),
+            'depots': () => typeof loadDepotsData === 'function' && loadDepotsData(),
+            'sellers': () => typeof loadSellersData === 'function' && loadSellersData(),
+            'container_sizes': () => typeof loadContainerSizesData === 'function' && loadContainerSizesData(),
+            'expense_categories': () => typeof loadExpenseCategoriesData === 'function' && loadExpenseCategoriesData(),
+            'rentals': () => typeof loadRentalsData === 'function' && loadRentalsData(),
+            'call_logs': () => typeof loadCallsData === 'function' && loadCallsData(true)
+        };
+
+        function triggerDebouncedLoad(table) {
+            if (_rtTimeouts[table]) clearTimeout(_rtTimeouts[table]);
+            _rtTimeouts[table] = setTimeout(async () => {
+                console.log(`Executing debounced reload for ${table}...`);
+                if (_rtLoaders[table]) await _rtLoaders[table]();
+                delete _rtTimeouts[table];
+            }, 1500); // 1.5s debounce to allow bulk changes to settle
+        }
+
+        // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
         (function setupRealtime() {
             if (!db) return;
             const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories', 'cust-invoice', 'rentals', 'call_logs'];
             channels.forEach(table => {
                 db.channel(`${table}_changes`)
-                    .on('postgres_changes', { event: '*', schema: 'public', table: table }, async payload => {
-                        console.log(`Realtime update on ${table}:`, payload.eventType);
-                        if (table === 'trips') await loadTableData();
-                        if (table === 'releases') await loadReleasesData();
-                        if (table === 'expenses') await loadExpensesData();
-                        if (table === 'fleet') await loadFleetData();
-                        if (table === 'drivers') await loadDriversData();
-                        if (table === 'customers') await loadCustomersData();
-                        if (table === 'pickup_addresses') await loadPickupAddressesData();
-                        if (table === 'companies') await loadCompaniesData();
-                        if (table === 'depots') await loadDepotsData();
-                        if (table === 'sellers') await loadSellersData();
-                        if (table === 'container_sizes') await loadContainerSizesData();
-                        if (table === 'expense_categories') await loadExpenseCategoriesData();
-                        if (table === 'rentals') await loadRentalsData();
-                        if (table === 'call_logs') await loadCallsData(true);
+                    .on('postgres_changes', { event: '*', schema: 'public', table: table }, payload => {
+                        // Optimization: Avoid re-fetching if we are the ones who made the change (if possible)
+                        // For now, we use a robust debounce to prevent "broadcast storms"
+                        triggerDebouncedLoad(table);
                     })
                     .subscribe();
             });
-            console.log("Supabase Realtime channels active.");
+            console.log("Supabase Realtime channels active with debouncing.");
         })();
 
         // --- TRIP DATA MAPPING HELPERS ---

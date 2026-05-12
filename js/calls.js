@@ -12,11 +12,13 @@ async function loadCallsData(force = false) {
     }
     console.log("Loading calls data...");
     try {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
-        const dateStr = sixMonthsAgo.toISOString().split('T')[0];
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+        const dateStr = threeMonthsAgo.toISOString().split('T')[0];
 
-        let query = db.from('call_logs').select('*').gte('date', dateStr);
+        let query = db.from('call_logs')
+            .select('id, date, customer, phone, next_call_date, service_type, city, status, created_by, source, note, assigned_to')
+            .gte('date', dateStr);
         
         // If the user is not admin, only show their own records (Students see everything for learning)
         const role = (window.currentUserRole || '').toLowerCase().trim();
