@@ -1,53 +1,53 @@
+        // Global Utility for Date Formatting (MM/DD/YYYY)
+        window.formatDateMMDDYYYY = (ds) => {
+            if (!ds || ds === '---') return '---';
+            // Handle ISO/YYYY-MM-DD strings
+            if (typeof ds === 'string' && ds.includes('-')) {
+                const parts = ds.split('T')[0].split('-');
+                if (parts.length === 3) {
+                    const [y, m, d] = parts;
+                    return `${m}/${d}/${y}`;
+                }
+            }
+            // Fallback for Date Objects or other strings
+            try {
+                const dObj = new Date(ds);
+                if (!isNaN(dObj.getTime())) {
+                    const m = String(dObj.getUTCMonth() + 1).padStart(2, '0');
+                    const d = String(dObj.getUTCDate()).padStart(2, '0');
+                    const y = dObj.getUTCFullYear();
+                    return `${m}/${d}/${y}`;
+                }
+            } catch (e) {}
+            return ds;
+        };
+
+        /** Global Utility to format phone number to US standard */
+        window.formatUSPhone = (val) => {
+            if (!val) return "";
+            const isPlusOne = val.startsWith('+1') || val === '+';
+            if (val === '+') return '+';
+            const digits = val.replace(/\D/g, '');
+            if (isPlusOne) {
+                let d = digits;
+                if (d.startsWith('1')) d = d.substring(1);
+                let res = '+1';
+                if (d.length > 0) res += '(' + d.substring(0, 3);
+                if (d.length > 3) res += ')-' + d.substring(3, 6);
+                if (d.length > 6) res += '-' + d.substring(6, 10);
+                return res;
+            } else {
+                let d = digits;
+                let res = '';
+                if (d.length > 0) res += d.substring(0, 3);
+                if (d.length > 3) res += '-' + d.substring(3, 6);
+                if (d.length > 6) res += '-' + d.substring(6, 10);
+                return res;
+            }
+        };
+
         function mapTripToArray(t) {
             const normPaid = (val) => (val === true || val === 1 || val === 'PAID' || val === 'true') ? 'PAID' : 'PEND';
-            
-            // Global Utility for Date Formatting (MM/DD/YYYY)
-            window.formatDateMMDDYYYY = (ds) => {
-                if (!ds || ds === '---') return '---';
-                // Handle ISO/YYYY-MM-DD strings
-                if (typeof ds === 'string' && ds.includes('-')) {
-                    const parts = ds.split('T')[0].split('-');
-                    if (parts.length === 3) {
-                        const [y, m, d] = parts;
-                        return `${m}/${d}/${y}`;
-                    }
-                }
-                // Fallback for Date Objects or other strings
-                try {
-                    const dObj = new Date(ds);
-                    if (!isNaN(dObj.getTime())) {
-                        const m = String(dObj.getUTCMonth() + 1).padStart(2, '0');
-                        const d = String(dObj.getUTCDate()).padStart(2, '0');
-                        const y = dObj.getUTCFullYear();
-                        return `${m}/${d}/${y}`;
-                    }
-                } catch (e) {}
-                return ds;
-            };
-
-            /** Global Utility to format phone number to US standard */
-            window.formatUSPhone = (val) => {
-                if (!val) return "";
-                const isPlusOne = val.startsWith('+1') || val === '+';
-                if (val === '+') return '+';
-                const digits = val.replace(/\D/g, '');
-                if (isPlusOne) {
-                    let d = digits;
-                    if (d.startsWith('1')) d = d.substring(1);
-                    let res = '+1';
-                    if (d.length > 0) res += '(' + d.substring(0, 3);
-                    if (d.length > 3) res += ')-' + d.substring(3, 6);
-                    if (d.length > 6) res += '-' + d.substring(6, 10);
-                    return res;
-                } else {
-                    let d = digits;
-                    let res = '';
-                    if (d.length > 0) res += d.substring(0, 3);
-                    if (d.length > 3) res += '-' + d.substring(3, 6);
-                    if (d.length > 6) res += '-' + d.substring(6, 10);
-                    return res;
-                }
-            };
 
             const safeParse = (val, fallback) => {
                 if (!val) return fallback;

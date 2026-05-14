@@ -1075,41 +1075,43 @@
                 }
 
                 let finalCategories = dbData || [];
+                const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
 
-                // 2. Check if we have local categories to migrate/sync
-                try {
-                    const localRaw = localStorage.getItem('rp_expense_categories');
-                    if (localRaw) {
-                        const localData = JSON.parse(localRaw);
-                        if (Array.isArray(localData) && localData.length > 0) {
-                            const missingInDb = localData.filter(localCat =>
-                                !finalCategories.some(dbCat => dbCat.name.toLowerCase() === localCat.name.toLowerCase())
-                            );
+                // 2. Check if we have local categories to migrate/sync - ADMIN ONLY
+                if (isAdmin) {
+                    try {
+                        const localRaw = localStorage.getItem('rp_expense_categories');
+                        if (localRaw) {
+                            const localData = JSON.parse(localRaw);
+                            if (Array.isArray(localData) && localData.length > 0) {
+                                const missingInDb = localData.filter(localCat =>
+                                    !finalCategories.some(dbCat => dbCat.name.toLowerCase() === localCat.name.toLowerCase())
+                                );
 
-                            if (missingInDb.length > 0) {
-                                console.log(`Syncing ${missingInDb.length} local categories to Supabase...`);
-                                const toInsert = missingInDb.map(c => ({ name: c.name }));
-                                // OPT: Use .select() on insert to get IDs back directly, avoids a second query
-                                const { data: insertedData, error: syncError } = await db.from('expense_categories').insert(toInsert).select();
-                                if (!syncError && insertedData) {
-                                    finalCategories = [...finalCategories, ...insertedData].sort((a, b) => a.name.localeCompare(b.name));
-                                } else if (syncError) {
-                                    console.error("Failed to sync local categories:", syncError);
+                                if (missingInDb.length > 0) {
+                                    console.log(`Syncing ${missingInDb.length} local categories to Supabase...`);
+                                    const toInsert = missingInDb.map(c => ({ name: c.name }));
+                                    // OPT: Use .select() on insert to get IDs back directly, avoids a second query
+                                    const { data: insertedData, error: syncError } = await db.from('expense_categories').insert(toInsert).select();
+                                    if (!syncError && insertedData) {
+                                        finalCategories = [...finalCategories, ...insertedData].sort((a, b) => a.name.localeCompare(b.name));
+                                    } else if (syncError) {
+                                        console.error("Failed to sync local categories:", syncError);
+                                    }
                                 }
                             }
                         }
+                    } catch (e) {
+                        console.warn("Could not sync local categories:", e);
                     }
-                } catch (e) {
-                    console.warn("Could not sync local categories:", e);
-                }
 
-                // 3. If still empty (new DB), seed with defaults
-                if (finalCategories.length === 0) {
-                    const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
-                    const seedObjs = defaults.map(name => ({ name: name }));
-                    // OPT: Use .select() on insert to get IDs back directly, avoids a second query
-                    const { data: seededData } = await db.from('expense_categories').insert(seedObjs).select();
-                    finalCategories = seededData || finalCategories;
+                    // 3. If still empty (new DB), seed with defaults - ADMIN ONLY
+                    if (finalCategories.length === 0) {
+                        const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
+                        const seedObjs = defaults.map(name => ({ name: name }));
+                        const { data: seededData } = await db.from('expense_categories').insert(seedObjs).select();
+                        finalCategories = seededData || finalCategories;
+                    }
                 }
 
                 currentExpenseCategories = finalCategories;

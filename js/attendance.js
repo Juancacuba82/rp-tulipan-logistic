@@ -53,9 +53,43 @@ window.updateAttendanceButtons = async function() {
     const email = window.userEmail;
     if (!email) return;
 
-    const lastState = await window.getLastAttendanceState(email);
+    const role = (window.currentUserRole || '').toString().toLowerCase().trim();
+    const isAdmin = role === 'admin';
+    const isEmployeeOrStudent = (role === 'employee' || role === 'student' || role === 'staff');
     const btnIn = document.getElementById('btn-clockin');
     const btnOut = document.getElementById('btn-clockout-nav') || document.getElementById('btn-clockout');
+    const userDisplay = document.getElementById('user-display-name');
+
+    // Handle user name display for all non-drivers
+    if (userDisplay) {
+        if (isAdmin || isEmployeeOrStudent) {
+            userDisplay.style.display = 'inline-block';
+            const name = window.currentDriverNameRef || email.split('@')[0];
+            userDisplay.textContent = name.toUpperCase();
+        } else {
+            userDisplay.style.display = 'none';
+        }
+    }
+
+    if (isAdmin) {
+        if (btnIn) btnIn.style.display = 'none';
+        if (btnOut) btnOut.style.display = 'none';
+        return;
+    }
+
+    // For non-admins (employees/students), ensure buttons are visible and proceed with clock logic
+    if (isEmployeeOrStudent) {
+        // showView already handles base display: inline-flex, but we can ensure it here
+        if (btnIn && btnIn.style.display === 'none') btnIn.style.display = 'inline-flex';
+        if (btnOut && btnOut.style.display === 'none') btnOut.style.display = 'inline-flex';
+    } else {
+        // If it's a driver or unknown, hide everything
+        if (btnIn) btnIn.style.display = 'none';
+        if (btnOut) btnOut.style.display = 'none';
+        return;
+    }
+
+    const lastState = await window.getLastAttendanceState(email);
     
     if (btnIn) {
         btnIn.disabled = (lastState === 'CLOCK_IN' || lastState === 'ALREADY_FINISHED_TODAY');
@@ -404,10 +438,10 @@ window.handleClockOut = async function() {
         email = session.user.email;
     }
 
-    const btn = document.getElementById('btn-clockout');
+    const btn = document.getElementById('btn-clockout-nav') || document.getElementById('btn-clockout');
 
     // Check state first
-    const lastState = await window.getLastAttendanceState(session.user.email);
+    const lastState = await window.getLastAttendanceState(email);
     if (lastState === 'CLOCK_OUT' || !lastState) {
         alert("You are not currently Clocked In.");
         if (btn) btn.disabled = true;
@@ -472,7 +506,6 @@ window.handleClockOut = async function() {
     } catch (err) {
         console.error("Clock Out Error:", err);
         alert(`Error during Clock Out: ${err.message || JSON.stringify(err)}`);
-    } finally {
         if (btn) btn.disabled = false;
     }
 };
@@ -536,7 +569,10 @@ window.loadAttendanceData = async function(force = false) {
         const allSessions = [];
 
         data.forEach(log => {
-            const employee = log.driver_name || 'Unknown';
+            const lookupEmail = (log.user_email || '').toString().toLowerCase().trim();
+            const employee = (window.globalUserNameMap && window.globalUserNameMap[lookupEmail]) 
+                ? window.globalUserNameMap[lookupEmail] 
+                : (log.driver_name || 'Unknown');
             const type = log.action_type;
             const date = log.view_date;
             const timeStr = new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -617,7 +653,8 @@ window.loadAttendanceData = async function(force = false) {
         // --- NEW: PAYROLL CALCULATION ---
         const HOURLY_RATES = {
             'garridoyariselis@gmail.com': 25.00,
-            'rptulipantransport@gmail.com': 17.50
+            'rptulipantransport@gmail.com': 17.50,
+            'anthonyps06@icloud.com': 14.00
         };
 
         const payrollSummary = {}; // employeeName -> { hours, pay, email }
@@ -630,8 +667,13 @@ window.loadAttendanceData = async function(force = false) {
                 s.hours = 0;
             }
             
-            const rate = HOURLY_RATES[s.email] || 0;
+            const lookupKey = (s.email || '').toString().toLowerCase().trim();
+            const rate = HOURLY_RATES[lookupKey] || 0;
             s.pay = s.hours * rate;
+            
+            if (s.hours > 0 && rate === 0 && s.email) {
+                console.warn(`No hourly rate found for: "${lookupKey}"`);
+            }
 
             if (s.employee) {
                 if (!payrollSummary[s.employee]) {
@@ -835,11 +877,15 @@ window.resetAttendanceFilters = function() {
     const startInput = document.getElementById('att-start-date');
     const endInput = document.getElementById('att-end-date');
     const empInput = document.getElementById('att-filter-employee');
+    
+    const hasFilters = (startInput && startInput.value) || (endInput && endInput.value) || (empInput && empInput.value);
+    if (!hasFilters) return;
+
     if (startInput) startInput.value = '';
     if (endInput) endInput.value = '';
     if (empInput) empInput.value = '';
     
-    // Reload everything
+    // Refresh only when filters are actually cleared to update the view
     window.loadAttendanceData(true);
 };
 
@@ -849,7 +895,7 @@ window.populateAttendanceEmployeeFilter = async function() {
     
     try {
         const { data, error } = await window.db.from('profiles')
-            .select('driver_name_ref, full_name, name, email')
+            .select('driver_name_ref, email')
             .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'user', 'student', 'STUDENT']);
         
         if (error) throw error;
@@ -862,7 +908,7 @@ window.populateAttendanceEmployeeFilter = async function() {
 
         if (data) {
             data.forEach(p => {
-                const name = p.driver_name_ref || p.full_name || p.name;
+                const name = p.driver_name_ref || (p.email ? p.email.split('@')[0].toUpperCase() : 'Unknown');
                 if (name) {
                     names.add(name);
                     if (p.email) {
@@ -904,11 +950,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial button state check
     const checkButtons = setInterval(() => {
+        // Wait for DB and for a role that isn't the initial null or default 'user' if possible
+        // But if it's 'user' and stays 'user' after a while, we proceed.
         if (window.db && window.currentUserRole) {
+            // If it's still the default 'user', we wait up to 3 seconds for a potential 'admin' update
+            if (window.currentUserRole === 'user' && !window._roleWaitStarted) {
+                window._roleWaitStarted = Date.now();
+                return;
+            }
+            if (window.currentUserRole === 'user' && (Date.now() - window._roleWaitStarted < 3000)) {
+                return;
+            }
+
             clearInterval(checkButtons);
             window.updateAttendanceButtons();
-            window.populateAttendanceEmployeeFilter();
-            window.loadAttendanceData(true);
+            window.populateAttendanceEmployeeFilter().then(() => {
+                window.loadAttendanceData(true);
+            });
             
             // OPT: Increased from 60s to 5 min — updateAttendanceButtons now uses cached email
             // and only hits activity_logs (LIMIT 1), so it's cheap but still frequent enough.
@@ -916,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.updateAttendanceButtons();
             }, 300000);
         }
-    }, 1000);
+    }, 500);
 
     // Default range REMOVED as per user request to see all records by default
     const startInput = document.getElementById('att-start-date');

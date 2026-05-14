@@ -21,10 +21,8 @@
             
             let query = db.from('tasks').select('*').eq('is_deleted', false);
             
-            // If employee or user, only show tasks assigned to them
-            // If user, only show tasks assigned to them OR assigned to 'EVERYONE'
-            const isStaff = (role === 'admin' || role === 'employee' || role === 'staff' || role === 'student');
-            if (!isStaff) {
+            // Only admin sees everything. Employees, students and others only see their assigned tasks or EVERYONE.
+            if (role !== 'admin' && email) {
                 query = query.or(`assigned_to_email.eq.${email},assigned_to_email.eq.EVERYONE`);
             }
             
@@ -131,10 +129,6 @@
         }
 
         const role = (window.currentUserRole || '').toLowerCase().trim();
-        if (role === 'student' && editingTaskId) {
-            alert("Students can only create tasks, not modify existing ones.");
-            return;
-        }
 
         const btn = document.getElementById('btn-save-task');
         btn.disabled = true;
@@ -258,10 +252,7 @@
 
     window.markTaskDone = async function(id) {
         const role = (window.currentUserRole || '').toLowerCase().trim();
-        if (role === 'student') {
-            alert("Students cannot mark tasks as completed.");
-            return;
-        }
+        // Students can now mark tasks as done. Only delete is restricted.
         if (!confirm("Mark this task as completed?")) return;
         try {
             const { error } = await db.from('tasks').update({
@@ -341,6 +332,13 @@
             
             // --- NEW: Add EVERYONE option ONLY for admins ---
             const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+            
+            // Hide the employee filter in the toolbar for non-admins
+            const filterContainer = document.getElementById('task-filter-email')?.parentElement;
+            if (filterContainer) {
+                filterContainer.style.display = isAdmin ? 'block' : 'none';
+            }
+
             if (isAdmin) {
                 const optEveryone = document.createElement('option');
                 optEveryone.value = 'EVERYONE';
@@ -351,10 +349,13 @@
             }
             
             employeeProfiles.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.email;
-                opt.textContent = p.email; // Use email as the label to be safe
-                sel.appendChild(opt);
+                if (p.email) {
+                    const opt = document.createElement('option');
+                    opt.value = p.email;
+                    const displayName = p.driver_name_ref || p.email.split('@')[0];
+                    opt.textContent = displayName.toUpperCase();
+                    sel.appendChild(opt);
+                }
             });
             
             if (currentVal) sel.value = currentVal;
@@ -374,7 +375,9 @@
                 employeeProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.email;
-                    opt.textContent = p.email;
+                    const rawName = p.driver_name_ref;
+                    const displayName = (rawName && rawName.trim() !== '') ? rawName : p.email.split('@')[0];
+                    opt.textContent = displayName.toUpperCase();
                     filterSel.appendChild(opt);
                 });
                 if (fVal) filterSel.value = fVal;

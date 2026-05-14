@@ -7,11 +7,26 @@ let editingCallId = null;
 
 // OPT: Cache profiles locally to avoid 3 separate queries during load/transfer
 let cachedProfilesEmails = null;
+const ANTHONY_EMAIL = 'anthonyps06@icloud.com';
+
+async function autoAssignWebsiteLeads() {
+    try {
+        // Find leads from website that are not assigned to Anthony
+        const { error } = await db.from('call_logs')
+            .update({ created_by: ANTHONY_EMAIL })
+            .eq('source', 'website')
+            .or(`created_by.is.null,created_by.neq.${ANTHONY_EMAIL}`);
+        
+        if (error) console.warn("Auto-assignment of website leads failed:", error);
+    } catch (err) {
+        console.error("Critical error in auto-assignment:", err);
+    }
+}
 async function getProfilesEmails() {
     if (cachedProfilesEmails) return cachedProfilesEmails;
     const { data, error } = await db.from('profiles')
-        .select('email')
-        .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
+        .select('email, driver_name_ref')
+        .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT', 'user', 'USER'])
         .order('email');
     if (error) throw error;
     cachedProfilesEmails = data || [];
@@ -31,9 +46,9 @@ async function loadCallsData(force = false) {
 
         let query = db.from('call_logs').select('*').gte('date', dateStr);
         
-        // If the user is not admin, only show their own records (Students see everything for learning)
+        // If the user is not admin, only show their own records or those marked for EVERYONE
         const role = (window.currentUserRole || '').toLowerCase().trim();
-        if (role !== 'admin' && role !== 'student' && window.userEmail) {
+        if (role !== 'admin' && window.userEmail) {
             query = query.or(`created_by.eq.${window.userEmail},created_by.eq.EVERYONE`);
         }
 
@@ -41,6 +56,13 @@ async function loadCallsData(force = false) {
 
         if (error) throw error;
         currentCalls = data || [];
+
+        // Auto-assign website leads if admin or Anthony is viewing
+        const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
+        if (isAdmin || window.userEmail === ANTHONY_EMAIL) {
+            await autoAssignWebsiteLeads();
+        }
+
         renderCallsTable();
         await updateCallSellerDropdown();
         await populateCallAssignedSelect();
@@ -73,7 +95,9 @@ async function populateCallAssignedSelect() {
             if (p.email) {
                 const opt = document.createElement('option');
                 opt.value = p.email;
-                opt.textContent = p.email.split('@')[0].toUpperCase();
+                const rawName = p.driver_name_ref;
+                const displayName = (rawName && rawName.trim() !== '') ? rawName : p.email.split('@')[0];
+                opt.textContent = displayName.toUpperCase();
                 sel.appendChild(opt);
             }
         });
@@ -105,7 +129,10 @@ async function populateCallAssignedSelect() {
         emails.sort().forEach(e => {
             const opt = document.createElement('option');
             opt.value = e;
-            opt.textContent = e.split('@')[0].toUpperCase();
+            // Check global map if available
+            const mappedName = (window.globalUserNameMap && window.globalUserNameMap[e.toLowerCase().trim()]);
+            const displayName = mappedName || e.split('@')[0];
+            opt.textContent = displayName.toUpperCase();
             sel.appendChild(opt);
         });
         if (window.userEmail) sel.value = window.userEmail;
@@ -310,9 +337,9 @@ async function executeTransfer() {
         alert("Client transferred successfully");
         closeTransferModal();
 
-        // Update local state: if not admin/student, remove it as it's no longer theirs
+        // Update local state: if not admin, remove it as it's no longer theirs (unless it's EVERYONE)
         const role = (window.currentUserRole || '').toLowerCase().trim();
-        if (role !== 'admin' && role !== 'student') {
+        if (role !== 'admin') {
             currentCalls = currentCalls.filter(c => c.id !== callIdToTransfer);
         } else if (data && data.length > 0) {
             const idx = currentCalls.findIndex(c => c.id === callIdToTransfer);
@@ -370,10 +397,6 @@ async function saveCallLog() {
 
     const role = (window.currentUserRole || '').toLowerCase().trim();
     if (role === 'student') {
-        if (editingCallId) {
-            alert("Students can only create call records, not modify existing ones.");
-            return;
-        }
         if (payload.status === 'SOLD') {
             alert("Students cannot set status to SOLD (leads to calendar creation).");
             return;
@@ -573,7 +596,9 @@ async function updateCallSellerDropdown() {
             if (p.email) {
                 const opt = document.createElement('option');
                 opt.value = p.email;
-                opt.textContent = p.email.split('@')[0].toUpperCase();
+                const rawName = p.driver_name_ref;
+                const displayName = (rawName && rawName.trim() !== '') ? rawName : p.email.split('@')[0];
+                opt.textContent = displayName.toUpperCase();
                 sel.appendChild(opt);
             }
         });
@@ -584,7 +609,9 @@ async function updateCallSellerDropdown() {
         sellers.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s;
-            opt.textContent = s.split('@')[0].toUpperCase();
+            const mappedName = (window.globalUserNameMap && window.globalUserNameMap[s.toLowerCase().trim()]);
+            const displayName = mappedName || s.split('@')[0];
+            opt.textContent = displayName.toUpperCase();
             sel.appendChild(opt);
         });
     }

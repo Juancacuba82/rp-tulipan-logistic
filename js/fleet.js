@@ -1,5 +1,6 @@
         // --- FLEET MANAGEMENT LOGIC ---
-        let currentFleetTab = 'truck';
+        var currentFleetTab = window.currentFleetTab || 'truck';
+        window.currentFleetTab = currentFleetTab;
 
         window.openMaintenanceLog = async function(unitId) {
             const unit = currentFleet.find(u => u.id === unitId);

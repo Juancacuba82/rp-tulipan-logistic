@@ -2557,3 +2557,103 @@ main {
 #import-paste-area:focus { border-color: #0ea5e9 !important; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15); }
 .map-select:focus { border-color: #0ea5e9 !important; outline: none; }
 @media screen and (max-width: 600px) { #signature-modal .modal-content { width: 95% !important; padding: 15px !important; } #signature-pad { width: 100% !important; height: 150px !important; } }
+
+/* --- ATTENDANCE MODERN REDESIGN --- */
+.attendance-toolbar-modern {
+    background: white;
+    padding: 20px 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    margin-bottom: 25px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border: 1px solid #e2e8f0;
+}
+
+.attendance-filters-wrapper {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.attendance-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.attendance-input-group label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.attendance-field-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.attendance-field-with-icon i {
+    position: absolute;
+    left: 12px;
+    color: #94a3b8;
+    font-size: 0.95rem;
+    pointer-events: none;
+}
+
+.attendance-field-with-icon .form-input,
+.attendance-field-with-icon .form-select {
+    padding-left: 38px !important;
+    height: 45px !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 10px !important;
+    font-size: 0.95rem !important;
+    color: #1e293b !important;
+    transition: all 0.2s ease !important;
+    background: #f8fafc !important;
+}
+
+.attendance-field-with-icon .form-input:focus,
+.attendance-field-with-icon .form-select:focus {
+    border-color: #10b981 !important;
+    background: white !important;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
+    outline: none !important;
+}
+
+.btn-reset-modern {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    padding: 0 25px;
+    height: 45px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 20px; /* Align with inputs */
+}
+
+.btn-reset-modern:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+    transform: translateY(-1px);
+}
+
+.btn-reset-modern:active {
+    transform: translateY(0);
+}
