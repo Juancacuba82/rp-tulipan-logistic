@@ -854,15 +854,15 @@
                         <div style="display: flex; gap: 10px; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 5px;">
                                 <label style="font-size: 0.7rem; font-weight: 800; color: #64748b;">FROM:</label>
-                                <input type="date" id="att-start-date" class="form-input" style="width: 140px;" onchange="loadAttendanceData()">
+                                <input type="date" id="att-start-date" class="form-input" style="width: 140px;" onchange="loadAttendanceData(true)">
                             </div>
                             <div style="display: flex; align-items: center; gap: 5px;">
                                 <label style="font-size: 0.7rem; font-weight: 800; color: #64748b;">TO:</label>
-                                <input type="date" id="att-end-date" class="form-input" style="width: 140px;" onchange="loadAttendanceData()">
+                                <input type="date" id="att-end-date" class="form-input" style="width: 140px;" onchange="loadAttendanceData(true)">
                             </div>
                             <div style="display: flex; align-items: center; gap: 5px;">
                                 <label style="font-size: 0.7rem; font-weight: 800; color: #64748b;">EMPLOYEE:</label>
-                                <select id="att-filter-employee" class="form-input" style="width: 160px;" onchange="loadAttendanceData()">
+                                <select id="att-filter-employee" class="form-select" onchange="loadAttendanceData(true)">
                                     <option value="">All Employees</option>
                                 </select>
                             </div>

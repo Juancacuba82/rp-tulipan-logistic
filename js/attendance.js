@@ -138,7 +138,7 @@ window.adminClockOut = async function(driverName, userEmail, viewDate) {
         if (error) throw error;
         
         alert(`Successfully clocked out ${driverName}`);
-        await window.loadAttendanceData();
+        await window.loadAttendanceData(true);
         if (window.updateAttendanceButtons) await window.updateAttendanceButtons();
     } catch (err) {
         console.error("Admin Clock Out Error:", err);
@@ -191,7 +191,7 @@ window.editAttendanceLog = async function(logId, currentDate, currentTime) {
         }
 
         alert("Log successfully updated!");
-        await window.loadAttendanceData(); // Refresh the table
+        await window.loadAttendanceData(true); // Refresh the table
     } catch (err) {
         console.error("Edit Error:", err);
         alert(`Error editing log: ${err.message || JSON.stringify(err)}`);
@@ -296,7 +296,7 @@ window.openFullEditModal = function(employee, email, dateStr, inId, inTimeStr, o
             }
 
             document.getElementById('att-full-edit-modal').remove();
-            await window.loadAttendanceData();
+            await window.loadAttendanceData(true);
         } catch (err) {
             console.error(err);
             alert("Error: " + err.message);
@@ -477,9 +477,17 @@ window.handleClockOut = async function() {
     }
 };
 
-window.loadAttendanceData = async function() {
+window._lastAttendanceLoad = 0;
+window.loadAttendanceData = async function(force = false) {
     if (!window.db) return;
     
+    // Cache: Avoid reloading if last load was < 2 minutes ago, unless forced (e.g. after edit/delete/filter change)
+    const currentTime = Date.now();
+    if (!force && (currentTime - window._lastAttendanceLoad < 120000)) {
+        return;
+    }
+    window._lastAttendanceLoad = currentTime;
+
     try {
         const tbody = document.getElementById('attendance-body');
         if (!tbody) return;
@@ -814,7 +822,7 @@ window.deleteAttendanceSession = async function(inId, outId) {
             alert("Warning: No records were deleted from the database.\n\nPossible reasons:\n1. The records were already deleted.\n2. Database permissions (RLS) prevent you from deleting these logs.\n3. The ID column name is incorrect (unlikely).");
         } else {
             alert(`Successfully deleted ${data.length} record(s).`);
-            await window.loadAttendanceData();
+            await window.loadAttendanceData(true);
             if (window.updateAttendanceButtons) await window.updateAttendanceButtons();
         }
     } catch (err) {
@@ -832,7 +840,7 @@ window.resetAttendanceFilters = function() {
     if (empInput) empInput.value = '';
     
     // Reload everything
-    window.loadAttendanceData();
+    window.loadAttendanceData(true);
 };
 
 window.populateAttendanceEmployeeFilter = async function() {
@@ -900,7 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInterval(checkButtons);
             window.updateAttendanceButtons();
             window.populateAttendanceEmployeeFilter();
-            window.loadAttendanceData();
+            window.loadAttendanceData(true);
             
             // OPT: Increased from 60s to 5 min — updateAttendanceButtons now uses cached email
             // and only hits activity_logs (LIMIT 1), so it's cheap but still frequent enough.
