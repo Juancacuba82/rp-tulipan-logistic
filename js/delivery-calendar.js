@@ -525,6 +525,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             .eq('id', releaseId);
                         
                         if (stockError) throw stockError;
+                        
+                        // OPT: Update local cache directly to avoid fetching full releases table again
+                        releaseRow[14] = newStock;
                     }
                 }
 
@@ -543,7 +546,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 resetForm();
                 await loadTableData();
-                if (window.loadReleasesData) await window.loadReleasesData(true);
+                // OPT: Use force=false since we manually updated the local cache
+                if (window.loadReleasesData) await window.loadReleasesData(false);
                 if (window.updateReleaseDatalist) window.updateReleaseDatalist();
                 if (window.updateAddressDatalist) window.updateAddressDatalist();
                 if (window.renderDriverLog) window.renderDriverLog();
@@ -1534,7 +1538,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                             .update({ total_stock: newStock })
                                             .eq('id', releaseUuid);
                                             
-                                        if (window.loadReleasesData) await window.loadReleasesData(true);
+                                        // OPT: Update local cache directly
+                                        match[14] = newStock;
+                                            
+                                        if (window.loadReleasesData) await window.loadReleasesData(false);
                                     }
                                 }
 

@@ -49,10 +49,11 @@ window.getLastAttendanceState = async function(email) {
 };
 
 window.updateAttendanceButtons = async function() {
-    const { data: { session } } = await window.db.auth.getSession();
-    if (!session) return;
-    
-    const lastState = await window.getLastAttendanceState(session.user.email);
+    // OPT: Use cached email (set at login) instead of hitting auth endpoint on every call
+    const email = window.userEmail;
+    if (!email) return;
+
+    const lastState = await window.getLastAttendanceState(email);
     const btnIn = document.getElementById('btn-clockin');
     const btnOut = document.getElementById('btn-clockout-nav') || document.getElementById('btn-clockout');
     
@@ -205,13 +206,18 @@ window.editAttendanceLog = async function(logId, currentDate, currentTime) {
 window.handleClockIn = async function() {
     if (!window.db) return alert("Database not connected");
 
-    const { data: { session } } = await window.db.auth.getSession();
-    if (!session) return alert("You must be logged in.");
+    // OPT: Use cached email to skip auth.getSession() query
+    let email = window.userEmail;
+    if (!email) {
+        const { data: { session } } = await window.db.auth.getSession();
+        if (!session) return alert("You must be logged in.");
+        email = session.user.email;
+    }
 
     const btn = document.getElementById('btn-clockin');
-    
+
     // Check state first to be safe
-    const lastState = await window.getLastAttendanceState(session.user.email);
+    const lastState = await window.getLastAttendanceState(email);
     if (lastState === 'CLOCK_IN') {
         alert("You are already Clocked In. You must Clock Out before Clocking In again.");
         if (btn) btn.disabled = true;
@@ -248,16 +254,19 @@ window.handleClockIn = async function() {
 
         const now = new Date();
         const viewDate = now.toISOString().split('T')[0];
-        
-        // Get user profile info
-        const user = session.user;
-        const email = user.email;
-        let driverName = email.split('@')[0];
-        
-        const { data: profile } = await window.db.from('profiles').select('*').eq('id', user.id).single();
-        if (profile) {
-            driverName = profile.driver_name_ref || profile.full_name || profile.name || driverName;
+
+        // OPT: Use cached driver name, only query profiles as fallback
+        let driverName = window.currentDriverNameRef || window.currentUserName || null;
+        if (!driverName) {
+            const { data: profile } = await window.db.from('profiles')
+                .select('driver_name_ref, full_name, name')
+                .eq('email', email)
+                .single();
+            if (profile) {
+                driverName = profile.driver_name_ref || profile.full_name || profile.name;
+            }
         }
+        if (!driverName) driverName = email.split('@')[0];
 
         // Direct insert so we can catch any RLS errors
         const { error } = await window.db.from('activity_logs').insert([{
@@ -284,8 +293,13 @@ window.handleClockIn = async function() {
 window.handleClockOut = async function() {
     if (!window.db) return alert("Database not connected");
 
-    const { data: { session } } = await window.db.auth.getSession();
-    if (!session) return alert("You must be logged in.");
+    // OPT: Use cached email to skip auth.getSession() query
+    let email = window.userEmail;
+    if (!email) {
+        const { data: { session } } = await window.db.auth.getSession();
+        if (!session) return alert("You must be logged in.");
+        email = session.user.email;
+    }
 
     const btn = document.getElementById('btn-clockout');
 
@@ -326,15 +340,19 @@ window.handleClockOut = async function() {
 
         const now = new Date();
         const viewDate = now.toISOString().split('T')[0];
-        
-        const user = session.user;
-        const email = user.email;
-        let driverName = email.split('@')[0];
-        
-        const { data: profile } = await window.db.from('profiles').select('*').eq('id', user.id).single();
-        if (profile) {
-            driverName = profile.driver_name_ref || profile.full_name || profile.name || driverName;
+
+        // OPT: Use cached driver name, only query profiles as fallback
+        let driverName = window.currentDriverNameRef || window.currentUserName || null;
+        if (!driverName) {
+            const { data: profile } = await window.db.from('profiles')
+                .select('driver_name_ref, full_name, name')
+                .eq('email', email)
+                .single();
+            if (profile) {
+                driverName = profile.driver_name_ref || profile.full_name || profile.name;
+            }
         }
+        if (!driverName) driverName = email.split('@')[0];
 
         const { error } = await window.db.from('activity_logs').insert([{
             user_email: email.trim(),
@@ -758,10 +776,11 @@ document.addEventListener('DOMContentLoaded', () => {
             window.updateAttendanceButtons();
             window.populateAttendanceEmployeeFilter();
             
-            // Re-check buttons every minute to enforce 05:01 PM cutoff live
+            // OPT: Increased from 60s to 5 min — updateAttendanceButtons now uses cached email
+            // and only hits activity_logs (LIMIT 1), so it's cheap but still frequent enough.
             setInterval(() => {
                 window.updateAttendanceButtons();
-            }, 60000);
+            }, 300000);
         }
     }, 1000);
 

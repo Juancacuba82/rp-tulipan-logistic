@@ -2,21 +2,28 @@
         window.logActivity = async function (actionType, details = null, viewDate = null) {
             if (!db) return;
             try {
-                const { data: { session } } = await db.auth.getSession();
-                if (!session) return;
+                // OPT: Use cached session data (set at login) to avoid redundant auth + profile queries
+                let email = window.userEmail;
+                let driverName = window.currentDriverNameRef || window.currentUserName || null;
 
-                const user = session.user;
-                const email = user.email;
-                
-                // Get name from profiles table
-                const { data: profile } = await db.from('profiles').select('*').eq('id', user.id).single();
-                
-                // Tiered name fallback:
-                let driverName = profile?.driver_name_ref || profile?.full_name || profile?.name || email.split('@')[0];
-                
-                // Final safety:
+                // Only fall back to DB queries if cache is empty (e.g. first load)
+                if (!email) {
+                    const { data: { session } } = await db.auth.getSession();
+                    if (!session) return;
+                    email = session.user.email;
+
+                    if (!driverName) {
+                        const { data: profile } = await db.from('profiles')
+                            .select('driver_name_ref, full_name, name')
+                            .eq('id', session.user.id)
+                            .single();
+                        driverName = profile?.driver_name_ref || profile?.full_name || profile?.name;
+                    }
+                }
+
+                // Final safety net
                 if (!driverName || driverName === 'null') {
-                    driverName = email.split('@')[0] || "Unknown";
+                    driverName = (email || '').split('@')[0] || "Unknown";
                 }
 
                 const { error } = await db.from('activity_logs').insert([{
@@ -26,13 +33,13 @@
                     view_date: viewDate,
                     driver_name: driverName.toString().trim()
                 }]);
-                
+
                 if (error) throw error;
                 console.log(`Activity logged (v900): ${actionType} for ${driverName}`);
-                
+
                 // Notify any open views to refresh their read-receipt icons
-                window.dispatchEvent(new CustomEvent('activityLogged', { 
-                    detail: { driverName, actionType, viewDate } 
+                window.dispatchEvent(new CustomEvent('activityLogged', {
+                    detail: { driverName, actionType, viewDate }
                 }));
             } catch (err) {
                 console.warn("Could not log activity:", err);
@@ -42,11 +49,17 @@
         window.fetchActivityLogs = async function (type = null, date = null) {
             if (!db) return [];
             try {
-                let query = db.from('activity_logs').select('*');
+                // OPT: Limit to last 90 days + LIMIT 500 to prevent full-table downloads as activity_logs grows
+                const ninetyDaysAgo = new Date();
+                ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+                let query = db.from('activity_logs')
+                    .select('id, user_email, action_type, details, view_date, driver_name, created_at')
+                    .gte('created_at', ninetyDaysAgo.toISOString());
                 if (type) query = query.eq('action_type', type);
                 if (date) query = query.eq('view_date', date);
-                
-                const { data, error } = await query.order('created_at', { ascending: false });
+
+                const { data, error } = await query.order('created_at', { ascending: false }).limit(500);
                 if (error) throw error;
                 return data || [];
             } catch (err) {
@@ -1052,10 +1065,9 @@
             try {
                 // 1. Load current categories from Supabase
                 const { data: dbData, error } = await db.from('expense_categories').select('*').order('name', { ascending: true });
-                
+
                 if (error) {
                     console.error("Supabase error loading categories:", error);
-                    // Fallback to defaults if table doesn't exist
                     const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
                     currentExpenseCategories = defaults.map((name, i) => ({ id: i, name }));
                     refreshExpenseCategorySelects();
@@ -1070,23 +1082,18 @@
                     if (localRaw) {
                         const localData = JSON.parse(localRaw);
                         if (Array.isArray(localData) && localData.length > 0) {
-                            // Find categories that exist locally but NOT in the database
-                            const missingInDb = localData.filter(localCat => 
+                            const missingInDb = localData.filter(localCat =>
                                 !finalCategories.some(dbCat => dbCat.name.toLowerCase() === localCat.name.toLowerCase())
                             );
 
                             if (missingInDb.length > 0) {
                                 console.log(`Syncing ${missingInDb.length} local categories to Supabase...`);
                                 const toInsert = missingInDb.map(c => ({ name: c.name }));
-                                const { error: syncError } = await db.from('expense_categories').insert(toInsert);
-                                
-                                if (!syncError) {
-                                    // Reload from DB to get the full updated list with IDs
-                                    const { data: updatedData } = await db.from('expense_categories').select('*').order('name', { ascending: true });
-                                    finalCategories = updatedData || finalCategories;
-                                    // Clear local storage now that it's synced
-                                    // localStorage.removeItem('rp_expense_categories'); 
-                                } else {
+                                // OPT: Use .select() on insert to get IDs back directly, avoids a second query
+                                const { data: insertedData, error: syncError } = await db.from('expense_categories').insert(toInsert).select();
+                                if (!syncError && insertedData) {
+                                    finalCategories = [...finalCategories, ...insertedData].sort((a, b) => a.name.localeCompare(b.name));
+                                } else if (syncError) {
                                     console.error("Failed to sync local categories:", syncError);
                                 }
                             }
@@ -1100,9 +1107,9 @@
                 if (finalCategories.length === 0) {
                     const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
                     const seedObjs = defaults.map(name => ({ name: name }));
-                    await db.from('expense_categories').insert(seedObjs);
-                    const { data: freshData } = await db.from('expense_categories').select('*').order('name', { ascending: true });
-                    finalCategories = freshData || [];
+                    // OPT: Use .select() on insert to get IDs back directly, avoids a second query
+                    const { data: seededData } = await db.from('expense_categories').insert(seedObjs).select();
+                    finalCategories = seededData || finalCategories;
                 }
 
                 currentExpenseCategories = finalCategories;

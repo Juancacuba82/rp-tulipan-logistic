@@ -5,6 +5,19 @@
 let currentCalls = [];
 let editingCallId = null;
 
+// OPT: Cache profiles locally to avoid 3 separate queries during load/transfer
+let cachedProfilesEmails = null;
+async function getProfilesEmails() {
+    if (cachedProfilesEmails) return cachedProfilesEmails;
+    const { data, error } = await db.from('profiles')
+        .select('email')
+        .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
+        .order('email');
+    if (error) throw error;
+    cachedProfilesEmails = data || [];
+    return cachedProfilesEmails;
+}
+
 async function loadCallsData(force = false) {
     if (!force && currentCalls && currentCalls.length > 0) {
         renderCallsTable();
@@ -42,12 +55,7 @@ async function populateCallAssignedSelect() {
 
     const currentVal = sel.value;
     try {
-        const { data, error } = await db.from('profiles')
-            .select('email')
-            .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
-            .order('email');
-
-        if (error) throw error;
+        const data = await getProfilesEmails();
 
         sel.innerHTML = '';
         
@@ -246,12 +254,7 @@ async function openTransferModal(id) {
         sel.innerHTML = '<option value="">Loading employees...</option>';
         try {
             // Fetch only admin and employee roles
-            const { data, error } = await db.from('profiles')
-                .select('email')
-                .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
-                .order('email');
-
-            if (error) throw error;
+            const data = await getProfilesEmails();
 
             sel.innerHTML = '<option value="">Select Employee...</option>';
             
@@ -557,12 +560,7 @@ async function updateCallSellerDropdown() {
     
     try {
         // Fetch all potential sellers (admins, employees, staff)
-        const { data, error } = await db.from('profiles')
-            .select('email')
-            .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
-            .order('email');
-
-        if (error) throw error;
+        const data = await getProfilesEmails();
 
         sel.innerHTML = '<option value="">All Employees</option>';
         
