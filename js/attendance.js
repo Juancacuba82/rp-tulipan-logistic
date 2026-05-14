@@ -78,12 +78,131 @@ window.updateAttendanceButtons = async function() {
     }
 };
 
-window.handleClockIn = async function() {
+/**
+ * Flexible time parser to handle various AM/PM formats (AM, PM, a.m., p.m., etc.)
+ */
+function parseFlexibleTime(timeStr, baseDateStr) {
+    if (!timeStr) return new Date();
+    
+    // Clean string: "05:15 p. m." -> "05:15 pm"
+    const clean = timeStr.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+    const isPM = clean.includes('pm') || clean.includes('p m');
+    const isAM = clean.includes('am') || clean.includes('a m');
+    
+    // Extract numbers
+    const timePart = clean.replace(/[ap] m|[ap]m/g, '').trim();
+    let [hours, minutes] = timePart.split(':').map(Number);
+    if (isNaN(hours)) hours = 0;
+    if (isNaN(minutes)) minutes = 0;
+    
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+    
+    const [y, m, d] = baseDateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d, hours, minutes, 0);
+    return date;
+}
+
+// --- NEW: ADMIN CAPABILITIES ---
+
+/**
+ * Allows an admin to manually clock out an employee who forgot to do so.
+ */
+window.adminClockOut = async function(driverName, userEmail, viewDate) {
     const role = (window.currentUserRole || '').toLowerCase().trim();
-    if (role === 'student') {
-        alert("Students cannot use attendance features.");
+    if (role !== 'admin') {
+        alert("Only admins can perform manual clock outs.");
         return;
     }
+    
+    if (!confirm(`Force Clock Out for ${driverName} on ${viewDate}?`)) return;
+
+    try {
+        const now = new Date();
+        const defaultTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timeStr = prompt("Enter Clock Out Time (Example: 05:30 PM or 5:30 p.m.):", defaultTime);
+        if (timeStr === null) return;
+
+        const clockOutTimestamp = parseFlexibleTime(timeStr, viewDate);
+
+        const { error } = await window.db.from('activity_logs').insert([{
+            user_email: userEmail.trim(),
+            action_type: 'CLOCK_OUT',
+            details: 'Admin Manual Clock Out',
+            view_date: viewDate,
+            driver_name: driverName.toString().trim(),
+            created_at: clockOutTimestamp.toISOString()
+        }]);
+
+        if (error) throw error;
+        
+        alert(`Successfully clocked out ${driverName}`);
+        await window.loadAttendanceData();
+        if (window.updateAttendanceButtons) await window.updateAttendanceButtons();
+    } catch (err) {
+        console.error("Admin Clock Out Error:", err);
+        alert(`Error: ${err.message}`);
+    }
+};
+
+/**
+ * Allows an admin to edit the timestamp of a specific clock-in or clock-out log.
+ */
+window.editAttendanceLog = async function(logId, currentDate, currentTime) {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role !== 'admin') {
+        alert("Only admins can edit logs.");
+        return;
+    }
+
+    const newDateTimePrompt = prompt("Edit Log Time (YYYY-MM-DD HH:MM AM/PM):", `${currentDate} ${currentTime}`);
+    if (!newDateTimePrompt) return;
+
+    try {
+        console.log(`Attempting to edit log ${logId} with: ${newDateTimePrompt}`);
+        
+        // Separate date and time parts
+        const parts = newDateTimePrompt.trim().split(/\s+/);
+        if (parts.length < 2) throw new Error("Invalid format. Use: YYYY-MM-DD HH:MM AM/PM");
+        
+        const datePart = parts[0];
+        const timeStr = parts.slice(1).join(' ');
+        
+        const finalDate = parseFlexibleTime(timeStr, datePart);
+        
+        if (isNaN(finalDate.getTime())) throw new Error("Invalid date/time result");
+
+        console.log("Final ISO string to send:", finalDate.toISOString());
+
+        // Strategy: Direct UPDATE (Assumes Admin RLS policy is enabled in Supabase)
+        const { data, error } = await window.db.from('activity_logs')
+            .update({
+                created_at: finalDate.toISOString(),
+                view_date: datePart
+            })
+            .eq('id', logId)
+            .select();
+
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            throw new Error("No records were updated. Check if the ID exists or if you have permissions (did you run the SQL code in Supabase?).");
+        }
+
+        alert("Log updated successfully.");
+        
+        setTimeout(async () => {
+            await window.loadAttendanceData();
+            if (window.updateAttendanceButtons) await window.updateAttendanceButtons();
+        }, 500);
+
+    } catch (err) {
+        console.error("Edit Attendance Error:", err);
+        alert("Error: " + err.message);
+    }
+};
+
+window.handleClockIn = async function() {
     if (!window.db) return alert("Database not connected");
 
     const { data: { session } } = await window.db.auth.getSession();
@@ -163,11 +282,6 @@ window.handleClockIn = async function() {
 };
 
 window.handleClockOut = async function() {
-    const role = (window.currentUserRole || '').toLowerCase().trim();
-    if (role === 'student') {
-        alert("Students cannot use attendance features.");
-        return;
-    }
     if (!window.db) return alert("Database not connected");
 
     const { data: { session } } = await window.db.auth.getSession();
@@ -256,7 +370,7 @@ window.loadAttendanceData = async function() {
     
     try {
         let query = window.db.from('activity_logs')
-            .select('*')
+            .select('id, user_email, action_type, details, view_date, driver_name, created_at')
             .in('action_type', ['CLOCK_IN', 'CLOCK_OUT'])
             .order('created_at', { ascending: true });
 
@@ -264,9 +378,9 @@ window.loadAttendanceData = async function() {
         if (startDate && startDate.trim() !== '') {
             query = query.gte('view_date', startDate);
         } else {
-            // Default: 90 days ago
+            // Default: 30 days ago (Reduced from 90 to save Disk IO)
             const d = new Date();
-            d.setDate(d.getDate() - 90);
+            d.setDate(d.getDate() - 30);
             query = query.gte('view_date', d.toISOString().split('T')[0]);
         }
         
@@ -488,9 +602,16 @@ window.loadAttendanceData = async function() {
             tr.innerHTML = `
                 <td><strong>${dateStr}</strong></td>
                 <td><strong style="color:#1e293b;">${s.employee}</strong></td>
-                <td><span style="color:#166534; font-weight:bold;">${s.inTime || '---'}</span></td>
+                <td style="position:relative;">
+                    <span style="color:#166534; font-weight:bold;">${s.inTime || '---'}</span>
+                    ${isAdmin && s.inId ? `<button onclick="editAttendanceLog('${s.inId}', '${s.date}', '${s.inTime}')" style="margin-left:5px; background:none; border:none; color:#64748b; cursor:pointer; font-size:0.7rem;" title="Edit In Time"><i class="fas fa-edit"></i></button>` : ''}
+                </td>
                 <td>${s.inLoc || '---'}</td>
-                <td><span style="color:#9a3412; font-weight:bold;">${s.outTime || '---'}</span></td>
+                <td style="position:relative;">
+                    <span style="color:#9a3412; font-weight:bold;">${s.outTime || '---'}</span>
+                    ${isAdmin && s.outId ? `<button onclick="editAttendanceLog('${s.outId}', '${s.date}', '${s.outTime}')" style="margin-left:5px; background:none; border:none; color:#64748b; cursor:pointer; font-size:0.7rem;" title="Edit Out Time"><i class="fas fa-edit"></i></button>` : ''}
+                    ${isAdmin && !s.outId && s.inId ? `<button onclick="adminClockOut('${s.employee.replace(/'/g, "\\'")}', '${s.email}', '${s.date}')" style="margin-left:8px; background:#fef3c7; border:1px solid #f59e0b; color:#92400e; cursor:pointer; font-size:0.6rem; padding:2px 5px; border-radius:4px; font-weight:800; vertical-align:middle;" title="Force Clock Out">CLOCK OUT</button>` : ''}
+                </td>
                 <td>${s.outLoc || '---'}</td>
                 <td><span style="font-weight:700;">${s.hours ? s.hours.toFixed(2) : '---'}</span></td>
                 ${isAdmin ? `<td style="color:#059669; font-weight:800;">$${(s.pay || 0).toFixed(2)}</td>` : '<td class="admin-only">---</td>'}
@@ -577,8 +698,8 @@ window.populateAttendanceEmployeeFilter = async function() {
     
     try {
         const { data, error } = await window.db.from('profiles')
-            .select('*')
-            .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'user']);
+            .select('driver_name_ref, full_name, name, email')
+            .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'user', 'student', 'STUDENT']);
         
         if (error) throw error;
         

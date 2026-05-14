@@ -132,7 +132,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
-                'in-invoice-sent'
+                'in-invoice-sent', 'in-seller'
             ];
 
             // 0. UNIQUE CONTAINER VALIDATION REMOVED
@@ -451,7 +451,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 existingPhotos, // 55
                 '',             // 56 (driver sig placeholder - handled by dbObj mapping)
                 document.getElementById('in-invoice-sent')?.value || 'NO', // 57
-                window.userEmail || '' // 58: created_by (Captures current author)
+                window.userEmail || '', // 58: created_by (Captures current author)
+                document.getElementById('in-seller')?.value || '---' // 59: closed_by (Employee)
             ];
 
             const dbObj = mapArrayToTrip(rowData);
@@ -1005,7 +1006,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-note',
                 'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
-                'in-invoice-sent'
+                'in-invoice-sent', 'in-seller'
             ];
 
             fields.forEach((id, i) => {
@@ -1017,6 +1018,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     v = rowData[53]; // Qty is index 53
                 } else if (id === 'in-invoice-sent') {
                     v = rowData[57] || 'NO';
+                } else if (id === 'in-seller') {
+                    v = rowData[59] || '---';
                 } else {
                     v = rowData[i + 1];
                 }
@@ -1230,6 +1233,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 window.currentTrips = data.map(mapTripToArray);
 
+                // Filter by Employee if set
+                const sellerFilter = document.getElementById('f-seller-cal')?.value;
+                if (sellerFilter) {
+                    window.currentTrips = window.currentTrips.filter(t => (t[59] || '').trim() === sellerFilter.trim());
+                }
+
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded (Initial Load) ---
                 if (window.renderDriverLog) window.renderDriverLog();
                 
@@ -1263,6 +1272,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.stsales = stSales || 'PEND';
                         tr.dataset.stamount = stAmount || 'PEND';
                         tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
+                        tr.dataset.seller = rowData[59] || '';
                         // Service type flags for filtering
                         tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
@@ -1314,7 +1324,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             rowData[23],          // 19: Phone #
                             rowData[24],          // 20: Paid Driver
                             rowData[25],          // 21: Note
-                            email                 // 22: Email
+                            (() => {
+                                const emailVal = rowData[59];
+                                if (!emailVal || emailVal === '---') return '---';
+                                const clean = emailVal.trim().toLowerCase();
+                                const name = window.globalUserNameMap ? window.globalUserNameMap[clean] : null;
+                                return name || emailVal.split('@')[0].toUpperCase();
+                            })(), // 22: Employee (Seller)
+                            email                 // 23: Email
                         ];
 
                         displayData.forEach((text, i) => {
@@ -1361,6 +1378,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 }
                             } else {
                                 td.textContent = text;
+                            }
+
+                            // Highlight Employee (Seller) column specifically (now index 22)
+                            if (i === 22) {
+                                td.style.fontWeight = 'bold';
+                                td.style.color = '#1e40af'; // Blue
                             }
 
                             // Custom styling for Driver Cell (Seen Indicator)

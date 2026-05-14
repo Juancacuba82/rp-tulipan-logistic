@@ -840,8 +840,9 @@
         window.applyRoleVisibility = function() {
             const role = (window.currentUserRole || 'driver').toString().toLowerCase().trim();
             const isAdmin = (role === 'admin');
-            const isEmployee = (role === 'employee' || role === 'staff');
+            const isEmployee = (role === 'employee' || role === 'staff' || role === 'student');
             const isDriver = (role === 'driver');
+            const isStudent = (role === 'student');
 
             console.log("Applying Visibility for role:", role, "isAdmin:", isAdmin);
 
@@ -854,6 +855,10 @@
             driverEls.forEach(el => el.style.display = (isAdmin || isDriver) ? '' : 'none');
             employeeEls.forEach(el => el.style.display = (isAdmin || isEmployee) ? '' : 'none');
             staffEls.forEach(el => el.style.display = (isAdmin || isEmployee) ? '' : 'none');
+
+            // Attendance Navigation: Only for Admin
+            const btnAttNav = document.getElementById('btn-attendance-nav');
+            if (btnAttNav) btnAttNav.style.display = isAdmin ? 'inline-flex' : 'none';
 
             // Calculator: visible to all but READ-ONLY for drivers
             const calc = document.querySelector('.weekly-calculator-container');

@@ -1301,6 +1301,12 @@
                         <!-- Removed INVOICE as per user request -->
                         <div class="form-group"><label class="sidebar-label-btn">Note</label><input type="text"
                                 id="in-note"></div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;">Employee</label>
+                            <select id="in-seller">
+                                <option value="">Select Employee...</option>
+                            </select>
+                        </div>
                         <div class="form-group"><label class="sidebar-label-btn">Email</label><input type="email"
                                 id="in-email" placeholder="customer@email.com"></div>
 
@@ -1373,6 +1379,12 @@
                                 <label>Company</label>
                                 <select id="f-company" onchange="applyAdvancedFilters()">
                                     <option value="">All Companies</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Employee</label>
+                                <select id="f-seller-cal" onchange="applyAdvancedFilters()">
+                                    <option value="">All Employees</option>
                                 </select>
                             </div>
                             <!-- Removed STATUS filter as per user request -->
@@ -1481,6 +1493,7 @@
                                     <th>Phone #</th>
                                     <th>Paid Driver</th>
                                     <th>Note</th>
+                                    <th>Employee</th>
                                     <th>Email</th>
                                     <th style="width: 100px;">Actions</th>
                                 </tr>
@@ -3413,6 +3426,13 @@
                                 <option value="" disabled selected>Loading employees...</option>
                             </select>
                         </div>
+                        <div class="form-group admin-only-field" id="task-status-group" style="display: none;">
+                            <label class="sidebar-label-btn" style="background: #10b981 !important;">STATUS</label>
+                            <select id="task-status">
+                                <option value="PENDING">PENDING</option>
+                                <option value="COMPLETED">COMPLETED</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;">DESCRIPTION / NOTES</label>
                             <textarea id="task-desc" placeholder="Detailed instructions here..."
@@ -4075,7 +4095,6 @@
             
             // Driver Redirection (Hero is too empty for them, go straight to Docs)
             const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
-            const forbiddenForStudents = ['profit-report', 'attendance'];
             
             if (normalizedRole === 'driver') {
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
@@ -4083,6 +4102,7 @@
                     finalView = 'docs';
                 }
             } else if (normalizedRole === 'student' || normalizedRole === 'employee') {
+                const forbiddenForStudents = ['profit-report', 'attendance'];
                 if (forbiddenForStudents.includes(finalView)) {
                     console.warn("Restricted user redirected to Hero from:", finalView);
                     finalView = 'hero';
@@ -4120,12 +4140,12 @@
                         if (btnEmail && normalizedRole === 'admin') btnEmail.style.display = 'inline-flex';
                         if (btnLogout) btnLogout.style.display = 'inline-flex';
                         
-                        // Clock in/out are only for admin/staff, not for drivers or students
-                        const canClock = (normalizedRole !== 'driver' && normalizedRole !== 'student');
+                        // Clock in/out are for admin, staff, employees and students
+                        const canClock = (normalizedRole !== 'driver');
                         if (btnClockIn) btnClockIn.style.display = canClock ? 'inline-flex' : 'none';
                         if (btnClockOut) btnClockOut.style.display = canClock ? 'inline-flex' : 'none';
                         
-                        // Show attendance card for admins
+                        // Show attendance card only for admins
                         const cardAtt = document.getElementById('card-attendance');
                         if (cardAtt && normalizedRole === 'admin') {
                             cardAtt.style.display = 'flex';
@@ -4310,6 +4330,7 @@
                     if (window.loadPickupAddressesData) window.loadPickupAddressesData();
                     if (window.loadDepotsData) window.loadDepotsData();
                     if (window.loadSellersData) window.loadSellersData();
+            if (window.loadStaffProfiles) window.loadStaffProfiles();
                     if (window.loadCompaniesData) window.loadCompaniesData();
                     if (window.loadContainerSizesData) window.loadContainerSizesData();
                     if (window.loadExpenseCategoriesData) window.loadExpenseCategoriesData();
@@ -4514,7 +4535,8 @@
                 fromDate: document.getElementById('f-from-date')?.value || '',
                 toDate: document.getElementById('f-to-date')?.value || '',
                 transferredOnly: document.getElementById('f-transferred')?.checked || false,
-                pastDueOnly: document.getElementById('f-past-due')?.checked || false
+                pastDueOnly: document.getElementById('f-past-due')?.checked || false,
+                seller: document.getElementById('f-seller-cal')?.value || ''
             };
 
             const rows = document.querySelectorAll('#table-body tr');
@@ -4535,6 +4557,7 @@
                 const valCollect = (cells[18].textContent || '').toLowerCase().trim();
                 const valPhone = (cells[19].textContent || '').toLowerCase().trim();
                 const valNote = (cells[21]?.textContent || '').toUpperCase().trim();
+                const valSeller = (tr.dataset.seller || '').toLowerCase().trim();
 
                 const matchTransferred = !filters.transferredOnly || valNote.includes('[TRANSFERRED FROM FORM CALL]');
 
@@ -4549,6 +4572,7 @@
                 const matchOrder = !filters.order || valOrder.includes(filters.order.toLowerCase().trim());
                 const matchRelease = !filters.release || valRelease.includes(filters.release.toLowerCase().trim());
                 const matchPhone = !filters.phone || valPhone.includes(filters.phone.toLowerCase().trim());
+                const matchSeller = !filters.seller || valSeller === filters.seller.toLowerCase().trim();
 
                 const toISO = (dStr) => {
                     if (!dStr || dStr === '---') return null;
@@ -4629,7 +4653,7 @@
                 }
 
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
-                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue) {
+                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller) {
                     tr.style.display = '';
                 } else {
                     tr.style.display = 'none';

@@ -696,7 +696,7 @@
             const populate = (sel, hasAll = false) => {
                 if (!sel) return;
                 const currentVal = sel.value;
-                sel.innerHTML = hasAll ? '<option value="">ALL</option>' : '<option value="" disabled selected>Select Seller</option>';
+                sel.innerHTML = hasAll ? '<option value="">All Sellers</option>' : '<option value="" disabled selected>Select Seller</option>';
                 currentSellers.forEach(s => {
                     const opt = document.createElement('option');
                     opt.value = s.name;
@@ -708,6 +708,47 @@
 
             populate(relSel);
             populate(relFilterSel, true);
+        }
+
+        // --- STAFF PROFILES LOGIC (For Delivery Calendar Employee Field) ---
+        let currentStaff = [];
+        async function loadStaffProfiles() {
+            if (!db) return;
+            try {
+                const { data, error } = await db.from('profiles')
+                    .select('email, role')
+                    .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
+                    .order('email');
+                if (error) throw error;
+                currentStaff = data || [];
+                refreshStaffSelects();
+            } catch (err) {
+                console.error("Error loading staff profiles:", err);
+            }
+        }
+        window.loadStaffProfiles = loadStaffProfiles;
+
+        function refreshStaffSelects() {
+            const calSellerSel = document.getElementById('in-seller');
+            const calSellerFilter = document.getElementById('f-seller-cal');
+
+            const populate = (sel, hasAll = false) => {
+                if (!sel) return;
+                const currentVal = sel.value;
+                sel.innerHTML = hasAll ? '<option value="">All Employees</option>' : '<option value="" disabled selected>Select Employee...</option>';
+                currentStaff.forEach(p => {
+                    if (p.email) {
+                        const opt = document.createElement('option');
+                        opt.value = p.email;
+                        opt.textContent = p.email.split('@')[0].toUpperCase();
+                        sel.appendChild(opt);
+                    }
+                });
+                if (currentVal) sel.value = currentVal;
+            };
+
+            populate(calSellerSel);
+            populate(calSellerFilter, true);
         }
 
         function renderSellerManagerList() {

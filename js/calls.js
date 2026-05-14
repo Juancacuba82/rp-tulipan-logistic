@@ -21,7 +21,7 @@ async function loadCallsData(force = false) {
         // If the user is not admin, only show their own records (Students see everything for learning)
         const role = (window.currentUserRole || '').toLowerCase().trim();
         if (role !== 'admin' && role !== 'student' && window.userEmail) {
-            query = query.eq('created_by', window.userEmail);
+            query = query.or(`created_by.eq.${window.userEmail},created_by.eq.EVERYONE`);
         }
 
         const { data, error } = await query.order('date', { ascending: false }).limit(1000);
@@ -44,12 +44,23 @@ async function populateCallAssignedSelect() {
     try {
         const { data, error } = await db.from('profiles')
             .select('email')
-            .in('role', ['admin', 'employee', 'staff', 'student'])
+            .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
             .order('email');
 
         if (error) throw error;
 
         sel.innerHTML = '';
+        
+        const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+        if (isAdmin) {
+            const optEveryone = document.createElement('option');
+            optEveryone.value = 'EVERYONE';
+            optEveryone.textContent = 'EVERYONE';
+            optEveryone.style.fontWeight = '900';
+            optEveryone.style.color = '#1e40af';
+            sel.appendChild(optEveryone);
+        }
+
         data.forEach(p => {
             if (p.email) {
                 const opt = document.createElement('option');
@@ -72,6 +83,17 @@ async function populateCallAssignedSelect() {
         if (window.userEmail && !emails.includes(window.userEmail)) emails.push(window.userEmail);
         
         sel.innerHTML = '';
+
+        const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+        if (isAdmin) {
+            const optEveryone = document.createElement('option');
+            optEveryone.value = 'EVERYONE';
+            optEveryone.textContent = 'EVERYONE';
+            optEveryone.style.fontWeight = '900';
+            optEveryone.style.color = '#1e40af';
+            sel.appendChild(optEveryone);
+        }
+
         emails.sort().forEach(e => {
             const opt = document.createElement('option');
             opt.value = e;
@@ -226,12 +248,21 @@ async function openTransferModal(id) {
             // Fetch only admin and employee roles
             const { data, error } = await db.from('profiles')
                 .select('email')
-                .in('role', ['admin', 'employee'])
+                .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
                 .order('email');
 
             if (error) throw error;
 
             sel.innerHTML = '<option value="">Select Employee...</option>';
+            
+            const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+            if (isAdmin) {
+                const optEveryone = document.createElement('option');
+                optEveryone.value = 'EVERYONE';
+                optEveryone.textContent = 'EVERYONE';
+                sel.appendChild(optEveryone);
+            }
+
             data.forEach(p => {
                 if (p.email && p.email !== window.userEmail) { // Don't transfer to self
                     const opt = document.createElement('option');
@@ -528,12 +559,18 @@ async function updateCallSellerDropdown() {
         // Fetch all potential sellers (admins, employees, staff)
         const { data, error } = await db.from('profiles')
             .select('email')
-            .in('role', ['admin', 'employee', 'staff', 'student'])
+            .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'student', 'STUDENT'])
             .order('email');
 
         if (error) throw error;
 
         sel.innerHTML = '<option value="">All Employees</option>';
+        
+        const optEveryone = document.createElement('option');
+        optEveryone.value = 'EVERYONE';
+        optEveryone.textContent = 'EVERYONE';
+        sel.appendChild(optEveryone);
+
         data.forEach(p => {
             if (p.email) {
                 const opt = document.createElement('option');

@@ -22,9 +22,10 @@
             let query = db.from('tasks').select('*').eq('is_deleted', false);
             
             // If employee or user, only show tasks assigned to them
+            // If user, only show tasks assigned to them OR assigned to 'EVERYONE'
             const isStaff = (role === 'admin' || role === 'employee' || role === 'staff' || role === 'student');
             if (!isStaff) {
-                query = query.eq('assigned_to_email', email);
+                query = query.or(`assigned_to_email.eq.${email},assigned_to_email.eq.EVERYONE`);
             }
             
             const { data, error } = await query.order('created_at', { ascending: false });
@@ -141,13 +142,27 @@
 
         try {
             let result;
+            const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
+            const statusVal = document.getElementById('task-status')?.value || 'PENDING';
+
             if (editingTaskId) {
-                const { data, error } = await db.from('tasks').update({
+                const updateData = {
                     title: title,
                     description: desc,
                     assigned_to: assigneeName,
                     assigned_to_email: assigneeEmail
-                }).eq('id', editingTaskId).select();
+                };
+
+                // Admin can modify status
+                if (isAdmin) {
+                    const oldTask = currentTasks.find(t => t.id === editingTaskId);
+                    if (oldTask && oldTask.status !== statusVal) {
+                        updateData.status = statusVal;
+                        updateData.completed_at = (statusVal === 'COMPLETED') ? new Date().toISOString() : null;
+                    }
+                }
+
+                const { data, error } = await db.from('tasks').update(updateData).eq('id', editingTaskId).select();
                 if (error) throw error;
                 result = data ? data[0] : null;
                 if (window.showToast) window.showToast("Task updated successfully!", "success");
@@ -175,7 +190,6 @@
             }
 
             resetTaskForm();
-            // await loadTasksData(); // REMOVED: No more full reload
             applyTaskFilters(); // Just re-render
         } catch (err) {
             console.error("Error adding task:", err);
@@ -195,6 +209,15 @@
         document.getElementById('task-desc').value = task.description || '';
         document.getElementById('task-assignee').value = task.assigned_to_email;
 
+        // Admin status control
+        const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
+        const statusGroup = document.getElementById('task-status-group');
+        const statusField = document.getElementById('task-status');
+        if (isAdmin && statusGroup && statusField) {
+            statusGroup.style.display = 'block';
+            statusField.value = task.status;
+        }
+
         const btn = document.getElementById('btn-save-task');
         if (btn) {
             btn.textContent = "UPDATE TASK";
@@ -212,6 +235,10 @@
         document.getElementById('task-title').value = '';
         document.getElementById('task-desc').value = '';
         document.getElementById('task-assignee').value = '';
+
+        // Hide status control
+        const statusGroup = document.getElementById('task-status-group');
+        if (statusGroup) statusGroup.style.display = 'none';
 
         const btn = document.getElementById('btn-save-task');
         if (btn) {
@@ -312,6 +339,17 @@
             const currentVal = sel.value;
             sel.innerHTML = '<option value="" disabled selected>Select Employee...</option>';
             
+            // --- NEW: Add EVERYONE option ONLY for admins ---
+            const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+            if (isAdmin) {
+                const optEveryone = document.createElement('option');
+                optEveryone.value = 'EVERYONE';
+                optEveryone.textContent = 'EVERYONE';
+                optEveryone.style.fontWeight = '900';
+                optEveryone.style.color = '#1e40af';
+                sel.appendChild(optEveryone);
+            }
+            
             employeeProfiles.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.email;
@@ -326,6 +364,13 @@
             if (filterSel) {
                 const fVal = filterSel.value;
                 filterSel.innerHTML = '<option value="">All Employees</option>';
+                
+                // Add Everyone option to filter too
+                const optEveryone = document.createElement('option');
+                optEveryone.value = 'EVERYONE';
+                optEveryone.textContent = 'EVERYONE';
+                filterSel.appendChild(optEveryone);
+
                 employeeProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.email;

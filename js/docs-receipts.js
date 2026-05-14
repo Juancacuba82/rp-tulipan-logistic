@@ -380,6 +380,13 @@
             takeTax: takeTax,
             showBilling: showBilling,
             driver: (trip[17] && trip[17] !== '---') ? trip[17] : '',
+            seller: (() => {
+                const email = trip[59];
+                if (!email || email === '---') return '';
+                const cleanEmail = email.trim().toLowerCase();
+                const name = window.globalUserNameMap ? window.globalUserNameMap[cleanEmail] : null;
+                return name || email.split('@')[0].toUpperCase();
+            })(),
             notes: (trip[25] && trip[25] !== '---') ? trip[25] : '',
             cond: {
                 asis: (trip[25] || '').toUpperCase().includes('AS IS'),
@@ -421,7 +428,7 @@
             return `<div class="receipt-section-title">${title}</div><div class="receipt-grid-3">${content}</div>`;
         };
 
-        const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver);
+        const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver) + f('EMPLOYEE', data.seller);
         const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
         
         const isComplete = (data.status === 'PAID' || data.status === 'COMPLETE' || data.status === 'DELIVERED');
