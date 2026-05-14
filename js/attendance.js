@@ -190,17 +190,120 @@ window.editAttendanceLog = async function(logId, currentDate, currentTime) {
             throw new Error("No records were updated. Check if the ID exists or if you have permissions (did you run the SQL code in Supabase?).");
         }
 
-        alert("Log updated successfully.");
-        
-        setTimeout(async () => {
-            await window.loadAttendanceData();
-            if (window.updateAttendanceButtons) await window.updateAttendanceButtons();
-        }, 500);
-
+        alert("Log successfully updated!");
+        await window.loadAttendanceData(); // Refresh the table
     } catch (err) {
-        console.error("Edit Attendance Error:", err);
-        alert("Error: " + err.message);
+        console.error("Edit Error:", err);
+        alert(`Error editing log: ${err.message || JSON.stringify(err)}`);
     }
+};
+
+window.openFullEditModal = function(employee, email, dateStr, inId, inTimeStr, outId, outTimeStr) {
+    // Remove existing modal if any
+    const existing = document.getElementById('att-full-edit-modal');
+    if (existing) existing.remove();
+
+    const convertTo24h = (time12h) => {
+        if (!time12h || time12h === '---' || time12h.includes('SYSTEM')) return '';
+        const match = time12h.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!match) return '';
+        let h = parseInt(match[1], 10);
+        const m = match[2];
+        const ampm = match[3].toUpperCase();
+        if (ampm === 'PM' && h < 12) h += 12;
+        if (ampm === 'AM' && h === 12) h = 0;
+        return `${h.toString().padStart(2, '0')}:${m}`;
+    };
+
+    const in24 = convertTo24h(inTimeStr);
+    const out24 = convertTo24h(outTimeStr);
+
+    const safeEmployee = employee.replace(/'/g, "&#39;");
+    const safeEmail = email.replace(/'/g, "&#39;");
+
+    const modalHtml = `
+    <div id="att-full-edit-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; justify-content:center; align-items:center;">
+        <div style="background:white; padding:20px; border-radius:8px; width:400px; max-width:90%; box-shadow:0 4px 6px rgba(0,0,0,0.1); font-family: 'Inter', sans-serif;">
+            <h3 style="margin-top:0; color:#1e293b; font-weight:800; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">Edit Attendance</h3>
+            <p style="color:#64748b; font-size:0.9rem;"><strong>Employee:</strong> ${safeEmployee}</p>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; font-weight:700; margin-bottom:5px; color:#334155;">Date</label>
+                <input type="date" id="edit-att-date" value="${dateStr}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; font-weight:700; margin-bottom:5px; color:#166534;">Time In</label>
+                <input type="time" id="edit-att-in" value="${in24}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="display:block; font-weight:700; margin-bottom:5px; color:#9a3412;">Time Out</label>
+                <input type="time" id="edit-att-out" value="${out24}" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:4px; box-sizing:border-box;">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top: 20px;">
+                <button onclick="document.getElementById('att-full-edit-modal').remove()" style="padding:8px 15px; background:#e2e8f0; color:#475569; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Cancel</button>
+                <button id="btn-save-att-edit" style="padding:8px 15px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    document.getElementById('btn-save-att-edit').onclick = async () => {
+        const newDate = document.getElementById('edit-att-date').value;
+        const newIn = document.getElementById('edit-att-in').value;
+        const newOut = document.getElementById('edit-att-out').value;
+
+        if (!newDate) return alert("Date is required.");
+
+        try {
+            document.getElementById('btn-save-att-edit').disabled = true;
+            document.getElementById('btn-save-att-edit').textContent = 'Saving...';
+
+            const formatISO = (datePart, time24) => {
+                if (!time24) return null;
+                const d = new Date(datePart + 'T' + time24 + ':00');
+                return d.toISOString();
+            };
+
+            const newInISO = formatISO(newDate, newIn);
+            const newOutISO = formatISO(newDate, newOut);
+
+            const inIdClean = (inId !== 'null' && inId !== 'undefined' && inId) ? inId : null;
+            const outIdClean = (outId !== 'null' && outId !== 'undefined' && outId) ? outId : null;
+
+            // Handle Time In
+            if (inIdClean && newIn) {
+                await window.db.from('activity_logs').update({ created_at: newInISO, view_date: newDate }).eq('id', inIdClean);
+            } else if (!inIdClean && newIn) {
+                await window.db.from('activity_logs').insert([{
+                    user_email: email, driver_name: employee, action_type: 'CLOCK_IN',
+                    details: 'Manual Entry (Admin)', view_date: newDate, created_at: newInISO
+                }]);
+            } else if (inIdClean && !newIn) {
+                await window.db.from('activity_logs').delete().eq('id', inIdClean);
+            }
+
+            // Handle Time Out
+            if (outIdClean && newOut) {
+                await window.db.from('activity_logs').update({ created_at: newOutISO, view_date: newDate }).eq('id', outIdClean);
+            } else if (!outIdClean && newOut) {
+                await window.db.from('activity_logs').insert([{
+                    user_email: email, driver_name: employee, action_type: 'CLOCK_OUT',
+                    details: 'Manual Entry (Admin)', view_date: newDate, created_at: newOutISO
+                }]);
+            } else if (outIdClean && !newOut) {
+                await window.db.from('activity_logs').delete().eq('id', outIdClean);
+            }
+
+            document.getElementById('att-full-edit-modal').remove();
+            await window.loadAttendanceData();
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message);
+            document.getElementById('btn-save-att-edit').disabled = false;
+            document.getElementById('btn-save-att-edit').textContent = 'Save Changes';
+        }
+    };
 };
 
 window.handleClockIn = async function() {
@@ -377,16 +480,16 @@ window.handleClockOut = async function() {
 window.loadAttendanceData = async function() {
     if (!window.db) return;
     
-    const tbody = document.getElementById('attendance-body');
-    if (!tbody) return;
-
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>';
-
-    const startDate = document.getElementById('att-start-date').value;
-    const endDate = document.getElementById('att-end-date').value;
-    const filterEmployee = document.getElementById('att-filter-employee')?.value || '';
-    
     try {
+        const tbody = document.getElementById('attendance-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>';
+
+        const startDate = document.getElementById('att-start-date')?.value || '';
+        const endDate = document.getElementById('att-end-date')?.value || '';
+        const filterEmployee = document.getElementById('att-filter-employee')?.value || '';
+
         let query = window.db.from('activity_logs')
             .select('id, user_email, action_type, details, view_date, driver_name, created_at')
             .in('action_type', ['CLOCK_IN', 'CLOCK_OUT'])
@@ -617,29 +720,51 @@ window.loadAttendanceData = async function() {
             const dParts = s.date.split('-');
             const dateStr = dParts.length === 3 ? `${dParts[1]}/${dParts[2]}/${dParts[0]}` : s.date;
 
+            const safeEmp = s.employee ? s.employee.replace(/'/g, "\\'") : '';
+            const safeEmail = s.email ? s.email.replace(/'/g, "\\'") : '';
+            const safeInTime = s.inTime ? s.inTime.replace(/'/g, "\\'") : '';
+            const safeOutTime = s.outTime ? s.outTime.replace(/'/g, "\\'") : '';
+
+            if (isAdmin) {
+                tr.style.cursor = 'pointer';
+                tr.classList.add('hover-row');
+                tr.onclick = (e) => {
+                    // Prevent triggering if clicking action buttons like delete
+                    if (e.target.closest('button')) return;
+                    window.openFullEditModal(s.employee, s.email, s.date, s.inId, s.inTime, s.outId, s.outTime);
+                };
+            }
+
+            const clockOutBtn = (isAdmin && !s.outId && s.inId) ? 
+                '<button onclick="adminClockOut(\'' + safeEmp + '\', \'' + safeEmail + '\', \'' + s.date + '\')" style="margin-left:8px; background:#fef3c7; border:1px solid #f59e0b; color:#92400e; cursor:pointer; font-size:0.6rem; padding:2px 5px; border-radius:4px; font-weight:800; vertical-align:middle;" title="Force Clock Out">CLOCK OUT</button>' : '';
+
+            const payCell = isAdmin ? 
+                '<td style="color:#059669; font-weight:800;">$' + (s.pay || 0).toFixed(2) + '</td>' : 
+                '<td class="admin-only">---</td>';
+
+            const actionCell = isAdmin ? `
+                <td style="text-align:center;">
+                    <button onclick="deleteAttendanceSession('${s.inId}', '${s.outId}')" class="btn-manage-inline" style="background:#fee2e2; color:#ef4444; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            ` : '<td></td>';
+
             tr.innerHTML = `
                 <td><strong>${dateStr}</strong></td>
-                <td><strong style="color:#1e293b;">${s.employee}</strong></td>
+                <td><strong style="color:#1e293b;">${s.employee || '---'}</strong></td>
                 <td style="position:relative;">
                     <span style="color:#166534; font-weight:bold;">${s.inTime || '---'}</span>
-                    ${isAdmin && s.inId ? `<button onclick="editAttendanceLog('${s.inId}', '${s.date}', '${s.inTime}')" style="margin-left:5px; background:none; border:none; color:#64748b; cursor:pointer; font-size:0.7rem;" title="Edit In Time"><i class="fas fa-edit"></i></button>` : ''}
                 </td>
                 <td>${s.inLoc || '---'}</td>
                 <td style="position:relative;">
                     <span style="color:#9a3412; font-weight:bold;">${s.outTime || '---'}</span>
-                    ${isAdmin && s.outId ? `<button onclick="editAttendanceLog('${s.outId}', '${s.date}', '${s.outTime}')" style="margin-left:5px; background:none; border:none; color:#64748b; cursor:pointer; font-size:0.7rem;" title="Edit Out Time"><i class="fas fa-edit"></i></button>` : ''}
-                    ${isAdmin && !s.outId && s.inId ? `<button onclick="adminClockOut('${s.employee.replace(/'/g, "\\'")}', '${s.email}', '${s.date}')" style="margin-left:8px; background:#fef3c7; border:1px solid #f59e0b; color:#92400e; cursor:pointer; font-size:0.6rem; padding:2px 5px; border-radius:4px; font-weight:800; vertical-align:middle;" title="Force Clock Out">CLOCK OUT</button>` : ''}
+                    ${clockOutBtn}
                 </td>
                 <td>${s.outLoc || '---'}</td>
-                <td><span style="font-weight:700;">${s.hours ? s.hours.toFixed(2) : '---'}</span></td>
-                ${isAdmin ? `<td style="color:#059669; font-weight:800;">$${(s.pay || 0).toFixed(2)}</td>` : '<td class="admin-only">---</td>'}
-                ${isAdmin ? `
-                    <td style="text-align:center;">
-                        <button onclick="deleteAttendanceSession('${s.inId}', '${s.outId}')" class="btn-manage-inline" style="background:#fee2e2; color:#ef4444; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </td>
-                ` : '<td></td>'}
+                <td><span style="font-weight:700;">${(s.hours || 0).toFixed(2)}</span></td>
+                ${payCell}
+                ${actionCell}
             `;
             const lookupEmail = (s.email || '').toString().toLowerCase().trim();
             const loggedByName = (window.globalUserNameMap && window.globalUserNameMap[lookupEmail]) ? window.globalUserNameMap[lookupEmail] : s.employee;
@@ -775,6 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInterval(checkButtons);
             window.updateAttendanceButtons();
             window.populateAttendanceEmployeeFilter();
+            window.loadAttendanceData();
             
             // OPT: Increased from 60s to 5 min — updateAttendanceButtons now uses cached email
             // and only hits activity_logs (LIMIT 1), so it's cheap but still frequent enough.
