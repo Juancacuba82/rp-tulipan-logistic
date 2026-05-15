@@ -118,8 +118,11 @@
                 safeParse(t.photos, []),      // 55
                 t.signature_driver || '',     // 56
                 t.invoice_sent || 'NO',       // 57
-                t.created_by || '---',         // 58
-                t.closed_by || '---'          // 59
+                t.container_source || 'RELEASE', // 58
+                t.yard_item_id || '',          // 59
+                t.created_by || '---',         // 60
+                t.closed_by || '---',          // 61
+                t.move_to_yard || false        // 62
             ];
         }
 
@@ -183,8 +186,11 @@
                 signature: row[54] || '',
                 photos: row[55] || [],
                 invoice_sent: row[57] || 'NO',
-                created_by: row[58] || null,
-                closed_by: row[59] || '---'
+                container_source: row[58] || 'RELEASE',
+                yard_item_id: row[59] || null,
+                created_by: row[60] || null,
+                closed_by: row[61] || '---',
+                move_to_yard: row[62] === true || row[62] === 'true'
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB

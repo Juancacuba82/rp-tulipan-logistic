@@ -721,6 +721,7 @@
                 <button onclick="closeMenu(); showView('inventory')" class="btn-calendar" title="FORM INVENTOR"><i class="fas fa-boxes"></i> INVENTORY</button>
                 <button onclick="closeMenu(); showView('calls')" class="btn-calendar" title="FORM CALL"><i class="fas fa-phone-alt"></i> CALLS</button>
                 <button onclick="closeMenu(); showView('rentals')" class="btn-calendar" title="RENTALS"><i class="fas fa-key"></i> RENTALS</button>
+                <button onclick="closeMenu(); showView('yard')" class="btn-calendar" title="YARD STOCK"><i class="fas fa-warehouse"></i> YARD</button>
                 <button onclick="closeMenu(); showView('tasks')" class="btn-calendar" title="TASKS & TO-DO"><i class="fas fa-tasks"></i> TASKS</button>
                 <button onclick="closeMenu(); showView('attendance')" id="btn-attendance-nav" class="btn-calendar" title="ATTENDANCE"><i class="fas fa-calendar-check"></i> ATTENDANCE</button>
             </div>
@@ -833,6 +834,10 @@
                     <button onclick="showView('rentals')" class="dash-card">
                         <i class="fas fa-key"></i>
                         <span>RENTALS</span>
+                    </button>
+                    <button onclick="showView('yard')" class="dash-card">
+                        <i class="fas fa-warehouse"></i>
+                        <span>YARD STOCK</span>
                     </button>
                     <button onclick="showView('tasks')" class="dash-card">
                         <i class="fas fa-tasks"></i>
@@ -982,6 +987,11 @@
                                         style="width: 18px; height: 18px; accent-color: #059669;">
                                     <span style="font-size: 0.65rem; font-weight: 700; color: #059669;">Sales?</span>
                                 </div>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <input type="checkbox" id="in-move-to-yard"
+                                        style="width: 18px; height: 18px; accent-color: #3b82f6;">
+                                    <span style="font-size: 0.65rem; font-weight: 700; color: #3b82f6;">To Yard?</span>
+                                </div>
 
                             </div>
                         </div>
@@ -1013,6 +1023,22 @@
                                 id="in-ncont" placeholder="N. Cont"></div>
                         <div class="form-group"><label class="sidebar-label-btn">Qty</label><input type="number"
                                 id="in-qty" placeholder="1" value="1" min="1"></div>
+                        <!-- NEW: CONTAINER SOURCE TOGGLE -->
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label class="sidebar-label-btn"><i class="fas fa-layer-group"></i> Container Source</label>
+                            <div style="display: flex; gap: 5px; background: #f1f5f9; padding: 4px; border-radius: 10px;">
+                                <button type="button" id="source-release" onclick="setContainerSource('RELEASE')" 
+                                    style="flex: 1; border: none; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; background: #0f172a; color: white;">
+                                    <i class="fas fa-ship"></i> RELEASE
+                                </button>
+                                <button type="button" id="source-yard" onclick="setContainerSource('YARD')" 
+                                    style="flex: 1; border: none; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b;">
+                                    <i class="fas fa-warehouse"></i> YARD STOCK
+                                </button>
+                            </div>
+                            <input type="hidden" id="in-container-source" value="RELEASE">
+                        </div>
+
                         <div class="form-group" id="release-group-container">
                             <label class="sidebar-label-btn">Release #</label>
                             <div class="hybrid-input-wrapper">
@@ -1025,6 +1051,17 @@
                                     <i class="fas fa-edit" id="toggle-icon"></i>
                                 </button>
                             </div>
+                        </div>
+
+                        <!-- NEW: YARD STOCK SELECTION (Hidden by default) -->
+                        <div class="form-group" id="yard-group-container" style="display: none;">
+                            <label class="sidebar-label-btn">Select from Yard</label>
+                            <div class="hybrid-input-wrapper">
+                                <select id="in-yard-stock-sel" onchange="if(window.autoPopulateFromYard) window.autoPopulateFromYard(this)">
+                                    <option value="" disabled selected>Select from Yard...</option>
+                                </select>
+                            </div>
+                            <input type="hidden" id="in-yard-item-id">
                         </div>
                         <div class="trip-release-card" role="group" aria-label="Release type and condition">
                             <div class="trip-release-card-head">
@@ -1366,54 +1403,53 @@
                     <div class="attendance-toolbar-modern" style="margin-top: -15px; padding: 25px;">
                         <div class="attendance-filters-wrapper" style="width: 100%; gap: 15px;">
                             
-                            <!-- ROW 1: TEXT SEARCH -->
-                            <div style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%;">
+                            <!-- UNIFIED GRID FILTERS -->
+                            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; width: 100%;">
+                                <!-- COLUMN 1 -->
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-search"></i> N. CONT</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-box"></i>
-                                        <input type="text" id="f-ncont" class="form-input" placeholder="Search Cont..." oninput="applyAdvancedFilters()" style="width: 160px;">
+                                        <input type="text" id="f-ncont" class="form-input" placeholder="Search..." oninput="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-file-invoice"></i> ORDER / BOL</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-hashtag"></i>
-                                        <input type="text" id="f-order" class="form-input" placeholder="Search Order..." oninput="applyAdvancedFilters()" style="width: 160px;">
+                                        <input type="text" id="f-order" class="form-input" placeholder="Search..." oninput="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-barcode"></i> RELEASE #</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-tag"></i>
-                                        <input type="text" id="f-release" class="form-input" placeholder="Search Rel..." oninput="applyAdvancedFilters()" style="width: 160px;">
+                                        <input type="text" id="f-release" class="form-input" placeholder="Search..." oninput="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-phone"></i> PHONE #</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-mobile-alt"></i>
-                                        <input type="text" id="f-phone" class="form-input" placeholder="Search Phone..." oninput="applyAdvancedFilters()" style="width: 160px;">
+                                        <input type="text" id="f-phone" class="form-input" placeholder="Search..." oninput="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- ROW 2: PRIMARY DROPDOWNS -->
-                            <div style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; margin-top: 5px;">
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-city"></i> CITY</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-map-marker-alt"></i>
-                                        <select id="f-city" class="form-select" onchange="applyAdvancedFilters()" style="width: 160px;">
+                                        <select id="f-city" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Cities</option>
                                         </select>
                                     </div>
                                 </div>
+
+                                <!-- COLUMN 2 -->
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-expand"></i> SIZE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-ruler-combined"></i>
-                                        <select id="f-size" class="form-select" onchange="applyAdvancedFilters()" style="width: 160px;">
+                                        <select id="f-size" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Sizes</option>
                                         </select>
                                     </div>
@@ -1422,7 +1458,7 @@
                                     <label><i class="fas fa-user-tie"></i> CUSTOMER</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-address-book"></i>
-                                        <select id="f-customer" class="form-select" onchange="applyAdvancedFilters()" style="width: 180px;">
+                                        <select id="f-customer" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Customers</option>
                                         </select>
                                     </div>
@@ -1431,20 +1467,16 @@
                                     <label><i class="fas fa-truck"></i> DRIVER</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-id-card"></i>
-                                        <select id="f-driver" class="form-select" onchange="applyAdvancedFilters()" style="width: 180px;">
+                                        <select id="f-driver" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Drivers</option>
                                         </select>
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- ROW 3: SECONDARY DROPDOWNS -->
-                            <div style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; margin-top: 5px;">
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-building"></i> COMPANY</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-briefcase"></i>
-                                        <select id="f-company" class="form-select" onchange="applyAdvancedFilters()" style="width: 160px;">
+                                        <select id="f-company" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Companies</option>
                                         </select>
                                     </div>
@@ -1453,16 +1485,18 @@
                                     <label><i class="fas fa-user-tag"></i> EMPLOYEE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-user-circle"></i>
-                                        <select id="f-seller-cal" class="form-select" onchange="applyAdvancedFilters()" style="width: 160px;">
+                                        <select id="f-seller-cal" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Employees</option>
                                         </select>
                                     </div>
                                 </div>
+
+                                <!-- COLUMN 3 -->
                                 <div class="attendance-input-group">
                                     <label><i class="fas fa-info-circle"></i> STATUS</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-tasks"></i>
-                                        <select id="f-status" class="form-select" onchange="applyAdvancedFilters()" style="width: 140px; font-weight: 700;">
+                                        <select id="f-status" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%; font-weight: 700;">
                                             <option value="">All</option>
                                             <option value="PENDING_PAYMENT">Pending</option>
                                             <option value="COMPLETE">Complete</option>
@@ -1473,7 +1507,7 @@
                                     <label><i class="fas fa-money-bill-wave"></i> PAYMENT</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-wallet"></i>
-                                        <select id="f-pay-status" class="form-select" onchange="applyAdvancedFilters()" style="width: 140px; font-weight: 700;">
+                                        <select id="f-pay-status" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%; font-weight: 700;">
                                             <option value="">All</option>
                                             <option value="PENDING">Pending</option>
                                             <option value="PAID">Paid</option>
@@ -1484,7 +1518,7 @@
                                     <label><i class="fas fa-concierge-bell"></i> SERVICE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-stream"></i>
-                                        <select id="f-service-type" class="form-select" onchange="applyAdvancedFilters()" style="width: 160px; font-weight: 700;">
+                                        <select id="f-service-type" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%; font-weight: 700;">
                                             <option value="">All Services</option>
                                             <option value="sales">🟢 Sales</option>
                                             <option value="transport">🔵 Transport</option>
@@ -1492,38 +1526,39 @@
                                         </select>
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- ROW 4: DATES & CHECKBOXES -->
-                            <div style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; align-items: flex-end; margin-top: 5px;">
                                 <div class="attendance-input-group">
                                     <label><i class="far fa-calendar-alt"></i> FROM DATE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-calendar-day"></i>
-                                        <input type="date" id="f-from-date" class="form-input" onchange="applyAdvancedFilters()">
+                                        <input type="date" id="f-from-date" class="form-input" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
                                     <label><i class="far fa-calendar-check"></i> TO DATE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-calendar-check"></i>
-                                        <input type="date" id="f-to-date" class="form-input" onchange="applyAdvancedFilters()">
+                                        <input type="date" id="f-to-date" class="form-input" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
-                                
-                                <div style="display: flex; align-items: center; gap: 10px; background: #eff6ff; padding: 0 15px; border-radius: 10px; border: 1px dashed #3b82f6; height: 45px;">
-                                    <input type="checkbox" id="f-transferred" onchange="applyAdvancedFilters()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #1e40af;">
-                                    <label for="f-transferred" style="margin: 0; font-size: 0.7rem; color: #1e40af; font-weight: 800; cursor:pointer; text-transform: uppercase;">Calls Transfer</label>
-                                </div>
 
-                                <div style="display: flex; align-items: center; gap: 10px; background: #fef2f2; padding: 0 15px; border-radius: 10px; border: 1px dashed #f43f5e; height: 45px;">
-                                    <input type="checkbox" id="f-past-due" onchange="applyAdvancedFilters()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #b91c1c;">
-                                    <label for="f-past-due" style="margin: 0; font-size: 0.7rem; color: #b91c1c; font-weight: 800; cursor:pointer; text-transform: uppercase;">Past Due</label>
-                                </div>
+                                <!-- ACTION ROW (Full Width) -->
+                                <div style="grid-column: span 5; display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 5px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+                                    <div style="display: flex; gap: 15px;">
+                                        <div style="display: flex; align-items: center; gap: 10px; background: #eff6ff; padding: 0 15px; border-radius: 10px; border: 1px dashed #3b82f6; height: 45px;">
+                                            <input type="checkbox" id="f-transferred" onchange="applyAdvancedFiltersDebounced()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #1e40af;">
+                                            <label for="f-transferred" style="margin: 0; font-size: 0.75rem; color: #1e40af; font-weight: 800; cursor:pointer;">CALLS TRANSFER</label>
+                                        </div>
 
-                                <button onclick="resetAdvancedFilters()" class="btn-reset-modern" style="margin-top: 0;">
-                                    <i class="fas fa-undo"></i> Clear All Filters
-                                </button>
+                                        <div style="display: flex; align-items: center; gap: 10px; background: #fef2f2; padding: 0 15px; border-radius: 10px; border: 1px dashed #f43f5e; height: 45px;">
+                                            <input type="checkbox" id="f-past-due" onchange="applyAdvancedFiltersDebounced()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #b91c1c;">
+                                            <label for="f-past-due" style="margin: 0; font-size: 0.75rem; color: #b91c1c; font-weight: 800; cursor:pointer;">PAST DUE</label>
+                                        </div>
+                                    </div>
+
+                                    <button onclick="resetAdvancedFilters()" class="btn-reset-modern" style="margin-top: 0; padding: 0 25px; height: 45px;">
+                                        <i class="fas fa-undo"></i> Clear All Filters
+                                    </button>
+                                </div>
                             </div>
 
                         </div>
@@ -3639,6 +3674,146 @@
             </div>
         </section>
 
+        <!-- YARD STOCK MANAGEMENT VIEW -->
+        <section class="view-section" id="yard-view" style="display: none;">
+            <div class="dashboard-split-container">
+                <!-- Sidebar Form -->
+                <aside class="sidebar-form sidebar-narrow" style="background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 25px;">
+                    <div class="sidebar-header" style="margin-bottom: 25px; border-bottom: 2px solid #ef4444; padding-bottom: 10px;">
+                        <i class="fas fa-warehouse" style="color: #ef4444; font-size: 1.5rem;"></i>
+                        <h2 style="color: #0f172a; font-weight: 900; margin-left: 10px; font-size: 1.4rem; letter-spacing: -0.5px;">Add to Yard</h2>
+                    </div>
+
+                    <div class="form-container">
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #ef4444 !important;">CONTAINER #</label>
+                            <input type="text" id="yard-container-no" placeholder="XXXX 123456-7" style="font-weight: 800; text-transform: uppercase; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;">SIZE</label>
+                            <select id="yard-size" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;">
+                                <option value="20' STD">20' STD</option>
+                                <option value="20' HC">20' HC</option>
+                                <option value="40' STD">40' STD</option>
+                                <option value="40' HC">40' HC</option>
+                                <option value="45' HC">45' HC</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;">TYPE</label>
+                            <select id="yard-type" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;">
+                                <option value="DRY">DRY</option>
+                                <option value="REEFER">REEFER</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;">CONDITION</label>
+                            <select id="yard-condition" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;">
+                                <option value="USED">USED</option>
+                                <option value="NEW">NEW</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #ef4444 !important;">ORIGIN RELEASE</label>
+                            <input type="text" id="yard-origin" placeholder="Release # (Optional)" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;">NOTES</label>
+                            <textarea id="yard-note" placeholder="Repair details, paint, etc..." style="height: 100px; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;"></textarea>
+                        </div>
+                        <button onclick="saveYardContainer()" id="btn-save-yard" class="btn-reset-modern" style="width: 100%; margin-top: 20px; background: #ef4444; border: none; color: white; font-weight: 900; padding: 15px; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">
+                            <i class="fas fa-save"></i> SAVE TO YARD
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- Table Area -->
+                <div class="table-area" style="padding: 30px; background: #f1f5f9;">
+                    <div class="attendance-toolbar-modern" style="background: white; border-radius: 16px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 25px;">
+                        <div class="report-title">
+                            <h2 style="font-size: 2.2rem; font-weight: 950; color: #0f172a; margin: 0; letter-spacing: -1px;">Yard Physical Inventory</h2>
+                            <p style="color: #64748b; font-size: 1rem; margin-top: 5px; font-weight: 500;">Real-time management of facility-stored containers</p>
+                        </div>
+                        
+                        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                             <div class="filter-summary-card" style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; min-width: 200px; padding: 20px; border-radius: 16px; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2);">
+                                <div class="filter-summary-icon" style="background: rgba(255,255,255,0.2); color: white; width: 50px; height: 50px; font-size: 1.5rem;">
+                                    <i class="fas fa-cubes"></i>
+                                </div>
+                                <div class="filter-summary-info">
+                                    <span class="filter-summary-label" style="color: rgba(255,255,255,0.8); font-weight: 600;">TOTAL UNITS</span>
+                                    <span class="filter-summary-value" id="yard-total-count" style="font-size: 2rem; color: white;">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters Card Modern -->
+                    <div class="attendance-toolbar-modern" style="margin-top: -10px; padding: 30px; background: white; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+                        <div style="display: flex; gap: 30px; flex-wrap: wrap; width: 100%; align-items: flex-end;">
+                            
+                            <!-- Search Field -->
+                            <div style="flex: 3; min-width: 300px;">
+                                <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
+                                    <i class="fas fa-search" style="margin-right: 5px; color: #ef4444;"></i> Search Inventory
+                                </label>
+                                <div style="position: relative;">
+                                    <i class="fas fa-barcode" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1.1rem;"></i>
+                                    <input type="text" id="yf-search" placeholder="Search by Container # or Release..." oninput="renderYardTable()" 
+                                        style="width: 100%; padding: 14px 15px 14px 45px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 12px; font-weight: 600; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.95rem;">
+                                </div>
+                            </div>
+
+                            <!-- Size Filter -->
+                            <div style="flex: 1.5; min-width: 200px;">
+                                <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
+                                    <i class="fas fa-ruler-combined" style="margin-right: 5px; color: #3b82f6;"></i> Size Filter
+                                </label>
+                                <div style="position: relative;">
+                                    <i class="fas fa-filter" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1rem;"></i>
+                                    <select id="yf-size" onchange="renderYardTable()" 
+                                        style="width: 100%; padding: 14px 15px 14px 45px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 12px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none;">
+                                        <option value="">All Sizes</option>
+                                        <option value="20'">20' Containers</option>
+                                        <option value="40'">40' Containers</option>
+                                        <option value="45'">45' Containers</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;"></i>
+                                </div>
+                            </div>
+
+                            <!-- Refresh Button -->
+                            <button onclick="loadYardData(true)" class="btn-refresh-modern" 
+                                style="height: 52px; width: 52px; background: #0f172a; color: white; border: none; border-radius: 12px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Table Card -->
+                    <div class="table-scroll-container" style="margin-top: 25px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
+                        <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">
+                            <thead style="background: #f1f5f9;">
+                                <tr>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">ENTRY DATE</th>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">CONTAINER #</th>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">SIZE</th>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">TYPE</th>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">CONDITION</th>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">ORIGIN</th>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">NOTES</th>
+                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: center;">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="yard-body">
+                                <!-- Data injected by yard-stock.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- TASKS View -->
         <section id="tasks-view" class="view-section hidden">
             <div class="dashboard-split-container">
@@ -4938,6 +5113,15 @@
             updateCalendarTotals();
         }
 
+        let advancedFilterTimeout = null;
+        function applyAdvancedFiltersDebounced() {
+            if (advancedFilterTimeout) clearTimeout(advancedFilterTimeout);
+            advancedFilterTimeout = setTimeout(() => {
+                applyAdvancedFilters();
+            }, 250);
+        }
+        window.applyAdvancedFiltersDebounced = applyAdvancedFiltersDebounced;
+
 
         // --- CALENDAR COLUMN TOTALS (NET PROFIT) ---
         // Computes net profit for each visible row using the same logic as the Profit Report:
@@ -4974,8 +5158,14 @@
         window.updateCalendarTotals = updateCalendarTotals;
 
         function resetAdvancedFilters() {
-            const inputs = document.querySelectorAll('.advanced-filter-panel select, .advanced-filter-panel input');
-            inputs.forEach(el => el.value = '');
+            const inputs = document.querySelectorAll('.attendance-filters-wrapper select, .attendance-filters-wrapper input');
+            inputs.forEach(el => {
+                if (el.type === 'checkbox') {
+                    el.checked = false;
+                } else {
+                    el.value = '';
+                }
+            });
             if (window.applyAdvancedFilters) applyAdvancedFilters();
         }
         window.resetAdvancedFilters = resetAdvancedFilters;
@@ -5285,6 +5475,7 @@
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=10"></script>
     <script src="./js/rentals.js?v=100"></script>
+    <script src="./js/yard-stock.js?v=105"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>

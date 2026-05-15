@@ -392,7 +392,23 @@ async function uploadReceipt(blob, filename) {
     return publicUrl;
 }
 
+async function getTripDetails(tripId) {
+    try {
+        const { data, error } = await db
+            .from('trips')
+            .select('*')
+            .eq('trip_id', tripId)
+            .single();
+        if (error) throw error;
+        return data;
+    } catch (err) {
+        console.error('Error fetching trip details:', err);
+        return null;
+    }
+}
+
 // Global Exports
+window.getTripDetails = getTripDetails;
 window.getTrips = getTrips;
 window.getActivityLogs = getActivityLogs;
 window.addTrip = addTrip;

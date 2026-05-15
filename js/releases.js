@@ -193,6 +193,14 @@
             try {
                 const data = await getReleases();
                 const sorted = (data || []).sort((a, b) => {
+                    const isAEmpty = (a.release_no || '---') === '---';
+                    const isBEmpty = (b.release_no || '---') === '---';
+                    
+                    // Prioritize empty releases (at the top)
+                    if (isAEmpty && !isBEmpty) return -1;
+                    if (!isAEmpty && isBEmpty) return 1;
+
+                    // Then sort by date (descending)
                     const dateA = new Date(a.date || '1970-01-01');
                     const dateB = new Date(b.date || '1970-01-01');
                     return dateB - dateA;
@@ -269,6 +277,12 @@
                     }
                 };
 
+                const isPendingNo = (rowData[0] || '---') === '---';
+                if (isPendingNo) {
+                    tr.style.background = '#fecaca'; // Rojo más intenso
+                    tr.style.color = '#7f1d1d';      // Texto más oscuro
+                }
+
                 if (editingReleaseId === rowData[15]) tr.classList.add('editing-row');
                 else if (window.selectedReleaseIds.includes(rowData[15])) tr.classList.add('selected-row');
 
@@ -326,18 +340,18 @@
                         td.style.fontWeight = '700';
                         td.style.color = '#1e293b';
                         td.style.borderLeft = '2px solid #e2e8f0';
-                        td.style.background = '#f8fafc';
+                        td.style.background = isPendingNo ? 'transparent' : '#f8fafc';
                     }
                     else if (idx === 'TOTAL') {
                         td.textContent = `$${lineRemainingTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                         td.style.fontWeight = '900';
                         td.style.color = '#1e293b';
-                        td.style.background = '#f8fafc';
+                        td.style.background = isPendingNo ? 'transparent' : '#f8fafc';
                     }
                     else if (idx === 'PAID') {
                         td.innerHTML = isPaid ? '<i class="fas fa-check-circle" style="color: #10b981; font-size: 1.2rem;"></i>' : '<i class="fas fa-hourglass-half" style="color: #ef4444; font-size: 1.2rem;"></i>';
                         td.style.textAlign = 'center';
-                        td.style.background = '#f8fafc';
+                        td.style.background = isPendingNo ? 'transparent' : '#f8fafc';
                     }
                     else if (idx === 'IN' || idx === 'PICKUP' || idx === 'STOCK') {
                         let valDisplay = 0;
@@ -361,7 +375,7 @@
                             </button>
                         `;
                         td.style.textAlign = 'center';
-                        td.style.background = '#f8fafc';
+                        td.style.background = isPendingNo ? 'transparent' : '#f8fafc';
                     }
                     else {
                         td.textContent = text;
@@ -600,7 +614,8 @@
             const type = document.querySelector('input[name="rel-uni-type"]:checked').value;
             const condition = document.querySelector('input[name="rel-uni-cond"]:checked').value;
 
-            if (!relNo) { alert('Please enter a Release Number'); return; }
+            // Release Number is now OPTIONAL (User can add it later)
+            const finalRelNo = relNo || '---';
             if (!fullSize) { alert('Please select a container size'); return; }
             if (qty <= 0 && !editingReleaseId) { alert('Please enter a quantity greater than 0'); return; }
 
@@ -616,7 +631,7 @@
             const finalStock = parseInt(document.getElementById('rel-stock-unified').value) || 0;
 
             const relObj = {
-                release_no: relNo,
+                release_no: finalRelNo,
                 date: dte === '---' ? null : dte,
                 type: type,
                 condition: condition,

@@ -152,10 +152,26 @@
         });
     }
 
-    window.fillReceiptFromTrip = function (trip, el) {
+    window.fillReceiptFromTrip = async function (trip, el) {
         window.currentDocTrip = trip;
         document.querySelectorAll('.trip-item').forEach(i => i.classList.remove('active'));
         if (el) el.classList.add('active');
+
+        // --- ON-DEMAND LOADING FOR DOCS ---
+        if (trip && trip[0] && typeof window.getTripDetails === 'function') {
+            const tripId = trip[0];
+            // Only fetch if we don't have photos or signatures yet
+            if (!trip[54] && (!trip[55] || trip[55].length === 0)) {
+                console.log("Docs: Fetching on-demand details for trip:", tripId);
+                const details = await window.getTripDetails(tripId);
+                if (details) {
+                    trip[54] = details.signature || '';
+                    trip[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : []);
+                    trip[56] = details.signature_driver || '';
+                }
+            }
+        }
+
         window.drawReceipt();
         window.renderTripPhotos();
 

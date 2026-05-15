@@ -104,458 +104,246 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
             isSaving = true;
 
-            const isTransport = document.getElementById('in-flag2').checked;
-            const compVal = document.getElementById('in-company').value;
+            try {
+                const isTransport = document.getElementById('in-flag2').checked;
+                const compVal = document.getElementById('in-company').value;
 
-            // Company is only MANDATORY if it's a transport-related order
-            if (isTransport && (!compVal || compVal === '---')) {
-                alert("ERROR: Debes seleccionar una compañía para órdenes que incluyan servicios de transporte.");
-                isSaving = false;
-                restoreTripArchiveButtonUI();
-                return;
-            }
-
-            if (editingIndex === null) {
-                // Only auto-generate Order if user hasn't typed one
-                const ordInput = document.getElementById('in-order');
-                if (!ordInput.value || ordInput.value.trim() === '') {
-                    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                    let ordSuffix = '';
-                    for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
-                    ordInput.value = 'ORD-' + ordSuffix;
-                }
-            }
-            const fields = [
-                'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
-                'in-delivery', 'in-doors', 'in-miles', 'in-customer',
-                'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
-                'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
-                'in-paiddriver', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
-                'in-invoice-sent', 'in-seller'
-            ];
-
-            // 0. UNIQUE CONTAINER VALIDATION REMOVED
-
-
-            // 1. GRANULAR INVENTORY VALIDATION (BLOQUEO POR MEDIDA + TIPO + CONDICIÓN)
-            const relSel = document.getElementById('in-release-sel');
-            const relMan = document.getElementById('in-release');
-            const selectedRelease = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
-
-            const custSel = document.getElementById('in-customer-sel');
-            const custMan = document.getElementById('in-customer');
-            const selectedCustomer = (custMan && custMan.style.display !== 'none') ? custMan.value : (custSel ? custSel.value : '');
-
-            const pickupSel = document.getElementById('in-pickup-sel');
-            const pickupMan = document.getElementById('in-pickup');
-            const selectedPickup = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
-
-            const sizeSel = document.getElementById('in-size-sel');
-            const sizeMan = document.getElementById('in-size');
-            const selectedSize = (sizeMan && sizeMan.style.display !== 'none') ? sizeMan.value : (sizeSel ? sizeSel.value : '');
-
-            const selectedRelType = document.getElementById('in-rel-type').value;
-            const selectedRelCond = document.getElementById('in-rel-condition').value;
-
-            // STOCK DEDUCTION CRITERIA: SALE/RENT, RELEASE PRESENT, ALL PAID, NOT YARD-SERVICE-ONLY
-            const yardEl = document.getElementById('in-yard');
-            const yardVal = yardEl ? yardEl.value : (document.getElementById('in-flag1')?.checked ? 'YES' : 'NO');
-            const yardOnly = yardVal === 'YES' && (parseFloat(document.getElementById('in-sales')?.value || '0') === 0);
-            const modeVal = document.getElementById('in-mode')?.value || 'SALE';
-            const isSalesFlag = document.getElementById('in-flag3')?.checked || false;
-            
-            // SECURITY VALIDATION: If sales is enabled, Sales Price must not be 0
-            if (isSalesFlag) {
-                const salesPrice = parseFloat(document.getElementById('in-sales')?.value || '0');
-                if (salesPrice <= 0) {
-                    alert("ERROR: Para órdenes con ventas habilitadas, el 'Sales Price' no puede ser cero ni estar vacío.");
+                // Company is only MANDATORY if it's a transport-related order
+                if (isTransport && (!compVal || compVal === '---')) {
+                    alert("ERROR: Debes seleccionar una compañía para órdenes que incluyan servicios de transporte.");
                     isSaving = false;
                     restoreTripArchiveButtonUI();
                     return;
                 }
-            }
 
-            // NEW: Only deduct if selected from the List, not entered manually
-            const isReleaseListMode = (relSel && relSel.style.display !== 'none');
-            const selectedReleaseNormalized = (selectedRelease || '').trim().toUpperCase();
-            const selectedSizeNormalized = (selectedSize || '').trim().toUpperCase();
-            
-            // Use window.currentReleases to ensure we access the global inventory
-            const releasesSource = window.currentReleases || [];
-            const releaseExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
-            
-            // isDeductionCandidate: Current state check
-            const isDeductionCandidate = (selectedRelease && selectedRelease !== '---' && !yardOnly && 
-                                         ((modeVal === 'SALE' && isSalesFlag) || modeVal === 'RENT') && 
-                                         releaseExists);
-
-            console.log("STOCK DEBUG (New State):", { 
-                isReleaseListMode, 
-                selectedReleaseNormalized, 
-                releaseExists, 
-                isDeductionCandidate,
-                modeVal,
-                isSalesFlag
-            });
-            const isYardPaid = document.getElementById('in-yardpaid').checked;
-            const isRatePaid = document.getElementById('in-ratepaid').checked;
-            const isSalesPaid = document.getElementById('in-salespaid').checked;
-            const isAmountPaid = document.getElementById('in-amountpaid').checked;
-
-            const stYard = isYardPaid ? 'PAID' : 'PEND';
-            const stRent = document.getElementById('in-rentpaid')?.checked ? 'PAID' : 'PEND';
-            const stRate = isRatePaid ? 'PAID' : 'PEND';
-            const stSales = isSalesPaid ? 'PAID' : 'PEND';
-            const stAmount = (document.getElementById('in-amountpaid') && document.getElementById('in-amountpaid').checked) ? 'PAID' : 'PEND';
-
-            // The status toggle (swish) is the MASTER finalization flag.
-            // Green = order finalized (money visible in Profit Report, stock deducted if sale)
-            // Red  = order pending  (money hidden from Profit Report, no stock deduction)
-            const finalizeVal = document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT';
-            const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');
-            const globalStatus = isFinalized ? 'COMPLETE' : 'PENDING_PAYMENT';
-
-            // Stock deduction only triggers when the toggle is switched TO green AND
-            // it is a new order or was previously not finalized
-            let wasFinalized = false;
-            let wasDeductionCandidate = false;
-            let oldRelData = null;
-
-            if (editingIndex !== null) {
-                // Use window.currentTrips to ensure we have the latest global data
-                const tripsSource = window.currentTrips || [];
-                const oldRow = tripsSource[editingIndex];
-                
-                if (oldRow) {
-                    wasFinalized = (oldRow[41] === 'PAID' || oldRow[41] === 'COMPLETE');
-                    
-                    const oldYard = oldRow[12]; // in-yard
-                    const oldSales = parseFloat(oldRow[20]) || 0; // in-sales
-                    const oldYardOnly = oldYard === 'YES' && oldSales === 0;
-                    const oldMode = oldRow[26] || 'SALE'; // in-mode
-                    const oldFlag3 = oldRow[43] === 'YES'; // isSalesFlag
-                    const oldRel = (oldRow[4] || '').trim().toUpperCase();
-                    const oldRelExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === oldRel);
-
-                    wasDeductionCandidate = (oldRel && oldRel !== '---' && !oldYardOnly && 
-                                            ((oldMode === 'SALE' && oldFlag3) || oldMode === 'RENT') && 
-                                            oldRelExists);
-                    
-                    console.log("STOCK DEBUG (Old State):", { 
-                        oldRel, 
-                        oldRelExists, 
-                        wasDeductionCandidate,
-                        wasFinalized 
-                    });
-
-                    if (wasDeductionCandidate) {
-                        oldRelData = {
-                            release: oldRel,
-                            size: (oldRow[2] || '---').trim().toUpperCase(),
-                            qty: parseInt(oldRow[53]) || 1,
-                            type: oldRow[44],
-                            cond: oldRow[45]
-                        };
+                if (editingIndex === null) {
+                    const ordInput = document.getElementById('in-order');
+                    if (!ordInput.value || ordInput.value.trim() === '') {
+                        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                        let ordSuffix = '';
+                        for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+                        ordInput.value = 'ORD-' + ordSuffix;
                     }
                 }
-            }
 
-            // We need to determine the stock operations:
-            // 1. If it WAS deducted, we might need to revert it.
-            // 2. If it IS to be deducted, we might need to apply it.
-            let revertOld = wasFinalized && wasDeductionCandidate;
-            let deductNew = isFinalized && isDeductionCandidate; // REMOVED strict isReleaseListMode requirement for edits to be more robust
-            const newQtyVal = parseInt(document.getElementById('in-qty')?.value) || 1;
+                const fields = [
+                    'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
+                    'in-delivery', 'in-doors', 'in-miles', 'in-customer',
+                    'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
+                    'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
+                    'in-paiddriver', 'in-note',
+                    'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
+                    'in-invoice-sent', 'in-seller'
+                ];
 
-            // Optimization: If it's an update and container details haven't changed, skip all stock logic
-            if (editingIndex !== null) {
-                const oldRow = window.currentTrips[editingIndex];
-                const clean = (v) => (v || '').toString().split('(')[0].trim().toUpperCase();
-                
-                const sameRel  = clean(oldRow[4])  === clean(selectedReleaseNormalized);
-                const sameSize = clean(oldRow[2])  === clean(selectedSizeNormalized);
-                const sameType = clean(oldRow[44]) === clean(selectedRelType);
-                const sameCond = clean(oldRow[45]) === clean(selectedRelCond);
-                const sameQty  = (parseInt(oldRow[53]) || 1) === newQtyVal;
-                
-                if (sameRel && sameSize && sameType && sameCond && sameQty && (wasFinalized === isFinalized)) {
-                    console.log("STOCK DEBUG: Update mode - Container details and status unchanged. Skipping stock operations.");
-                    revertOld = false;
-                    deductNew = false;
+                const relSel = document.getElementById('in-release-sel');
+                const relMan = document.getElementById('in-release');
+                const selectedRelease = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
+
+                const custSel = document.getElementById('in-customer-sel');
+                const custMan = document.getElementById('in-customer');
+                const selectedCustomer = (custMan && custMan.style.display !== 'none') ? custMan.value : (custSel ? custSel.value : '');
+
+                const pickupSel = document.getElementById('in-pickup-sel');
+                const pickupMan = document.getElementById('in-pickup');
+                const selectedPickup = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
+
+                const sizeSel = document.getElementById('in-size-sel');
+                const sizeMan = document.getElementById('in-size');
+                const selectedSize = (sizeMan && sizeMan.style.display !== 'none') ? sizeMan.value : (sizeSel ? sizeSel.value : '');
+
+                const selectedRelType = document.getElementById('in-rel-type')?.value || 'DRY';
+                const selectedRelCond = document.getElementById('in-rel-condition')?.value || 'USED';
+
+                const finalizeVal = document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT';
+                const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');
+                const globalStatus = isFinalized ? 'COMPLETE' : 'PENDING_PAYMENT';
+
+                const containerSource = document.getElementById('in-container-source')?.value || 'RELEASE';
+                const yardItemId = document.getElementById('in-yard-item-id')?.value;
+                const isYardSource = containerSource === 'YARD';
+
+                const isMoveToYard = document.getElementById('in-move-to-yard')?.checked || false;
+
+                // --- STOCK LOGIC PREPARATION ---
+                const releasesSource = window.currentReleases || [];
+                const selectedReleaseNormalized = (selectedRelease || '').trim().toUpperCase();
+                const selectedSizeNormalized = (selectedSize || '').trim().toUpperCase();
+                const releaseExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
+
+                const yardEl = document.getElementById('in-yard');
+                const yardVal = yardEl ? yardEl.value : (document.getElementById('in-flag1')?.checked ? 'YES' : 'NO');
+                const yardOnly = yardVal === 'YES' && (parseFloat(document.getElementById('in-sales')?.value || '0') === 0);
+
+                const isDeductionCandidate = !isYardSource && (selectedRelease && selectedRelease !== '---' && !yardOnly && releaseExists);
+                const isYardDeductionCandidate = isYardSource && yardItemId && isFinalized;
+
+                let wasFinalized = false;
+                let wasDeductionCandidate = false;
+                let wasMoveToYard = false;
+                let oldRelData = null;
+
+                if (editingIndex !== null) {
+                    const tripsSource = window.currentTrips || [];
+                    const oldRow = tripsSource[editingIndex];
+                    if (oldRow) {
+                        wasFinalized = (oldRow[41] === 'PAID' || oldRow[41] === 'COMPLETE');
+                        wasMoveToYard = !!oldRow[62]; 
+                        const oldSource = oldRow[58] || 'RELEASE';
+                        const oldYardId = oldRow[59];
+                        const oldRel = (oldRow[4] || '').trim().toUpperCase();
+                        const oldRelExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === oldRel);
+                        
+                        wasDeductionCandidate = (oldSource === 'RELEASE') && (oldRel && oldRel !== '---' && oldRelExists);
+                        const wasYardDeductionCandidate = (oldSource === 'YARD') && oldYardId && wasFinalized;
+                        
+                        if (wasYardDeductionCandidate) {
+                            await db.from('yard_stock').update({ status: 'AVAILABLE' }).eq('id', oldYardId);
+                        }
+                        if (wasDeductionCandidate) {
+                            oldRelData = {
+                                release: oldRel,
+                                size: (oldRow[2] || '---').trim().toUpperCase(),
+                                qty: parseInt(oldRow[53]) || 1,
+                                type: oldRow[44],
+                                cond: oldRow[45]
+                            };
+                        }
+                    }
                 }
-            }
 
-            // Array to hold the stock update operations { id: string, stockChange: number }
-            let pendingStockUpdates = [];
+                let revertOld = wasFinalized && wasDeductionCandidate;
+                let deductNew = isFinalized && isDeductionCandidate;
+                const newQtyVal = parseInt(document.getElementById('in-qty')?.value) || 1;
 
-            // Stock validation: run whenever an order involves a Release
-            if (isDeductionCandidate || deductNew || revertOld) {
-                if (isDeductionCandidate && (!selectedRelType || !selectedRelCond)) {
-                    alert("ERROR: Para movimientos con Release, debes seleccionar TIPO y CONDICIÓN para validar stock.");
-                    isSaving = false;
-                    restoreTripArchiveButtonUI();
-                    return;
+                // Optimization: skip if nothing changed
+                if (editingIndex !== null) {
+                    const oldRow = window.currentTrips[editingIndex];
+                    const clean = (v) => (v || '').toString().split('(')[0].trim().toUpperCase();
+                    if (clean(oldRow[4]) === clean(selectedRelease) && clean(oldRow[2]) === clean(selectedSize) && (wasFinalized === isFinalized)) {
+                        revertOld = false; deductNew = false;
+                    }
                 }
 
-                // Ensure releases are loaded
-                if (!window.currentReleases || window.currentReleases.length === 0) {
-                    if (window.loadReleasesData) await loadReleasesData();
-                }
-
-                if (window.currentReleases && window.currentReleases.length > 0) {
-                    // 1. REVERT OLD STOCK IF NECESSARY
+                let pendingStockUpdates = [];
+                if (deductNew || revertOld) {
                     if (revertOld && oldRelData) {
-                        let oldRows = window.currentReleases.filter(r =>
-                            (r[0] || '').trim().toUpperCase() === oldRelData.release &&
-                            (r[16] || '').trim().toUpperCase() === oldRelData.size
-                        );
-                        if (oldRows.length === 0) {
-                            oldRows = window.currentReleases.filter(r => (r[0] || '').trim().toUpperCase() === oldRelData.release);
-                            if (oldRelData.size.startsWith("20")) oldRows = oldRows.filter(r => (parseInt(r[7]) > 0));
-                            else if (oldRelData.size.startsWith("40")) oldRows = oldRows.filter(r => (parseInt(r[9]) > 0));
-                            else if (oldRelData.size.startsWith("45")) oldRows = oldRows.filter(r => (parseInt(r[11]) > 0));
-                        }
-                        if (oldRows.length > 0) {
-                            pendingStockUpdates.push({
-                                targetReleaseId: oldRows[0][15],
-                                stockChange: oldRelData.qty // Revert by adding back
-                            });
-                        }
+                        const oldRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === oldRelData.release && (r[16] || '').trim().toUpperCase() === oldRelData.size);
+                        if (oldRows.length > 0) pendingStockUpdates.push({ targetReleaseId: oldRows[0][15], stockChange: oldRelData.qty });
                     }
-
-                    // 2. DEDUCT NEW STOCK IF NECESSARY
                     if (deductNew) {
-                        let matchingRows = window.currentReleases.filter(r =>
-                            (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized &&
-                            (r[16] || '').trim().toUpperCase() === selectedSizeNormalized
-                        );
-
-                        // --- NEW: Targeted Fetch if Cache Miss ---
-                        if (matchingRows.length === 0) {
-                            console.log(`STOCK DEBUG: Release ${selectedReleaseNormalized} not in cache. Fetching from DB...`);
-                            const { data: freshRels, error: fetchErr } = await db.from('releases')
-                                .select('*')
-                                .eq('release_no', selectedReleaseNormalized);
-                            
-                            if (!fetchErr && freshRels && freshRels.length > 0) {
-                                const mappedFresh = freshRels.map(window.mapReleaseToArray);
-                                // Add to global cache to avoid refetching
-                                window.currentReleases = [...(window.currentReleases || []), ...mappedFresh];
-                                // Retry matching
-                                matchingRows = mappedFresh.filter(r => (r[16] || '').trim().toUpperCase() === selectedSizeNormalized);
-                                if (matchingRows.length === 0) {
-                                    // Fallback to size heuristic on fresh data
-                                    if (selectedSizeNormalized.startsWith("20")) matchingRows = mappedFresh.filter(r => (parseInt(r[7]) > 0));
-                                    else if (selectedSizeNormalized.startsWith("40")) matchingRows = mappedFresh.filter(r => (parseInt(r[9]) > 0));
-                                    else if (selectedSizeNormalized.startsWith("45")) matchingRows = mappedFresh.filter(r => (parseInt(r[11]) > 0));
-                                }
-                            }
-                        }
-
-                        // Fallback to size-based heuristic if no specific size match in existing cache
-                        if (matchingRows.length === 0) {
-                            matchingRows = window.currentReleases.filter(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
-                            if (selectedSizeNormalized.startsWith("20")) matchingRows = matchingRows.filter(r => (parseInt(r[7]) > 0));
-                            else if (selectedSizeNormalized.startsWith("40")) matchingRows = matchingRows.filter(r => (parseInt(r[9]) > 0));
-                            else if (selectedSizeNormalized.startsWith("45")) matchingRows = matchingRows.filter(r => (parseInt(r[11]) > 0));
-                        }
-
+                        let matchingRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized && (r[16] || '').trim().toUpperCase() === selectedSizeNormalized);
                         if (matchingRows.length > 0) {
                             let totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[14]) || 0), 0);
-
-                            // Bypass for editing same order is handled by the optimization block above cancelling deductNew
-
-                            if (totalStockFound < newQtyVal) {
-                                alert(`STOCK INSUFICIENTE: Intentas descontar ${newQtyVal} unidades pero solo quedan ${totalStockFound} disponibles para ${selectedSize} (${selectedRelType}/${selectedRelCond}).`);
-                                isSaving = false;
-                                restoreTripArchiveButtonUI();
-                                return;
-                            }
-
-                            pendingStockUpdates.push({
-                                targetReleaseId: matchingRows[0][15],
-                                stockChange: -newQtyVal // Deduct by subtracting
-                            });
-                        } else {
-                            console.log("Saving order with manual/external release (no exact stock match found for deduction).");
+                            if (totalStockFound < newQtyVal) throw new Error("Stock insuficiente en el Release seleccionado.");
+                            pendingStockUpdates.push({ targetReleaseId: matchingRows[0][15], stockChange: -newQtyVal });
                         }
                     }
                 }
-            } else if (isDeductionCandidate && !isFinalized) {
-                console.log("Stock deduction skipped: swish is RED (order not finalized).");
-            }
 
-
-            // --- Final Data Construction (Fixed Absolute 44-Index Map) ---
-            const baseValues = fields.map(id => {
-                const el = document.getElementById(id);
-                return el ? el.value || '---' : '---';
-            });
-
-            // CRITICAL FIX: Ensure hybrid Release #, Pickup, Customer AND Size are correctly captured in baseValues
-            baseValues[1] = selectedSize || '---';
-            baseValues[3] = selectedRelease || '---';
-            baseValues[6] = selectedPickup || '---';
-            baseValues[10] = selectedCustomer || '---';
-
-            // Calculate Pending Balance (multiplied by qty for Sales and Yard components)
-            let pending = 0;
-            const qtyMultiplier = parseInt(document.getElementById('in-qty')?.value) || 1;
-            
-            if (stYard === 'PEND') pending += (parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0) * qtyMultiplier;
-            if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate')?.value || '0') || 0; // Rate is usually per trip
-            if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
-            if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount')?.value || '0') || 0;
-            if (stRent === 'PEND' && (document.getElementById('in-mode')?.value || '') === 'RENT') {
-                pending += (parseFloat(document.getElementById('in-mrate')?.value || '0') || 0) * qtyMultiplier;
-            }
-
-            // Preserve existing signature and photos if editing
-            let existingSig = '';
-            let existingPhotos = [];
-            if (editingIndex !== null && window.currentTrips[editingIndex]) {
-                existingSig = window.currentTrips[editingIndex][54] || '';
-                existingPhotos = window.currentTrips[editingIndex][55] || [];
-            }
-
-            const rowData = [
-                editingTripDbId || '',                  // 0: trip_id
-                ...baseValues.slice(0, 28),             // 1-28: Fields 0-27 (Date to StartDateRent)
-                baseValues[28],                          // 29: Next Due (Fields[28])
-                stYard,                                  // 30
-                stRent,                                  // 31
-                stRate,                                  // 32
-                stSales,                                 // 33
-                stAmount,                                // 34
-                pending.toFixed(2),                      // 35: Pending Balance
-                document.getElementById('in-email')?.value || '---',  // 36
-                document.getElementById('in-truck')?.value || '---',  // 37
-                document.getElementById('in-trailer')?.value || '---',// 38
-                calculateFinalPay(baseValues[15], parseFloat(baseValues[23]) || 0), // 39 (Company at fields[15], Gross at fields[23])
-                isYardPaid,                              // 40
-                globalStatus,                            // 41
-                document.getElementById('in-flag2').checked ? 'YES' : 'NO', // 42
-                document.getElementById('in-flag3').checked ? 'YES' : 'NO', // 43
-                document.getElementById('in-rel-type')?.value || '---',    // 44
-                document.getElementById('in-rel-condition')?.value || '---',// 45
-                document.getElementById('in-yard-cash').checked,          // 46
-                document.getElementById('in-rate-cash').checked,          // 47
-                document.getElementById('in-sales-cash').checked,         // 48
-                document.getElementById('in-showtax')?.checked || false,   // 49
-                parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0, // 50
-                document.getElementById('in-hideamounts')?.checked || false, // 51
-                document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND', // 52
-                document.getElementById('in-qty')?.value || 1, // 53
-                existingSig,    // 54
-                existingPhotos, // 55
-                '',             // 56 (driver sig placeholder - handled by dbObj mapping)
-                document.getElementById('in-invoice-sent')?.value || 'NO', // 57
-                window.userEmail || '', // 58: created_by (Captures current author)
-                document.getElementById('in-seller')?.value || '---' // 59: closed_by (Employee)
-            ];
-
-            const dbObj = mapArrayToTrip(rowData);
-
-            // --- SUPABASE INTEGRATION ---
-            try {
-                if (editingIndex !== null) {
-                    const targets = (window.selectedTripIds && window.selectedTripIds.length > 1) ? window.selectedTripIds : [editingTripDbId];
-                    if (targets.length > 1) {
-                        if (!confirm(`¿Deseas aplicar estos cambios a los ${targets.length} viajes seleccionados?`)) {
-                            isSaving = false;
-                            restoreTripArchiveButtonUI();
-                            return;
-                        }
-                    }
-
-                    for (const idToUp of targets) {
-                        const { error } = await db.from('trips').update(dbObj).eq('trip_id', idToUp);
-                        if (error) {
-                            console.error(`Error updating trip ${idToUp}:`, error.message);
-                        }
-                    }
-                    editingIndex = null;
-                    editingTripDbId = null;
-                    window.selectedTripIds = []; // Clear selection after bulk update
-                } else {
-                    const newId = newTripIdForDb();
-                    dbObj.trip_id = newId;
-                    const { error } = await db.from('trips').insert([dbObj]);
-                    if (error) {
-                        console.error("SUPABASE INSERT ERROR:", error.message, error.details);
-                        alert(`Error insertando en DB: ${error.message}.`);
-                        isSaving = false;
-                        restoreTripArchiveButtonUI();
-                        return;
-                    }
+                if (isYardDeductionCandidate) {
+                    await db.from('yard_stock').update({ status: 'SOLD' }).eq('id', yardItemId);
                 }
 
+                // --- DATA MAPPING ---
+                const isYardPaid = document.getElementById('in-yardpaid').checked;
+                const isRatePaid = document.getElementById('in-ratepaid').checked;
+                const isSalesPaid = document.getElementById('in-salespaid').checked;
+                const isAmountPaid = document.getElementById('in-amountpaid').checked;
 
+                const stYard = isYardPaid ? 'PAID' : 'PEND';
+                const stRent = document.getElementById('in-rentpaid')?.checked ? 'PAID' : 'PEND';
+                const stRate = isRatePaid ? 'PAID' : 'PEND';
+                const stSales = isSalesPaid ? 'PAID' : 'PEND';
+                const stAmount = isAmountPaid ? 'PAID' : 'PEND';
 
-                // STOCK UPDATE EXECUTION (Deduction OR Reversion)
-                if (pendingStockUpdates.length > 0) {
-                    // Consolidate updates by targetReleaseId
-                    const consolidatedUpdates = {};
-                    pendingStockUpdates.forEach(update => {
-                        if (!consolidatedUpdates[update.targetReleaseId]) {
-                            consolidatedUpdates[update.targetReleaseId] = 0;
-                        }
-                        consolidatedUpdates[update.targetReleaseId] += update.stockChange;
-                    });
+                const baseValues = fields.map(id => document.getElementById(id)?.value || '---');
+                baseValues[1] = selectedSize || '---';
+                baseValues[3] = selectedRelease || '---';
+                baseValues[6] = selectedPickup || '---';
+                baseValues[10] = selectedCustomer || '---';
 
-                    // Fetch current stock values and apply updates sequentially
-                    for (const [releaseId, change] of Object.entries(consolidatedUpdates)) {
-                        if (change === 0) continue; // Skip net-zero changes
+                let pending = 0;
+                const qtyMultiplier = parseInt(document.getElementById('in-qty')?.value) || 1;
+                if (stYard === 'PEND') pending += (parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0) * qtyMultiplier;
+                if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate')?.value || '0') || 0;
+                if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
+                if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount')?.value || '0') || 0;
 
-                        // Get current release data to find current stock
-                        const releaseRow = releasesSource.find(r => r[15] === releaseId);
-                        if (!releaseRow) {
-                            console.warn(`STOCK DEBUG: Could not find release row for UUID ${releaseId} in global cache.`);
-                            continue;
-                        }
+                let existingSig = '', existingPhotos = [];
+                if (editingIndex !== null && window.currentTrips[editingIndex]) {
+                    existingSig = window.currentTrips[editingIndex][54] || '';
+                    existingPhotos = window.currentTrips[editingIndex][55] || [];
+                }
 
-                        let currentStock = parseInt(releaseRow[14]) || 0;
-                        let newStock = Math.max(0, currentStock + change); // Prevent negative stock
+                const rowData = [
+                    editingTripDbId || '', ...baseValues.slice(0, 28), baseValues[28], stYard, stRent, stRate, stSales, stAmount, pending.toFixed(2),
+                    document.getElementById('in-email')?.value || '---', document.getElementById('in-truck')?.value || '---', document.getElementById('in-trailer')?.value || '---',
+                    calculateFinalPay(baseValues[15], parseFloat(baseValues[23]) || 0), isYardPaid, globalStatus,
+                    document.getElementById('in-flag2').checked ? 'YES' : 'NO', document.getElementById('in-flag3').checked ? 'YES' : 'NO',
+                    selectedRelType, selectedRelCond,
+                    document.getElementById('in-yard-cash').checked, document.getElementById('in-rate-cash').checked, document.getElementById('in-sales-cash').checked,
+                    document.getElementById('in-showtax')?.checked || false, parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0,
+                    document.getElementById('in-hideamounts')?.checked || false, document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND',
+                    newQtyVal, existingSig, existingPhotos, '', document.getElementById('in-invoice-sent')?.value || 'NO',
+                    containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard
+                ];
 
-                        console.log(`STOCK DEBUG: Executing Update for UUID ${releaseId}: ${change > 0 ? '+' : ''}${change} (Stock ${currentStock} -> ${newStock})`);
+                const dbObj = mapArrayToTrip(rowData);
+                const currentOrderNo = document.getElementById('in-order')?.value || '---';
+                const yardData = {
+                    container_no: (document.getElementById('in-ncont')?.value || '---').toUpperCase(),
+                    size: selectedSize || '---',
+                    type: selectedRelType,
+                    condition: selectedRelCond,
+                    origin_release: selectedRelease || '---',
+                    notes: `Auto-entry from Order: ${currentOrderNo}`
+                };
 
-                        const { error: stockError } = await db.from('releases')
-                            .update({ total_stock: newStock })
-                            .eq('id', releaseId);
-                        
-                        if (stockError) throw stockError;
-                        
-                        // OPT: Update local cache directly to avoid fetching full releases table again
+                // --- ATOMIC SYNC VIA RPC ---
+                console.log("Saving order via RPC sync...");
+                const { error: rpcErr } = await db.rpc('sync_order_with_yard', {
+                    p_trip_id: editingTripDbId || newTripIdForDb(),
+                    p_trip_data: dbObj,
+                    p_order_no: currentOrderNo,
+                    p_is_finalized: isFinalized,
+                    p_move_to_yard: isMoveToYard,
+                    p_yard_data: yardData
+                });
+
+                if (rpcErr) throw rpcErr;
+
+                // --- REFRESH YARD UI ---
+                if (isMoveToYard && typeof window.loadYardData === 'function') await window.loadYardData(true);
+
+                editingIndex = null; editingTripDbId = null; window.selectedTripIds = [];
+
+                // --- STOCK UPDATE (RELEASES) ---
+                for (const [releaseId, change] of Object.entries(pendingStockUpdates.reduce((acc, u) => { acc[u.targetReleaseId] = (acc[u.targetReleaseId] || 0) + u.stockChange; return acc; }, {}))) {
+                    const releaseRow = releasesSource.find(r => r[15] === releaseId);
+                    if (releaseRow) {
+                        const newStock = Math.max(0, (parseInt(releaseRow[14]) || 0) + change);
+                        await db.from('releases').update({ total_stock: newStock }).eq('id', releaseId);
                         releaseRow[14] = newStock;
                     }
                 }
 
-                alert('¡ORDEN CONFIRMADA CORRECTAMENTE!');
-                console.log("Trip saved successfully to Supabase.");
-
-                // --- AUTOMATED EMAIL TRIGGER ---
-                const sendChecked = document.getElementById('in-sendemail')?.checked;
-                if (sendChecked) {
-                    if (window.generatePDFFromData) {
-                        window.generatePDFFromData(rowData).then(blob => {
-                            if (blob) window.sendReceiptEmail(rowData, blob);
-                        }).catch(e => console.error("Email trigger err:", e));
+                // --- STOCK UPDATE ---
+                for (const [releaseId, change] of Object.entries(pendingStockUpdates.reduce((acc, u) => { acc[u.targetReleaseId] = (acc[u.targetReleaseId] || 0) + u.stockChange; return acc; }, {}))) {
+                    const releaseRow = releasesSource.find(r => r[15] === releaseId);
+                    if (releaseRow) {
+                        const newStock = Math.max(0, (parseInt(releaseRow[14]) || 0) + change);
+                        await db.from('releases').update({ total_stock: newStock }).eq('id', releaseId);
+                        releaseRow[14] = newStock;
                     }
                 }
 
+                alert('¡ORDEN GUARDADA CORRECTAMENTE!');
                 resetForm();
                 await loadTableData();
-                // OPT: Use force=false since we manually updated the local cache
-                if (window.loadReleasesData) await window.loadReleasesData(false);
-                if (window.updateReleaseDatalist) window.updateReleaseDatalist();
-                if (window.updateAddressDatalist) window.updateAddressDatalist();
-                if (window.renderDriverLog) window.renderDriverLog();
-
-                alert("¡ORDEN GUARDADA CORRECTAMENTE!");
             } catch (err) {
-                console.error("Failed to save trip:", err);
-                alert("DATABASE ERROR: " + (err.message || "Unknown error"));
+                console.error("FATAL ERROR IN ADDROW:", err);
+                alert("CRITICAL ERROR: " + err.message);
             } finally {
                 isSaving = false;
                 restoreTripArchiveButtonUI();
@@ -992,7 +780,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
         }
 
-        function loadTripToEdit(idx) {
+        async function loadTripToEdit(idx) {
             if (!window.currentTrips[idx]) return;
             const rowData = window.currentTrips[idx];
 
@@ -1002,6 +790,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 console.error("CRITICAL: Selected trip row is missing its TRIP_ID at index 0.", rowData);
             }
             editingTripDbId = tripId || null;
+
+            // --- ON-DEMAND LOADING FOR HEAVY ASSETS ---
+            if (editingTripDbId && typeof window.getTripDetails === 'function') {
+                console.log("Fetching full details for trip:", editingTripDbId);
+                const details = await window.getTripDetails(editingTripDbId);
+                if (details) {
+                    rowData[54] = details.signature || '';
+                    rowData[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : []);
+                    rowData[56] = details.signature_driver || '';
+                }
+            }
 
             const fields = [
                 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
@@ -1543,6 +1342,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                             
                                         if (window.loadReleasesData) await window.loadReleasesData(false);
                                     }
+                                }
+
+                                // --- YARD STOCK CLEANUP ---
+                                const orderNoForDel = rowData[5] || '---';
+                                const wasToYardForDel = !!rowData[62];
+                                if (wasFinalized && wasToYardForDel) {
+                                    console.log(`Cleaning Yard Stock for deleted order: ${orderNoForDel}`);
+                                    await db.from('yard_stock').delete().ilike('notes', `%Order: ${orderNoForDel}%`);
+                                    if (typeof window.loadYardData === 'function') await window.loadYardData(true);
                                 }
 
                                 await deleteTrip(rowData[0]); // This is trip_id
