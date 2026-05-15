@@ -301,9 +301,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 };
 
                 // --- ATOMIC SYNC VIA RPC ---
-                console.log("Saving order via RPC sync...");
+                const finalTripId = editingTripDbId || newTripIdForDb();
+                console.log("Saving order via RPC sync...", { tripId: finalTripId, isMoveToYard });
+                
                 const { error: rpcErr } = await db.rpc('sync_order_with_yard', {
-                    p_trip_id: editingTripDbId || newTripIdForDb(),
+                    p_trip_id: finalTripId,
                     p_trip_data: dbObj,
                     p_order_no: currentOrderNo,
                     p_is_finalized: isFinalized,
@@ -328,22 +330,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 }
 
-                // --- STOCK UPDATE ---
-                for (const [releaseId, change] of Object.entries(pendingStockUpdates.reduce((acc, u) => { acc[u.targetReleaseId] = (acc[u.targetReleaseId] || 0) + u.stockChange; return acc; }, {}))) {
-                    const releaseRow = releasesSource.find(r => r[15] === releaseId);
-                    if (releaseRow) {
-                        const newStock = Math.max(0, (parseInt(releaseRow[14]) || 0) + change);
-                        await db.from('releases').update({ total_stock: newStock }).eq('id', releaseId);
-                        releaseRow[14] = newStock;
-                    }
-                }
+
 
                 alert('¡ORDEN GUARDADA CORRECTAMENTE!');
                 resetForm();
                 await loadTableData();
             } catch (err) {
                 console.error("FATAL ERROR IN ADDROW:", err);
-                alert("CRITICAL ERROR: " + err.message);
+                if (err.details) console.error("Error Details:", err.details);
+                if (err.hint) console.error("Error Hint:", err.hint);
+                alert("CRITICAL ERROR: " + (err.message || "Unknown error"));
             } finally {
                 isSaving = false;
                 restoreTripArchiveButtonUI();
@@ -530,7 +526,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         const setupReleaseValidation = () => {
             const relSel = document.getElementById('in-release-sel');
             const relMan = document.getElementById('in-release');
-            const inSizeSelect = document.getElementById('in-size');
+            const inSizeSelect = document.getElementById('in-size-sel');
             const relType = document.getElementById('in-rel-type');
             const relCond = document.getElementById('in-rel-condition');
 

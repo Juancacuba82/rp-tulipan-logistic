@@ -5,7 +5,7 @@ const SUPABASE_KEY = 'sb_publishable_Wt5TmlxBw3FOtZ_L_oWt0Q_RoMMVuni';
 async function diagnose() {
     console.log("--- SUPABASE DIAGNOSTIC REPORT ---");
     
-    const tables = ['trips', 'tasks', 'releases', 'activity_logs', 'profiles'];
+    const tables = ['trips', 'tasks', 'releases', 'yard_stock', 'activity_logs', 'profiles'];
     
     for (const table of tables) {
         try {

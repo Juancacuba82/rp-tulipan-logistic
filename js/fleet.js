@@ -190,7 +190,7 @@
                 }
 
                 const unitData = {
-                    id: id || Date.now().toString(),
+                    id: id || crypto.randomUUID(),
                     type: document.getElementById('f-type')?.value || 'truck',
                     num: document.getElementById('f-unit').value,
                     vin: document.getElementById('f-vin').value,

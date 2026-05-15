@@ -674,7 +674,7 @@ async function transferSoldCallToCalendar(call) {
 
     // Build the trip object (trips table)
     const tripObj = {
-        trip_id: 'TRIP-' + Date.now(),
+        trip_id: crypto.randomUUID(),
         date: call.date,
         size: call.measures,
         customer: call.customer,

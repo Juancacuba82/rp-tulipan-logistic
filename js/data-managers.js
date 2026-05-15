@@ -1228,7 +1228,7 @@
         let editingReleaseId = null;
 
         function newTripIdForDb() {
-            return 'TRIP-' + Date.now().toString().slice(-6);
+            return crypto.randomUUID();
         }
         window.newTripIdForDb = newTripIdForDb;
 
