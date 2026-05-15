@@ -327,11 +327,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if (rpcErr) throw rpcErr;
 
-                // --- EXTRA SAFETY: Force update flags directly in case RPC is missing them ---
+                // --- EXTRA SAFETY: Force update flags and financial fields directly in case RPC is missing them ---
                 await db.from('trips').update({
                     has_trans: dbObj.has_trans,
                     has_sales: dbObj.has_sales,
-                    move_to_yard: isMoveToYard
+                    move_to_yard: isMoveToYard,
+                    trans_pay: dbObj.trans_pay,
+                    sales_price: dbObj.sales_price,
+                    amount: dbObj.amount
                 }).eq('trip_id', finalTripId);
 
                 // --- REFRESH YARD UI ---
