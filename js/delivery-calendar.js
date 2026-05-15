@@ -327,6 +327,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if (rpcErr) throw rpcErr;
 
+                // --- EXTRA SAFETY: Force update flags directly in case RPC is missing them ---
+                await db.from('trips').update({
+                    has_trans: dbObj.has_trans,
+                    has_sales: dbObj.has_sales,
+                    move_to_yard: isMoveToYard
+                }).eq('trip_id', finalTripId);
+
                 // --- REFRESH YARD UI ---
                 if (isMoveToYard && typeof window.loadYardData === 'function') await window.loadYardData(true);
 
@@ -830,7 +837,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 } else if (id === 'in-invoice-sent') {
                     v = rowData[57] || 'NO';
                 } else if (id === 'in-seller') {
-                    v = rowData[59] || '---';
+                    v = rowData[61] || '---';
                 } else {
                     v = rowData[i + 1];
                 }
@@ -920,18 +927,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (document.getElementById('in-rel-type')) document.getElementById('in-rel-type').value = typeVal;
             if (document.getElementById('in-rel-condition')) document.getElementById('in-rel-condition').value = condVal;
 
-            // Re-trigger Toggles based on values loaded (Fixed Absolute Indices)
-            const isYardChecked = (rowData[12] === 'YES');
-            const isTransChecked = (rowData[42] === 'YES');
-            const isSalesChecked = (rowData[43] === 'YES');
+            // (Flags moved to end)
 
-            document.getElementById('in-flag1').checked = isYardChecked;
-            document.getElementById('in-flag2').checked = isTransChecked;
-            document.getElementById('in-flag3').checked = isSalesChecked;
-
-            toggleYardRate();
-            toggleTransport();
-            toggleSalesPrice();
 
 
             // Set Checkboxes (Fixed Absolute Indices)
@@ -985,10 +982,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 emailInput.value = (ev === '---' || ev === undefined || ev === null) ? '' : ev;
             }
 
-            // Price per Day (Index 43 in mapTripToArray)
+            // Price per Day (Index 14 in mapTripToArray)
             const ppdInput = document.getElementById('in-priceperday');
             if (ppdInput) {
-                ppdInput.value = (rowData[43] === undefined || rowData[43] === null) ? 0 : rowData[43];
+                ppdInput.value = (rowData[14] === undefined || rowData[14] === null) ? 0 : rowData[14];
             }
 
             // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
@@ -1000,8 +997,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             setTripArchiveButton({ label: 'Update order', isUpdate: true, disabled: false, opacity: 1, title: 'Save changes to this trip' });
             if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
 
-            // Highlighting Row (Removing redundant loadTableData call)
-            // loadTableData();
+            // --- FINAL FLAG RESTORATION (Moved to end for robustness) ---
+            const isYardChecked = (rowData[12] === 'YES');
+            const isTransChecked = (rowData[42] === 'YES');
+            const isSalesChecked = (rowData[43] === 'YES');
+            const isToYardChecked = !!rowData[62];
+
+            if (document.getElementById('in-flag1')) document.getElementById('in-flag1').checked = isYardChecked;
+            if (document.getElementById('in-flag2')) document.getElementById('in-flag2').checked = isTransChecked;
+            if (document.getElementById('in-flag3')) document.getElementById('in-flag3').checked = isSalesChecked;
+            if (document.getElementById('in-move-to-yard')) document.getElementById('in-move-to-yard').checked = isToYardChecked;
+
+            if (window.toggleYardRate) window.toggleYardRate();
+            if (window.toggleTransport) window.toggleTransport();
+            if (window.toggleSalesPrice) window.toggleSalesPrice();
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1047,7 +1057,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // Filter by Employee if set
                 const sellerFilter = document.getElementById('f-seller-cal')?.value;
                 if (sellerFilter) {
-                    window.currentTrips = window.currentTrips.filter(t => (t[59] || '').trim() === sellerFilter.trim());
+                    window.currentTrips = window.currentTrips.filter(t => (t[61] || '').trim() === sellerFilter.trim());
                 }
 
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded (Initial Load) ---
@@ -1061,7 +1071,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const tr = document.createElement('tr');
                         
                         // AUTHOR TOOLTIP: Dynamically resolve creator name from global map
-                        const creatorEmail = rowData[58];
+                        const creatorEmail = rowData[60];
                         if (creatorEmail && creatorEmail !== '---') {
                             const cleanEmail = creatorEmail.trim().toLowerCase();
                             const creatorName = window.globalUserNameMap ? window.globalUserNameMap[cleanEmail] : null;
@@ -1083,11 +1093,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.stsales = stSales || 'PEND';
                         tr.dataset.stamount = stAmount || 'PEND';
                         tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
-                        tr.dataset.seller = rowData[59] || '';
+                        tr.dataset.seller = rowData[61] || '';
                         // Service type flags for filtering
                         tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
+                        tr.dataset.flagToYard = !!rowData[62] ? 'YES' : 'NO';
 
                         // Priority Highlight for Today
                         if (isTodayEntry) {
@@ -1136,7 +1147,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             rowData[24],          // 20: Paid Driver
                             rowData[25],          // 21: Note
                             (() => {
-                                const emailVal = rowData[59];
+                                const emailVal = rowData[61];
                                 if (!emailVal || emailVal === '---') return '---';
                                 const clean = emailVal.trim().toLowerCase();
                                 const name = window.globalUserNameMap ? window.globalUserNameMap[clean] : null;

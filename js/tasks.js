@@ -16,14 +16,15 @@
             return;
         }
         try {
-            const role = (window.currentUserRole || 'user').toLowerCase();
-            const email = window.userEmail;
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            const email = (window.userEmail || '').toLowerCase().trim();
             
             let query = db.from('tasks').select('*').eq('is_deleted', false);
             
             // Only admin sees everything. Employees, students and others only see their assigned tasks or EVERYONE.
             if (role !== 'admin' && email) {
-                query = query.or(`assigned_to_email.eq.${email},assigned_to_email.eq.EVERYONE`);
+                // Use a more explicit OR filter and handle potential case differences
+                query = query.or(`assigned_to_email.eq.${email},assigned_to_email.eq.EVERYONE,assigned_to_email.eq.everyone`);
             }
             
             const { data, error } = await query.order('created_at', { ascending: false });

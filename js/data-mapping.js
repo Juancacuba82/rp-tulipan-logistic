@@ -102,8 +102,8 @@
                 t.final_driver_pay || 0,    // 39
                 t.yard_rate_paid || false,  // 40
                 t.status || 'PENDING_PAYMENT', // 41
-                t.has_trans === 'YES' || t.has_trans === true || (t.has_trans === null && t.trip_id) ? 'YES' : 'NO', // 42
-                t.has_sales === 'YES' || t.has_sales === true || (t.has_sales === null && t.trip_id) ? 'YES' : 'NO', // 43
+                (t.has_trans === 'YES' || t.has_trans === true) ? 'YES' : 'NO', // 42
+                (t.has_sales === 'YES' || t.has_sales === true) ? 'YES' : 'NO', // 43
                 t.rel_type || '---',        // 44
                 t.rel_condition || '---',   // 45
                 t.y_cash || false,          // 46
@@ -171,8 +171,8 @@
                 final_driver_pay: parseFloat(row[39]) || 0,
                 yard_rate_paid: row[40] === true || row[40] === 'true',
                 status: row[41] || 'PENDING_PAYMENT',
-                has_trans: row[42] === 'NO' ? 'NO' : 'YES',
-                has_sales: row[43] === 'NO' ? 'NO' : 'YES',
+                has_trans: row[42] === 'YES' ? 'YES' : 'NO',
+                has_sales: row[43] === 'YES' ? 'YES' : 'NO',
                 rel_type: row[44] || '---',
                 rel_condition: row[45] || '---',
                 y_cash: row[46] === true || row[46] === 'true',
