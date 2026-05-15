@@ -41,6 +41,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const tripId = editingTripDbId;
             if (!tripId) return;
 
+            const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+            if (!isUUID(tripId)) {
+                console.warn("syncImmediate blocked: Legacy ID detected. Please refresh and try again after migration.");
+                return;
+            }
+
             const updateData = {};
             updateData[fieldName] = value;
             if (fieldName === 'st_amount') updateData.paid = (value === 'PAID');
@@ -301,7 +307,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 };
 
                 // --- ATOMIC SYNC VIA RPC ---
+                const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
                 const finalTripId = editingTripDbId || newTripIdForDb();
+                
+                if (!isUUID(finalTripId)) {
+                    throw new Error(`La ID de esta orden (${finalTripId}) no es compatible con el nuevo sistema UUID. Por favor, ejecuta el script de migración SQL en Supabase o contacta a soporte.`);
+                }
+
                 console.log("Saving order via RPC sync...", { tripId: finalTripId, isMoveToYard });
                 
                 const { error: rpcErr } = await db.rpc('sync_order_with_yard', {
