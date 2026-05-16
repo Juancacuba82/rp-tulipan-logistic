@@ -354,26 +354,8 @@
                 const isActive = (status === 'ACTIVE');
                 const relChanged = (originalRentalState.release_no !== releaseNo);
 
-                // --- AUTOMATION: Advance Final Date when marking PENDING as PAID ---
-                if (originalRentalState.payment_status === 'PENDING' && paymentStatus === 'PAID') {
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    const today = new Date(todayStr).getTime();
-                    const oldFinalDate = originalRentalState.final_date ? new Date(originalRentalState.final_date).getTime() : 0;
+                // Stock management remains unchanged
 
-                    if (oldFinalDate <= today) {
-                        payload.start_date = originalRentalState.start_date; 
-                        
-                        const sDate = originalRentalState.final_date ? new Date(originalRentalState.final_date) : new Date();
-                        if (timeRent === 'monthly') {
-                            sDate.setMonth(sDate.getMonth() + 1);
-                        } else if (timeRent === 'weekly') {
-                            sDate.setDate(sDate.getDate() + 7);
-                        } else if (timeRent === 'diary') {
-                            sDate.setDate(sDate.getDate() + 1);
-                        }
-                        payload.final_date = sDate.toISOString().split('T')[0];
-                    }
-                }
 
                 // Adjust Stock
                 if (wasActive && !isActive) {
@@ -439,6 +421,11 @@
         document.getElementById('rental-notes').value = row.notes || '';
         document.getElementById('btn-save-rental').textContent = "UPDATE RENTAL RECORD";
         
+        const payBtn = document.getElementById('btn-register-payment');
+        if (payBtn) {
+            payBtn.style.display = (row.status === 'ACTIVE') ? 'flex' : 'none';
+        }
+        
         // Refresh table to show highlighting and delete button
         renderRentalsTable();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -494,6 +481,8 @@
         document.getElementById('rental-payment-status').value = 'PENDING';
         document.getElementById('rental-notes').value = '';
         document.getElementById('btn-save-rental').textContent = "SAVE RENTAL RECORD";
+        const payBtn = document.getElementById('btn-register-payment');
+        if (payBtn) payBtn.style.display = 'none';
         renderRentalsTable(); // Hide delete button and clear highlight
     }
 
@@ -520,6 +509,86 @@
             });
         }
     });
+
+    window.registerRentalPayment = async function() {
+        if (!editingRentalId || !originalRentalState) return;
+        
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role === 'student') {
+            alert("Students cannot register payments.");
+            return;
+        }
+
+        const row = originalRentalState;
+        if (row.status !== 'ACTIVE') {
+            alert("Only ACTIVE rentals can register renewals/payments.");
+            return;
+        }
+
+        const basePrice = parseFloat(row.base_price) || 0;
+        const timeRentStr = (row.time_rent || 'monthly').toUpperCase();
+        
+        const periodsStr = prompt(`Register Payment / Renewal:\n\nHow many periods (${timeRentStr}) is the customer paying for?`, "1");
+        if (periodsStr === null) return; // User cancelled
+        
+        const periods = parseInt(periodsStr, 10);
+        if (isNaN(periods) || periods <= 0) {
+            alert("Invalid number of periods entered.");
+            return;
+        }
+
+        const totalAmount = basePrice * periods;
+        
+        // Calculate new final date
+        const sDate = row.final_date ? new Date(row.final_date) : new Date(row.start_date || new Date());
+        
+        if (row.time_rent === 'monthly') {
+            sDate.setMonth(sDate.getMonth() + periods);
+        } else if (row.time_rent === 'weekly') {
+            sDate.setDate(sDate.getDate() + (7 * periods));
+        } else if (row.time_rent === 'diary') {
+            sDate.setDate(sDate.getDate() + (1 * periods));
+        }
+        
+        const newFinalDateStr = sDate.toISOString().split('T')[0];
+
+        // Determine if they are fully paid or still owe
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayMs = new Date(todayStr).getTime();
+        const newFinalDateMs = new Date(newFinalDateStr).getTime();
+        
+        const isPaidUp = newFinalDateMs > todayMs;
+        const newPaymentStatus = isPaidUp ? 'PAID' : 'PENDING';
+
+        const confirmMsg = `Register payment of $${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2})} for ${periods} ${timeRentStr}(S)?\n\n` + 
+                           `The new expiration date will be: ${formatDate(newFinalDateStr)}\n` +
+                           `Account Status will be: ${newPaymentStatus}`;
+                           
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            const payload = {
+                final_date: newFinalDateStr,
+                payment_status: newPaymentStatus
+            };
+
+            const { data, error } = await db.from('rentals').update(payload).eq('id', editingRentalId).select();
+            if (error) throw error;
+            
+            const resultData = data[0];
+            const idx = window.currentRentals.findIndex(r => r.id === editingRentalId);
+            if (idx !== -1) window.currentRentals[idx] = resultData;
+            
+            alert(`✅ Payment successful! New Expiration Date: ${formatDate(newFinalDateStr)}`);
+            
+            // Reload into form to see updates
+            editRental(idx);
+            
+        } catch (err) {
+            console.error('Error registering payment:', err);
+            alert("Error registering payment: " + err.message);
+        }
+    };
 
     window.renderRentalsTable = renderRentalsTable;
     window.loadRentalsData = loadRentalsData;
