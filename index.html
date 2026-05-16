@@ -4674,21 +4674,7 @@
                         
                         if (window.loadDocTrips) window.loadDocTrips();
                     } else if (finalView === 'reports') {
-                        // CLEAN FILTERS UPON ENTRY (User Request)
-                        const searchInput = document.getElementById('filter-search');
-                        const fromInput = document.getElementById('filter-from');
-                        const toInput = document.getElementById('filter-to');
-                        const historyInput = document.getElementById('history-local-filter');
-                        
-                        // Only clear if the user is NOT a restricted driver
-                        const isRestrictedDriver = (window.currentUserRole === 'driver' && window.userEmail !== 'cortes410@aol.com');
-                        
-                        if (!isRestrictedDriver) {
-                            if (searchInput) searchInput.value = '';
-                        }
-                        if (fromInput) fromInput.value = '';
-                        if (toInput) toInput.value = '';
-                        if (historyInput) historyInput.value = '';
+                        // PERSIST FILTERS: Filter inputs are NOT cleared on entry.
 
                         (async () => {
                             if (window.loadTableData) await window.loadTableData();
@@ -4755,11 +4741,7 @@
                         // -------------------------------------------
                     } else if (finalView === 'profit-report') {
                         (async () => {
-                            // Clear date filters before rendering (no invisible filters)
-                            const pfrom = document.getElementById('profit-date-from');
-                            const pto = document.getElementById('profit-date-to');
-                            if (pfrom) pfrom.value = '';
-                            if (pto) pto.value = '';
+                            // PERSIST FILTERS: Date filters are kept intact
                             // If trips not loaded yet, load them first
                             if (!window.currentTrips || window.currentTrips.length === 0) {
                                 if (window.loadTableData) await window.loadTableData();
@@ -4772,7 +4754,7 @@
                         if (window.loadExpensesData) window.loadExpensesData();
                     } else if (finalView === 'inventory') {
                         (async () => {
-                            if (window.resetInventorFilters) window.resetInventorFilters();
+                            // PERSIST FILTERS: Do not reset inventory filters
                             if (window.loadTableData) await window.loadTableData();
                             if (window.loadReleasesData) await window.loadReleasesData();
                             if (window.renderInventorTable) window.renderInventorTable();
@@ -4781,9 +4763,7 @@
                         if (window.renderInventorTable) window.renderInventorTable();
                     } else if (viewId === 'cust-invoice') {
                         (async () => {
-                            // Clear filters then load & render
-                            ['ci-f-order','ci-f-from','ci-f-to'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-                            ['ci-f-city','ci-f-place','ci-f-customer','ci-f-invoice'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                            // PERSIST FILTERS: Do not clear cust-invoice filters
                             if (window.loadTableData) await window.loadTableData();
                             if (window.renderCustInvoiceTable) window.renderCustInvoiceTable();
                         })();
