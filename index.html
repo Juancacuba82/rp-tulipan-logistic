@@ -911,6 +911,11 @@
                                 color: white;
                                 font-weight: 800;
                             }
+                            @keyframes pulse {
+                                0% { transform: scale(0.95); opacity: 0.7; }
+                                50% { transform: scale(1.1); opacity: 1; }
+                                100% { transform: scale(0.95); opacity: 0.7; }
+                            }
                         </style>
                         <thead>
                             <tr class="header-row">
@@ -4217,11 +4222,7 @@
             const adminOnlySelectors = [
                 'button[onclick*="profit-report"]',
                 '.dash-card[onclick*="profit-report"]',
-                '#nav-actions-container button[onclick*="profit-report"]',
-                'button[onclick*="attendance"]',
-                '.dash-card[onclick*="attendance"]',
-                '#card-attendance',
-                '#nav-actions-container button[onclick*="attendance"]',
+                '#nav-actions-container button[onclick*="profit-report"]'
             ];
 
             const staffOnlySelectors = [
@@ -4236,6 +4237,10 @@
                 'button[onclick*="inventory"]',
                 'button[onclick*="calls"]',
                 'button[onclick*="yard"]',
+                'button[onclick*="attendance"]',
+                '.dash-card[onclick*="attendance"]',
+                '#card-attendance',
+                '#nav-actions-container button[onclick*="attendance"]',
                 '#nav-actions-container button[onclick*="fleet"]',
                 '#nav-actions-container button[onclick*="releases"]',
                 '#nav-actions-container button[onclick*="calendar"]',
@@ -4367,6 +4372,18 @@
 
                 const docsPhotoBtn = document.getElementById('btn-docs-photos');
                 if (docsPhotoBtn) docsPhotoBtn.style.display = '';
+            }
+
+            // --- ATTENDANCE VISIBILITY OVERRIDE ---
+            const btnAttendanceNav = document.getElementById('btn-attendance-nav');
+            const cardAttendance = document.getElementById('card-attendance');
+            const canSeeAttendance = isAdmin || isEmployee || isStudent;
+
+            if (btnAttendanceNav) {
+                btnAttendanceNav.style.display = canSeeAttendance ? 'inline-block' : 'none';
+            }
+            if (cardAttendance) {
+                cardAttendance.style.display = canSeeAttendance ? 'flex' : 'none';
             }
 
             // Toggle Logout button visibility is now handled by showView
@@ -4547,8 +4564,8 @@
                     console.warn("Driver redirected to Docs from:", finalView);
                     finalView = 'docs';
                 }
-            } else if (normalizedRole === 'student' || normalizedRole === 'employee') {
-                const forbiddenForStudents = ['profit-report', 'attendance'];
+            } else if (normalizedRole === 'student' || normalizedRole === 'employee' || normalizedRole === 'staff') {
+                const forbiddenForStudents = ['profit-report'];
                 if (forbiddenForStudents.includes(finalView)) {
                     console.warn("Restricted user redirected to Hero from:", finalView);
                     finalView = 'hero';
@@ -4604,9 +4621,10 @@
                             }
                         }
                         
-                        // Show attendance card only for admins
+                        // Show attendance card for admin, employee, and student
                         const cardAtt = document.getElementById('card-attendance');
-                        if (cardAtt && normalizedRole === 'admin') {
+                        const canSeeAtt = (normalizedRole === 'admin' || normalizedRole === 'employee' || normalizedRole === 'student' || normalizedRole === 'staff');
+                        if (cardAtt && canSeeAtt) {
                             cardAtt.style.display = 'flex';
                         }
                     } else {

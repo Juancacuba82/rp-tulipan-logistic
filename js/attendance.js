@@ -521,20 +521,43 @@ window.loadAttendanceData = async function(force = false) {
     }
     window._lastAttendanceLoad = currentTime;
 
+    // --- DEFAULT DATES INITIALIZATION ---
+    const startEl = document.getElementById('att-start-date');
+    const endEl = document.getElementById('att-end-date');
+    if (startEl && !startEl.value) {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        startEl.value = `${y}-${m}-01`;
+    }
+    if (endEl && !endEl.value) {
+        endEl.value = new Date().toISOString().split('T')[0];
+    }
+
     try {
         const tbody = document.getElementById('attendance-body');
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading...</td></tr>';
 
         const startDate = document.getElementById('att-start-date')?.value || '';
         const endDate = document.getElementById('att-end-date')?.value || '';
         const filterEmployee = document.getElementById('att-filter-employee')?.value || '';
 
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        const isAdmin = role === 'admin';
+        const isStaff = role === 'employee' || role === 'student' || role === 'staff';
+        const userEmail = (window.userEmail || '').toLowerCase().trim();
+
         let query = window.db.from('activity_logs')
             .select('id, user_email, action_type, details, view_date, driver_name, created_at')
             .in('action_type', ['CLOCK_IN', 'CLOCK_OUT'])
             .order('created_at', { ascending: true });
+
+        // SECURITY: If not admin, only show your own logs
+        if (!isAdmin && userEmail) {
+            query = query.eq('user_email', userEmail);
+        }
 
         // Apply filters - Default to last 90 days if no dates provided
         if (startDate && startDate.trim() !== '') {
@@ -558,9 +581,29 @@ window.loadAttendanceData = async function(force = false) {
         const { data, error } = await query;
         if (error) throw error;
 
+        // --- POPULATE EMPLOYEE FILTER (Only if admin) ---
+        const employeeSelect = document.getElementById('att-filter-employee');
+        if (employeeSelect) {
+            if (!isAdmin) {
+                employeeSelect.parentElement.parentElement.style.display = 'none'; // Hide the whole group
+            } else {
+                employeeSelect.parentElement.parentElement.style.display = 'flex';
+                const currentFilter = employeeSelect.value;
+                const uniqueEmployees = [...new Set(data.map(log => log.driver_name))].filter(Boolean).sort();
+                employeeSelect.innerHTML = '<option value="">All Employees</option>';
+                uniqueEmployees.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    employeeSelect.appendChild(opt);
+                });
+                employeeSelect.value = currentFilter;
+            }
+        }
+
         tbody.innerHTML = '';
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No records found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No records found.</td></tr>';
             return;
         }
 
@@ -684,21 +727,32 @@ window.loadAttendanceData = async function(force = false) {
             }
         });
 
-        // Render Summary Cards if Admin
-        const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+        // Render Summary Cards if Admin or Employee
         const summaryEl = document.getElementById('attendance-summary');
         if (summaryEl) {
-            if (isAdmin && Object.keys(payrollSummary).length > 0) {
+            if ((isAdmin || isStaff) && Object.keys(payrollSummary).length > 0) {
                 summaryEl.style.display = 'grid';
                 summaryEl.innerHTML = '';
                 Object.entries(payrollSummary).forEach(([name, data]) => {
                     const safeName = name.replace(/'/g, "\\'");
                     const safeEmail = (data.email || '').replace(/'/g, "\\'");
+                    
                     const card = document.createElement('div');
                     card.style.cssText = 'background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; border-top: 4px solid #10b981; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);';
+                    
+                    // Show "Mark as Paid" only for admins
+                    const payBtn = isAdmin ? `
+                        <button
+                            onclick="window.payEmployee('${safeName}', '${safeEmail}', ${data.pay.toFixed(2)})"
+                            style="width: 100%; padding: 10px; background: linear-gradient(135deg, #059669, #10b981); color: white; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s;"
+                            onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                            <i class="fas fa-money-check-alt"></i> MARK AS PAID
+                        </button>
+                    ` : '';
+
                     card.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                            <span style="font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Employee Total</span>
+                            <span style="font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">${isAdmin ? 'Employee Total' : 'My Summary'}</span>
                             <i class="fas fa-money-check-alt" style="color: #10b981;"></i>
                         </div>
                         <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 900;">${name}</h3>
@@ -713,12 +767,7 @@ window.loadAttendanceData = async function(force = false) {
                                 <span style="font-size: 1.2rem; font-weight: 900; color: #059669;">$${data.pay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
-                        <button
-                            onclick="window.payEmployee('${safeName}', '${safeEmail}', ${data.pay.toFixed(2)})"
-                            style="width: 100%; padding: 10px; background: linear-gradient(135deg, #059669, #10b981); color: white; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s;"
-                            onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                            <i class="fas fa-hand-holding-usd"></i> MARK AS PAID
-                        </button>
+                        ${payBtn}
                     `;
                     summaryEl.appendChild(card);
                 });
@@ -743,6 +792,20 @@ window.loadAttendanceData = async function(force = false) {
             if (!confirm(confirmMsg)) return;
 
             try {
+                // --- DUPLICATE CHECK ---
+                const fullNote = `Period: ${periodLabel} | Email: ${employeeEmail}`;
+                const { data: existing, error: checkError } = await window.db.from('expenses')
+                    .select('id')
+                    .eq('category', 'Payroll')
+                    .eq('description', `Salary Payment - ${employeeName}`)
+                    .eq('note', fullNote);
+
+                if (checkError) throw checkError;
+
+                if (existing && existing.length > 0) {
+                    alert(`ERROR: Ya existe un registro de pago para ${employeeName} en el periodo ${periodLabel} en el módulo de Gastos.\n\nNo se creará un duplicado.`);
+                    return;
+                }
                 const expenseObj = {
                     date: today,
                     category: 'Payroll',
@@ -767,6 +830,13 @@ window.loadAttendanceData = async function(force = false) {
         allSessions.forEach(s => {
             const tr = document.createElement('tr');
             
+            // --- ACTIVE SESSION HIGHLIGHT ---
+            const isActive = s.outTime === '---' && s.inTime !== '---';
+            if (isActive) {
+                tr.style.background = '#f0fdf4'; // Light green
+                tr.style.borderLeft = '4px solid #22c55e'; // Green indicator
+            }
+
             const dParts = s.date.split('-');
             const dateStr = dParts.length === 3 ? `${dParts[1]}/${dParts[2]}/${dParts[0]}` : s.date;
 
@@ -800,12 +870,14 @@ window.loadAttendanceData = async function(force = false) {
                 </td>
             ` : '<td></td>';
 
+            const inTimeHtml = isActive ? 
+                `<span style="display:flex; align-items:center; gap:5px; color:#16a34a; font-weight:900;"><i class="fas fa-circle" style="font-size:0.5rem; animation: pulse 1.5s infinite;"></i> ${s.inTime} <span style="background:#22c55e; color:white; font-size:0.6rem; padding:2px 4px; border-radius:4px; margin-left:4px;">LIVE</span></span>` : 
+                (s.inTime || '---');
+
             tr.innerHTML = `
                 <td><strong>${dateStr}</strong></td>
                 <td><strong style="color:#1e293b;">${s.employee || '---'}</strong></td>
-                <td style="position:relative;">
-                    <span style="color:#166534; font-weight:bold;">${s.inTime || '---'}</span>
-                </td>
+                <td style="position:relative;">${inTimeHtml}</td>
                 <td>${s.inLoc || '---'}</td>
                 <td style="position:relative;">
                     <span style="color:#9a3412; font-weight:bold;">${s.outTime || '---'}</span>
