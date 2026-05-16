@@ -62,11 +62,31 @@
                 return matchDate && matchCat && matchDriver && matchSearch;
             });
 
+            // --- DUPLICATE DETECTION LOGIC (Strict: All columns must match) ---
+            const rowCounts = {};
+            (window.currentExpenses || []).forEach(row => {
+                // Create a unique key using the first 5 visible columns
+                const key = row.slice(0, 5).map(val => (val || '').toString().trim().toUpperCase()).join('|');
+                if (key) {
+                    rowCounts[key] = (rowCounts[key] || 0) + 1;
+                }
+            });
+
             body.innerHTML = '';
             filtered.forEach((rowData) => {
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
                 const expenseId = rowData[5];
+                
+                // Create the same key for the current row
+                const rowKey = rowData.slice(0, 5).map(val => (val || '').toString().trim().toUpperCase()).join('|');
+                const isDuplicate = rowCounts[rowKey] > 1;
+
+                // Highlight if duplicate found globally
+                if (isDuplicate) {
+                    tr.style.backgroundColor = '#fef2f2'; // Soft red background
+                    tr.style.borderLeft = '4px solid #ef4444'; // Bright red indicator
+                }
 
                 if (window.editingExpenseId === expenseId) {
                     tr.classList.add('editing-row');
@@ -82,6 +102,13 @@
                         td.style.color = '#ef4444';
                         td.style.textAlign = 'right';
                     }
+
+                    // If it's a strict duplicate, highlight the text
+                    if (isDuplicate) {
+                        td.style.color = (i === 3) ? '#b91c1c' : '#991b1b';
+                        if (i === 2) td.style.fontWeight = '900'; // Make description boldest
+                    }
+
                     tr.appendChild(td);
                 });
 
