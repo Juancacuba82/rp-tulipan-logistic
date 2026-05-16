@@ -686,6 +686,20 @@
                     const result = await db.from('settlement_history').update(entry).eq('id', editingSettlementId);
                     error = result.error;
                 } else {
+                    // --- DUPLICATE CHECK ---
+                    const { data: existing, error: checkError } = await db.from('settlement_history')
+                        .select('id')
+                        .eq('driver_name', driverNameFinal)
+                        .eq('start_date', val_inicio)
+                        .eq('end_date', val_final);
+
+                    if (checkError) throw checkError;
+                    
+                    if (existing && existing.length > 0) {
+                        alert(`ERROR: Ya existe una liquidación archivada para ${driverNameFinal} en este mismo rango de fechas (${val_inicio} al ${val_final}).\n\nSi necesitas corregirla, por favor bórrala de la lista de abajo y vuelve a crearla.`);
+                        return;
+                    }
+
                     const result = await db.from('settlement_history').insert([entry]);
                     error = result.error;
                 }

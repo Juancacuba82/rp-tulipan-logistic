@@ -342,13 +342,19 @@
                 const item = document.createElement('div');
                 item.className = 'driver-item'; // Reuse same styles
                 item.innerHTML = `
-                    <div style="display: flex; flex-direction: column;">
-                        <span style="font-size: 0.85rem;">${c.name}</span>
+                    <div style="display: flex; flex-direction: column; flex: 1; padding-right: 10px;">
+                        <span style="font-size: 0.85rem; font-weight: bold;">${c.name}</span>
                         <span style="font-size: 0.7rem; color: #64748b; text-transform: lowercase; font-weight: normal;">${c.email || 'no email'}</span>
+                        <span style="font-size: 0.7rem; color: #475569; font-weight: normal; margin-top: 2px;">${c.address || 'no address'}</span>
                     </div>
-                    <button onclick="deleteCustomer('${c.id}')" class="btn-del-driver" title="Delete Customer">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="editCustomerAddress('${c.id}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Address">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteCustomer('${c.id}')" class="btn-del-driver" title="Delete Customer">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
                 `;
                 container.appendChild(item);
             });
@@ -362,18 +368,24 @@
             }
             const input = document.getElementById('new-customer-name');
             const emailInput = document.getElementById('new-customer-email');
+            const addressInput = document.getElementById('new-customer-address');
+            
             const name = input.value.trim().toUpperCase();
             const email = emailInput ? emailInput.value.trim() : '';
+            const address = addressInput ? addressInput.value.trim() : '';
+            
             if (!name) return;
 
             try {
-                const { error } = await db.from('customers').insert([{ name: name, email: email }]);
+                const { error } = await db.from('customers').insert([{ name: name, email: email, address: address }]);
                 if (error) {
                     if (error.code === '23505') alert("Customer already exists!");
                     else throw error;
                 }
                 input.value = '';
                 if (emailInput) emailInput.value = '';
+                if (addressInput) addressInput.value = '';
+                
                 await loadCustomersData();
                 renderCustomerManagerList();
             } catch (err) {
@@ -382,6 +394,29 @@
             }
         }
         window.addNewCustomer = addNewCustomer;
+
+        async function editCustomerAddress(id, currentAddress) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage customers.");
+                return;
+            }
+            
+            const newAddress = prompt("Update Address for this customer:", currentAddress);
+            if (newAddress === null) return; // User cancelled
+            
+            try {
+                const { error } = await db.from('customers').update({ address: newAddress.trim() }).eq('id', id);
+                if (error) throw error;
+                
+                await loadCustomersData();
+                renderCustomerManagerList();
+            } catch (err) {
+                console.error("Failed to update customer address:", err);
+                alert("Error updating address: " + (err.message || "Unknown error"));
+            }
+        }
+        window.editCustomerAddress = editCustomerAddress;
 
         async function deleteCustomer(id) {
             const role = (window.currentUserRole || '').toLowerCase().trim();

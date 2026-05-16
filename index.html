@@ -1530,6 +1530,17 @@
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
+                                    <label><i class="fas fa-envelope-open-text"></i> INVOICE SENT?</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-envelope"></i>
+                                        <select id="f-invoice-sent" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%; font-weight: 700;">
+                                            <option value="">All</option>
+                                            <option value="YES">Yes</option>
+                                            <option value="NO">No</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="attendance-input-group">
                                     <label><i class="far fa-calendar-alt"></i> FROM DATE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-calendar-day"></i>
@@ -4977,6 +4988,7 @@
                 phone: document.getElementById('f-phone')?.value.toLowerCase() || '',
                 fromDate: document.getElementById('f-from-date')?.value || '',
                 toDate: document.getElementById('f-to-date')?.value || '',
+                invoiceSent: document.getElementById('f-invoice-sent')?.value || '',
                 transferredOnly: document.getElementById('f-transferred')?.checked || false,
                 pastDueOnly: document.getElementById('f-past-due')?.checked || false,
                 seller: document.getElementById('f-seller-cal')?.value || ''
@@ -5095,8 +5107,14 @@
                     matchPastDue = isPastDue;
                 }
 
+                let matchInvoiceSent = true;
+                if (filters.invoiceSent) {
+                    const invoiceStatus = (tr.dataset.invoiceSent || 'NO').toUpperCase();
+                    matchInvoiceSent = (invoiceStatus === filters.invoiceSent);
+                }
+
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
-                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller) {
+                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent) {
                     tr.style.display = '';
                 } else {
                     tr.style.display = 'none';
@@ -5278,13 +5296,14 @@
                 <!-- Customers will be listed here -->
             </div>
             <div class="modal-footer">
-                <div class="add-customer-input-row">
-                    <input type="text" id="new-customer-name" placeholder="NAME...">
-                    <input type="text" id="new-customer-email" placeholder="EMAIL..." style="text-transform: none;">
+                <div class="add-customer-input-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <input type="text" id="new-customer-name" placeholder="NAME..." style="flex: 1; min-width: 120px;">
+                    <input type="text" id="new-customer-email" placeholder="EMAIL..." style="text-transform: none; flex: 1; min-width: 120px;">
+                    <input type="text" id="new-customer-address" placeholder="ADDRESS..." style="flex: 2; min-width: 200px;">
                     <button onclick="addNewCustomer()" class="btn-add-driver-confirm"
                         style="background: #3b82f6;">ADD</button>
                 </div>
-                <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting a customer only removes them
+                <p style="font-size: 0.65rem; color: #64748b; margin: 0; margin-top: 5px;">* Tip: Deleting a customer only removes them
                     from future entries.</p>
             </div>
         </div>

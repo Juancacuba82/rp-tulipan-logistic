@@ -506,6 +506,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             tr.dataset.stamount = stAmount || 'PEND';
             tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
             tr.dataset.seller = rowData[61] || '';
+            tr.dataset.invoiceSent = rowData[57] || 'NO';
             tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
             tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
             tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
@@ -1194,6 +1195,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.stamount = stAmount || 'PEND';
                         tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
                         tr.dataset.seller = rowData[61] || '';
+                        tr.dataset.invoiceSent = rowData[57] || 'NO';
                         // Service type flags for filtering
                         tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';

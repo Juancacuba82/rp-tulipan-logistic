@@ -69,12 +69,26 @@ async function getTrips() {
         threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
         const dateStr = threeMonthsAgo.toISOString().split('T')[0];
 
-        const { data, error } = await db
+        let query = db
             .from('trips')
             .select('*')
             .gte('date', dateStr)
             .order('date', { ascending: false })
             .limit(100); // Daily working limit
+
+        // Apply driver-specific filtering at the database level for efficiency and security
+        if (window.currentUserRole === 'driver') {
+            const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+            const userEmail = (window.userEmail || '').toLowerCase();
+            const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
+            
+            if (!isRobert && drvRef) {
+                // Supabase ilike is case-insensitive, filtering trips where 'driver' contains drvRef
+                query = query.ilike('driver', `%${drvRef}%`);
+            }
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         console.log("Viajes obtenidos de Supabase (últimas 100):", data.length);
@@ -95,6 +109,18 @@ async function getAllTrips(dateFrom = null, dateTo = null) {
             .order('date', { ascending: false });
         if (dateFrom) query = query.gte('date', dateFrom);
         if (dateTo)   query = query.lte('date', dateTo);
+
+        // Apply driver-specific filtering at the database level
+        if (window.currentUserRole === 'driver') {
+            const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+            const userEmail = (window.userEmail || '').toLowerCase();
+            const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
+            
+            if (!isRobert && drvRef) {
+                query = query.ilike('driver', `%${drvRef}%`);
+            }
+        }
+
         const { data, error } = await query;
         if (error) throw error;
         console.log('Historial cargado:', data.length, 'órdenes', dateFrom ? `(${dateFrom} → ${dateTo || 'hoy'})` : '(completo)');

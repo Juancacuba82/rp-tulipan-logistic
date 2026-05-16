@@ -94,7 +94,21 @@
         badge.style.color = isEntireInvoicePaid ? '#15803d' : '#991b1b';
 
         // Service Location / Delivery Address
-        document.getElementById('mi-bill-to-name').textContent = mainRow[11] && mainRow[11] !== '---' ? mainRow[11] : 'No Customer Provided';
+        const customerName = mainRow[11] && mainRow[11] !== '---' ? mainRow[11] : 'No Customer Provided';
+        document.getElementById('mi-bill-to-name').textContent = customerName;
+        
+        // Find customer in loaded list to get address
+        const customerObj = (window.currentCustomers || []).find(c => c.name === customerName);
+        const billAddressEl = document.getElementById('mi-bill-to-address');
+        if (billAddressEl) {
+            if (customerObj && customerObj.address) {
+                billAddressEl.textContent = customerObj.address;
+                billAddressEl.style.display = 'block';
+            } else {
+                billAddressEl.style.display = 'none';
+            }
+        }
+
         document.getElementById('mi-from-address').textContent = mainRow[7] && mainRow[7] !== '---' ? mainRow[7] : 'N/A';
         document.getElementById('mi-to-address').textContent = mainRow[8] && mainRow[8] !== '---' ? mainRow[8] : 'N/A';
         
