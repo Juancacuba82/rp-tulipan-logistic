@@ -327,15 +327,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if (rpcErr) throw rpcErr;
 
-                // --- EXTRA SAFETY: Force update flags and financial fields directly in case RPC is missing them ---
-                await db.from('trips').update({
-                    has_trans: dbObj.has_trans,
-                    has_sales: dbObj.has_sales,
-                    move_to_yard: isMoveToYard,
-                    trans_pay: dbObj.trans_pay,
-                    sales_price: dbObj.sales_price,
-                    amount: dbObj.amount
-                }).eq('trip_id', finalTripId);
+                // --- MASTER SAFETY UPDATE: Force save ALL fields from dbObj to guarantee DB matches UI ---
+                const { trip_id: _ignoredId, ...masterPayload } = dbObj;
+                // Add the move_to_yard flag specifically as it's passed separately in logic
+                masterPayload.move_to_yard = isMoveToYard;
+                
+                await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
 
                 // --- REFRESH YARD UI ---
                 if (isMoveToYard && typeof window.loadYardData === 'function') await window.loadYardData(true);
@@ -355,8 +352,33 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
 
                 alert('¡ORDEN GUARDADA CORRECTAMENTE!');
+                const savedIndex = editingIndex; // Capture current editing index
                 resetForm();
-                await loadTableData();
+
+                if (savedIndex !== null) {
+                    // OPTIMIZED UPDATE: Update the local array and the specific row UI
+                    const updatedRowData = window.mapTripToArray(dbObj);
+                    // Ensure the trip_id (which is at index 0) is preserved correctly
+                    updatedRowData[0] = finalTripId;
+                    
+                    if (window.currentTrips) {
+                        window.currentTrips[savedIndex] = updatedRowData;
+                    }
+
+                    // Find the row in the DOM and refresh it
+                    const trs = document.querySelectorAll('#table-body tr');
+                    const targetTr = trs[savedIndex];
+                    if (targetTr && typeof window.refreshSingleRowUI === 'function') {
+                        window.refreshSingleRowUI(targetTr, updatedRowData);
+                        console.log("UI updated locally for row:", savedIndex);
+                    } else {
+                        // Fallback if anything goes wrong
+                        await loadTableData();
+                    }
+                } else {
+                    // NEW ORDER: reload the table to show the new entry in correct order
+                    await loadTableData();
+                }
             } catch (err) {
                 console.error("FATAL ERROR IN ADDROW:", err);
                 if (err.details) console.error("Error Details:", err.details);
@@ -455,15 +477,92 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const netPayEl = document.getElementById('net-pay-info');
             if (netPayEl) netPayEl.textContent = '';
 
-            // 6. Restore Button UI
             // 6. Restore Button UI and Clear Selection
             window.selectedTripIds = []; // DESELECT any selected orders
-            if (typeof loadTableData === 'function') loadTableData();
             
             if (typeof restoreTripArchiveButtonUI === 'function') restoreTripArchiveButtonUI();
         }
         window.startNewOrder = startNewOrder;
         window.resetForm = startNewOrder; // Alias for safety
+
+        // --- OPTIMIZED UI UPDATE FOR SINGLE ROW ---
+        window.refreshSingleRowUI = function(tr, rowData) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isTodayEntry = (rowData[1] === todayStr);
+            
+            const stYard = rowData[30];
+            const stRent = rowData[31];
+            const stRate = rowData[32];
+            const stSales = rowData[33];
+            const stAmount = rowData[34];
+            const mode = rowData[26];
+            const nextDueVal = rowData[29];
+
+            // Update Datasets for Filtering & Logic
+            tr.dataset.styard = stYard || 'PEND';
+            tr.dataset.strent = stRent || 'PEND';
+            tr.dataset.strate = stRate || 'PEND';
+            tr.dataset.stsales = stSales || 'PEND';
+            tr.dataset.stamount = stAmount || 'PEND';
+            tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
+            tr.dataset.seller = rowData[61] || '';
+            tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
+            tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
+            tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
+            tr.dataset.flagToYard = !!rowData[62] ? 'YES' : 'NO';
+
+            // Highlights
+            tr.style.backgroundColor = '';
+            tr.style.border = '';
+            if (isTodayEntry) {
+                tr.style.backgroundColor = '#fefce8';
+                tr.style.border = '2px solid #f59e0b';
+            }
+            if (rowData[41] === 'PENDING_PAYMENT' && rowData[1] < todayStr) {
+                tr.style.backgroundColor = '#fee2e2';
+                tr.style.border = '2px solid #ef4444';
+            }
+            if (mode === 'RENT' && nextDueVal !== '---' && new Date(nextDueVal + 'T00:00:00') < new Date()) {
+                tr.style.backgroundColor = '#fff7ed';
+                tr.style.border = '2px solid #f97316';
+            }
+
+            // Numerical values for filters
+            tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
+            tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;
+            tr.dataset.rateval = parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0;
+            tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
+            tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
+
+            const fmtDate = (ds) => window.formatDateMMDDYYYY(ds);
+            
+            // Map table cells to rowData indices
+            const displayMapping = [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 20, 22, 23, 24, 25
+            ];
+
+            const cells = tr.querySelectorAll('td');
+            displayMapping.forEach((dataIdx, cellIdx) => {
+                if (cells[cellIdx]) {
+                    let val = rowData[dataIdx];
+                    if (dataIdx === 1 || dataIdx === 15) val = fmtDate(val);
+                    
+                    // Special case for Driver Checkmark
+                    if (dataIdx === 17) {
+                        const driverNameClean = (val || '').trim().toLowerCase();
+                        if (driverNameClean && driverNameClean !== '---') {
+                            // We don't have activityLogs here, so we just keep the text 
+                            // unless we want to do a full refresh. For simplicity, we just set text.
+                            cells[cellIdx].textContent = val;
+                        } else {
+                            cells[cellIdx].textContent = val;
+                        }
+                    } else {
+                        cells[cellIdx].textContent = val;
+                    }
+                }
+            });
+        };
 
         window.addRow = addRow;
 
@@ -1019,7 +1118,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
 
         let isLoadingTable = false;
-        async function loadTableData() {
+        async function loadTableData(preloadedData = null) {
             window.loadTableData = loadTableData;
             if (isLoadingTable) return;
             isLoadingTable = true;
@@ -1030,40 +1129,38 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Re-bind sidebar lookups if needed (failsafe for early script execution)
             if (typeof setupReleaseValidation === 'function') setupReleaseValidation();
 
-            // Fetch from Supabase FIRST
+            // Fetch from Supabase OR use preloaded data
             try {
-                const data = await getTrips();
-                
-                // --- Activity Log Sync REMOVED from main load for performance ---
-                // We will fetch logs only when needed or with a much smaller limit
+                let data;
+                if (preloadedData && !Array.isArray(preloadedData[0])) {
+                    // Raw Supabase objects passed directly (e.g. from loadFullHistory)
+                    data = preloadedData;
+                } else if (window.isFullHistoryActive) {
+                    const dateFrom = document.getElementById('f-from-date')?.value || null;
+                    const dateTo   = document.getElementById('f-to-date')?.value || null;
+                    data = await getAllTrips(dateFrom, dateTo);
+                } else {
+                    data = await getTrips();
+                }
+
+                // Activity logs (not fetched for performance - kept empty)
                 let activityLogs = [];
-                
-                // --- Priority Sorting: TODAY first, then Chronological (Ascending) ---
+
+                // --- Priority Sorting: TODAY first, then recent dates ---
                 const todayStr = new Date().toISOString().split('T')[0];
                 data.sort((a, b) => {
                     const isTodayA = (a.date === todayStr);
                     const isTodayB = (b.date === todayStr);
                     if (isTodayA && !isTodayB) return -1;
                     if (!isTodayA && isTodayB) return 1;
-                    return (a.date || '').localeCompare(b.date || '');
+                    return (b.date || '').localeCompare(a.date || '');
                 });
 
-
-                // Clear ONLY when data is ready
+                // Clear and rebuild table
                 logisticsBody.innerHTML = '';
-
-                // Populating dynamic filters
-                populateFilterPickers();
-
                 window.currentTrips = data.map(mapTripToArray);
 
-                // Filter by Employee if set
-                const sellerFilter = document.getElementById('f-seller-cal')?.value;
-                if (sellerFilter) {
-                    window.currentTrips = window.currentTrips.filter(t => (t[61] || '').trim() === sellerFilter.trim());
-                }
-
-                // --- CALC SYNC: Recalculate based on ALL Trips loaded (Initial Load) ---
+                // --- CALC SYNC: Recalculate based on ALL Trips loaded ---
                 if (window.renderDriverLog) window.renderDriverLog();
                 
                 // --- TOP SCROLLBAR SYNC ---
@@ -1809,3 +1906,47 @@ window.addEventListener('resize', syncTopScroll);
 // Initial setup
 setTimeout(syncTopScroll, 1000);
 
+// === FULL HISTORY LOAD (bypasses the 100-order daily limit) ===
+window.loadFullHistory = async function() {
+    const btn = document.getElementById('btn-load-all-history');
+    const originalHTML = btn ? btn.innerHTML : '<i class="fas fa-database"></i> VER TODO EL HISTORIAL';
+
+    // Read the calendar date filters
+    const dateFrom = document.getElementById('f-from-date')?.value || null;
+    const dateTo   = document.getElementById('f-to-date')?.value || null;
+
+    const isFiltered = dateFrom || dateTo;
+    const loadLabel = isFiltered
+        ? `<i class="fas fa-spinner fa-spin"></i> Cargando ${dateFrom || '...'} → ${dateTo || 'hoy'}...`
+        : '<i class="fas fa-spinner fa-spin"></i> Cargando historial completo...';
+
+    if (btn) {
+        btn.innerHTML = loadLabel;
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+    }
+    try {
+        // Fetch with optional date range — passes null/null for full history
+        const rawData = await getAllTrips(dateFrom, dateTo);
+        window.isFullHistoryActive = true; // Mark that we are in history mode
+
+        // Pass raw data directly to loadTableData — it will skip internal getTrips() call
+        await window.loadTableData(rawData);
+
+        const resultLabel = isFiltered
+            ? `<i class="fas fa-check-circle"></i> ${rawData.length} ÓRDENES (${dateFrom || '...'} → ${dateTo || 'hoy'})`
+            : `<i class="fas fa-check-circle"></i> HISTORIAL COMPLETO (${rawData.length})`;
+
+        if (window.showToast) window.showToast('✅ ' + rawData.length + ' órdenes cargadas.', 'success');
+        if (btn) {
+            btn.innerHTML = resultLabel;
+            btn.style.background = 'linear-gradient(135deg, #166534, #15803d)';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    } catch (err) {
+        console.error('Error al cargar historial:', err);
+        if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; btn.style.opacity = '1'; }
+        if (window.showToast) window.showToast('❌ Error al cargar el historial.', 'error');
+    }
+};

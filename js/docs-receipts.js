@@ -70,16 +70,17 @@
             const orderStatus = (trip[41] || 'PENDING_PAYMENT').toString().toUpperCase();
 
             // Payment Status Calculation
+            // Correct indices based on delivery-calendar.js rowData mapping
             const vY = parseFloat(trip[13]) || 0;
+            const vRent = parseFloat(trip[14]) || 0;
             const vR = parseFloat(trip[18]) || 0;
-            const vS = parseFloat(trip[20]) || 0;
-            const vRent = parseFloat(trip[27]) || 0;
+            const vS = parseFloat(trip[22]) || 0; // index 22 is 'in-amount'
             const takeTax = (trip[49] === true || trip[49] === 'true' || trip[49] === 'YES' || trip[49] === 'on' || trip[49] === 1);
 
             const clearY = (trip[30] === 'PAID' || vY <= 0.01);
-            const clearR = (trip[32] === 'PAID' || vR <= 0.01);
-            const clearS = (trip[33] === 'PAID' || vS <= 0.01);
             const clearRent = (trip[31] === 'PAID' || vRent <= 0.01);
+            const clearR = (trip[32] === 'PAID' || vR <= 0.01);
+            const clearS = (trip[33] === 'PAID' || vS <= 0.01); // Only checks Sales checkbox, ignores Amount/Cash checkbox
             const clearTax = (!takeTax || trip[52] === 'PAID');
 
             const isFullyPaid = (clearY && clearR && clearS && clearRent && clearTax);
@@ -100,7 +101,14 @@
             if (window.currentUserRole === 'driver') {
                 const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                 const userEmail = (window.userEmail || '').toLowerCase();
-                const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ");
+                const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
+
+                // --- UI Visibility for Robert ---
+                const filtersToHide = ['docs-customer-dropdown', 'docs-status-dropdown', 'docs-payment-dropdown'];
+                filtersToHide.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = isRobert ? 'none' : (window.currentUserRole === 'driver' ? 'none' : '');
+                });
 
                 // --- Calculate visibility window ---
                 const now = new Date();
@@ -120,15 +128,11 @@
                     dateVisible = true;
                 }
 
-                if (isRobert) {
-                    // Robert can see everyone's orders, but restricted by the time window
-                    roleDriverMatch = dateVisible;
-                } else {
-                    const isMyTrip = (drv === drvRef.toLowerCase());
-                    const isComplete = (trip[41] === 'PAID' || trip[41] === 'COMPLETE');
-                    // Standard drivers: only their trips, not complete, and within the time window
-                    roleDriverMatch = isMyTrip && !isComplete && dateVisible;
-                }
+                const isComplete = (trip[41] === 'COMPLETE');
+                const nameMatch = isRobert || (drv === drvRef.toLowerCase());
+
+                // All drivers (including Robert): only see trips that are NOT complete and within the time window
+                roleDriverMatch = nameMatch && !isComplete && dateVisible;
             }
 
             if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownCustomerMatch && dropdownStatusMatch && dropdownPaymentMatch) {
@@ -140,10 +144,16 @@
                 const match = note.trim().match(/^(\d+)\./);
                 const orderLabel = match ? `[${match[1]}] ` : '';
 
+                // --- Privacy Masking for Drivers ---
+                const isDriver = (window.currentUserRole === 'driver');
+                const displayCustomer = isDriver ? '********' : (trip[11] || 'No Cust');
+                const displayCont = isDriver ? '********' : (trip[3] || 'No Cont');
+                const displayDriver = (trip[17] || 'No Driver');
+
                 div.innerHTML = `
                         <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}</h4>
-                        <p style="font-weight:bold; color:#1e293b;">${trip[17] || 'No Driver'}</p>
-                        <p>${trip[3] || 'No Cont'} | ${trip[11] || 'No Cust'}</p>
+                        <p style="font-weight:bold; color:#1e293b;">${displayDriver}</p>
+                        <p>${displayCont} | ${displayCustomer}</p>
                         <p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>
                     `;
                 div.onclick = () => fillReceiptFromTrip(trip, div);
@@ -388,20 +398,21 @@
             place: (trip[8] && trip[8] !== '---') ? trip[8] : '',
             miles: parseFloat(trip[10]) || 0,
             yard: parseFloat(trip[13]) || 0,
-            storage: parseFloat(trip[27]) || 0,
+            storage: parseFloat(trip[14]) || 0,
             transp: parseFloat(trip[18]) || 0,
-            sales: (parseFloat(trip[20]) || 0) * (parseInt(trip[53]) || 1),
-            qty: parseInt(trip[53]) || 1,
+            sales: (parseFloat(trip[22]) || 0), // Already multiplied or full amount at 22
+            qty: parseInt(trip[30]) || 1,
             taxRate: taxRate,
             takeTax: takeTax,
             showBilling: showBilling,
             driver: (trip[17] && trip[17] !== '---') ? trip[17] : '',
             seller: (() => {
-                const email = trip[59];
-                if (!email || email === '---') return '';
-                const cleanEmail = email.trim().toLowerCase();
+                const val = trip[61]; // Employee name/email is at index 61
+                if (!val || val === '---') return '';
+                if (!val.includes('@')) return val.toUpperCase(); 
+                const cleanEmail = val.trim().toLowerCase();
                 const name = window.globalUserNameMap ? window.globalUserNameMap[cleanEmail] : null;
-                return name || email.split('@')[0].toUpperCase();
+                return name || val.split('@')[0].toUpperCase();
             })(),
             notes: (trip[25] && trip[25] !== '---') ? trip[25] : '',
             cond: {
@@ -444,11 +455,12 @@
             return `<div class="receipt-section-title">${title}</div><div class="receipt-grid-3">${content}</div>`;
         };
 
-        const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver) + f('EMPLOYEE', data.seller);
+        const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver) + f('SALES REPRESENTATIVE', data.seller);
         const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
         
-        const isComplete = (data.status === 'PAID' || data.status === 'COMPLETE' || data.status === 'DELIVERED');
-        const clientContent = (isComplete ? f('CUSTOMER', data.customer) : '') + f('CUSTOMER NAME', data.clientName) + f('PHONE', data.phone);
+        const isManager = (window.currentUserRole !== 'driver');
+        const canSeeClient = (isManager || data.status === 'COMPLETE');
+        const clientContent = canSeeClient ? (f('CUSTOMER', data.customer) + f('CUSTOMER NAME', data.clientName) + f('PHONE', data.phone)) : '';
 
         let inspectionContent = '';
         const checkIcon = '<span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px; font-weight:bold; font-size:10px; margin-right:5px;">X</span>';
@@ -469,7 +481,8 @@
         if (data.sales > 0) billingRows += `<tr><td>Sales</td><td style="text-align:right;">${bBadge(data.salesStatus)}$${data.sales.toFixed(2)}</td></tr>`;
         if (data.takeTax && taxVal > 0) billingRows += `<tr><td>Taxes (${data.taxRate}%)</td><td style="text-align:right;">${bBadge(data.taxStatus)}$${taxVal.toFixed(2)}</td></tr>`;
 
-        let billingSectionHtml = (total > 0 && data.showBilling) ? `<div class="receipt-section-title">Billing Summary</div><table class="receipt-table"><tbody>${billingRows}</tbody><tfoot><tr class="receipt-total-row"><td>TOTAL DUE</td><td style="text-align:right;">$${total.toFixed(2)}</td></tr></tfoot></table>` : '';
+        const canSeeBilling = (isManager || data.showBilling);
+        let billingSectionHtml = (total > 0 && canSeeBilling) ? `<div class="receipt-section-title">Billing Summary</div><table class="receipt-table"><tbody>${billingRows}</tbody><tfoot><tr class="receipt-total-row"><td>TOTAL DUE</td><td style="text-align:right;">$${total.toFixed(2)}</td></tr></tfoot></table>` : '';
 
         const photos = trip[55] || [];
         let photosHtml = '';

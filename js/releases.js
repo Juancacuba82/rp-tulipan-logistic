@@ -624,12 +624,17 @@
             let p20 = 0, p40 = 0, p45 = 0;
 
             if (fullSize.startsWith("20")) { q20 = qty; p20 = price; }
-            else if (fullSize.startsWith("40")) { q40 = qty; p40 = price; }
             else if (fullSize.startsWith("45")) { q45 = qty; p45 = price; }
+            else { 
+                // FALLBACK: Default to 40' columns for any other size (like 40 HC, 40 STD, or custom sizes)
+                // This ensures qty and price are NEVER saved as 0 if the user entered a value.
+                q40 = qty; p40 = price; 
+            }
 
             // STOCK LOGIC: Directly use the value from the new manual 'rel-stock-unified' field
             const finalStock = parseInt(document.getElementById('rel-stock-unified').value) || 0;
 
+            // BUILD FINAL OBJECT FOR MASTER SAVE
             const relObj = {
                 release_no: finalRelNo,
                 date: dte === '---' ? null : dte,
@@ -649,8 +654,10 @@
                 container_size: fullSize,
                 paid: document.getElementById('rel-paid').checked,
                 is_cash: document.getElementById('rel-is-cash').checked,
-                created_by: window.userEmail || '' // Captures current author
+                created_by: window.userEmail || ''
             };
+
+            console.log("Master Save Payload (Releases):", relObj);
 
             try {
                 if (editingReleaseId) {

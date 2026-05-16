@@ -72,14 +72,54 @@ async function getTrips() {
         const { data, error } = await db
             .from('trips')
             .select('*')
-            .gte('date', dateStr) 
-            .order('date', { ascending: false });
+            .gte('date', dateStr)
+            .order('date', { ascending: false })
+            .limit(100); // Daily working limit
 
         if (error) throw error;
-        console.log("Viajes obtenidos de Supabase (últimos 90 días):", data.length);
+        console.log("Viajes obtenidos de Supabase (últimas 100):", data.length);
         return data || [];
     } catch (err) {
         console.error('Error fetching trips:', err);
+        return [];
+    }
+}
+
+// Loads ALL trips with ALL fields — for full history browsing
+// If dateFrom/dateTo are provided, restricts to that range
+async function getAllTrips(dateFrom = null, dateTo = null) {
+    try {
+        let query = db
+            .from('trips')
+            .select('*')
+            .order('date', { ascending: false });
+        if (dateFrom) query = query.gte('date', dateFrom);
+        if (dateTo)   query = query.lte('date', dateTo);
+        const { data, error } = await query;
+        if (error) throw error;
+        console.log('Historial cargado:', data.length, 'órdenes', dateFrom ? `(${dateFrom} → ${dateTo || 'hoy'})` : '(completo)');
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching all trips:', err);
+        return [];
+    }
+}
+
+// Lightweight load — only financial fields for Profit Report
+async function getAllTripsForProfit(dateFrom, dateTo) {
+    try {
+        let query = db
+            .from('trips')
+            .select('date, status, sales_price, amount, yard_services, yard_rate, price_per_day, date_out, trans_pay, company, has_trans, has_sales, release_no, size, qty, take_tax, tax_percent')
+            .order('date', { ascending: false });
+        if (dateFrom) query = query.gte('date', dateFrom);
+        if (dateTo)   query = query.lte('date', dateTo);
+        const { data, error } = await query;
+        if (error) throw error;
+        console.log("Datos financieros cargados para Profit Report:", data.length);
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching profit data:', err);
         return [];
     }
 }

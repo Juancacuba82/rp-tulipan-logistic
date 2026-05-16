@@ -1397,6 +1397,9 @@
                                 <span class="filter-summary-value" id="order-count-display">0</span>
                             </div>
                         </div>
+                        <button id="btn-load-all-history" onclick="loadFullHistory()" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; border: none; border-radius: 10px; padding: 10px 18px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: all 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                            <i class="fas fa-database"></i> VER TODO EL HISTORIAL
+                        </button>
                     </div>
 
                     <!-- MODERN ADVANCED FILTER PANEL -->
@@ -1668,7 +1671,7 @@
                             <select id="docs-status-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
                                 <option value="">Status: All</option>
                                 <option value="PENDING_PAYMENT">Pending</option>
-                                <option value="PAID">Complete</option>
+                                <option value="COMPLETE">Complete</option>
                             </select>
 
                             <select id="docs-payment-dropdown" class="form-input filter-sel-docs" onchange="loadDocTrips()">
@@ -2753,6 +2756,9 @@
                         </div>
                         <button onclick="resetProfitFilters()" class="btn-reset-modern">
                             <i class="fas fa-undo"></i> Reset Filters
+                        </button>
+                        <button id="btn-profit-full-calc" onclick="renderFullProfitReport()" style="background: linear-gradient(135deg, #166534, #15803d); color: white; border: none; border-radius: 10px; padding: 10px 18px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(22,101,52,0.3); transition: all 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                            <i class="fas fa-calculator"></i> CALCULAR AÑO COMPLETO
                         </button>
                     </div>
                 </div>
@@ -4218,6 +4224,7 @@
                 'button[onclick*="master-invoice"]',
                 'button[onclick*="inventory"]',
                 'button[onclick*="calls"]',
+                'button[onclick*="yard"]',
                 '#nav-actions-container button[onclick*="fleet"]',
                 '#nav-actions-container button[onclick*="releases"]',
                 '#nav-actions-container button[onclick*="calendar"]',
@@ -4227,7 +4234,8 @@
                 '#nav-actions-container button[onclick*="inventory"]',
                 '#nav-actions-container button[onclick*="calls"]',
                 '#nav-actions-container button[onclick*="expenses"]',
-                '#nav-actions-container button[onclick*="rentals"]'
+                '#nav-actions-container button[onclick*="rentals"]',
+                '#nav-actions-container button[onclick*="yard"]'
             ];
 
             // Email Settings button: only visible for admin
@@ -4656,16 +4664,11 @@
                             if (window.fetchHistory) window.fetchHistory();
                         })();
                     } else if (finalView === 'calendar') {
-                        // Clear calendar filters on entry to avoid invisible filter issues
-                        ['f-city','f-size','f-customer','f-driver','f-company','f-status','f-pay-status','f-service-type'].forEach(id => {
-                            const el = document.getElementById(id);
-                            if (el) el.value = '';
-                        });
-                        ['f-ncont','f-order'].forEach(id => {
-                            const el = document.getElementById(id);
-                            if (el) el.value = '';
-                        });
+                        // PERSIST FILTERS: filter inputs are not cleared on entry.
+                        // loadTableData is smart: it respects isFullHistoryActive and 
+                        // uses date filters if set, without losing the user's context.
                         if (window.loadTableData) window.loadTableData();
+                        
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
                         if (window.loadReleasesData) window.loadReleasesData();
 
@@ -5220,11 +5223,6 @@
         if (fromD) fromD.value = '';
         if (toD) toD.value = '';
 
-        // Update loadDocTrips to show all if no dates are provided
-
-        // Call loadDocTrips to populate initially
-        loadDocTrips();
-
         // --- STARTUP LOGIC ---
         window.addEventListener('DOMContentLoaded', async () => {
             console.log("App starting up...");
@@ -5233,6 +5231,11 @@
                 const savedView = localStorage.getItem('activeSection') || 'hero';
                 showView(savedView);
                 if (window.applyRoleVisibility) window.applyRoleVisibility();
+                
+                // Load background data after UI is visible to prevent blank screens
+                if (typeof loadDocTrips === 'function') {
+                    loadDocTrips();
+                }
             } else {
                 showView('auth');
             }
