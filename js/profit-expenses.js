@@ -228,7 +228,41 @@
             const dateFrom = document.getElementById('profit-date-from').value;
             const dateTo = document.getElementById('profit-date-to').value;
 
-            const logisticsData = tripsData || window.currentTrips || [];
+            // Show loading status on the button or title if possible
+            const titleEl = document.querySelector('#profit-report-view h2');
+            const originalTitle = titleEl ? titleEl.innerHTML : 'Financial Profit Report';
+            if (titleEl) titleEl.innerHTML = 'Financial Profit Report <i class="fas fa-spinner fa-spin" style="font-size:1rem; margin-left: 10px;"></i>';
+
+            // --- FETCH ALL LOGISTICS DATA directly from database ---
+            let logisticsData = [];
+            if (window.getAllTripsForProfit) {
+                const financialData = await window.getAllTripsForProfit(dateFrom, dateTo);
+                logisticsData = financialData.map(t => {
+                    const row = new Array(63).fill('---');
+                    row[1]  = t.date || '---';
+                    row[41] = t.status || 'PENDING_PAYMENT';
+                    row[53] = t.qty || 1;
+                    row[20] = t.sales_price || 0;
+                    row[12] = t.yard_services || 'NO';
+                    row[13] = t.yard_rate || 0;
+                    row[14] = t.price_per_day || 0;
+                    row[15] = t.date_out || '---';
+                    row[18] = t.trans_pay || 0;
+                    row[16] = t.company || '---';
+                    row[42] = (t.has_trans === 'YES' || t.has_trans === true) ? 'YES' : 'NO';
+                    row[43] = (t.has_sales === 'YES' || t.has_sales === true) ? 'YES' : 'NO';
+                    row[4]  = t.release_no || '---';
+                    row[2]  = t.size || '---';
+                    row[49] = t.take_tax || false;
+                    row[50] = t.tax_percent || 0;
+                    return row;
+                });
+            } else {
+                logisticsData = tripsData || window.currentTrips || [];
+            }
+
+            if (titleEl) titleEl.innerHTML = originalTitle;
+
             const expensesData = window.currentExpenses || [];
 
             // 0. Build Release Lookup Map for Container Purchase Costs
@@ -238,9 +272,9 @@
                     const rNo = r[0].toString().trim();
                     const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0 };
                     relMap.set(rNo, { 
-                        p20: (parseFloat(r[6]) || 0) || existing.p20,
-                        p40: (parseFloat(r[8]) || 0) || existing.p40,
-                        p45: (parseFloat(r[10]) || 0) || existing.p45
+                        p20: (parseFloat(r[8]) || 0) || existing.p20,
+                        p40: (parseFloat(r[10]) || 0) || existing.p40,
+                        p45: (parseFloat(r[12]) || 0) || existing.p45
                     });
                 }
             });
@@ -408,58 +442,4 @@
             document.getElementById('profit-date-from').value = '';
             document.getElementById('profit-date-to').value = '';
             renderProfitReport();
-        };
-
-        // === FULL PROFIT CALCULATION (lightweight, bypasses the 50-order limit) ===
-        window.renderFullProfitReport = async function() {
-            const btn = document.getElementById('btn-profit-full-calc');
-            const originalHTML = btn ? btn.innerHTML : '';
-            if (btn) {
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculando...';
-                btn.disabled = true;
-                btn.style.opacity = '0.7';
-            }
-            try {
-                const dateFrom = document.getElementById('profit-date-from').value;
-                const dateTo   = document.getElementById('profit-date-to').value;
-
-                // Fetch lightweight financial data for ALL orders (or filtered by date)
-                const financialData = await getAllTripsForProfit(dateFrom, dateTo);
-
-                // Map to array format — WITHOUT touching window.currentTrips
-                const mappedData = financialData.map(t => {
-                    const row = new Array(63).fill('---');
-                    row[1]  = t.date || '---';
-                    row[41] = t.status || 'PENDING_PAYMENT';
-                    row[53] = t.qty || 1;
-                    row[20] = t.sales_price || 0;
-                    row[12] = t.yard_services || 'NO';
-                    row[13] = t.yard_rate || 0;
-                    row[14] = t.price_per_day || 0;
-                    row[15] = t.date_out || '---';
-                    row[18] = t.trans_pay || 0;
-                    row[16] = t.company || '---';
-                    row[42] = (t.has_trans === 'YES' || t.has_trans === true) ? 'YES' : 'NO';
-                    row[43] = (t.has_sales === 'YES' || t.has_sales === true) ? 'YES' : 'NO';
-                    row[4]  = t.release_no || '---';
-                    row[2]  = t.size || '---';
-                    row[49] = t.take_tax || false;
-                    row[50] = t.tax_percent || 0;
-                    return row;
-                });
-
-                // Pass data directly as parameter — window.currentTrips is never modified
-                await renderProfitReport(mappedData);
-
-                if (window.showToast) window.showToast('✅ Reporte calculado con ' + financialData.length + ' órdenes totales.', 'success');
-                if (btn) {
-                    btn.innerHTML = '<i class="fas fa-check-circle"></i> CALCULADO (' + financialData.length + ' órdenes)';
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                }
-            } catch (err) {
-                console.error('Error en Profit Report completo:', err);
-                if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; btn.style.opacity = '1'; }
-                if (window.showToast) window.showToast('❌ Error al calcular el reporte completo.', 'error');
-            }
         };
