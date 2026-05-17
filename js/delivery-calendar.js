@@ -446,7 +446,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-flag1', 'in-flag2', 'in-flag3', 'in-yardpaid', 'in-rentpaid',
                 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-yard-cash',
                 'in-rate-cash', 'in-sales-cash', 'in-showtax', 'in-hideamounts', 'in-taxpaid',
-                'in-sendemail'
+                'in-sendemail', 'in-move-to-yard'
             ];
             checks.forEach(id => {
                 const el = document.getElementById(id);
