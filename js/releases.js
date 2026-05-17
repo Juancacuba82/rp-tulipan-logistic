@@ -530,7 +530,7 @@
                 if (el) { el.value = ''; el.classList.remove('rel-filter-active'); }
             });
             const zeroCheck = document.getElementById('rf-show-zero');
-            if (zeroCheck) zeroCheck.checked = true;
+            if (zeroCheck) zeroCheck.checked = false;
             applyReleasesFilters();
         };
         window.loadReleasesData = loadReleasesData; // Expose globally
