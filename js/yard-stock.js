@@ -11,7 +11,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             window.showView = function(viewId) {
                 originalShowView(viewId);
                 if (viewId === 'yard') {
-                    loadYardData(true);
+                    loadYardData(false);
                 }
             };
         }
@@ -20,6 +20,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     // --- DATA LOADING ---
     async function loadYardData(force = false) {
         if (!window.db) return;
+        
+        if (!force && currentYardStock && currentYardStock.length > 0) {
+            renderYardTable();
+            updateYardSelectors();
+            return;
+        }
         
         try {
             const { data, error } = await window.db
@@ -147,16 +153,19 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         try {
             if (editingYardId) {
-                const { error } = await window.db.from('yard_stock').update(yardObj).eq('id', editingYardId);
+                const { data, error } = await window.db.from('yard_stock').update(yardObj).eq('id', editingYardId).select();
                 if (error) throw error;
+                const idx = currentYardStock.findIndex(item => item.id === editingYardId);
+                if (idx !== -1) currentYardStock[idx] = data[0];
             } else {
-                const { error } = await window.db.from('yard_stock').insert([yardObj]);
+                const { data, error } = await window.db.from('yard_stock').insert([yardObj]).select();
                 if (error) throw error;
+                currentYardStock.unshift(data[0]);
             }
 
             alert("Container saved to yard stock!");
             resetYardForm();
-            loadYardData(true);
+            loadYardData(false);
         } catch (err) {
             console.error("Error saving yard container:", err);
             alert("Failed to save container.");
@@ -191,8 +200,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         try {
             const { error } = await window.db.from('yard_stock').delete().eq('id', id);
             if (error) throw error;
+            
+            // Local-first removal
+            currentYardStock = currentYardStock.filter(item => item.id !== id);
+            
             if (editingYardId === id) resetYardForm();
-            loadYardData(true);
+            loadYardData(false);
         } catch (err) {
             console.error("Error deleting yard item:", err);
         }

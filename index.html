@@ -1392,7 +1392,6 @@
                             <h2 style="font-size: 1.8rem; font-weight: 900; color: #1e293b; margin: 0; letter-spacing: -0.5px;">Delivery Calendar</h2>
                             <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">Manage trips, history and data grid</p>
                         </div>
-                        
                         <div class="filter-summary-card" style="margin-bottom: 0;">
                             <div class="filter-summary-icon">
                                 <i class="fas fa-clipboard-list"></i>
@@ -1402,9 +1401,6 @@
                                 <span class="filter-summary-value" id="order-count-display">0</span>
                             </div>
                         </div>
-                        <button id="btn-load-all-history" onclick="loadFullHistory()" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; border: none; border-radius: 10px; padding: 10px 18px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: all 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                            <i class="fas fa-database"></i> VER TODO EL HISTORIAL
-                        </button>
                     </div>
 
                     <!-- MODERN ADVANCED FILTER PANEL -->
@@ -1506,7 +1502,7 @@
                                         <i class="fas fa-tasks"></i>
                                         <select id="f-status" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%; font-weight: 700;">
                                             <option value="">All</option>
-                                            <option value="PENDING_PAYMENT">Pending</option>
+                                            <option value="PENDING_PAYMENT" selected>Pending</option>
                                             <option value="COMPLETE">Complete</option>
                                         </select>
                                     </div>
@@ -1549,14 +1545,14 @@
                                     <label><i class="far fa-calendar-alt"></i> FROM DATE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-calendar-day"></i>
-                                        <input type="date" id="f-from-date" class="form-input" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
+                                        <input type="date" id="f-from-date" class="form-input" onchange="if(window.loadTableData) window.loadTableData()" style="width: 100%;">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
                                     <label><i class="far fa-calendar-check"></i> TO DATE</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-calendar-check"></i>
-                                        <input type="date" id="f-to-date" class="form-input" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
+                                        <input type="date" id="f-to-date" class="form-input" onchange="if(window.loadTableData) window.loadTableData()" style="width: 100%;">
                                     </div>
                                 </div>
 
@@ -4680,8 +4676,7 @@
                         })();
                     } else if (finalView === 'calendar') {
                         // PERSIST FILTERS: filter inputs are not cleared on entry.
-                        // loadTableData is smart: it respects isFullHistoryActive and 
-                        // uses date filters if set, without losing the user's context.
+                        // loadTableData dynamically fetches from Supabase based on date filters.
                         if (window.loadTableData) window.loadTableData();
                         
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
@@ -5161,7 +5156,7 @@
                 totYard += parseFloat(trip[13]) || 0;
                 totPpd  += parseFloat(trip[14]) || 0;
                 totTrans += parseFloat(trip[18]) || 0;
-                totSales += parseFloat(trip[20]) || 0;
+                totSales += (parseFloat(trip[20]) || 0) * (parseInt(trip[53]) || 1);
             });
 
             const elYard  = document.getElementById('total-yard-rate');
@@ -5185,7 +5180,16 @@
                     el.value = '';
                 }
             });
-            if (window.applyAdvancedFilters) applyAdvancedFilters();
+            // Re-apply PENDING_PAYMENT as default status filter
+            const stSel = document.getElementById('f-status');
+            if (stSel) stSel.value = 'PENDING_PAYMENT';
+
+            // Reload table data since dates are cleared
+            if (window.loadTableData) {
+                window.loadTableData();
+            } else if (window.applyAdvancedFilters) {
+                applyAdvancedFilters();
+            }
         }
         window.resetAdvancedFilters = resetAdvancedFilters;
 

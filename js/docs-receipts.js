@@ -400,8 +400,8 @@
             yard: parseFloat(trip[13]) || 0,
             storage: parseFloat(trip[14]) || 0,
             transp: parseFloat(trip[18]) || 0,
-            sales: (parseFloat(trip[22]) || 0), // Already multiplied or full amount at 22
-            qty: parseInt(trip[30]) || 1,
+            sales: (parseFloat(trip[20]) || 0) * (parseInt(trip[53]) || 1),
+            qty: parseInt(trip[53]) || 1,
             taxRate: taxRate,
             takeTax: takeTax,
             showBilling: showBilling,

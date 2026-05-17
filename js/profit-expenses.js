@@ -126,7 +126,7 @@
                         try {
                             await deleteExpense(expenseId);
                             // Update local state instead of full reload
-                            currentExpenses = currentExpenses.filter(row => row[5] !== expenseId);
+                            window.currentExpenses = window.currentExpenses.filter(row => row[5] !== expenseId);
                             renderExpensesHistory();
                         } catch (e) {
                             console.error("Error deleting expense:", e);

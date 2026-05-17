@@ -97,8 +97,13 @@
 
         // --- SMART IMPORTER LOGIC REMOVED ---
 
-        async function loadDriversData() {
+        async function loadDriversData(force = false) {
             if (!db) return;
+            if (!force && currentDrivers && currentDrivers.length > 0) {
+                refreshDriverSelects();
+                if (window.populateDriverAuditList) window.populateDriverAuditList();
+                return;
+            }
             try {
                 const { data, error } = await db.from('drivers').select('*').order('name', { ascending: true });
                 if (error) throw error;
@@ -224,7 +229,7 @@
                     else throw error;
                 }
                 input.value = '';
-                await loadDriversData();
+                await loadDriversData(true);
                 renderDriverManagerList();
             } catch (err) {
                 console.error("Failed to add driver:", err);
@@ -243,7 +248,7 @@
             try {
                 const { error } = await db.from('drivers').delete().eq('id', id);
                 if (error) throw error;
-                await loadDriversData();
+                await loadDriversData(true);
                 renderDriverManagerList();
             } catch (err) {
                 console.error("Failed to delete driver:", err);
@@ -261,8 +266,12 @@
             document.getElementById('customer-manager-modal').style.display = 'none';
         }
 
-        async function loadCustomersData() {
+        async function loadCustomersData(force = false) {
             if (!db) return;
+            if (!force && currentCustomers && currentCustomers.length > 0) {
+                refreshCustomerSelects();
+                return;
+            }
             try {
                 const { data, error } = await db.from('customers').select('*').order('name', { ascending: true });
                 if (error) throw error;
@@ -386,7 +395,7 @@
                 if (emailInput) emailInput.value = '';
                 if (addressInput) addressInput.value = '';
                 
-                await loadCustomersData();
+                await loadCustomersData(true);
                 renderCustomerManagerList();
             } catch (err) {
                 console.error("Failed to add customer:", err);
@@ -409,7 +418,7 @@
                 const { error } = await db.from('customers').update({ address: newAddress.trim() }).eq('id', id);
                 if (error) throw error;
                 
-                await loadCustomersData();
+                await loadCustomersData(true);
                 renderCustomerManagerList();
             } catch (err) {
                 console.error("Failed to update customer address:", err);
@@ -428,7 +437,7 @@
             try {
                 const { error } = await db.from('customers').delete().eq('id', id);
                 if (error) throw error;
-                await loadCustomersData();
+                await loadCustomersData(true);
                 renderCustomerManagerList();
             } catch (err) {
                 console.error("Failed to delete customer:", err);
@@ -446,8 +455,12 @@
             document.getElementById('pickup-address-manager-modal').style.display = 'none';
         }
 
-        async function loadPickupAddressesData() {
+        async function loadPickupAddressesData(force = false) {
             if (!db) return;
+            if (!force && currentPickupAddresses && currentPickupAddresses.length > 0) {
+                refreshPickupAddressSelects();
+                return;
+            }
             try {
                 const { data, error } = await db.from('pickup_addresses').select('*').order('name', { ascending: true });
                 if (error) throw error;
@@ -552,7 +565,7 @@
                     else throw error;
                 }
                 input.value = '';
-                await loadPickupAddressesData();
+                await loadPickupAddressesData(true);
                 renderPickupAddressManagerList();
             } catch (err) {
                 console.error("Failed to add address:", err);
@@ -571,7 +584,7 @@
             try {
                 const { error } = await db.from('pickup_addresses').delete().eq('id', id);
                 if (error) throw error;
-                await loadPickupAddressesData();
+                await loadPickupAddressesData(true);
                 renderPickupAddressManagerList();
             } catch (err) {
                 console.error("Failed to delete address:", err);
@@ -589,8 +602,12 @@
             document.getElementById('depot-manager-modal').style.display = 'none';
         }
 
-        async function loadDepotsData() {
+        async function loadDepotsData(force = false) {
             if (!db) return;
+            if (!force && currentDepots && currentDepots.length > 0) {
+                refreshDepotSelects();
+                return;
+            }
             try {
                 const { data, error } = await db.from('depots').select('*').order('name', { ascending: true });
                 if (error) throw error;
@@ -671,7 +688,7 @@
                     else throw error;
                 }
                 input.value = '';
-                await loadDepotsData();
+                await loadDepotsData(true);
                 renderDepotManagerList();
             } catch (err) {
                 console.error("Failed to add depot:", err);
@@ -690,7 +707,7 @@
             try {
                 const { error } = await db.from('depots').delete().eq('id', id);
                 if (error) throw error;
-                await loadDepotsData();
+                await loadDepotsData(true);
                 renderDepotManagerList();
             } catch (err) {
                 console.error("Failed to delete depot:", err);
@@ -708,8 +725,13 @@
             document.getElementById('seller-manager-modal').style.display = 'none';
         }
 
-        async function loadSellersData() {
+        async function loadSellersData(force = false) {
             if (!db) return;
+            if (!force && currentSellers && currentSellers.length > 0) {
+                refreshSellerSelects();
+                if (window.updateCallSellerDropdown) window.updateCallSellerDropdown();
+                return;
+            }
             try {
                 const { data, error } = await db.from('sellers').select('*').order('name', { ascending: true });
                 if (error) throw error;
@@ -760,8 +782,12 @@
 
         // --- STAFF PROFILES LOGIC (For Delivery Calendar Employee Field) ---
         let currentStaff = [];
-        async function loadStaffProfiles() {
+        async function loadStaffProfiles(force = false) {
             if (!db) return;
+            if (!force && currentStaff && currentStaff.length > 0) {
+                refreshStaffSelects();
+                return;
+            }
             try {
                 const { data, error } = await db.from('profiles')
                     .select('email, role')
@@ -833,7 +859,7 @@
                     else throw error;
                 }
                 input.value = '';
-                await loadSellersData();
+                await loadSellersData(true);
                 renderSellerManagerList();
             } catch (err) {
                 console.error("Failed to add seller:", err);
@@ -852,7 +878,7 @@
             try {
                 const { error } = await db.from('sellers').delete().eq('id', id);
                 if (error) throw error;
-                await loadSellersData();
+                await loadSellersData(true);
                 renderSellerManagerList();
             } catch (err) {
                 console.error("Failed to delete seller:", err);

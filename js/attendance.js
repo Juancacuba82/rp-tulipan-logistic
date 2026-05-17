@@ -510,16 +510,14 @@ window.handleClockOut = async function() {
     }
 };
 
-window._lastAttendanceLoad = 0;
+window.currentAttendanceData = null;
 window.loadAttendanceData = async function(force = false) {
     if (!window.db) return;
     
-    // Cache: Avoid reloading if last load was < 2 minutes ago, unless forced (e.g. after edit/delete/filter change)
-    const currentTime = Date.now();
-    if (!force && (currentTime - window._lastAttendanceLoad < 120000)) {
+    // Cache: Avoid reloading if data is already loaded in memory, unless forced (e.g. after edit/delete/filter change)
+    if (!force && window.currentAttendanceData !== null) {
         return;
     }
-    window._lastAttendanceLoad = currentTime;
 
     // --- DEFAULT DATES INITIALIZATION ---
     const startEl = document.getElementById('att-start-date');
@@ -580,6 +578,8 @@ window.loadAttendanceData = async function(force = false) {
 
         const { data, error } = await query;
         if (error) throw error;
+
+        window.currentAttendanceData = data;
 
         // --- POPULATE EMPLOYEE FILTER (Only if admin) ---
         const employeeSelect = document.getElementById('att-filter-employee');

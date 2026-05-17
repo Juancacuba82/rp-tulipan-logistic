@@ -373,11 +373,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         console.log("UI updated locally for row:", savedIndex);
                     } else {
                         // Fallback if anything goes wrong
-                        await loadTableData();
+                        await loadTableData(null, true);
                     }
                 } else {
-                    // NEW ORDER: reload the table to show the new entry in correct order
-                    await loadTableData();
+                    // NEW ORDER: local cache update (no DB fetch!)
+                    const newRowData = window.mapTripToArray(dbObj);
+                    newRowData[0] = finalTripId;
+
+                    if (!window.currentTrips) window.currentTrips = [];
+                    window.currentTrips.push(newRowData);
+
+                    // Re-render table locally using the updated currentTrips cache
+                    await loadTableData(window.currentTrips);
+                    console.log("New order added and rendered locally without DB fetch.");
                 }
             } catch (err) {
                 console.error("FATAL ERROR IN ADDROW:", err);
@@ -1118,10 +1126,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        let lastDateFrom = null;
+        let lastDateTo = null;
         let isLoadingTable = false;
-        async function loadTableData(preloadedData = null) {
+        async function loadTableData(preloadedData = null, force = false) {
             window.loadTableData = loadTableData;
             if (isLoadingTable) return;
+
+            const dateFrom = document.getElementById('f-from-date')?.value || null;
+            const dateTo   = document.getElementById('f-to-date')?.value || null;
+
+            // Cache check: return if exact date range was already queried and cache exists
+            if (!force && !preloadedData && window.currentTrips && window.currentTrips.length > 0 && lastDateFrom === dateFrom && lastDateTo === dateTo) {
+                return;
+            }
+
             isLoadingTable = true;
 
             const logisticsBody = document.getElementById('table-body');
@@ -1133,15 +1152,25 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Fetch from Supabase OR use preloaded data
             try {
                 let data;
-                if (preloadedData && !Array.isArray(preloadedData[0])) {
-                    // Raw Supabase objects passed directly (e.g. from loadFullHistory)
-                    data = preloadedData;
-                } else if (window.isFullHistoryActive) {
-                    const dateFrom = document.getElementById('f-from-date')?.value || null;
-                    const dateTo   = document.getElementById('f-to-date')?.value || null;
-                    data = await getAllTrips(dateFrom, dateTo);
+                let isAlreadyMapped = false;
+                if (preloadedData) {
+                    if (Array.isArray(preloadedData[0])) {
+                        // Already mapped array of arrays passed directly (e.g. from local update)
+                        data = preloadedData;
+                        isAlreadyMapped = true;
+                    } else {
+                        // Raw Supabase objects passed directly
+                        data = preloadedData;
+                    }
                 } else {
-                    data = await getTrips();
+                    if (dateFrom || dateTo) {
+                        data = await getAllTrips(dateFrom, dateTo);
+                    } else {
+                        data = await getTrips();
+                    }
+                    // Update queried filters on successful fetch
+                    lastDateFrom = dateFrom;
+                    lastDateTo = dateTo;
                 }
 
                 // Activity logs (not fetched for performance - kept empty)
@@ -1150,16 +1179,18 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // --- Priority Sorting: TODAY first, then recent dates ---
                 const todayStr = new Date().toISOString().split('T')[0];
                 data.sort((a, b) => {
-                    const isTodayA = (a.date === todayStr);
-                    const isTodayB = (b.date === todayStr);
+                    const dateA = Array.isArray(a) ? a[1] : (a.date || '');
+                    const dateB = Array.isArray(b) ? b[1] : (b.date || '');
+                    const isTodayA = (dateA === todayStr);
+                    const isTodayB = (dateB === todayStr);
                     if (isTodayA && !isTodayB) return -1;
                     if (!isTodayA && isTodayB) return 1;
-                    return (b.date || '').localeCompare(a.date || '');
+                    return dateB.localeCompare(dateA);
                 });
 
                 // Clear and rebuild table
                 logisticsBody.innerHTML = '';
-                window.currentTrips = data.map(mapTripToArray);
+                window.currentTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
 
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded ---
                 if (window.renderDriverLog) window.renderDriverLog();
@@ -1475,8 +1506,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 }
 
                                 await deleteTrip(rowData[0]); // This is trip_id
+
+                                // Remove from local cache
+                                if (window.currentTrips) {
+                                    window.currentTrips = window.currentTrips.filter(t => t[0] !== rowData[0]);
+                                }
+
                                 alert("Viaje eliminado");
-                                await loadTableData();
+                                await loadTableData(window.currentTrips);
                             } catch (err) {
                                 console.error("Error during deletion/reversion:", err);
                                 alert("Error al borrar: " + err.message);
@@ -1595,7 +1632,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 try {
                     await updateTrip(tripId, { payout_status: newStatus });
-                    await loadTableData(); // Sync calendar table and local cache
+                    currentTrips[tripIdx][42] = newStatus;
+                    await loadTableData(currentTrips); // Sync locally without DB reload
                     renderDriverLog();
                 } catch (e) {
                     console.error("Payout toggle failed:", e);
@@ -1618,7 +1656,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // Bulk update logic: Sequential for safety or Promise.all
                 const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PAID' }));
                 await Promise.all(promises);
-                await loadTableData();
+
+                // Update local cache
+                toUpdate.forEach(r => {
+                    const idx = currentTrips.findIndex(x => x[0] === r[0]);
+                    if (idx !== -1) currentTrips[idx][42] = 'PAID';
+                });
+
+                await loadTableData(currentTrips);
                 renderDriverLog();
                 alert(`Settled ${toUpdate.length} trips for ${driverName}`);
             } catch (e) {
@@ -1640,7 +1685,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 const promises = toUpdate.map(r => updateTrip(r[0], { payout_status: 'PENDING' }));
                 await Promise.all(promises);
-                await loadTableData();
+
+                // Update local cache
+                toUpdate.forEach(r => {
+                    const idx = currentTrips.findIndex(x => x[0] === r[0]);
+                    if (idx !== -1) currentTrips[idx][42] = 'PENDING';
+                });
+
+                await loadTableData(currentTrips);
                 renderDriverLog();
                 alert(`Reverted ${toUpdate.length} trips to pending.`);
             } catch (e) {
@@ -1908,47 +1960,4 @@ window.addEventListener('resize', syncTopScroll);
 // Initial setup
 setTimeout(syncTopScroll, 1000);
 
-// === FULL HISTORY LOAD (bypasses the 100-order daily limit) ===
-window.loadFullHistory = async function() {
-    const btn = document.getElementById('btn-load-all-history');
-    const originalHTML = btn ? btn.innerHTML : '<i class="fas fa-database"></i> VER TODO EL HISTORIAL';
 
-    // Read the calendar date filters
-    const dateFrom = document.getElementById('f-from-date')?.value || null;
-    const dateTo   = document.getElementById('f-to-date')?.value || null;
-
-    const isFiltered = dateFrom || dateTo;
-    const loadLabel = isFiltered
-        ? `<i class="fas fa-spinner fa-spin"></i> Cargando ${dateFrom || '...'} → ${dateTo || 'hoy'}...`
-        : '<i class="fas fa-spinner fa-spin"></i> Cargando historial completo...';
-
-    if (btn) {
-        btn.innerHTML = loadLabel;
-        btn.disabled = true;
-        btn.style.opacity = '0.7';
-    }
-    try {
-        // Fetch with optional date range — passes null/null for full history
-        const rawData = await getAllTrips(dateFrom, dateTo);
-        window.isFullHistoryActive = true; // Mark that we are in history mode
-
-        // Pass raw data directly to loadTableData — it will skip internal getTrips() call
-        await window.loadTableData(rawData);
-
-        const resultLabel = isFiltered
-            ? `<i class="fas fa-check-circle"></i> ${rawData.length} ÓRDENES (${dateFrom || '...'} → ${dateTo || 'hoy'})`
-            : `<i class="fas fa-check-circle"></i> HISTORIAL COMPLETO (${rawData.length})`;
-
-        if (window.showToast) window.showToast('✅ ' + rawData.length + ' órdenes cargadas.', 'success');
-        if (btn) {
-            btn.innerHTML = resultLabel;
-            btn.style.background = 'linear-gradient(135deg, #166534, #15803d)';
-            btn.disabled = false;
-            btn.style.opacity = '1';
-        }
-    } catch (err) {
-        console.error('Error al cargar historial:', err);
-        if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; btn.style.opacity = '1'; }
-        if (window.showToast) window.showToast('❌ Error al cargar el historial.', 'error');
-    }
-};

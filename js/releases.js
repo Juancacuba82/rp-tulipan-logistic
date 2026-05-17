@@ -29,7 +29,8 @@
                 if (window.updateCashBadgeStyle) window.updateCashBadgeStyle(false);
             }
 
-            loadReleasesData(true);
+            // Render locally using existing cache
+            loadReleasesData(false);
         };
 
         window.loadReleaseToEdit = function (idx) {
@@ -432,8 +433,14 @@
                 const { error } = await db.from('releases').delete().eq('id', id);
                 if (error) throw error;
 
+                // Update local memory
+                if (window.currentReleases) {
+                    window.currentReleases = window.currentReleases.filter(r => r[15] !== id);
+                    currentReleases = window.currentReleases;
+                }
+
                 alert("Release eliminado correctamente.");
-                await loadReleasesData(true);
+                await loadReleasesData(false);
             } catch (err) {
                 console.error("Error deleting release:", err);
                 alert("Error al eliminar de la base de datos.");
@@ -556,15 +563,24 @@
                 const expenseObj = mapArrayToExpense(rowData);
                 
                 if (window.editingExpenseId) {
-                    const { error } = await db.from('expenses').update(expenseObj).eq('id', window.editingExpenseId);
+                    const { data, error } = await db.from('expenses').update(expenseObj).eq('id', window.editingExpenseId).select();
                     if (error) throw error;
+                    if (data && data.length > 0) {
+                        const mapped = mapExpenseToArray(data[0]);
+                        const idx = window.currentExpenses.findIndex(row => row[5] === window.editingExpenseId);
+                        if (idx !== -1) window.currentExpenses[idx] = mapped;
+                    }
                     alert("Expense updated successfully!");
                 } else {
-                    await addExpense(expenseObj);
+                    const data = await addExpense(expenseObj);
+                    if (data && data.length > 0) {
+                        const mapped = mapExpenseToArray(data[0]);
+                        window.currentExpenses.unshift(mapped);
+                    }
                     alert("Expense saved successfully!");
                 }
 
-                await loadExpensesData(true); // Reload from Supabase
+                await loadExpensesData(false); // Reload locally, no Supabase query
                 window.resetExpenseForm();
             } catch (err) {
                 console.error("Error saving expense:", err);
@@ -683,16 +699,25 @@
                             finalRelObj.total_stock = finalStock;
                         }
 
-                        await updateRelease(targetId, finalRelObj);
+                        const data = await updateRelease(targetId, finalRelObj);
+                        if (data && data.length > 0) {
+                            const mapped = mapReleaseToArray(data[0]);
+                            const idx = window.currentReleases.findIndex(r => r[15] === targetId);
+                            if (idx !== -1) window.currentReleases[idx] = mapped;
+                        }
                     }
                     alert("Releases actualizados correctamente.");
                     window.selectedReleaseIds = []; // Clear selection after update
                 } else {
-                    await addRelease(relObj);
+                    const data = await addRelease(relObj);
+                    if (data && data.length > 0) {
+                        const mapped = mapReleaseToArray(data[0]);
+                        window.currentReleases.unshift(mapped);
+                    }
                     alert("Release added successfully!");
                 }
                 resetReleaseForm();
-                await loadReleasesData(true);
+                await loadReleasesData(false);
                 if (window.updateReleaseDatalist) window.updateReleaseDatalist();
             } catch (err) {
                 alert("Operation failed: " + err.message);

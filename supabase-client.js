@@ -64,17 +64,10 @@ async function getProfile(userId) {
 
 async function getTrips() {
     try {
-        // Calculate date from 3 months ago (90 days)
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
-        const dateStr = threeMonthsAgo.toISOString().split('T')[0];
-
         let query = db
             .from('trips')
             .select('*')
-            .gte('date', dateStr)
-            .order('date', { ascending: false })
-            .limit(100); // Daily working limit
+            .order('date', { ascending: false });
 
         // Apply driver-specific filtering at the database level for efficiency and security
         if (window.currentUserRole === 'driver') {
@@ -91,7 +84,7 @@ async function getTrips() {
         const { data, error } = await query;
 
         if (error) throw error;
-        console.log("Viajes obtenidos de Supabase (últimas 100):", data.length);
+        console.log("Viajes obtenidos de Supabase (historial completo):", data.length);
         return data || [];
     } catch (err) {
         console.error('Error fetching trips:', err);
@@ -205,14 +198,14 @@ async function getReleases() {
 
 async function addRelease(releaseData) {
     if (!checkStudentPermission('releases', 'create')) return null;
-    const { data, error } = await db.from('releases').insert([releaseData]);
+    const { data, error } = await db.from('releases').insert([releaseData]).select();
     if (error) { console.error('Error adding release:', error); throw error; }
     return data;
 }
 
 async function updateRelease(id, updateData) {
     if (!checkStudentPermission('releases', 'update')) return null;
-    const { data, error } = await db.from('releases').update(updateData).eq('id', id);
+    const { data, error } = await db.from('releases').update(updateData).eq('id', id).select();
     if (error) { console.error('Error updating release:', error); throw error; }
     return data;
 }
@@ -238,7 +231,7 @@ async function getExpenses() {
 
 async function addExpense(expenseData) {
     if (!checkStudentPermission('expenses', 'create')) return null;
-    const { data, error } = await db.from('expenses').insert([expenseData]);
+    const { data, error } = await db.from('expenses').insert([expenseData]).select();
     if (error) { console.error('Error adding expense:', error); throw error; }
     return data;
 }
