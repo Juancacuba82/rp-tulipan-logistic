@@ -3909,6 +3909,18 @@
                                     </div>
                                 </div>
 
+                                <div class="attendance-input-group">
+                                    <label><i class="fas fa-info-circle"></i> FILTER BY STATUS</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-tasks"></i>
+                                        <select id="task-filter-status" class="form-select" onchange="applyTaskFilters()" style="width: 200px; font-weight: 700;">
+                                            <option value="">All Statuses</option>
+                                            <option value="PENDING">⏳ PENDING</option>
+                                            <option value="COMPLETED">✅ COMPLETED</option>
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <button onclick="applyTaskFilters()" class="btn-reset-modern" style="margin-top: 0; background: #1e293b; border-color: #1e293b; color: white;">
                                     <i class="fas fa-sync-alt"></i> Refresh Data
                                 </button>

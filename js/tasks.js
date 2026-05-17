@@ -44,9 +44,11 @@
         if (!body) return;
 
         const filterEmail = document.getElementById('task-filter-email')?.value || '';
+        const filterStatus = document.getElementById('task-filter-status')?.value || '';
         
         const filteredTasks = currentTasks.filter(task => {
             if (filterEmail && task.assigned_to_email !== filterEmail) return false;
+            if (filterStatus && task.status !== filterStatus) return false;
             return true;
         });
 
