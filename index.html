@@ -5084,10 +5084,10 @@
                         // Sales: todas las órdenes con ventas (independiente de si tienen transport)
                         matchServiceType = hasSales;
                     } else if (filters.serviceType === 'transport') {
-                        // Transport: SOLO órdenes con transporte y SIN ventas
-                        matchServiceType = hasTrans && !hasSales;
+                        // Transport: todas las órdenes con transporte (independiente de si tienen ventas)
+                        matchServiceType = hasTrans;
                     } else if (filters.serviceType === 'yard') {
-                        // Yard Services: SOLO órdenes con yard y SIN transport ni ventas
+                        // Yard Services: todas las órdenes con yard
                         matchServiceType = hasYard;
                     }
                 }
