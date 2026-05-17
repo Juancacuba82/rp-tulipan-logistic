@@ -681,7 +681,7 @@ async function transferSoldCallToCalendar(call) {
         phone_no: call.phone,
         city: call.city,
         delivery_place: call.zip_code, // Now labeled "Delivery Place" in UI
-        note: `[TRANSFERRED FROM FORM CALL] ${call.description || ''}`,
+        note: '[TRANSFERRED FROM FORM CALL]',
         status: 'PENDING_PAYMENT',
         order_no: orderNo,
         amount: call.amount,
