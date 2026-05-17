@@ -365,6 +365,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         window.currentTrips[savedIndex] = updatedRowData;
                     }
 
+                    if (window.allTripsUnfiltered) {
+                        const unfilteredIdx = window.allTripsUnfiltered.findIndex(t => t[0] === finalTripId);
+                        if (unfilteredIdx !== -1) {
+                            window.allTripsUnfiltered[unfilteredIdx] = updatedRowData;
+                        } else {
+                            window.allTripsUnfiltered.push(updatedRowData);
+                        }
+                    }
+
                     // Find the row in the DOM and refresh it
                     const trs = document.querySelectorAll('#table-body tr');
                     const targetTr = trs[savedIndex];
@@ -382,6 +391,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                     if (!window.currentTrips) window.currentTrips = [];
                     window.currentTrips.push(newRowData);
+
+                    if (!window.allTripsUnfiltered) window.allTripsUnfiltered = [];
+                    window.allTripsUnfiltered.push(newRowData);
 
                     // Re-render table locally using the updated currentTrips cache
                     await loadTableData(window.currentTrips);
@@ -1197,6 +1209,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 logisticsBody.innerHTML = '';
                 window.currentTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
 
+                // Cache complete list on unfiltered query
+                if (!dateFrom && !dateTo && !preloadedData) {
+                    window.allTripsUnfiltered = window.currentTrips;
+                }
+
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded ---
                 if (window.renderDriverLog) window.renderDriverLog();
                 
@@ -1515,6 +1532,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 // Remove from local cache
                                 if (window.currentTrips) {
                                     window.currentTrips = window.currentTrips.filter(t => t[0] !== rowData[0]);
+                                }
+                                if (window.allTripsUnfiltered) {
+                                    window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => t[0] !== rowData[0]);
                                 }
 
                                 alert("Viaje eliminado");

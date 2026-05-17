@@ -19,7 +19,7 @@
             const fRelease = (document.getElementById('inv-f-release')?.value || '').trim();
             const fCity = (document.getElementById('inv-f-city')?.value || '').trim();
 
-            const logisticsData = window.currentTrips || [];
+            const logisticsData = window.allTripsUnfiltered || window.currentTrips || [];
 
             // Build Release Lookup Map for Purchase Prices
             const relMap = new Map();
@@ -131,21 +131,21 @@
                 tr.title = 'Click to view full details';
                 tr.onclick = () => window.showInventoryDetails(row, unitCost, seller);
 
-                const cellStyle = 'padding: 8px 10px; border: 1px solid #dee2e6; color: #000; font-weight: 700; text-align: center; vertical-align: middle; white-space: nowrap;';
+                const cellStyle = 'padding: 5px 4px; border: 1px solid #dee2e6; color: #000; font-weight: 700; text-align: center; vertical-align: middle; white-space: nowrap;';
 
                 tr.innerHTML = `
                     <td style="${cellStyle}">${window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(date) : date}</td>
-                    <td style="${cellStyle}">${size}</td>
+                    <td style="${cellStyle} white-space: normal; min-width: 80px; max-width: 120px;">${size}</td>
                     <td style="${cellStyle} color: #1e40af; font-weight: 800;">${qty}</td>
                     <td style="${cellStyle}">${nCont}</td>
                     <td style="${cellStyle}">${relNo}</td>
                     <td style="${cellStyle}">${window.formatUSPhone(phone)}</td>
-                    <td style="${cellStyle}">${seller}</td>
-                    <td style="${cellStyle} font-weight: 800; color: #1e293b;">${customer}</td>
+                    <td style="${cellStyle} white-space: normal; min-width: 80px; max-width: 100px;">${seller}</td>
+                    <td style="${cellStyle} white-space: normal; font-weight: 800; color: #1e293b; min-width: 100px; max-width: 140px;">${customer}</td>
                     <td style="${cellStyle} color: #ef4444;">$${totalItemCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style="${cellStyle} color: #0f172a; font-weight: 900;">$${totalItemSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style="${cellStyle} color: ${gross >= 0 ? '#10b981' : '#ef4444'}; font-weight: 900;">$${gross.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td style="${cellStyle} white-space: normal; min-width: 150px; max-width: 250px; text-align: left;">${note}</td>
+                    <td style="${cellStyle} white-space: normal; min-width: 120px; max-width: 180px; text-align: left;">${note}</td>
                 `;
 
                 // Hover effect
@@ -206,6 +206,13 @@
                     // Sync width
                     topContent.style.width = table.offsetWidth + 'px';
 
+                    // Hide top scroll container if no scrolling is required
+                    if (table.offsetWidth <= bottomScroll.clientWidth) {
+                        topScroll.style.display = 'none';
+                    } else {
+                        topScroll.style.display = 'block';
+                    }
+
                     // Sync scrolls
                     topScroll.onscroll = () => {
                         bottomScroll.scrollLeft = topScroll.scrollLeft;
@@ -244,8 +251,9 @@
             }
 
             // Also extract cities from trips for broader coverage
-            if (typeof currentTrips !== 'undefined') {
-                currentTrips.forEach(row => {
+            const tripsSource = window.allTripsUnfiltered || window.currentTrips || [];
+            if (tripsSource) {
+                tripsSource.forEach(row => {
                     if (row[6] && row[6] !== '---') cities.add(row[6]);
                     if (row[2] && row[2] !== '---') sizes.add(row[2]);
                     if (row[11] && row[11] !== '---') customers.add(row[11]);

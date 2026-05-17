@@ -3085,21 +3085,21 @@
 
                 <!-- Table -->
                 <div id="inv-table-container" class="table-scroll-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto;">
-                    <table id="inventor-table" style="width: 100%; min-width: 1400px; border-collapse: collapse; font-family: var(--font-main); font-size: 0.8rem;">
+                    <table id="inventor-table" style="width: 100%; border-collapse: collapse; font-family: var(--font-main); font-size: 0.72rem;">
                         <thead>
                             <tr class="header-row">
-                                <th>Date</th>
-                                <th>Size</th>
-                                <th>Qty</th>
-                                <th>N. Cont</th>
-                                <th>Releases</th>
-                                <th>Phone</th>
-                                <th>Seller</th>
-                                <th>Customer</th>
-                                <th>Purchase Price</th>
-                                <th>Sales Price</th>
-                                <th>Gross</th>
-                                <th>Note</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Date</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Size</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Qty</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">N. Cont</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Releases</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Phone</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Seller</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Customer</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Purchase Price</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Sales Price</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Gross</th>
+                                <th style="padding: 6px 4px; font-size: 0.72rem;">Note</th>
                             </tr>
                         </thead>
                         <tbody id="inventor-body">
@@ -4759,7 +4759,13 @@
                     } else if (finalView === 'inventory') {
                         (async () => {
                             // PERSIST FILTERS: Do not reset inventory filters
-                            if (window.loadTableData) await window.loadTableData();
+                            // If allTripsUnfiltered is not yet populated, fetch it directly
+                            if (!window.allTripsUnfiltered || window.allTripsUnfiltered.length === 0) {
+                                if (window.getTrips) {
+                                    const fullData = await window.getTrips();
+                                    window.allTripsUnfiltered = fullData.map(mapTripToArray);
+                                }
+                            }
                             if (window.loadReleasesData) await window.loadReleasesData();
                             if (window.renderInventorTable) window.renderInventorTable();
                         })();
