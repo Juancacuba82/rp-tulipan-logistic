@@ -1136,9 +1136,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const dateFrom = document.getElementById('f-from-date')?.value || null;
             const dateTo   = document.getElementById('f-to-date')?.value || null;
 
-            // Cache check: return if exact date range was already queried and cache exists
+            // Cache check: if exact date range was already queried and cache exists, but table has no rows, we reuse the cache instead of querying Supabase.
+            const hasRows = document.getElementById('table-body')?.children.length > 0;
             if (!force && !preloadedData && window.currentTrips && window.currentTrips.length > 0 && lastDateFrom === dateFrom && lastDateTo === dateTo) {
-                return;
+                if (hasRows) {
+                    return;
+                } else {
+                    preloadedData = window.currentTrips;
+                }
             }
 
             isLoadingTable = true;
