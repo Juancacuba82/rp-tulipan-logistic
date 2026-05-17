@@ -519,19 +519,6 @@ window.loadAttendanceData = async function(force = false) {
         return;
     }
 
-    // --- DEFAULT DATES INITIALIZATION ---
-    const startEl = document.getElementById('att-start-date');
-    const endEl = document.getElementById('att-end-date');
-    if (startEl && !startEl.value) {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        startEl.value = `${y}-${m}-01`;
-    }
-    if (endEl && !endEl.value) {
-        endEl.value = new Date().toISOString().split('T')[0];
-    }
-
     try {
         const tbody = document.getElementById('attendance-body');
         if (!tbody) return;
@@ -571,7 +558,11 @@ window.loadAttendanceData = async function(force = false) {
             query = query.lte('view_date', endDate);
         }
         if (filterEmployee) {
-            query = query.eq('driver_name', filterEmployee);
+            if (filterEmployee.includes('@')) {
+                query = query.eq('user_email', filterEmployee);
+            } else {
+                query = query.eq('driver_name', filterEmployee);
+            }
         }
 
         query = query.limit(1000); // Safety limit
@@ -588,16 +579,6 @@ window.loadAttendanceData = async function(force = false) {
                 employeeSelect.parentElement.parentElement.style.display = 'none'; // Hide the whole group
             } else {
                 employeeSelect.parentElement.parentElement.style.display = 'flex';
-                const currentFilter = employeeSelect.value;
-                const uniqueEmployees = [...new Set(data.map(log => log.driver_name))].filter(Boolean).sort();
-                employeeSelect.innerHTML = '<option value="">All Employees</option>';
-                uniqueEmployees.forEach(name => {
-                    const opt = document.createElement('option');
-                    opt.value = name;
-                    opt.textContent = name;
-                    employeeSelect.appendChild(opt);
-                });
-                employeeSelect.value = currentFilter;
             }
         }
 
@@ -975,27 +956,43 @@ window.populateAttendanceEmployeeFilter = async function() {
         const currentVal = sel.value;
         sel.innerHTML = '<option value="">All Employees</option>';
         
-        const names = new Set();
         if (!window.globalUserNameMap) window.globalUserNameMap = {};
+
+        const employeeList = [];
 
         if (data) {
             data.forEach(p => {
                 const name = p.driver_name_ref || (p.email ? p.email.split('@')[0].toUpperCase() : 'Unknown');
-                if (name) {
-                    names.add(name);
-                    if (p.email) {
-                        const key = p.email.toString().toLowerCase().trim();
-                        window.globalUserNameMap[key] = name;
-                    }
+                if (name && p.email) {
+                    const emailKey = p.email.toString().toLowerCase().trim();
+                    window.globalUserNameMap[emailKey] = name;
+                    employeeList.push({ name, email: emailKey });
                 }
             });
         }
         
-        Array.from(names).sort().forEach(name => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            sel.appendChild(opt);
+        // Remove duplicates where friendly name or email is identical
+        const uniqueList = [];
+        const seenEmails = new Set();
+        employeeList.forEach(item => {
+            if (!seenEmails.has(item.email)) {
+                seenEmails.add(item.email);
+                uniqueList.push(item);
+            }
+        });
+
+        // Sort by friendly name
+        uniqueList.sort((a, b) => a.name.localeCompare(b.name));
+
+        const allowedNames = ['YARISELIS', 'ISABELLA', 'ANTHONY'];
+        uniqueList.forEach(emp => {
+            const upperName = emp.name.toUpperCase().trim();
+            if (allowedNames.includes(upperName)) {
+                const opt = document.createElement('option');
+                opt.value = emp.email;
+                opt.textContent = emp.name;
+                sel.appendChild(opt);
+            }
         });
         
         if (currentVal) sel.value = currentVal;
