@@ -306,9 +306,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     notes: `Auto-entry from Order: ${currentOrderNo}`
                 };
 
+                // Capture the editing state BEFORE it gets cleared
+                const savedIndex = editingIndex;
+                const savedTripId = editingTripDbId;
+
                 // --- ATOMIC SYNC VIA RPC ---
                 const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-                const finalTripId = editingTripDbId || newTripIdForDb();
+                const finalTripId = savedTripId || newTripIdForDb();
                 
                 if (!isUUID(finalTripId)) {
                     throw new Error(`La ID de esta orden (${finalTripId}) no es compatible con el nuevo sistema UUID. Por favor, ejecuta el script de migración SQL en Supabase o contacta a soporte.`);
@@ -352,7 +356,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
 
                 alert('¡ORDEN GUARDADA CORRECTAMENTE!');
-                const savedIndex = editingIndex; // Capture current editing index
                 resetForm();
 
                 if (savedIndex !== null) {
@@ -362,7 +365,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     updatedRowData[0] = finalTripId;
                     
                     if (window.currentTrips) {
-                        window.currentTrips[savedIndex] = updatedRowData;
+                        const idxInCurrent = window.currentTrips.findIndex(t => t[0] === finalTripId);
+                        if (idxInCurrent !== -1) {
+                            window.currentTrips[idxInCurrent] = updatedRowData;
+                        } else {
+                            window.currentTrips[savedIndex] = updatedRowData;
+                        }
                     }
 
                     if (window.allTripsUnfiltered) {
@@ -390,10 +398,24 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     newRowData[0] = finalTripId;
 
                     if (!window.currentTrips) window.currentTrips = [];
-                    window.currentTrips.push(newRowData);
+                    // DUPLICATE PROTECTION: Only push if the Realtime listener hasn't already loaded it!
+                    const exists = window.currentTrips.some(t => t[0] === finalTripId);
+                    if (!exists) {
+                        window.currentTrips.push(newRowData);
+                    } else {
+                        const idx = window.currentTrips.findIndex(t => t[0] === finalTripId);
+                        if (idx !== -1) window.currentTrips[idx] = newRowData;
+                    }
 
                     if (!window.allTripsUnfiltered) window.allTripsUnfiltered = [];
-                    window.allTripsUnfiltered.push(newRowData);
+                    // DUPLICATE PROTECTION: Only push if the Realtime listener hasn't already loaded it!
+                    const existsUnfiltered = window.allTripsUnfiltered.some(t => t[0] === finalTripId);
+                    if (!existsUnfiltered) {
+                        window.allTripsUnfiltered.push(newRowData);
+                    } else {
+                        const idx = window.allTripsUnfiltered.findIndex(t => t[0] === finalTripId);
+                        if (idx !== -1) window.allTripsUnfiltered[idx] = newRowData;
+                    }
 
                     // Re-render table locally using the updated currentTrips cache
                     await loadTableData(window.currentTrips);
@@ -499,6 +521,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             // 6. Restore Button UI and Clear Selection
             window.selectedTripIds = []; // DESELECT any selected orders
+            
+            // Clear CSS classes from the DOM to remove highlighting
+            document.querySelectorAll('#table-body tr').forEach(row => {
+                row.classList.remove('editing-row', 'selected-row');
+            });
             
             if (typeof restoreTripArchiveButtonUI === 'function') restoreTripArchiveButtonUI();
         }
