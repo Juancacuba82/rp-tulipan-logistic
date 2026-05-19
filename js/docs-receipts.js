@@ -460,7 +460,7 @@
         
         const isManager = (window.currentUserRole !== 'driver');
         const canSeeClient = (isManager || data.status === 'COMPLETE');
-        const clientContent = canSeeClient ? (f('CUSTOMER', data.customer) + f('CUSTOMER NAME', data.clientName) + f('PHONE', data.phone)) : '';
+        const clientContent = (canSeeClient ? (f('CUSTOMER', data.customer) + f('CUSTOMER NAME', data.clientName)) : '') + f('PHONE', data.phone);
 
         let inspectionContent = '';
         const checkIcon = '<span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px; font-weight:bold; font-size:10px; margin-right:5px;">X</span>';
