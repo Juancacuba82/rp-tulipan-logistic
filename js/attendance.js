@@ -686,7 +686,9 @@ window.loadAttendanceData = async function(force = false) {
         allSessions.forEach(s => {
             if (s.inTimestamp && s.outTimestamp) {
                 const diffMs = s.outTimestamp - s.inTimestamp;
-                s.hours = diffMs > 0 ? (diffMs / (1000 * 60 * 60)) : 0;
+                const rawHours = diffMs > 0 ? (diffMs / (1000 * 60 * 60)) : 0;
+                // Descontar media hora (0.5) por almuerzo
+                s.hours = Math.max(0, rawHours - 0.5);
             } else {
                 s.hours = 0;
             }
