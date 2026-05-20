@@ -353,10 +353,36 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 }
 
-
+                // Check if email send was requested before form is reset
+                const shouldSendEmail = document.getElementById('in-sendemail')?.checked;
+                // Copy rowData and set the correct trip_id (index 0)
+                const emailRowData = [...rowData];
+                emailRowData[0] = finalTripId;
 
                 alert('¡ORDEN GUARDADA CORRECTAMENTE!');
                 resetForm();
+
+                // Trigger email sending in background after database save is complete
+                if (shouldSendEmail) {
+                    const emailAddr = emailRowData[36];
+                    if (!emailAddr || emailAddr === '---' || !emailAddr.includes('@')) {
+                        console.warn("Invalid email address:", emailAddr);
+                        if (window.showToast) window.showToast("Email invalid or missing, not sent", "warning");
+                        else alert("Warning: Email invalid or missing, not sent.");
+                    } else {
+                        console.log("Triggering receipt email send for order:", emailRowData[5]);
+                        if (window.showToast) window.showToast("Generating PDF & sending email...", "info");
+                        
+                        // Invoke generate and send sequence asynchronously
+                        window.sendReceiptEmail(emailRowData).then(() => {
+                            console.log("Receipt email sent successfully for order:", emailRowData[5]);
+                        }).catch(err => {
+                            console.error("Failed to send receipt email from calendar:", err);
+                            if (window.showToast) window.showToast("Failed to send email: " + (err.text || err.message || err), "error");
+                            else alert("Failed to send email: " + (err.text || err.message || JSON.stringify(err)));
+                        });
+                    }
+                }
 
                 if (savedIndex !== null) {
                     // OPTIMIZED UPDATE: Update the local array and the specific row UI
