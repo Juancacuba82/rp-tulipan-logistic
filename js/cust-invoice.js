@@ -345,16 +345,21 @@ window.downloadCustInvoiceSummary = async function(format, btnElement = null) {
 
     reportContainer.appendChild(tableClone);
 
-    // Calculate Total
+    // Calculate Total using actual data (not DOM text) to avoid errors
     let totalPending = 0;
-    const bodyRows = document.querySelectorAll('#cust-invoice-body tr');
-    bodyRows.forEach(row => {
-        if (row.cells.length >= 9) {
-            const transStr = row.cells[7].textContent.replace(/[$,]/g, '').trim();
-            const salesStr = row.cells[8].textContent.replace(/[$,]/g, '').trim();
-            const trans = parseFloat(transStr) || 0;
-            const sales = parseFloat(salesStr) || 0;
-            totalPending += (trans + sales);
+    window.custInvoiceRows.forEach(row => {
+        const hasTrans = (row[42] === 'YES');
+        const hasSales = (row[43] === 'YES');
+        const isRatePend  = hasTrans && (row[32] === 'PEND');
+        const isSalesPend = hasSales && (row[33] === 'PEND');
+
+        if (isRatePend) {
+            totalPending += (parseFloat(row[18]) || 0);
+        }
+        if (isSalesPend) {
+            const salesPrice = parseFloat(row[20]) || 0;
+            const qtyVal = parseInt(row[53]) || 1;
+            totalPending += salesPrice * qtyVal;
         }
     });
 
@@ -389,13 +394,31 @@ window.downloadCustInvoiceSummary = async function(format, btnElement = null) {
         } else if (format === 'PDF') {
             const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('l', 'mm', 'a4'); 
+            const pdf = new jsPDF('l', 'mm', 'a4');
             const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 10;
             const imgWidth = pageWidth - (margin * 2);
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            
-            pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight);
+            const usablePageHeight = pageHeight - (margin * 2);
+
+            if (imgHeight <= usablePageHeight) {
+                // Fits in one page
+                pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight);
+            } else {
+                // Multi-page: slice image across pages
+                const totalPages = Math.ceil(imgHeight / usablePageHeight);
+                for (let pg = 0; pg < totalPages; pg++) {
+                    if (pg > 0) pdf.addPage();
+                    const yOffset = -(pg * usablePageHeight);
+                    pdf.addImage(imgData, 'JPEG', margin, margin + yOffset, imgWidth, imgHeight);
+                    // Clip to page area using white rectangles on top and bottom
+                    pdf.setFillColor(255, 255, 255);
+                    if (pg > 0) pdf.rect(0, 0, pageWidth, margin, 'F');
+                    const bottomOverflow = margin + yOffset + imgHeight - pageHeight + margin;
+                    if (bottomOverflow > 0) pdf.rect(0, pageHeight - margin, pageWidth, margin + 1, 'F');
+                }
+            }
             pdf.save(`Pending_Summary_${customerName.replace(/\s+/g, '_')}.pdf`);
         } else if (format === 'EMAIL') {
             if (!window.custInvoiceRows || window.custInvoiceRows.length === 0) {
@@ -421,10 +444,26 @@ window.downloadCustInvoiceSummary = async function(format, btnElement = null) {
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('l', 'mm', 'a4');
             const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 10;
             const imgWidth = pageWidth - (margin * 2);
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight);
+            const usablePageHeight = pageHeight - (margin * 2);
+
+            if (imgHeight <= usablePageHeight) {
+                pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight);
+            } else {
+                const totalPages = Math.ceil(imgHeight / usablePageHeight);
+                for (let pg = 0; pg < totalPages; pg++) {
+                    if (pg > 0) pdf.addPage();
+                    const yOffset = -(pg * usablePageHeight);
+                    pdf.addImage(imgData, 'JPEG', margin, margin + yOffset, imgWidth, imgHeight);
+                    pdf.setFillColor(255, 255, 255);
+                    if (pg > 0) pdf.rect(0, 0, pageWidth, margin, 'F');
+                    const bottomOverflow = margin + yOffset + imgHeight - pageHeight + margin;
+                    if (bottomOverflow > 0) pdf.rect(0, pageHeight - margin, pageWidth, margin + 1, 'F');
+                }
+            }
             const blob = pdf.output('blob');
 
             // Prepare rowData dummy for the email service
