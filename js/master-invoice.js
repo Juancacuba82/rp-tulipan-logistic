@@ -5,10 +5,128 @@
     window.resetMasterInvoice = function() {
         const searchInput = document.getElementById('mi-search-order');
         if (searchInput) searchInput.value = '';
+
+        // Reset dropdowns
+        const custSel = document.getElementById('mi-customer-select');
+        const ordSel  = document.getElementById('mi-order-select');
+        if (custSel) custSel.value = '';
+        if (ordSel) {
+            ordSel.innerHTML = '<option value="">— Select order —</option>';
+            ordSel.disabled = true;
+        }
         
         document.getElementById('mi-invoice-preview').style.display = 'none';
         document.getElementById('mi-empty-state').style.display = 'block';
         window.currentMasterInvoiceRows = [];
+    };
+
+    // ── HELPER: check if a trip row has any pending (unpaid) service ─────────
+    function rowHasPendingPayment(row) {
+        const hasTrans = row[42] === 'YES';
+        const hasSales = row[43] === 'YES';
+        const yardRate = parseFloat(row[13]) || 0;
+        const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
+
+        if (hasTrans && row[32] !== 'PAID') return true;
+        if (hasSales && row[33] !== 'PAID') return true;
+        if (yardRate > 0.01 && row[30] !== 'PAID') return true;
+        if (takeTax  && row[52] !== 'PAID') return true;
+        return false;
+    }
+
+    // ── POPULATE CUSTOMER DROPDOWN (only pending customers) ──────────────────
+    window.populateMIDropdowns = async function () {
+        // Ensure trips are loaded
+        if (!window.currentTrips || window.currentTrips.length === 0) {
+            if (window.loadTableData) await window.loadTableData();
+        }
+
+        const trips = window.currentTrips || [];
+        const custSel = document.getElementById('mi-customer-select');
+        if (!custSel) return;
+
+        // Collect unique customers that have at least one pending order (col 11 = customer name)
+        const seen = new Set();
+        const customers = [];
+        trips.forEach(row => {
+            const name = (row[11] || '').toString().trim();
+            if (name && name !== '---' && !seen.has(name) && rowHasPendingPayment(row)) {
+                seen.add(name);
+                customers.push(name);
+            }
+        });
+        customers.sort();
+
+        custSel.innerHTML = '<option value="">— Select a customer —</option>';
+        customers.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            custSel.appendChild(opt);
+        });
+    };
+
+    // ── CUSTOMER SELECTED → populate order dropdown ─────────────────────────
+    window.onMICustomerChange = function () {
+        const custSel = document.getElementById('mi-customer-select');
+        const ordSel  = document.getElementById('mi-order-select');
+        if (!custSel || !ordSel) return;
+
+        const selectedCustomer = custSel.value;
+
+        // Reset order dropdown
+        ordSel.innerHTML = '<option value="">— Select order —</option>';
+        ordSel.disabled = true;
+
+        // Hide invoice preview when customer changes
+        document.getElementById('mi-invoice-preview').style.display = 'none';
+        document.getElementById('mi-empty-state').style.display = 'block';
+        window.currentMasterInvoiceRows = [];
+
+        if (!selectedCustomer) return;
+
+        const trips = window.currentTrips || [];
+
+        // Get unique order numbers that have at least one pending row for this customer
+        // (col 5 = order #, col 11 = customer)
+        const pendingOrderMap = new Map(); // orderNo -> earliest date
+        trips.forEach(row => {
+            const cust = (row[11] || '').toString().trim();
+            if (cust !== selectedCustomer) return;
+            if (!rowHasPendingPayment(row)) return;
+
+            const orderNo = (row[5] || '').toString().trim().toUpperCase();
+            if (orderNo && orderNo !== '---' && !pendingOrderMap.has(orderNo)) {
+                const date = row[1] ? (window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(row[1]) : row[1]) : '';
+                pendingOrderMap.set(orderNo, date);
+            }
+        });
+
+        if (pendingOrderMap.size === 0) {
+            ordSel.innerHTML = '<option value="">No pending orders</option>';
+            return;
+        }
+
+        pendingOrderMap.forEach((date, orderNo) => {
+            const opt = document.createElement('option');
+            opt.value = orderNo;
+            opt.textContent = date ? `${orderNo}  (${date})` : orderNo;
+            ordSel.appendChild(opt);
+        });
+
+        ordSel.disabled = false;
+    };
+
+    // ── ORDER SELECTED → load invoice automatically ─────────────────────────
+    window.onMIOrderChange = function () {
+        const ordSel = document.getElementById('mi-order-select');
+        if (!ordSel || !ordSel.value) return;
+
+        // Mirror the value into the manual search field and trigger load
+        const searchInput = document.getElementById('mi-search-order');
+        if (searchInput) searchInput.value = ordSel.value;
+
+        loadMasterInvoiceByOrder();
     };
 
     window.loadMasterInvoiceByOrder = async function () {
@@ -22,9 +140,8 @@
         }
 
         const btn = document.querySelector('button[onclick="loadMasterInvoiceByOrder()"]');
-        const originalBtnHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        btn.disabled = true;
+        const originalBtnHtml = btn ? btn.innerHTML : '';
+        if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; }
 
         // If currentTrips is empty, try to load it first
         if (!window.currentTrips || window.currentTrips.length === 0) {
@@ -37,8 +154,7 @@
             return rowOrder === orderNo;
         });
 
-        btn.innerHTML = originalBtnHtml;
-        btn.disabled = false;
+        if (btn) { btn.innerHTML = originalBtnHtml; btn.disabled = false; }
 
         if (matches.length === 0) {
             alert(`No records found for Order #${orderNo}`);
@@ -264,3 +380,5 @@
     };
 
 })();
+
+

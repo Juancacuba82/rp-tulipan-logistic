@@ -3951,11 +3951,13 @@
         <!-- MASTER INVOICE View -->
         <section id="master-invoice-view" class="view-section hidden">
             <div style="max-width: 1200px; margin: 0 auto; padding: 30px 20px;">
-                <div class="inv-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
+                <div class="inv-header-flex" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; flex-wrap: wrap; gap: 15px;">
                     <div>
                         <h2 style="font-size: 2rem; color: #1e293b; margin-bottom: 5px;">Master Invoice Generator</h2>
                         <p style="color: #64748b; font-size: 0.9rem;">Generate and send detailed invoices by Order #</p>
                     </div>
+                    <div style="display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;">
+                        <!-- BILLING COMPANY -->
                         <div style="display: flex; flex-direction: column; gap: 5px;">
                             <label style="font-size: 0.7rem; font-weight: 900; color: #3b82f6; text-transform: uppercase;">BILLING COMPANY:</label>
                             <select id="mi-company-selector" onchange="updateMasterInvoiceCompany()" 
@@ -3964,17 +3966,46 @@
                                 <option value="JR SUPER CRAME INC">JR SUPER CRAME INC</option>
                             </select>
                         </div>
+
+                        <!-- CUSTOMER DROPDOWN -->
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="font-size: 0.7rem; font-weight: 900; color: #10b981; text-transform: uppercase;">
+                                <i class="fas fa-user" style="margin-right:4px;"></i>SELECT CUSTOMER:
+                            </label>
+                            <select id="mi-customer-select" onchange="onMICustomerChange()"
+                                style="padding: 10px 14px; border: 2px solid #10b981; border-radius: 8px; font-weight: bold; font-size: 0.9rem; background: white; cursor: pointer; min-width: 240px; color: #1e293b;">
+                                <option value="">— Select a customer —</option>
+                            </select>
+                        </div>
+
+                        <!-- ORDER DROPDOWN -->
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="font-size: 0.7rem; font-weight: 900; color: #f59e0b; text-transform: uppercase;">
+                                <i class="fas fa-file-invoice" style="margin-right:4px;"></i>SELECT ORDER:
+                            </label>
+                            <select id="mi-order-select" onchange="onMIOrderChange()"
+                                style="padding: 10px 14px; border: 2px solid #f59e0b; border-radius: 8px; font-weight: bold; font-size: 0.9rem; background: white; cursor: pointer; min-width: 200px; color: #1e293b;" disabled>
+                                <option value="">— Select order —</option>
+                            </select>
+                        </div>
+
+                        <!-- DIVIDER -->
+                        <div style="width: 1px; height: 48px; background: #e2e8f0; align-self: flex-end; margin: 0 4px;"></div>
+
+                        <!-- MANUAL SEARCH -->
                         <div style="position: relative;">
                             <label style="font-size: 0.7rem; font-weight: 900; color: #3b82f6; text-transform: uppercase; display: block; margin-bottom: 5px;">SEARCH ORDER #:</label>
                             <input type="text" id="mi-search-order" placeholder="Enter Order #..." 
-                                style="padding: 12px 15px; border: 2px solid #3b82f6; border-radius: 8px; width: 250px; font-weight: bold; font-size: 1rem;">
+                                style="padding: 12px 50px 12px 15px; border: 2px solid #3b82f6; border-radius: 8px; width: 200px; font-weight: bold; font-size: 1rem;">
                             <button onclick="loadMasterInvoiceByOrder()" 
-                                style="position: absolute; right: 5px; bottom: 5px; background: #3b82f6; color: white; border: none; padding: 7px 15px; border-radius: 6px; cursor: pointer; font-weight: 800;">
+                                style="position: absolute; right: 5px; bottom: 5px; background: #3b82f6; color: white; border: none; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 800;">
                                 <i class="fas fa-search"></i>
                             </button>
                         </div>
+
+                        <!-- RESET -->
                         <button onclick="resetMasterInvoice()" 
-                            style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: all 0.3s; display: flex; align-items: center; gap: 8px;"
+                            style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: all 0.3s; display: flex; align-items: center; gap: 8px; align-self: flex-end;"
                             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
                             <i class="fas fa-undo-alt"></i> RESET
                         </button>
@@ -4786,7 +4817,13 @@
                         if (window.loadTasksData) window.loadTasksData();
                     } else if (finalView === 'master-invoice') {
                         // Ensure data is loaded but don't reset preview
-                        if (window.loadTableData) window.loadTableData();
+                        if (window.loadTableData) {
+                            window.loadTableData().then(() => {
+                                if (window.populateMIDropdowns) window.populateMIDropdowns();
+                            });
+                        } else if (window.populateMIDropdowns) {
+                            window.populateMIDropdowns();
+                        }
                     }
 
                     // Always ensure data managers are loaded
