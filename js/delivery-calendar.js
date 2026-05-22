@@ -584,6 +584,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
             tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
             tr.dataset.flagToYard = !!rowData[62] ? 'YES' : 'NO';
+            tr.dataset.fromCall = (rowData[58] === 'FORM_CALL') ? 'YES' : 'NO';
 
             // Highlights
             tr.style.backgroundColor = '';
@@ -1310,6 +1311,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagToYard = !!rowData[62] ? 'YES' : 'NO';
+                        tr.dataset.fromCall = (rowData[58] === 'FORM_CALL') ? 'YES' : 'NO';
 
                         // Priority Highlight for Today
                         if (isTodayEntry) {

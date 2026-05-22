@@ -675,13 +675,14 @@ async function transferSoldCallToCalendar(call) {
     // Build the trip object (trips table)
     const tripObj = {
         trip_id: crypto.randomUUID(),
-        date: call.date,
+        date: call.next_call_date || call.date,  // Use "Next Call" date as the delivery date
         size: call.measures,
         customer: call.customer,
         phone_no: call.phone,
         city: call.city,
         delivery_place: call.zip_code, // Now labeled "Delivery Place" in UI
-        note: '[TRANSFERRED FROM FORM CALL]',
+        note: '',  // Note goes empty to calendar; origin tracked via container_source
+        container_source: 'FORM_CALL',  // Marker used by CALLS TRANSFER filter
         status: 'PENDING_PAYMENT',
         order_no: orderNo,
         amount: call.amount,

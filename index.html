@@ -5064,10 +5064,9 @@
                 const valDriver = (cells[15].textContent || '').toLowerCase().trim();
                 const valCollect = (cells[18].textContent || '').toLowerCase().trim();
                 const valPhone = (cells[19].textContent || '').toLowerCase().trim();
-                const valNote = (cells[21]?.textContent || '').toUpperCase().trim();
                 const valSeller = (tr.dataset.seller || '').toLowerCase().trim();
 
-                const matchTransferred = !filters.transferredOnly || valNote.includes('[TRANSFERRED FROM FORM CALL]');
+                const matchTransferred = !filters.transferredOnly || tr.dataset.fromCall === 'YES';
 
                 const matchCity = !filters.city || valCity === filters.city.toLowerCase().trim();
 
