@@ -134,6 +134,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const condition = document.getElementById('yard-condition').value;
         const origin = document.getElementById('yard-origin').value.trim();
         const note = document.getElementById('yard-note').value.trim();
+        const entryDateInput = document.getElementById('yard-entry-date').value;
 
         if (!containerNo) return alert("Please enter a Container Number.");
 
@@ -150,6 +151,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             notes: note,
             status: 'AVAILABLE'
         };
+
+        // Use the date from the input field if provided
+        if (entryDateInput) {
+            yardObj.created_at = new Date(entryDateInput + 'T12:00:00').toISOString();
+        }
 
         try {
             if (editingYardId) {
@@ -187,6 +193,17 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         document.getElementById('yard-origin').value = item.origin_release || '';
         document.getElementById('yard-note').value = item.notes || '';
 
+        // Populate the entry date field
+        if (item.created_at) {
+            const d = new Date(item.created_at);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            document.getElementById('yard-entry-date').value = `${yyyy}-${mm}-${dd}`;
+        } else {
+            document.getElementById('yard-entry-date').value = '';
+        }
+
         const btn = document.getElementById('btn-save-yard');
         if (btn) {
             btn.textContent = "UPDATE CONTAINER";
@@ -216,9 +233,18 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const cno = document.getElementById('yard-container-no');
         const org = document.getElementById('yard-origin');
         const nte = document.getElementById('yard-note');
+        const dtf = document.getElementById('yard-entry-date');
         if (cno) cno.value = '';
         if (org) org.value = '';
         if (nte) nte.value = '';
+        // Reset date to today for next new record
+        if (dtf) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dtf.value = `${yyyy}-${mm}-${dd}`;
+        }
         
         const btn = document.getElementById('btn-save-yard');
         if (btn) {

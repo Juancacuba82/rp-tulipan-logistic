@@ -3704,6 +3704,10 @@
 
                     <div class="form-container">
                         <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #0f172a !important;"><i class="fas fa-calendar-alt"></i> ENTRY DATE</label>
+                            <input type="date" id="yard-entry-date" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                        </div>
+                        <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #ef4444 !important;">CONTAINER #</label>
                             <input type="text" id="yard-container-no" placeholder="XXXX 123456-7" style="font-weight: 800; text-transform: uppercase; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
                         </div>
@@ -4953,8 +4957,8 @@
 
         // --- ADVANCED FILTERING LOGIC ---
         function populateFilterPickers() {
-            if (currentTrips.length === 0) return;
-            const rows = currentTrips;
+            if (!window.currentTrips || window.currentTrips.length === 0) return;
+            const rows = window.currentTrips;
 
             // Indices in rowData (from mapTripToArray): 6:City, 2:Size, 11:Customer, 16:Driver, 15:Company
             const filters = {
@@ -5018,6 +5022,7 @@
                 }
             }
         }
+        window.populateFilterPickers = populateFilterPickers;
         function applyAdvancedFilters() {
             const filters = {
                 city: document.getElementById('f-city')?.value.toLowerCase() || '',
@@ -5554,7 +5559,7 @@
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=10"></script>
     <script src="./js/rentals.js?v=100"></script>
-    <script src="./js/yard-stock.js?v=105"></script>
+    <script src="./js/yard-stock.js?v=106"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>

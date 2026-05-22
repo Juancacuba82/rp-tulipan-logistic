@@ -1267,6 +1267,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     window.allTripsUnfiltered = window.currentTrips;
                 }
 
+                // --- POPULATE FILTER DROPDOWNS (City, Size, Customer, Driver, Company) ---
+                if (window.populateFilterPickers) window.populateFilterPickers();
+
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded ---
                 if (window.renderDriverLog) window.renderDriverLog();
                 
