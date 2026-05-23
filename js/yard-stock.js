@@ -4,6 +4,51 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     let currentYardStock = [];
     let editingYardId = null;
 
+    function parseYardNotes(notesStr) {
+        let entryFee = 0;
+        let dailyRate = 0;
+        let exitFee = 0;
+        let cleanNote = notesStr || '';
+
+        // Strip [Storage Yard] first if present
+        const isStorage = cleanNote.includes('[Storage Yard]');
+        if (isStorage) {
+            cleanNote = cleanNote.replace('[Storage Yard] ', '').replace('[Storage Yard]', '');
+        }
+
+        // Parse [EntryFee: X]
+        const entryMatch = cleanNote.match(/\[EntryFee:\s*([\d.]+)\]/);
+        if (entryMatch) {
+            entryFee = parseFloat(entryMatch[1]) || 0;
+            cleanNote = cleanNote.replace(entryMatch[0], '');
+        }
+
+        // Parse [DailyRate: X]
+        const dailyMatch = cleanNote.match(/\[DailyRate:\s*([\d.]+)\]/);
+        if (dailyMatch) {
+            dailyRate = parseFloat(dailyMatch[1]) || 0;
+            cleanNote = cleanNote.replace(dailyMatch[0], '');
+        }
+
+        // Parse [ExitFee: X]
+        const exitMatch = cleanNote.match(/\[ExitFee:\s*([\d.]+)\]/);
+        if (exitMatch) {
+            exitFee = parseFloat(exitMatch[1]) || 0;
+            cleanNote = cleanNote.replace(exitMatch[0], '');
+        }
+
+        // Clean up any double spaces and trim
+        cleanNote = cleanNote.replace(/\s+/g, ' ').trim();
+
+        return {
+            isStorage,
+            entryFee,
+            dailyRate,
+            exitFee,
+            cleanNote
+        };
+    }
+
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.showView === 'function') {
@@ -23,7 +68,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         
         if (!force && currentYardStock && currentYardStock.length > 0) {
             renderYardTable();
-            updateYardSelectors();
+            renderStorageTable();
+            updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
             return;
         }
         
@@ -37,7 +83,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             
             currentYardStock = data || [];
             renderYardTable();
-            updateYardSelectors();
+            renderStorageTable();
+            updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
         } catch (err) {
             console.error("Error loading yard stock:", err);
         }
@@ -53,6 +100,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const sizeFilter = document.getElementById('yf-size')?.value || '';
 
         const filtered = currentYardStock.filter(item => {
+            const isStorage = (item.notes || '').includes('[Storage Yard]');
+            if (isStorage) return false; // Left table is only RPTulipan Yard
+            
             const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
                                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
@@ -100,6 +150,15 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 }
             };
 
+            const parsed = parseYardNotes(item.notes);
+            const entryDate = new Date(item.created_at || new Date());
+            const today = new Date();
+            const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+            const d2 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+            const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+            const accumStorage = parsed.dailyRate * days;
+            const totalCost = parsed.entryFee + accumStorage + parsed.exitFee;
+
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #1e40af;">${item.container_no || '---'}</td>
@@ -109,7 +168,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${item.notes || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${parsed.cleanNote || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="Entry Fee: $${parsed.entryFee.toFixed(2)} | Daily Rate: $${parsed.dailyRate.toFixed(2)} ($${accumStorage.toFixed(2)}) | Exit Fee: $${parsed.exitFee.toFixed(2)}">
+                    <div style="font-weight: 700; color: #475569;">${days} days</div>
+                    <div style="font-weight: 900; color: #10b981;">$${totalCost.toFixed(2)}</div>
+                </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
@@ -126,6 +189,110 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
     window.renderYardTable = renderYardTable;
 
+    function renderStorageTable() {
+        const body = document.getElementById('storage-yard-body');
+        const countEl = document.getElementById('storage-total-count');
+        if (!body) return;
+
+        const searchTerm = document.getElementById('sf-search')?.value.toLowerCase() || '';
+        const sizeFilter = document.getElementById('sf-size')?.value || '';
+
+        const filtered = currentYardStock.filter(item => {
+            const isStorage = (item.notes || '').includes('[Storage Yard]');
+            if (!isStorage) return false; // Right table is only Storage Yard
+            
+            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
+                               (item.origin_release || '').toLowerCase().includes(searchTerm);
+            const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
+            return matchSearch && matchSize && item.status !== 'SOLD';
+        });
+
+        if (countEl) countEl.textContent = filtered.length;
+
+        body.innerHTML = '';
+        if (filtered.length === 0) {
+            body.innerHTML = `
+                <tr>
+                    <td colspan="9" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
+                        No items in Storage Yard
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        filtered.forEach(item => {
+            const isSelected = (editingYardId === item.id);
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.style.transition = 'background-color 0.2s ease';
+            tr.style.borderBottom = '1px solid #475569';
+
+            const applyStyle = (isHover) => {
+                if (isSelected) {
+                    tr.style.backgroundColor = '#e0f2fe';
+                    tr.style.borderLeft = '4px solid #0284c7';
+                } else if (isHover) {
+                    tr.style.backgroundColor = '#f8fafc';
+                    tr.style.borderLeft = '4px solid transparent';
+                } else {
+                    tr.style.backgroundColor = 'transparent';
+                    tr.style.borderLeft = '4px solid transparent';
+                }
+            };
+
+            applyStyle(false);
+            tr.onmouseenter = () => applyStyle(true);
+            tr.onmouseleave = () => applyStyle(false);
+
+            tr.onclick = (e) => {
+                if (e.target.closest('.btn-manage-inline')) return;
+                if (editingYardId === item.id) {
+                    resetYardForm();
+                } else {
+                    editYardItem(item.id);
+                }
+            };
+
+            const parsed = parseYardNotes(item.notes);
+            const entryDate = new Date(item.created_at || new Date());
+            const today = new Date();
+            const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+            const d2 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+            const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+            const accumStorage = parsed.dailyRate * days;
+            const totalCost = parsed.entryFee + accumStorage + parsed.exitFee;
+
+            tr.innerHTML = `
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #10b981;">${item.container_no || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
+                    <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
+                </td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${parsed.cleanNote || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="Entry Fee: $${parsed.entryFee.toFixed(2)} | Daily Rate: $${parsed.dailyRate.toFixed(2)} ($${accumStorage.toFixed(2)}) | Exit Fee: $${parsed.exitFee.toFixed(2)}">
+                    <div style="font-weight: 700; color: #475569;">${days} days</div>
+                    <div style="font-weight: 900; color: #10b981;">$${totalCost.toFixed(2)}</div>
+                </td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+    window.renderStorageTable = renderStorageTable;
+
     // --- ACTIONS ---
     window.saveYardContainer = async function() {
         const containerNo = document.getElementById('yard-container-no').value.trim();
@@ -135,6 +302,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const origin = document.getElementById('yard-origin').value.trim();
         const note = document.getElementById('yard-note').value.trim();
         const entryDateInput = document.getElementById('yard-entry-date').value;
+        const yardDest = document.getElementById('yard-dest-select')?.value || 'RPTULIPAN';
+        const yardNotesPrefix = yardDest === 'STORAGE' ? '[Storage Yard] ' : '';
+
+        const entryFee = parseFloat(document.getElementById('yard-entry-fee').value) || 0;
+        const dailyRate = parseFloat(document.getElementById('yard-daily-rate').value) || 0;
+        const exitFee = parseFloat(document.getElementById('yard-exit-fee').value) || 0;
+        const priceTags = `[EntryFee: ${entryFee}] [DailyRate: ${dailyRate}] [ExitFee: ${exitFee}]`;
 
         if (!containerNo) return alert("Please enter a Container Number.");
 
@@ -148,7 +322,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             type,
             condition,
             origin_release: origin,
-            notes: note,
+            notes: `${yardNotesPrefix}${priceTags} ${note}`.trim(),
             status: 'AVAILABLE'
         };
 
@@ -191,7 +365,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         document.getElementById('yard-type').value = item.type || 'DRY';
         document.getElementById('yard-condition').value = item.condition || 'USED';
         document.getElementById('yard-origin').value = item.origin_release || '';
-        document.getElementById('yard-note').value = item.notes || '';
+        
+        // Parse notes and prices
+        const parsed = parseYardNotes(item.notes);
+        if (document.getElementById('yard-dest-select')) {
+            document.getElementById('yard-dest-select').value = parsed.isStorage ? 'STORAGE' : 'RPTULIPAN';
+        }
+        document.getElementById('yard-entry-fee').value = parsed.entryFee > 0 ? parsed.entryFee : '';
+        document.getElementById('yard-daily-rate').value = parsed.dailyRate > 0 ? parsed.dailyRate : '';
+        document.getElementById('yard-exit-fee').value = parsed.exitFee > 0 ? parsed.exitFee : '';
+        document.getElementById('yard-note').value = parsed.cleanNote || '';
 
         // Populate the entry date field
         if (item.created_at) {
@@ -210,6 +393,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             btn.classList.add('btn-update');
         }
         renderYardTable(); // Refresh selection
+        renderStorageTable();
     };
 
     window.deleteYardItem = async function(id) {
@@ -234,9 +418,18 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const org = document.getElementById('yard-origin');
         const nte = document.getElementById('yard-note');
         const dtf = document.getElementById('yard-entry-date');
+        const dest = document.getElementById('yard-dest-select');
+        const eFee = document.getElementById('yard-entry-fee');
+        const dRate = document.getElementById('yard-daily-rate');
+        const xFee = document.getElementById('yard-exit-fee');
+        
         if (cno) cno.value = '';
         if (org) org.value = '';
         if (nte) nte.value = '';
+        if (dest) dest.value = 'RPTULIPAN';
+        if (eFee) eFee.value = '';
+        if (dRate) dRate.value = '';
+        if (xFee) xFee.value = '';
         // Reset date to today for next new record
         if (dtf) {
             const today = new Date();
@@ -252,17 +445,29 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             btn.classList.remove('btn-update');
         }
         renderYardTable(); // Refresh selection
+        renderStorageTable();
     }
 
     // --- CALENDAR INTEGRATION ---
-    function updateYardSelectors() {
+    function updateYardSelectors(filterType = 'YARD') {
         const sel = document.getElementById('in-yard-stock-sel');
         if (!sel) return;
 
+        const lbl = document.querySelector('#yard-group-container label');
+        if (lbl) {
+            lbl.textContent = filterType === 'STORAGE' ? 'Select Storage' : 'Select RPTulipan';
+        }
+
         const currentVal = sel.value;
-        sel.innerHTML = '<option value="" disabled selected>Select Container in Yard...</option>';
+        sel.innerHTML = filterType === 'STORAGE' 
+            ? '<option value="" disabled selected>Select Container in Storage...</option>'
+            : '<option value="" disabled selected>Select Container in Yard...</option>';
         
-        currentYardStock.filter(i => i.status === 'AVAILABLE').forEach(item => {
+        currentYardStock.filter(i => {
+            const isStorage = (i.notes || '').includes('[Storage Yard]');
+            const matchYard = filterType === 'STORAGE' ? isStorage : !isStorage;
+            return i.status === 'AVAILABLE' && matchYard;
+        }).forEach(item => {
             const opt = document.createElement('option');
             opt.value = item.id;
             opt.textContent = `${item.container_no} - ${item.size} (${item.condition})`;
@@ -274,6 +479,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         if (currentVal) sel.value = currentVal;
     }
+    window.updateYardSelectors = updateYardSelectors;
+
+    window.isYardItemInStorage = function(itemId) {
+        const item = currentYardStock.find(i => i.id === itemId);
+        return item ? (item.notes || '').includes('[Storage Yard]') : false;
+    };
 
     window.setContainerSource = function(source) {
         document.getElementById('in-container-source').value = source;
@@ -281,24 +492,44 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const yardGroup = document.getElementById('yard-group-container');
         const btnRelease = document.getElementById('source-release');
         const btnYard = document.getElementById('source-yard');
+        const btnStorage = document.getElementById('source-storage');
+
+        // Toggle active button style
+        const buttons = [
+            { id: 'source-release', val: 'RELEASE', btn: btnRelease },
+            { id: 'source-yard', val: 'YARD', btn: btnYard },
+            { id: 'source-storage', val: 'STORAGE', btn: btnStorage }
+        ];
+
+        buttons.forEach(b => {
+            if (b.btn) {
+                if (source === b.val) {
+                    b.btn.style.background = '#0f172a';
+                    b.btn.style.color = 'white';
+                } else {
+                    b.btn.style.background = 'transparent';
+                    b.btn.style.color = '#64748b';
+                }
+            }
+        });
 
         if (source === 'RELEASE') {
             releaseGroup.style.display = 'block';
             yardGroup.style.display = 'none';
-            btnRelease.style.background = '#0f172a';
-            btnRelease.style.color = 'white';
-            btnYard.style.background = 'transparent';
-            btnYard.style.color = '#64748b';
         } else {
             releaseGroup.style.display = 'none';
             yardGroup.style.display = 'block';
-            btnYard.style.background = '#0f172a';
-            btnYard.style.color = 'white';
-            btnRelease.style.background = 'transparent';
-            btnRelease.style.color = '#64748b';
             
-            // Load fresh yard data when switching to yard source
-            loadYardData();
+            // Load and update selectors based on source (YARD or STORAGE)
+            loadYardData().then(() => {
+                updateYardSelectors(source);
+                
+                const yardItemId = document.getElementById('in-yard-item-id')?.value;
+                if (yardItemId) {
+                    const sel = document.getElementById('in-yard-stock-sel');
+                    if (sel) sel.value = yardItemId;
+                }
+            });
         }
     };
 
@@ -322,13 +553,56 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (inType) inType.value = type;
         if (inCond) inCond.value = cond;
         
-        // NEW: Store the yard item ID for later deduction logic
+        // Store the yard item ID for later deduction logic
         const inYardId = document.getElementById('in-yard-item-id');
         if (inYardId) inYardId.value = opt.value;
         
         // Use the container number from the selection text (first part)
         const contNo = opt.textContent.split(' - ')[0];
         if (inNCont) inNCont.value = contNo;
+    };
+
+    window.setYardDisplayMode = function(mode) {
+        const col1 = document.getElementById('col-rptulipan-yard');
+        const col2 = document.getElementById('col-storage-yard');
+        const btnBoth = document.getElementById('yard-view-both');
+        const btnRPTulipan = document.getElementById('yard-view-rptulipan');
+        const btnStorage = document.getElementById('yard-view-storage');
+
+        if (!col1 || !col2) return;
+
+        const buttons = [
+            { mode: 'BOTH', btn: btnBoth },
+            { mode: 'RPTULIPAN', btn: btnRPTulipan },
+            { mode: 'STORAGE', btn: btnStorage }
+        ];
+
+        buttons.forEach(b => {
+            if (b.btn) {
+                if (mode === b.mode) {
+                    b.btn.style.background = '#0f172a';
+                    b.btn.style.color = 'white';
+                } else {
+                    b.btn.style.background = 'transparent';
+                    b.btn.style.color = '#64748b';
+                }
+            }
+        });
+
+        if (mode === 'BOTH') {
+            col1.style.display = 'flex';
+            col1.style.flex = '1 1 calc(50% - 13px)';
+            col2.style.display = 'flex';
+            col2.style.flex = '1 1 calc(50% - 13px)';
+        } else if (mode === 'RPTULIPAN') {
+            col1.style.display = 'flex';
+            col1.style.flex = '1 1 100%';
+            col2.style.display = 'none';
+        } else if (mode === 'STORAGE') {
+            col1.style.display = 'none';
+            col2.style.display = 'flex';
+            col2.style.flex = '1 1 100%';
+        }
     };
 
 })();

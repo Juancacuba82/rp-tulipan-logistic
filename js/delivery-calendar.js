@@ -176,7 +176,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 const containerSource = document.getElementById('in-container-source')?.value || 'RELEASE';
                 const yardItemId = document.getElementById('in-yard-item-id')?.value;
-                const isYardSource = containerSource === 'YARD';
+                const isYardSource = containerSource === 'YARD' || containerSource === 'STORAGE';
 
                 const isMoveToYard = document.getElementById('in-move-to-yard')?.checked || false;
 
@@ -210,7 +210,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const oldRelExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === oldRel);
                         
                         wasDeductionCandidate = (oldSource === 'RELEASE') && (oldRel && oldRel !== '---' && oldRelExists);
-                        const wasYardDeductionCandidate = (oldSource === 'YARD') && oldYardId && wasFinalized;
+                        const wasYardDeductionCandidate = (oldSource === 'YARD' || oldSource === 'STORAGE') && oldYardId && wasFinalized;
                         
                         if (wasYardDeductionCandidate) {
                             await db.from('yard_stock').update({ status: 'AVAILABLE' }).eq('id', oldYardId);
@@ -306,13 +306,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 const dbObj = mapArrayToTrip(rowData);
                 const currentOrderNo = document.getElementById('in-order')?.value || '---';
+                const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
+                const yardNotesPrefix = toYardDest === 'STORAGE' ? '[Storage Yard] ' : '';
                 const yardData = {
                     container_no: (document.getElementById('in-ncont')?.value || '---').toUpperCase(),
                     size: selectedSize || '---',
                     type: selectedRelType,
                     condition: selectedRelCond,
                     origin_release: selectedRelease || '---',
-                    notes: `Auto-entry from Order: ${currentOrderNo}`
+                    notes: `${yardNotesPrefix}Auto-entry from Order: ${currentOrderNo}`
                 };
 
                 // Capture the editing state BEFORE it gets cleared
@@ -521,6 +523,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const el = document.getElementById(id);
                 if (el) el.checked = false;
             });
+
+            if (typeof window.setContainerSource === 'function') {
+                window.setContainerSource('RELEASE');
+            }
+            if (document.getElementById('in-yard-item-id')) {
+                document.getElementById('in-yard-item-id').value = '';
+            }
+            if (document.getElementById('in-to-yard-dest')) {
+                document.getElementById('in-to-yard-dest').value = 'RPTULIPAN';
+                document.getElementById('in-to-yard-dest').style.display = 'none';
+            }
 
             // 4. Special Dates (Reset to empty or today)
             const dates = ['in-dateout', 'in-sdaterent', 'in-nextdue'];
@@ -1188,11 +1201,37 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const isTransChecked = (rowData[42] === 'YES');
             const isSalesChecked = (rowData[43] === 'YES');
             const isToYardChecked = !!rowData[62];
+            const containerSource = rowData[58] || 'RELEASE';
+            const yardItemId = rowData[59];
 
             if (document.getElementById('in-flag1')) document.getElementById('in-flag1').checked = isYardChecked;
             if (document.getElementById('in-flag2')) document.getElementById('in-flag2').checked = isTransChecked;
             if (document.getElementById('in-flag3')) document.getElementById('in-flag3').checked = isSalesChecked;
             if (document.getElementById('in-move-to-yard')) document.getElementById('in-move-to-yard').checked = isToYardChecked;
+
+            if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
+            const destSel = document.getElementById('in-to-yard-dest');
+            if (destSel) {
+                if (isToYardChecked && yardItemId) {
+                    const isStorage = window.isYardItemInStorage ? window.isYardItemInStorage(yardItemId) : false;
+                    destSel.value = isStorage ? 'STORAGE' : 'RPTULIPAN';
+                } else {
+                    destSel.value = 'RPTULIPAN';
+                }
+            }
+
+            if (typeof window.setContainerSource === 'function') {
+                window.setContainerSource(containerSource);
+            }
+            if (document.getElementById('in-yard-item-id')) {
+                document.getElementById('in-yard-item-id').value = yardItemId || '';
+            }
+            if (yardItemId && (containerSource === 'YARD' || containerSource === 'STORAGE')) {
+                const sel = document.getElementById('in-yard-stock-sel');
+                if (sel) {
+                    sel.value = yardItemId;
+                }
+            }
 
             if (window.toggleYardRate) window.toggleYardRate();
             if (window.toggleTransport) window.toggleTransport();

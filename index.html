@@ -23,7 +23,7 @@
     <script src="./supabase-client.js?v=10"></script>
     <script src="./js/data-mapping.js?v=10"></script>
     <script src="./js/data-managers.js?v=1700"></script>
-    <script src="./js/delivery-calendar.js?v=1700"></script>
+    <script src="./js/delivery-calendar.js?v=1701"></script>
     <script src="./js/driver-settlements.js?v=1700"></script>
     <script src="./js/releases.js?v=1700"></script>
     <script src="./js/profit-expenses.js?v=1700"></script>
@@ -993,10 +993,17 @@
                                     <span style="font-size: 0.65rem; font-weight: 700; color: #059669;">Sales?</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 4px;">
-                                    <input type="checkbox" id="in-move-to-yard"
-                                        style="width: 18px; height: 18px; accent-color: #3b82f6;">
-                                    <span style="font-size: 0.65rem; font-weight: 700; color: #3b82f6;">To Yard?</span>
-                                </div>
+                                                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                     <div style="display: flex; align-items: center; gap: 4px;">
+                                         <input type="checkbox" id="in-move-to-yard" onchange="if(window.toggleToYardDestSelect) window.toggleToYardDestSelect()"
+                                             style="width: 18px; height: 18px; accent-color: #3b82f6;">
+                                         <span style="font-size: 0.65rem; font-weight: 700; color: #3b82f6;">To Yard?</span>
+                                     </div>
+                                     <select id="in-to-yard-dest" style="display: none; font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; border: 1px solid #cbd5e1; height: 26px; width: 110px; font-weight: 700; background: #fff; color: #3b82f6; outline: none; cursor: pointer;">
+                                         <option value="RPTULIPAN">RPTulipan Yard</option>
+                                         <option value="STORAGE">Storage Yard</option>
+                                     </select>
+                                 </div></div>
 
                             </div>
                         </div>
@@ -1029,16 +1036,19 @@
                         <div class="form-group"><label class="sidebar-label-btn">Qty</label><input type="number"
                                 id="in-qty" placeholder="1" value="1" min="1"></div>
                         <!-- NEW: CONTAINER SOURCE TOGGLE -->
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label class="sidebar-label-btn"><i class="fas fa-layer-group"></i> Container Source</label>
-                            <div style="display: flex; gap: 5px; background: #f1f5f9; padding: 4px; border-radius: 10px;">
+                        <div class="form-group" style="margin-bottom: 15px; display: block;">
+                            <div style="display: flex; gap: 5px; background: #f1f5f9; padding: 4px; border-radius: 10px; width: 100%;">
                                 <button type="button" id="source-release" onclick="setContainerSource('RELEASE')" 
-                                    style="flex: 1; border: none; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; background: #0f172a; color: white;">
+                                    style="flex: 1; border: none; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; background: #0f172a; color: white; white-space: nowrap;">
                                     <i class="fas fa-ship"></i> RELEASE
                                 </button>
                                 <button type="button" id="source-yard" onclick="setContainerSource('YARD')" 
-                                    style="flex: 1; border: none; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b;">
-                                    <i class="fas fa-warehouse"></i> YARD STOCK
+                                    style="flex: 1; border: none; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b; white-space: nowrap;">
+                                    <i class="fas fa-warehouse"></i> RPTULIPAN
+                                </button>
+                                <button type="button" id="source-storage" onclick="setContainerSource('STORAGE')" 
+                                    style="flex: 1; border: none; padding: 10px; border-radius: 8px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b; white-space: nowrap;">
+                                    <i class="fas fa-warehouse"></i> STORAGE
                                 </button>
                             </div>
                             <input type="hidden" id="in-container-source" value="RELEASE">
@@ -3745,8 +3755,27 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;">YARD</label>
+                            <select id="yard-dest-select" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;">
+                                <option value="RPTULIPAN">RPTulipan Yard</option>
+                                <option value="STORAGE">Storage Yard</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #ef4444 !important;">ORIGIN RELEASE</label>
                             <input type="text" id="yard-origin" placeholder="Release # (Optional)" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-arrow-down" style="color: #10b981;"></i> ENTRY FEE ($)</label>
+                            <input type="number" id="yard-entry-fee" placeholder="0.00" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-coins" style="color: #eab308;"></i> DAILY STORAGE ($)</label>
+                            <input type="number" id="yard-daily-rate" placeholder="0.00" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-arrow-up" style="color: #ef4444;"></i> EXIT FEE ($)</label>
+                            <input type="number" id="yard-exit-fee" placeholder="0.00" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;">NOTES</label>
@@ -3759,87 +3788,199 @@
                 </aside>
 
                 <!-- Table Area -->
-                <div class="table-area" style="padding: 30px; background: #f1f5f9;">
-                    <div class="attendance-toolbar-modern" style="background: white; border-radius: 16px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 25px;">
-                        <div class="report-title">
-                            <h2 style="font-size: 2.2rem; font-weight: 950; color: #0f172a; margin: 0; letter-spacing: -1px;">Yard Physical Inventory</h2>
-                            <p style="color: #64748b; font-size: 1rem; margin-top: 5px; font-weight: 500;">Real-time management of facility-stored containers</p>
+                <div class="table-area" style="padding: 30px; background: #f1f5f9; overflow-y: auto;">
+                    <!-- Yard View Mode Filter -->
+                    <div class="view-mode-filter" style="background: white; border-radius: 16px; padding: 15px 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-eye" style="color: #ef4444; font-size: 1.2rem;"></i>
+                            <span style="font-weight: 900; font-size: 0.95rem; color: #0f172a; letter-spacing: -0.3px;">DISPLAY YARDS:</span>
                         </div>
-                        
-                        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-                             <div class="filter-summary-card" style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; min-width: 200px; padding: 20px; border-radius: 16px; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2);">
-                                <div class="filter-summary-icon" style="background: rgba(255,255,255,0.2); color: white; width: 50px; height: 50px; font-size: 1.5rem;">
-                                    <i class="fas fa-cubes"></i>
-                                </div>
-                                <div class="filter-summary-info">
-                                    <span class="filter-summary-label" style="color: rgba(255,255,255,0.8); font-weight: 600;">TOTAL UNITS</span>
-                                    <span class="filter-summary-value" id="yard-total-count" style="font-size: 2rem; color: white;">0</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Filters Card Modern -->
-                    <div class="attendance-toolbar-modern" style="margin-top: -10px; padding: 30px; background: white; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
-                        <div style="display: flex; gap: 30px; flex-wrap: wrap; width: 100%; align-items: flex-end;">
-                            
-                            <!-- Search Field -->
-                            <div style="flex: 3; min-width: 300px;">
-                                <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
-                                    <i class="fas fa-search" style="margin-right: 5px; color: #ef4444;"></i> Search Inventory
-                                </label>
-                                <div style="position: relative;">
-                                    <i class="fas fa-barcode" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1.1rem;"></i>
-                                    <input type="text" id="yf-search" placeholder="Search by Container # or Release..." oninput="renderYardTable()" 
-                                        style="width: 100%; padding: 14px 15px 14px 45px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 12px; font-weight: 600; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.95rem;">
-                                </div>
-                            </div>
-
-                            <!-- Size Filter -->
-                            <div style="flex: 1.5; min-width: 200px;">
-                                <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
-                                    <i class="fas fa-ruler-combined" style="margin-right: 5px; color: #3b82f6;"></i> Size Filter
-                                </label>
-                                <div style="position: relative;">
-                                    <i class="fas fa-filter" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1rem;"></i>
-                                    <select id="yf-size" onchange="renderYardTable()" 
-                                        style="width: 100%; padding: 14px 15px 14px 45px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 12px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none;">
-                                        <option value="">All Sizes</option>
-                                        <option value="20'">20' Containers</option>
-                                        <option value="40'">40' Containers</option>
-                                        <option value="45'">45' Containers</option>
-                                    </select>
-                                    <i class="fas fa-chevron-down" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;"></i>
-                                </div>
-                            </div>
-
-                            <!-- Refresh Button -->
-                            <button onclick="loadYardData(true)" class="btn-refresh-modern" 
-                                style="height: 52px; width: 52px; background: #0f172a; color: white; border: none; border-radius: 12px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                                <i class="fas fa-sync-alt"></i>
+                        <div style="display: flex; gap: 8px; background: #f1f5f9; padding: 4px; border-radius: 10px;">
+                            <button type="button" id="yard-view-both" onclick="setYardDisplayMode('BOTH')" 
+                                style="border: none; padding: 10px 20px; border-radius: 8px; font-weight: 900; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; background: #0f172a; color: white; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-columns"></i> SHOW BOTH
+                            </button>
+                            <button type="button" id="yard-view-rptulipan" onclick="setYardDisplayMode('RPTULIPAN')" 
+                                style="border: none; padding: 10px 20px; border-radius: 8px; font-weight: 900; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-warehouse"></i> RPTULIPAN YARD
+                            </button>
+                            <button type="button" id="yard-view-storage" onclick="setYardDisplayMode('STORAGE')" 
+                                style="border: none; padding: 10px 20px; border-radius: 8px; font-weight: 900; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-warehouse"></i> STORAGE YARD
                             </button>
                         </div>
                     </div>
+                    <div style="display: flex; gap: 25px; width: 100%; align-items: flex-start; flex-wrap: wrap;">
+                        
+                        <!-- Left Column: RPTulipan Yard -->
+                        <div id="col-rptulipan-yard" style="flex: 1 1 calc(50% - 13px); min-width: 480px; display: flex; flex-direction: column; gap: 20px;">
+                            <!-- Header Card -->
+                            <div class="attendance-toolbar-modern" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                                <div class="report-title">
+                                    <h2 style="font-size: 1.8rem; font-weight: 950; color: #0f172a; margin: 0; letter-spacing: -0.5px;">RPTulipan Yard</h2>
+                                    <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px; font-weight: 500;">Real-time management of facility-stored containers</p>
+                                </div>
+                                
+                                <div class="filter-summary-card" style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; min-width: 160px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 12px;">
+                                    <div class="filter-summary-icon" style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-cubes"></i>
+                                    </div>
+                                    <div class="filter-summary-info">
+                                        <span class="filter-summary-label" style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">TOTAL UNITS</span>
+                                        <span class="filter-summary-value" id="yard-total-count" style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">0</span>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <!-- Table Card -->
-                    <div class="table-scroll-container" style="margin-top: 25px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
-                        <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">
-                            <thead style="background: #f1f5f9;">
-                                <tr>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">ENTRY DATE</th>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">CONTAINER #</th>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">SIZE</th>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">TYPE</th>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">CONDITION</th>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">ORIGIN</th>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left;">NOTES</th>
-                                    <th style="padding: 15px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: center;">ACTION</th>
-                                </tr>
-                            </thead>
-                            <tbody id="yard-body">
-                                <!-- Data injected by yard-stock.js -->
-                            </tbody>
-                        </table>
+                            <!-- Filters Card -->
+                            <div class="attendance-toolbar-modern" style="padding: 20px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); margin-bottom: 0;">
+                                <div style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; align-items: flex-end;">
+                                    
+                                    <!-- Search Field -->
+                                    <div style="flex: 2; min-width: 180px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-search" style="margin-right: 5px; color: #ef4444;"></i> Search Inventory
+                                        </label>
+                                        <div style="position: relative;">
+                                            <i class="fas fa-barcode" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1rem;"></i>
+                                            <input type="text" id="yf-search" placeholder="Search by Container # or Release..." oninput="renderYardTable()" 
+                                                style="width: 100%; padding: 10px 10px 10px 35px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 600; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.85rem;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Size Filter -->
+                                    <div style="flex: 1.2; min-width: 120px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-ruler-combined" style="margin-right: 5px; color: #3b82f6;"></i> Size Filter
+                                        </label>
+                                        <div style="position: relative;">
+                                            <select id="yf-size" onchange="renderYardTable()" 
+                                                style="width: 100%; padding: 10px 25px 10px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                                <option value="">All Sizes</option>
+                                                <option value="20'">20' Containers</option>
+                                                <option value="40'">40' Containers</option>
+                                                <option value="45'">45' Containers</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Refresh Button -->
+                                    <button onclick="loadYardData(true)" class="btn-refresh-modern" 
+                                        style="height: 38px; width: 38px; background: #0f172a; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Table Card -->
+                            <div class="table-scroll-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
+                                <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">
+                                    <thead style="background: #f1f5f9;">
+                                        <tr>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ENTRY DATE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONTAINER #</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">SIZE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TYPE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONDITION</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORIGIN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">NOTES</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS / COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: center; font-size: 0.8rem;">ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="yard-body">
+                                        <!-- Data injected by yard-stock.js -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Storage Yard -->
+                        <div id="col-storage-yard" style="flex: 1 1 calc(50% - 13px); min-width: 480px; display: flex; flex-direction: column; gap: 20px;">
+                            <!-- Header Card -->
+                            <div class="attendance-toolbar-modern" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                                <div class="report-title">
+                                    <h2 style="font-size: 1.8rem; font-weight: 950; color: #0f172a; margin: 0; letter-spacing: -0.5px;">Storage Yard</h2>
+                                    <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px; font-weight: 500;">Storage yard operations and inventory tracking</p>
+                                </div>
+                                
+                                <div class="filter-summary-card" style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: white; min-width: 160px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 12px;">
+                                    <div class="filter-summary-icon" style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-warehouse"></i>
+                                    </div>
+                                    <div class="filter-summary-info">
+                                        <span class="filter-summary-label" style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">TOTAL UNITS</span>
+                                        <span class="filter-summary-value" id="storage-total-count" style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filters Card -->
+                            <div class="attendance-toolbar-modern" style="padding: 20px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); margin-bottom: 0;">
+                                <div style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; align-items: flex-end;">
+                                    
+                                    <!-- Search Field -->
+                                    <div style="flex: 2; min-width: 180px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-search" style="margin-right: 5px; color: #10b981;"></i> Search Storage
+                                        </label>
+                                        <div style="position: relative;">
+                                            <i class="fas fa-barcode" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1rem;"></i>
+                                            <input type="text" id="sf-search" placeholder="Search by Container #..." oninput="renderStorageTable()" 
+                                                style="width: 100%; padding: 10px 10px 10px 35px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 600; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.85rem;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Size Filter -->
+                                    <div style="flex: 1.2; min-width: 120px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-ruler-combined" style="margin-right: 5px; color: #10b981;"></i> Size Filter
+                                        </label>
+                                        <div style="position: relative;">
+                                            <select id="sf-size" onchange="renderStorageTable()" 
+                                                style="width: 100%; padding: 10px 25px 10px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                                <option value="">All Sizes</option>
+                                                <option value="20'">20' Containers</option>
+                                                <option value="40'">40' Containers</option>
+                                                <option value="45'">45' Containers</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Spacer element to align heights -->
+                                    <div style="width: 38px; height: 38px;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Table Card -->
+                            <div class="table-scroll-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
+                                <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">
+                                    <thead style="background: #f1f5f9;">
+                                        <tr>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ENTRY DATE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONTAINER #</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">SIZE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TYPE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONDITION</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORIGIN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">NOTES</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS / COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: center; font-size: 0.8rem;">ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="storage-yard-body">
+                                        <tr>
+                                            <td colspan="9" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
+                                                No items in Storage Yard (Under Construction)
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -4952,6 +5093,15 @@
         }
         window.toggleSalesPrice = toggleSalesPrice;
 
+        function toggleToYardDestSelect() {
+            const isChecked = document.getElementById('in-move-to-yard')?.checked || false;
+            const destSel = document.getElementById('in-to-yard-dest');
+            if (destSel) {
+                destSel.style.display = isChecked ? 'inline-block' : 'none';
+            }
+        }
+        window.toggleToYardDestSelect = toggleToYardDestSelect;
+
 
         function calcNextDue() {
             const startEl = document.getElementById('in-sdaterent');
@@ -5567,7 +5717,7 @@
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=10"></script>
     <script src="./js/rentals.js?v=100"></script>
-    <script src="./js/yard-stock.js?v=106"></script>
+    <script src="./js/yard-stock.js?v=109"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>
