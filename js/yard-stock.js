@@ -7,7 +7,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     function parseYardNotes(notesStr) {
         let entryFee = 0;
         let dailyRate = 0;
-        let exitFee = 0;
+        let exitDate = '';
         let cleanNote = notesStr || '';
 
         // Strip [Storage Yard] first if present
@@ -30,10 +30,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             cleanNote = cleanNote.replace(dailyMatch[0], '');
         }
 
-        // Parse [ExitFee: X]
-        const exitMatch = cleanNote.match(/\[ExitFee:\s*([\d.]+)\]/);
+        // Parse [ExitDate: YYYY-MM-DD]
+        const exitMatch = cleanNote.match(/\[ExitDate:\s*([\d\-]+)\]/);
         if (exitMatch) {
-            exitFee = parseFloat(exitMatch[1]) || 0;
+            exitDate = exitMatch[1].trim();
             cleanNote = cleanNote.replace(exitMatch[0], '');
         }
 
@@ -44,7 +44,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             isStorage,
             entryFee,
             dailyRate,
-            exitFee,
+            exitDate,
             cleanNote
         };
     }
@@ -106,10 +106,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
                                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
-            return matchSearch && matchSize && item.status !== 'SOLD';
+            return matchSearch && matchSize;
         });
 
-        if (countEl) countEl.textContent = filtered.length;
+        if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
 
         body.innerHTML = '';
         filtered.forEach(item => {
@@ -119,11 +119,17 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             tr.style.transition = 'background-color 0.2s ease';
             tr.style.borderBottom = '1px solid #475569'; // Darker, more visible line
 
+            const isExited = item.status === 'SOLD';
             // Visual state helper
             const applyStyle = (isHover) => {
                 if (isSelected) {
                     tr.style.backgroundColor = '#e0f2fe'; // Brighter blue for selected
                     tr.style.borderLeft = '4px solid #0284c7';
+                } else if (isExited) {
+                    tr.style.backgroundColor = '#f1f5f9'; // Inactive gray background
+                    tr.style.opacity = '0.75';
+                    tr.style.color = '#64748b';
+                    tr.style.borderLeft = '4px solid transparent';
                 } else if (isHover) {
                     tr.style.backgroundColor = '#f8fafc'; // Very light gray on hover
                     tr.style.borderLeft = '4px solid transparent';
@@ -152,16 +158,25 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
             const parsed = parseYardNotes(item.notes);
             const entryDate = new Date(item.created_at || new Date());
-            const today = new Date();
+            const endDate = parsed.exitDate ? new Date(parsed.exitDate + 'T12:00:00') : new Date();
             const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-            const d2 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = parsed.dailyRate * days;
-            const totalCost = parsed.entryFee + accumStorage + parsed.exitFee;
+            const exitFee = parsed.exitDate ? parsed.entryFee : 0;
+            const totalCost = parsed.entryFee + accumStorage + exitFee;
+
+            const tooltipTitle = parsed.exitDate 
+                ? `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${parsed.entryFee.toFixed(2)} | Exit Date: ${parsed.exitDate}`
+                : `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
+
+            const containerNoDisplay = isExited
+                ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
+                : `${item.container_no || '---'}`;
 
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #1e40af;">${item.container_no || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -169,8 +184,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${parsed.cleanNote || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="Entry Fee: $${parsed.entryFee.toFixed(2)} | Daily Rate: $${parsed.dailyRate.toFixed(2)} ($${accumStorage.toFixed(2)}) | Exit Fee: $${parsed.exitFee.toFixed(2)}">
-                    <div style="font-weight: 700; color: #475569;">${days} days</div>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="${tooltipTitle}">
+                    <div style="font-weight: 700; color: #475569;">${days} days${parsed.exitDate ? ' (Exited)' : ''}</div>
                     <div style="font-weight: 900; color: #10b981;">$${totalCost.toFixed(2)}</div>
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -204,10 +219,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
                                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
-            return matchSearch && matchSize && item.status !== 'SOLD';
+            return matchSearch && matchSize;
         });
 
-        if (countEl) countEl.textContent = filtered.length;
+        if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
 
         body.innerHTML = '';
         if (filtered.length === 0) {
@@ -228,10 +243,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             tr.style.transition = 'background-color 0.2s ease';
             tr.style.borderBottom = '1px solid #475569';
 
+            const isExited = item.status === 'SOLD';
             const applyStyle = (isHover) => {
                 if (isSelected) {
                     tr.style.backgroundColor = '#e0f2fe';
                     tr.style.borderLeft = '4px solid #0284c7';
+                } else if (isExited) {
+                    tr.style.backgroundColor = '#f1f5f9';
+                    tr.style.opacity = '0.75';
+                    tr.style.color = '#64748b';
+                    tr.style.borderLeft = '4px solid transparent';
                 } else if (isHover) {
                     tr.style.backgroundColor = '#f8fafc';
                     tr.style.borderLeft = '4px solid transparent';
@@ -256,16 +277,25 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
             const parsed = parseYardNotes(item.notes);
             const entryDate = new Date(item.created_at || new Date());
-            const today = new Date();
+            const endDate = parsed.exitDate ? new Date(parsed.exitDate + 'T12:00:00') : new Date();
             const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-            const d2 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = parsed.dailyRate * days;
-            const totalCost = parsed.entryFee + accumStorage + parsed.exitFee;
+            const exitFee = parsed.exitDate ? parsed.entryFee : 0;
+            const totalCost = parsed.entryFee + accumStorage + exitFee;
+
+            const tooltipTitle = parsed.exitDate 
+                ? `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${parsed.entryFee.toFixed(2)} | Exit Date: ${parsed.exitDate}`
+                : `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
+
+            const containerNoDisplay = isExited
+                ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
+                : `${item.container_no || '---'}`;
 
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #10b981;">${item.container_no || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#10b981'};">${containerNoDisplay}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -273,8 +303,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${parsed.cleanNote || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="Entry Fee: $${parsed.entryFee.toFixed(2)} | Daily Rate: $${parsed.dailyRate.toFixed(2)} ($${accumStorage.toFixed(2)}) | Exit Fee: $${parsed.exitFee.toFixed(2)}">
-                    <div style="font-weight: 700; color: #475569;">${days} days</div>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="${tooltipTitle}">
+                    <div style="font-weight: 700; color: #475569;">${days} days${parsed.exitDate ? ' (Exited)' : ''}</div>
                     <div style="font-weight: 900; color: #10b981;">$${totalCost.toFixed(2)}</div>
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -307,14 +337,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         const entryFee = parseFloat(document.getElementById('yard-entry-fee').value) || 0;
         const dailyRate = parseFloat(document.getElementById('yard-daily-rate').value) || 0;
-        const exitFee = parseFloat(document.getElementById('yard-exit-fee').value) || 0;
-        const priceTags = `[EntryFee: ${entryFee}] [DailyRate: ${dailyRate}] [ExitFee: ${exitFee}]`;
+        const exitDate = document.getElementById('yard-exit-date').value || '';
+        const priceTags = `[EntryFee: ${entryFee}] [DailyRate: ${dailyRate}]` + (exitDate ? ` [ExitDate: ${exitDate}]` : '');
 
         if (!containerNo) return alert("Please enter a Container Number.");
 
         const btn = document.getElementById('btn-save-yard');
         btn.disabled = true;
         btn.textContent = "SAVING...";
+
+        const status = exitDate ? 'SOLD' : 'AVAILABLE';
 
         const yardObj = {
             container_no: containerNo.toUpperCase(),
@@ -323,7 +355,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             condition,
             origin_release: origin,
             notes: `${yardNotesPrefix}${priceTags} ${note}`.trim(),
-            status: 'AVAILABLE'
+            status: status
         };
 
         // Use the date from the input field if provided
@@ -373,7 +405,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
         document.getElementById('yard-entry-fee').value = parsed.entryFee > 0 ? parsed.entryFee : '';
         document.getElementById('yard-daily-rate').value = parsed.dailyRate > 0 ? parsed.dailyRate : '';
-        document.getElementById('yard-exit-fee').value = parsed.exitFee > 0 ? parsed.exitFee : '';
+        document.getElementById('yard-exit-date').value = parsed.exitDate || '';
         document.getElementById('yard-note').value = parsed.cleanNote || '';
 
         // Populate the entry date field
@@ -421,7 +453,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const dest = document.getElementById('yard-dest-select');
         const eFee = document.getElementById('yard-entry-fee');
         const dRate = document.getElementById('yard-daily-rate');
-        const xFee = document.getElementById('yard-exit-fee');
+        const xDate = document.getElementById('yard-exit-date');
         
         if (cno) cno.value = '';
         if (org) org.value = '';
@@ -429,7 +461,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (dest) dest.value = 'RPTULIPAN';
         if (eFee) eFee.value = '';
         if (dRate) dRate.value = '';
-        if (xFee) xFee.value = '';
+        if (xDate) xDate.value = '';
         // Reset date to today for next new record
         if (dtf) {
             const today = new Date();

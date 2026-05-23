@@ -23,7 +23,7 @@
     <script src="./supabase-client.js?v=10"></script>
     <script src="./js/data-mapping.js?v=10"></script>
     <script src="./js/data-managers.js?v=1700"></script>
-    <script src="./js/delivery-calendar.js?v=1701"></script>
+    <script src="./js/delivery-calendar.js?v=1702"></script>
     <script src="./js/driver-settlements.js?v=1700"></script>
     <script src="./js/releases.js?v=1700"></script>
     <script src="./js/profit-expenses.js?v=1700"></script>
@@ -2864,6 +2864,20 @@
                                 </div>
                                 <div class="item-value" id="val-contractor">$0.00</div>
                             </div>
+                            <div class="breakdown-item">
+                                <div class="item-label">
+                                    <span class="dot" style="background: #6366f1;"></span>
+                                    Total Storage RPTulipan
+                                </div>
+                                <div class="item-value" id="val-storage-rptulipan">$0.00</div>
+                            </div>
+                            <div class="breakdown-item">
+                                <div class="item-label">
+                                    <span class="dot" style="background: #10b981;"></span>
+                                    Total Storage Yard
+                                </div>
+                                <div class="item-value" id="val-storage-yard">$0.00</div>
+                            </div>
                             <div class="breakdown-item" style="border-top: 2px solid #1e293b; margin-top: 12px; padding-top: 12px;">
                                 <div class="item-label" style="font-weight: 900; color: #1e293b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">
                                     ⬛ Total
@@ -2929,6 +2943,18 @@
                                 <label>Contractor</label>
                                 <div class="bar-container">
                                     <div id="bar-contractor" class="bar" style="width: 0%; background: #a855f7;"></div>
+                                </div>
+                            </div>
+                            <div class="bar-group">
+                                <label>Storage RPTulipan</label>
+                                <div class="bar-container">
+                                    <div id="bar-storage-rptulipan" class="bar" style="width: 0%; background: #6366f1;"></div>
+                                </div>
+                            </div>
+                            <div class="bar-group">
+                                <label>Storage Yard</label>
+                                <div class="bar-container">
+                                    <div id="bar-storage-yard" class="bar" style="width: 0%; background: #10b981;"></div>
                                 </div>
                             </div>
                             <!-- Expenses section: margin-top accounts for TOTAL row + Costs & Expenses header on the left -->
@@ -3774,8 +3800,8 @@
                             <input type="number" id="yard-daily-rate" placeholder="0.00" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-arrow-up" style="color: #ef4444;"></i> EXIT FEE ($)</label>
-                            <input type="number" id="yard-exit-fee" placeholder="0.00" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-calendar-check" style="color: #ef4444;"></i> EXIT DATE</label>
+                            <input type="date" id="yard-exit-date" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;">NOTES</label>
@@ -5717,7 +5743,7 @@
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=10"></script>
     <script src="./js/rentals.js?v=100"></script>
-    <script src="./js/yard-stock.js?v=109"></script>
+    <script src="./js/yard-stock.js?v=111"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>

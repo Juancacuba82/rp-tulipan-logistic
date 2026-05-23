@@ -213,7 +213,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const wasYardDeductionCandidate = (oldSource === 'YARD' || oldSource === 'STORAGE') && oldYardId && wasFinalized;
                         
                         if (wasYardDeductionCandidate) {
-                            await db.from('yard_stock').update({ status: 'AVAILABLE' }).eq('id', oldYardId);
+                            const { data: yardItem } = await db.from('yard_stock').select('notes').eq('id', oldYardId).single();
+                            if (yardItem) {
+                                let notes = yardItem.notes || '';
+                                notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
+                                await db.from('yard_stock').update({ status: 'AVAILABLE', notes }).eq('id', oldYardId);
+                            } else {
+                                await db.from('yard_stock').update({ status: 'AVAILABLE' }).eq('id', oldYardId);
+                            }
                         }
                         if (wasDeductionCandidate) {
                             oldRelData = {
@@ -257,7 +264,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 if (isYardDeductionCandidate) {
-                    await db.from('yard_stock').update({ status: 'SOLD' }).eq('id', yardItemId);
+                    const orderDate = document.getElementById('in-date')?.value || new Date().toISOString().split('T')[0];
+                    const { data: yardItem } = await db.from('yard_stock').select('notes').eq('id', yardItemId).single();
+                    if (yardItem) {
+                        let notes = yardItem.notes || '';
+                        notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim();
+                        const isStorage = notes.includes('[Storage Yard]');
+                        if (isStorage) {
+                            notes = notes.replace('[Storage Yard] ', '').replace('[Storage Yard]', '').trim();
+                        }
+                        const prefix = isStorage ? '[Storage Yard] ' : '';
+                        const updatedNotes = `${prefix}[ExitDate: ${orderDate}] ${notes}`.trim().replace(/\s+/g, ' ');
+                        await db.from('yard_stock').update({ status: 'SOLD', notes: updatedNotes }).eq('id', yardItemId);
+                    } else {
+                        await db.from('yard_stock').update({ status: 'SOLD' }).eq('id', yardItemId);
+                    }
                 }
 
                 // --- DATA MAPPING ---
@@ -1630,8 +1651,25 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 if (wasFinalized && wasToYardForDel) {
                                     console.log(`Cleaning Yard Stock for deleted order: ${orderNoForDel}`);
                                     await db.from('yard_stock').delete().ilike('notes', `%Order: ${orderNoForDel}%`);
-                                    if (typeof window.loadYardData === 'function') await window.loadYardData(true);
                                 }
+
+                                // Revert sourced yard item back to AVAILABLE on deletion
+                                const containerSourceForDel = rowData[58] || 'RELEASE';
+                                const yardItemIdForDel = rowData[59];
+                                const isYardSourceForDel = containerSourceForDel === 'YARD' || containerSourceForDel === 'STORAGE';
+                                if (wasFinalized && isYardSourceForDel && yardItemIdForDel) {
+                                    console.log(`Reverting yard item status for deleted order: ${yardItemIdForDel}`);
+                                    const { data: yardItem } = await db.from('yard_stock').select('notes').eq('id', yardItemIdForDel).single();
+                                    if (yardItem) {
+                                        let notes = yardItem.notes || '';
+                                        notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
+                                        await db.from('yard_stock').update({ status: 'AVAILABLE', notes }).eq('id', yardItemIdForDel);
+                                    } else {
+                                        await db.from('yard_stock').update({ status: 'AVAILABLE' }).eq('id', yardItemIdForDel);
+                                    }
+                                }
+
+                                if (typeof window.loadYardData === 'function') await window.loadYardData(true);
 
                                 await deleteTrip(rowData[0]); // This is trip_id
 

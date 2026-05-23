@@ -217,6 +217,46 @@
             // Obsolete now that we use Supabase
         }
 
+        function parseYardNotes(notesStr) {
+            let entryFee = 0;
+            let dailyRate = 0;
+            let exitDate = '';
+            let cleanNote = notesStr || '';
+
+            const isStorage = cleanNote.includes('[Storage Yard]');
+            if (isStorage) {
+                cleanNote = cleanNote.replace('[Storage Yard] ', '').replace('[Storage Yard]', '');
+            }
+
+            const entryMatch = cleanNote.match(/\[EntryFee:\s*([\d.]+)\]/);
+            if (entryMatch) {
+                entryFee = parseFloat(entryMatch[1]) || 0;
+                cleanNote = cleanNote.replace(entryMatch[0], '');
+            }
+
+            const dailyMatch = cleanNote.match(/\[DailyRate:\s*([\d.]+)\]/);
+            if (dailyMatch) {
+                dailyRate = parseFloat(dailyMatch[1]) || 0;
+                cleanNote = cleanNote.replace(dailyMatch[0], '');
+            }
+
+            const exitMatch = cleanNote.match(/\[ExitDate:\s*([\d\-]+)\]/);
+            if (exitMatch) {
+                exitDate = exitMatch[1].trim();
+                cleanNote = cleanNote.replace(exitMatch[0], '');
+            }
+
+            cleanNote = cleanNote.replace(/\s+/g, ' ').trim();
+
+            return {
+                isStorage,
+                entryFee,
+                dailyRate,
+                exitDate,
+                cleanNote
+            };
+        }
+
         // PROFIT REPORT CALCULATIONS
         window.renderProfitReport = async function (tripsData = null) {
             try {
@@ -286,6 +326,8 @@
                 tulipan: 0,      // RP Tulipan transport revenue
                 jr: 0,           // JR Super Crame transport revenue
                 contractor: 0,   // Contractor transport revenue
+                storageTulipan: 0, // Storage RPTulipan total
+                storageYard: 0,    // Storage Yard total
                 expenses: 0,     // Business expenses
                 releases: 0      // Informational: total container purchase cost in COMPLETE orders
             };
@@ -375,8 +417,46 @@
                 }
             });
 
+            // 2.5 Process Yard Stock Storage Costs
+            let storageTulipanTotal = 0;
+            let storageYardTotal = 0;
+            if (window.db) {
+                try {
+                    const { data: yardStockData, error: yErr } = await window.db
+                        .from('yard_stock')
+                        .select('created_at, notes, status');
+                    
+                    if (!yErr && yardStockData) {
+                        yardStockData.forEach(item => {
+                            const entryDateStr = item.created_at ? item.created_at.substring(0, 10) : '';
+                            if ((!dateFrom || entryDateStr >= dateFrom) && (!dateTo || entryDateStr <= dateTo)) {
+                                const parsed = parseYardNotes(item.notes);
+                                const entryDate = new Date(item.created_at || new Date());
+                                const endDate = parsed.exitDate ? new Date(parsed.exitDate + 'T12:00:00') : new Date();
+                                const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+                                const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+                                const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+                                const accumStorage = parsed.dailyRate * days;
+                                const exitFee = parsed.exitDate ? parsed.entryFee : 0;
+                                const totalCost = parsed.entryFee + accumStorage + exitFee;
+                                
+                                if (parsed.isStorage) {
+                                    storageYardTotal += totalCost;
+                                } else {
+                                    storageTulipanTotal += totalCost;
+                                }
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error("Error fetching yard stock for profit report:", err);
+                }
+            }
+            totals.storageTulipan = storageTulipanTotal;
+            totals.storageYard = storageYardTotal;
+
             // 3. Final Summaries
-            const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0);
+            const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0);
             const totalGlobalExpenses = (totals.expenses || 0);
             const netProfit = totalRevenue - totalGlobalExpenses - (totals.releases || 0);
 
@@ -417,20 +497,25 @@
             document.getElementById('val-tulipan').textContent    = `$${totals.tulipan.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-jr').textContent         = `$${totals.jr.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-contractor').textContent = `$${totals.contractor.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            // Total row (sum of all revenue: sales + yard + rentals + tulipan + jr + contractor)
+            if (document.getElementById('val-storage-rptulipan')) document.getElementById('val-storage-rptulipan').textContent = `$${totals.storageTulipan.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            if (document.getElementById('val-storage-yard'))      document.getElementById('val-storage-yard').textContent      = `$${totals.storageYard.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            
+            // Total row (sum of all revenue)
             if (document.getElementById('val-revenue-total')) document.getElementById('val-revenue-total').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             document.getElementById('val-expenses').textContent   = `$${totals.expenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             // Container Purchases — informational only, NOT subtracted from revenue or expenses
             if (document.getElementById('val-releases')) document.getElementById('val-releases').textContent = `$${totals.releases.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
             // 6. Update Bar Chart
-            const maxVal = Math.max(totalRevenue, totals.sales, totals.yard, totals.rentals, totals.tulipan, totals.jr, totals.contractor, totalGlobalExpenses, totals.releases, 1);
+            const maxVal = Math.max(totalRevenue, totals.sales, totals.yard, totals.rentals, totals.tulipan, totals.jr, totals.contractor, totals.storageTulipan, totals.storageYard, totalGlobalExpenses, totals.releases, 1);
             if (document.getElementById('bar-sales'))      document.getElementById('bar-sales').style.width      = `${(totals.sales / maxVal) * 100}%`;
             if (document.getElementById('bar-yard'))       document.getElementById('bar-yard').style.width       = `${(totals.yard / maxVal) * 100}%`;
             if (document.getElementById('bar-rentals'))    document.getElementById('bar-rentals').style.width    = `${(totals.rentals / maxVal) * 100}%`;
             if (document.getElementById('bar-tulipan'))    document.getElementById('bar-tulipan').style.width    = `${(totals.tulipan / maxVal) * 100}%`;
             if (document.getElementById('bar-jr'))         document.getElementById('bar-jr').style.width         = `${(totals.jr / maxVal) * 100}%`;
             if (document.getElementById('bar-contractor')) document.getElementById('bar-contractor').style.width = `${(totals.contractor / maxVal) * 100}%`;
+            if (document.getElementById('bar-storage-rptulipan')) document.getElementById('bar-storage-rptulipan').style.width = `${(totals.storageTulipan / maxVal) * 100}%`;
+            if (document.getElementById('bar-storage-yard'))      document.getElementById('bar-storage-yard').style.width      = `${(totals.storageYard / maxVal) * 100}%`;
             if (document.getElementById('bar-expenses'))   document.getElementById('bar-expenses').style.width   = `${(totalGlobalExpenses / maxVal) * 100}%`;
             if (document.getElementById('bar-releases'))   document.getElementById('bar-releases').style.width   = `${(totals.releases / maxVal) * 100}%`;
             } catch (err) {
