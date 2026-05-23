@@ -1028,6 +1028,27 @@ main {
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
+/* Hide number input spinners (arrows) in the calendar sidebar form */
+#calendar-view .trip-entry-sidebar input[type="number"]::-webkit-outer-spin-button,
+#calendar-view .trip-entry-sidebar input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+#calendar-view .trip-entry-sidebar input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+/* Also cover inputs inside .input-paid-wrap */
+.input-paid-wrap input[type="number"]::-webkit-outer-spin-button,
+.input-paid-wrap input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.input-paid-wrap input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 #calendar-view .trip-entry-form .form-group input:focus,
 #calendar-view .trip-entry-form .form-group select:focus {
     border-color: var(--navy-blue);

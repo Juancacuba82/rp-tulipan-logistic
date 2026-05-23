@@ -1,3 +1,12 @@
+// --- PREVENT MOUSE WHEEL FROM CHANGING NUMBER INPUT VALUES ---
+document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('wheel', function (e) {
+        if (document.activeElement && document.activeElement.type === 'number') {
+            document.activeElement.blur();
+        }
+    }, { passive: true });
+});
+
 // --- UI STATE FOR TRIP ENTRY ---
 let editingIndex = null;
 let editingTripDbId = null;
@@ -482,7 +491,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     } else if (id === 'in-mode') {
                         el.value = 'SALE';
                     } else if (['in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount', 'in-miles', 'in-paiddriver', 'in-mrate'].includes(id)) {
-                        el.value = '0';
+                        el.value = '';
                     } else {
                         el.value = '';
                     }
