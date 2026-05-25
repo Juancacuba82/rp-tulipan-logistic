@@ -4412,7 +4412,12 @@
                         window.userEmail = session.user.email;
                         window.currentDriverNameRef = profile ? (profile.driver_name_ref || profile.name) : null;
                         
-                        console.log("AUTH SUCCESS:", window.userEmail, window.currentUserRole);
+                        // Fallback name if driver profile exists but name is null/empty
+                        if (!window.currentDriverNameRef && window.currentUserRole === 'driver' && window.userEmail) {
+                            window.currentDriverNameRef = window.userEmail.split('@')[0].toUpperCase().trim();
+                        }
+                        
+                        console.log("AUTH SUCCESS:", window.userEmail, window.currentUserRole, "DriverRef:", window.currentDriverNameRef);
                     } catch (pErr) {
                         console.warn("Profile fetch failed:", pErr);
                         window.currentUserRole = 'user';
@@ -4531,17 +4536,22 @@
                     }
                 }
                 
-                // Allow Driver to see Fleet & Equipment buttons (Dashboard & Navbar)
-                const fleetSelectors = [
-                    'button[onclick*="fleet"]',
-                    '#nav-actions-container button[onclick*="fleet"]'
-                ];
-                fleetSelectors.forEach(sel => {
-                    document.querySelectorAll(sel).forEach(el => {
-                        el.style.display = 'flex'; // Dash cards are flex
-                        if (el.classList.contains('btn-calendar')) el.style.display = 'inline-block'; // Nav buttons
+                // Allow Driver to see Fleet & Equipment buttons (Dashboard & Navbar), EXCEPT for yrg2007@hotmail.com and Sototransportationusa@gmail.com
+                const restrictedEmails = ['yrg2007@hotmail.com', 'sototransportationusa@gmail.com'];
+                const isRestrictedDriver = window.userEmail && restrictedEmails.includes(window.userEmail.toLowerCase().trim());
+
+                if (!isRestrictedDriver) {
+                    const fleetSelectors = [
+                        'button[onclick*="fleet"]',
+                        '#nav-actions-container button[onclick*="fleet"]'
+                    ];
+                    fleetSelectors.forEach(sel => {
+                        document.querySelectorAll(sel).forEach(el => {
+                            el.style.display = 'flex'; // Dash cards are flex
+                            if (el.classList.contains('btn-calendar')) el.style.display = 'inline-block'; // Nav buttons
+                        });
                     });
-                });
+                }
 
                 // Hide management sections within Fleet view for Drivers
                 const fleetMgmtSidebar = document.getElementById('fleet-mgmt-sidebar');
@@ -4776,9 +4786,17 @@
             }
             
             // Driver Redirection (Hero is too empty for them, go straight to Docs)
-            const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
-            
-            if (normalizedRole === 'driver') {
+            const restrictedEmails = ['yrg2007@hotmail.com', 'sototransportationusa@gmail.com'];
+            const isRestrictedDriver = normalizedRole === 'driver' && window.userEmail && restrictedEmails.includes(window.userEmail.toLowerCase().trim());
+
+            if (isRestrictedDriver) {
+                const allowedForRestricted = ['docs', 'reports', 'auth'];
+                if (!allowedForRestricted.includes(finalView)) {
+                    console.warn("Restricted driver redirected to Docs from:", finalView);
+                    finalView = 'docs';
+                }
+            } else if (normalizedRole === 'driver') {
+                const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
                     console.warn("Driver redirected to Docs from:", finalView);
                     finalView = 'docs';

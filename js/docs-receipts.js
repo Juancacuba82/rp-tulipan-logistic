@@ -110,29 +110,11 @@
                     if (el) el.style.display = isRobert ? 'none' : (window.currentUserRole === 'driver' ? 'none' : '');
                 });
 
-                // --- Calculate visibility window ---
-                const now = new Date();
-                const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-                
-                const tom = new Date(now);
-                tom.setDate(now.getDate() + 1);
-                const tomorrowStr = tom.getFullYear() + '-' + String(tom.getMonth() + 1).padStart(2, '0') + '-' + String(tom.getDate()).padStart(2, '0');
-                
-                const currentHour = now.getHours();
-                const canSeeTomorrow = currentHour >= 20; // 8:00 PM
-
-                const tripDateOnly = (date || '').split(' ')[0].split('T')[0];
-
-                let dateVisible = (tripDateOnly === todayStr);
-                if (tripDateOnly === tomorrowStr && canSeeTomorrow) {
-                    dateVisible = true;
-                }
-
                 const isComplete = (trip[41] === 'COMPLETE');
                 const nameMatch = isRobert || (drv === drvRef.toLowerCase());
 
-                // All drivers (including Robert): only see trips that are NOT complete and within the time window
-                roleDriverMatch = nameMatch && !isComplete && dateVisible;
+                // All drivers (including Robert): only see trips that are NOT complete
+                roleDriverMatch = nameMatch && !isComplete;
             }
 
             if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownCustomerMatch && dropdownStatusMatch && dropdownPaymentMatch) {

@@ -142,8 +142,20 @@
                     sel.appendChild(opt);
                 });
                 
-                // If it's a driver logged in, force their value (EXCEPT Robert Cortez)
+                // Ensure the logged-in driver is always in the dropdown list
                 const isDriverRole = (window.currentUserRole === 'driver');
+                if (window.currentDriverNameRef && isDriverRole) {
+                    const drvRef = window.currentDriverNameRef.toUpperCase().trim();
+                    const exists = currentDrivers.some(d => (d.name || '').toUpperCase().trim() === drvRef);
+                    if (!exists && drvRef !== "ROBERT CORTEZ") {
+                        const opt = document.createElement('option');
+                        opt.value = drvRef;
+                        opt.textContent = drvRef;
+                        sel.appendChild(opt);
+                    }
+                }
+                
+                // If it's a driver logged in, force their value (EXCEPT Robert Cortez)
                 if (isFilter && sel.id === 'filter-search' && window.currentDriverNameRef && isDriverRole) {
                     const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                     if (drvRef === "ROBERT CORTEZ") {
@@ -174,6 +186,20 @@
                     opt.textContent = d.name;
                     docsFilterSel.appendChild(opt);
                 });
+
+                // Ensure the logged-in driver is in the docs dropdown list too
+                const isDriverRole = (window.currentUserRole === 'driver');
+                if (window.currentDriverNameRef && isDriverRole) {
+                    const drvRef = window.currentDriverNameRef.toUpperCase().trim();
+                    const exists = currentDrivers.some(d => (d.name || '').toUpperCase().trim() === drvRef);
+                    if (!exists && drvRef !== "ROBERT CORTEZ") {
+                        const opt = document.createElement('option');
+                        opt.value = drvRef;
+                        opt.textContent = drvRef;
+                        docsFilterSel.appendChild(opt);
+                    }
+                }
+
                 if (currentVal) docsFilterSel.value = currentVal;
             }
 
