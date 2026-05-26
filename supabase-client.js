@@ -185,7 +185,7 @@ async function deleteTrip(tripId) {
 async function getReleases() {
     try {
         const { data, error } = await db.from('releases')
-            .select('id, release_no, date, type, condition, depot, depot_address, city, qty_20, price_20, qty_40, price_40, qty_45, price_45, seller, total_stock, container_size, paid, is_cash, created_by')
+            .select('id, release_no, date, type, condition, depot, depot_address, city, qty_20, price_20, qty_40, price_40, qty_45, price_45, seller, total_stock, container_size, paid, is_cash, created_by, note')
             .order('created_at', { ascending: false })
             .limit(250); // Reduced limit for faster IO performance
         if (error) throw error;

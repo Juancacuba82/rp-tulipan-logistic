@@ -1392,7 +1392,8 @@
                 r.container_size || '---',
                 r.paid || false, // Index 17
                 r.is_cash || false, // Index 18
-                r.created_by || '---' // Index 19
+                r.created_by || '---', // Index 19
+                r.note || '---' // Index 20
             ];
         }
 
@@ -1417,7 +1418,8 @@
                 container_size: row[16] || '---',
                 paid: row[17] || false,
                 is_cash: row[18] || false,
-                created_by: row[19] || null
+                created_by: row[19] || null,
+                note: row[20] || null
             };
         }
 

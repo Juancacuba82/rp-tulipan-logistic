@@ -1973,7 +1973,11 @@
                             </label>
                             <select id="rel-seller">
                                 <option value="" disabled selected>Loading Sellers...</option>
-</select>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>NOTE</label>
+                            <textarea id="rel-note" placeholder="Write a note..." style="width: 100%; min-height: 60px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; resize: vertical;"></textarea>
                         </div>
                     </div>
                 </aside>
@@ -2154,9 +2158,16 @@
                                     </div>
                                 </div>
                                 
-                                <div style="display: flex; align-items: center; gap: 8px; background: white; padding: 0 15px; border-radius: 8px; border: 1px solid #e2e8f0; height: 40px; margin-bottom: 0;">
-                                    <input type="checkbox" id="rf-show-zero" onchange="applyReleasesFilters()" style="cursor:pointer; width: 18px; height: 18px; accent-color: #1e293b;">
-                                    <label for="rf-show-zero" style="margin: 0; font-size: 0.7rem; color: #1e293b; font-weight: 800; cursor:pointer; text-transform: uppercase;">Show Empty</label>
+                                <div class="attendance-input-group">
+                                    <label><i class="fas fa-boxes"></i> SHOW</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-cubes"></i>
+                                        <select id="rf-stock-filter" class="form-select" onchange="applyReleasesFilters()" style="width: 140px;">
+                                            <option value="with_stock" selected>WITH STOCK</option>
+                                            <option value="all">ALL</option>
+                                            <option value="empty">EMPTY (0)</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <button onclick="resetReleasesFilters()" class="btn-reset-modern" style="margin-top: 0;">
@@ -2186,6 +2197,7 @@
                                     <th>PICK UP</th>
                                     <th>STOCK</th>
                                     <th>SELLER</th>
+                                    <th>NOTE</th>
                                     <th style="width: 50px;">ACTION</th>
                                 </tr>
                             </thead>

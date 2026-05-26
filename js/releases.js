@@ -8,7 +8,7 @@
             const resetBtn = document.getElementById('btn-reset-release');
             if (resetBtn) resetBtn.style.display = 'none';
 
-            ['rel-no-releases', 'rel-size-detail', 'rel-qty-unified', 'rel-pickup-unified', 'rel-stock-unified', 'rel-price-unified', 'rel-date', 'rel-city', 'rel-depot', 'rel-address', 'rel-seller'].forEach(id => {
+            ['rel-no-releases', 'rel-size-detail', 'rel-qty-unified', 'rel-pickup-unified', 'rel-stock-unified', 'rel-price-unified', 'rel-date', 'rel-city', 'rel-depot', 'rel-address', 'rel-seller', 'rel-note'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = (id.includes('qty') || id.includes('price') || id.includes('stock') || id.includes('pickup')) ? '0' : '';
             });
@@ -56,6 +56,9 @@
                 }
                 sellerSel.value = sellerVal;
             }
+            
+            const relNoteEl = document.getElementById('rel-note');
+            if (relNoteEl) relNoteEl.value = (row[20] === '---' || !row[20]) ? '' : row[20];
 
             // Populate Unified Size/Qty/Price
             const sizeDetail = document.getElementById('rel-size-detail');
@@ -301,7 +304,7 @@
                 globalRemainingTotal += lineRemainingTotal;
                 if (!isPaid) globalPendingTotal += lineInitialTotal;
 
-                const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'PRICE', 'TOTAL', 'PAID', 'IN', 'PICKUP', 'STOCK', 13, 'ACTION'];
+                const displayIndices = [0, 1, 2, 3, 'SIZE', 6, 4, 5, 'PRICE', 'TOTAL', 'PAID', 'IN', 'PICKUP', 'STOCK', 13, 20, 'ACTION'];
 
                 displayIndices.forEach(idx => {
                     const td = document.createElement('td');
@@ -460,7 +463,7 @@
             const fDepot = document.getElementById('rf-depot').value.toLowerCase();
             const fStock = parseInt(document.getElementById('rf-stock').value) || 0;
             const fSeller = document.getElementById('rf-seller').value.toLowerCase();
-            const fShowZero = document.getElementById('rf-show-zero')?.checked || false;
+            const stockFilter = document.getElementById('rf-stock-filter')?.value || 'with_stock';
 
             const ids = ['rf-no', 'rf-date-from', 'rf-date-to', 'rf-type', 'rf-cond', 'rf-size', 'rf-paid', 'rf-city', 'rf-depot', 'rf-stock', 'rf-seller'];
             ids.forEach(id => {
@@ -473,7 +476,8 @@
                 let match = true;
                 const curStock = parseInt(r[14]) || 0; // Use total_stock column
 
-                if (!fShowZero && curStock <= 0) match = false;
+                if (stockFilter === 'with_stock' && curStock <= 0) match = false;
+                if (stockFilter === 'empty' && curStock > 0) match = false;
 
                 // Use detailed size (index 16) for filtering
                 let rowSize = (r[16] || '---').trim();
@@ -529,8 +533,8 @@
                 const el = document.getElementById(id);
                 if (el) { el.value = ''; el.classList.remove('rel-filter-active'); }
             });
-            const zeroCheck = document.getElementById('rf-show-zero');
-            if (zeroCheck) zeroCheck.checked = false;
+            const stockFilterEl = document.getElementById('rf-stock-filter');
+            if (stockFilterEl) stockFilterEl.value = 'with_stock';
             applyReleasesFilters();
         };
         window.loadReleasesData = loadReleasesData; // Expose globally
@@ -622,6 +626,7 @@
             const dpt = document.getElementById('rel-depot').value || '---';
             const adr = document.getElementById('rel-address').value || '---';
             const slr = document.getElementById('rel-seller').value || '---';
+            const nt = document.getElementById('rel-note').value || '---';
 
             // Unified Inputs
             const fullSize = document.getElementById('rel-size-detail').value;
@@ -670,7 +675,8 @@
                 container_size: fullSize,
                 paid: document.getElementById('rel-paid').checked,
                 is_cash: document.getElementById('rel-is-cash').checked,
-                created_by: window.userEmail || ''
+                created_by: window.userEmail || '',
+                note: nt
             };
 
             console.log("Master Save Payload (Releases):", relObj);
