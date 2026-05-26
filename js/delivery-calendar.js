@@ -326,16 +326,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 ];
 
                 const dbObj = mapArrayToTrip(rowData);
-                const currentOrderNo = document.getElementById('in-order')?.value || '---';
                 const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
                 const yardNotesPrefix = toYardDest === 'STORAGE' ? '[Storage Yard] ' : '';
+                const orderNote = (document.getElementById('in-note')?.value || '').trim();
+                const combinedNotes = orderNote ? `${yardNotesPrefix}${orderNote}` : yardNotesPrefix.trim();
                 const yardData = {
                     container_no: (document.getElementById('in-ncont')?.value || '---').toUpperCase(),
                     size: selectedSize || '---',
                     type: selectedRelType,
                     condition: selectedRelCond,
                     origin_release: selectedRelease || '---',
-                    notes: `${yardNotesPrefix}Auto-entry from Order: ${currentOrderNo}`
+                    notes: combinedNotes
                 };
 
                 // Capture the editing state BEFORE it gets cleared

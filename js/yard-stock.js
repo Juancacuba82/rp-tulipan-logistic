@@ -98,6 +98,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         const searchTerm = document.getElementById('yf-search')?.value.toLowerCase() || '';
         const sizeFilter = document.getElementById('yf-size')?.value || '';
+        const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
 
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
@@ -106,7 +107,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
                                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
-            return matchSearch && matchSize;
+            
+            let matchStatus = true;
+            if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
+            else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
+            
+            return matchSearch && matchSize && matchStatus;
         });
 
         if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
@@ -211,6 +217,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         const searchTerm = document.getElementById('sf-search')?.value.toLowerCase() || '';
         const sizeFilter = document.getElementById('sf-size')?.value || '';
+        const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
 
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
@@ -219,7 +226,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
                                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
-            return matchSearch && matchSize;
+            
+            let matchStatus = true;
+            if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
+            else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
+
+            return matchSearch && matchSize && matchStatus;
         });
 
         if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;

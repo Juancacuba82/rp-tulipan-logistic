@@ -3847,6 +3847,14 @@
                                 <i class="fas fa-warehouse"></i> STORAGE YARD
                             </button>
                         </div>
+                        <div style="display: flex; align-items: center; gap: 15px; border-left: 2px solid #e2e8f0; padding-left: 15px; margin-left: auto;">
+                            <span style="font-weight: 900; font-size: 0.95rem; color: #0f172a; letter-spacing: -0.3px;"><i class="fas fa-filter" style="color: #3b82f6; margin-right: 5px;"></i> STATUS:</span>
+                            <select id="global-yard-status" onchange="renderYardTable(); renderStorageTable();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; background: white; outline: none; cursor: pointer;">
+                                <option value="ACTIVE" selected>Activos</option>
+                                <option value="INACTIVE">No Activos</option>
+                                <option value="ALL">Todos</option>
+                            </select>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 25px; width: 100%; align-items: flex-start; flex-wrap: wrap;">
                         
