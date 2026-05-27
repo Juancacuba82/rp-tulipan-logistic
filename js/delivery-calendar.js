@@ -336,7 +336,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     type: selectedRelType,
                     condition: selectedRelCond,
                     origin_release: selectedRelease || '---',
-                    notes: combinedNotes
+                    notes: combinedNotes,
+                    customer_name: selectedCustomer || '---',
+                    customer_phone: document.getElementById('in-phone')?.value || ''
                 };
 
                 // Capture the editing state BEFORE it gets cleared
@@ -356,7 +358,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const { error: rpcErr } = await db.rpc('sync_order_with_yard', {
                     p_trip_id: finalTripId,
                     p_trip_data: dbObj,
-                    p_order_no: currentOrderNo,
+                    p_order_no: document.getElementById('in-order')?.value || '---',
                     p_is_finalized: isFinalized,
                     p_move_to_yard: isMoveToYard,
                     p_yard_data: yardData

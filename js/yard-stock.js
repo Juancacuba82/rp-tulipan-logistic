@@ -76,12 +76,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         try {
             const { data, error } = await window.db
                 .from('yard_stock')
-                .select('id, created_at, container_no, size, type, condition, origin_release, notes, status')
+                .select('id, created_at, container_no, size, type, condition, origin_release, notes, status, customer_name, customer_phone')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
             
             currentYardStock = data || [];
+            if (window.populateYardCustomerSelect) window.populateYardCustomerSelect();
             renderYardTable();
             renderStorageTable();
             updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
@@ -183,6 +184,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -308,6 +311,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#10b981'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -347,6 +352,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const yardDest = document.getElementById('yard-dest-select')?.value || 'RPTULIPAN';
         const yardNotesPrefix = yardDest === 'STORAGE' ? '[Storage Yard] ' : '';
 
+        const customerSel = document.getElementById('yard-customer-sel');
+        const customer = (customerSel && customerSel.style.display !== 'none') ? customerSel.value : (document.getElementById('yard-customer')?.value || '');
+        const phone = document.getElementById('yard-phone')?.value || '';
+
         const entryFee = parseFloat(document.getElementById('yard-entry-fee').value) || 0;
         const dailyRate = parseFloat(document.getElementById('yard-daily-rate').value) || 0;
         const exitDate = document.getElementById('yard-exit-date').value || '';
@@ -367,7 +376,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             condition,
             origin_release: origin,
             notes: `${yardNotesPrefix}${priceTags} ${note}`.trim(),
-            status: status
+            status: status,
+            customer_name: customer,
+            customer_phone: phone
         };
 
         // Use the date from the input field if provided
@@ -409,6 +420,15 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         document.getElementById('yard-type').value = item.type || 'DRY';
         document.getElementById('yard-condition').value = item.condition || 'USED';
         document.getElementById('yard-origin').value = item.origin_release || '';
+        
+        const selC = document.getElementById('yard-customer-sel');
+        const inpC = document.getElementById('yard-customer');
+        if (selC && inpC) {
+            selC.style.display = 'block'; inpC.style.display = 'none'; selC.value = item.customer_name || '';
+            if (selC.value === "" && item.customer_name) { selC.style.display = 'none'; inpC.style.display = 'block'; inpC.value = item.customer_name; }
+        }
+        const phoneInp = document.getElementById('yard-phone');
+        if (phoneInp) phoneInp.value = item.customer_phone || '';
         
         // Parse notes and prices
         const parsed = parseYardNotes(item.notes);
@@ -474,6 +494,14 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (eFee) eFee.value = '';
         if (dRate) dRate.value = '';
         if (xDate) xDate.value = '';
+        
+        const selC = document.getElementById('yard-customer-sel');
+        const inpC = document.getElementById('yard-customer');
+        if (selC && inpC) {
+            selC.style.display = 'block'; inpC.style.display = 'none'; selC.value = ''; inpC.value = '';
+        }
+        const phoneInp = document.getElementById('yard-phone');
+        if (phoneInp) phoneInp.value = '';
         // Reset date to today for next new record
         if (dtf) {
             const today = new Date();
@@ -648,5 +676,54 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             col2.style.flex = '1 1 100%';
         }
     };
+
+    window.toggleYardCustomerMode = function() {
+        const sel = document.getElementById('yard-customer-sel');
+        const inp = document.getElementById('yard-customer');
+        const icon = document.getElementById('yard-toggle-icon-customer');
+        if (!sel || !inp || !icon) return;
+        if (sel.style.display !== 'none') {
+            sel.style.display = 'none'; inp.style.display = 'block';
+            icon.className = 'fas fa-list'; inp.focus();
+        } else {
+            sel.style.display = 'block'; inp.style.display = 'none';
+            icon.className = 'fas fa-edit'; window.populateYardCustomerSelect();
+        }
+    };
+
+    window.populateYardCustomerSelect = function() {
+        const sel = document.getElementById('yard-customer-sel');
+        const data = window.currentCustomers;
+        if (!sel || !data) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="" disabled selected>Select Customer...</option>';
+        data.forEach(c => {
+            const name = c.name || c[1] || ''; 
+            if (name) {
+                const opt = document.createElement('option');
+                opt.value = name; opt.textContent = name;
+                sel.appendChild(opt);
+            }
+        });
+        if (currentVal) sel.value = currentVal;
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const phoneInp = document.getElementById('yard-phone');
+        if (phoneInp) {
+            phoneInp.addEventListener('input', (e) => {
+                if (!window.formatUSPhone) return;
+                const cursor = e.target.selectionStart;
+                const oldLen = e.target.value.length;
+                e.target.value = window.formatUSPhone(e.target.value);
+                const newLen = e.target.value.length;
+                if (newLen > oldLen) {
+                    e.target.setSelectionRange(cursor + (newLen - oldLen), cursor + (newLen - oldLen));
+                } else {
+                    e.target.setSelectionRange(cursor, cursor);
+                }
+            });
+        }
+    });
 
 })();

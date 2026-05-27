@@ -332,6 +332,7 @@
                     opt.value = c.name;
                     opt.textContent = c.name;
                     opt.dataset.email = c.email || '';
+                    opt.dataset.address = c.address || '';
                     sel.appendChild(opt);
                 });
                 if (currentVal) sel.value = currentVal;
@@ -353,14 +354,21 @@
                 if (currentVal) docsCustSel.value = currentVal;
             }
 
-            // Auto-fill email when selecting a customer
+            // Auto-fill email and address when selecting a customer
             if (sideSel && !sideSel.dataset.listenerAdded) {
                 sideSel.addEventListener('change', (e) => {
                     const opt = sideSel.options[sideSel.selectedIndex];
                     const email = opt.dataset.email;
+                    const address = opt.dataset.address;
+                    
                     const emailField = document.getElementById('in-email');
                     if (emailField) {
                         emailField.value = email || '';
+                    }
+                    
+                    const deliveryField = document.getElementById('in-delivery');
+                    if (deliveryField && address) {
+                        deliveryField.value = address;
                     }
                 });
                 sideSel.dataset.listenerAdded = "true";
@@ -383,10 +391,10 @@
                         <span style="font-size: 0.7rem; color: #475569; font-weight: normal; margin-top: 2px;">${c.address || 'no address'}</span>
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        <button onclick="editCustomerAddress('${c.id}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Address">
+                        <button onclick="editCustomerAddress('${c.name.replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Address">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="deleteCustomer('${c.id}')" class="btn-del-driver" title="Delete Customer">
+                        <button onclick="deleteCustomer('${c.name.replace(/'/g, "\\'")}')" class="btn-del-driver" title="Delete Customer">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
@@ -430,7 +438,7 @@
         }
         window.addNewCustomer = addNewCustomer;
 
-        async function editCustomerAddress(id, currentAddress) {
+        async function editCustomerAddress(name, currentAddress) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
             if (role === 'student') {
                 alert("Students cannot manage customers.");
@@ -441,8 +449,13 @@
             if (newAddress === null) return; // User cancelled
             
             try {
-                const { error } = await db.from('customers').update({ address: newAddress.trim() }).eq('id', id);
+                // We use .select() to confirm the row was actually updated.
+                // If RLS blocks it, data will be an empty array.
+                const { data, error } = await db.from('customers').update({ address: newAddress.trim() }).eq('name', name).select();
                 if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error("No se pudo actualizar el cliente. Revise las políticas de UPDATE (RLS) en Supabase para la tabla 'customers'.");
+                }
                 
                 await loadCustomersData(true);
                 renderCustomerManagerList();
@@ -453,7 +466,7 @@
         }
         window.editCustomerAddress = editCustomerAddress;
 
-        async function deleteCustomer(id) {
+        async function deleteCustomer(name) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
             if (role === 'student') {
                 alert("Students cannot manage customers.");
@@ -461,8 +474,11 @@
             }
             if (!confirm("Are you sure you want to remove this customer from the active list?")) return;
             try {
-                const { error } = await db.from('customers').delete().eq('id', id);
+                const { data, error } = await db.from('customers').delete().eq('name', name).select();
                 if (error) throw error;
+                if (!data || data.length === 0) {
+                     alert("El cliente no se pudo eliminar. Revise las políticas de DELETE (RLS) en Supabase.");
+                }
                 await loadCustomersData(true);
                 renderCustomerManagerList();
             } catch (err) {
