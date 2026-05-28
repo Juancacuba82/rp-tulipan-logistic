@@ -286,8 +286,14 @@
         console.log('[3-PDF] Generating Receipt (no photos) PDF...');
         let receiptBlob = null;
         if (window.getTripReceiptContent) {
-            const receiptHtml = window.getTripReceiptContent(mainRow, { excludePhotos: true });
-            receiptBlob = await htmlToPDFBlob(receiptHtml, 'p');
+            let combinedReceiptHtml = '';
+            for (let i = 0; i < rows.length; i++) {
+                if (i > 0) {
+                    combinedReceiptHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
+                }
+                combinedReceiptHtml += window.getTripReceiptContent(rows[i], { excludePhotos: true });
+            }
+            receiptBlob = await htmlToPDFBlob(combinedReceiptHtml, 'p');
         } else {
             // Fallback: use the standard PDF generator with no-photos flag
             receiptBlob = await window.generatePDFFromData(mainRow, { excludePhotos: true });
@@ -298,8 +304,14 @@
         console.log('[3-PDF] Generating Photos PDF...');
         let photosBlob = null;
         if (window.getTripPhotosOnlyContent) {
-            const photosHtml = window.getTripPhotosOnlyContent(mainRow);
-            photosBlob = await htmlToPDFBlob(photosHtml, 'p');
+            let combinedPhotosHtml = '';
+            for (let i = 0; i < rows.length; i++) {
+                if (i > 0) {
+                    combinedPhotosHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
+                }
+                combinedPhotosHtml += window.getTripPhotosOnlyContent(rows[i]);
+            }
+            photosBlob = await htmlToPDFBlob(combinedPhotosHtml, 'p');
         }
         if (!photosBlob) throw new Error('Could not generate Photos PDF');
 

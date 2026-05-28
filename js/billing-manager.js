@@ -135,6 +135,8 @@
             let totalTrans = 0;
             let totalSales = 0;
             let totalYard  = 0;
+            let isOrderPendingPayment = false;
+
             rows.forEach(r => {
                 const hasTrans = r[42] === 'YES';
                 const hasSales = r[43] === 'YES';
@@ -142,6 +144,10 @@
                 if (hasTrans) totalTrans += (parseFloat(r[18]) || 0);
                 if (hasSales) totalSales += (parseFloat(r[20]) || 0) * qty;
                 totalYard  += (parseFloat(r[13]) || 0);
+                
+                if (rowHasPendingPayment(r)) {
+                    isOrderPendingPayment = true;
+                }
             });
 
             const grandTotal = totalTrans + totalSales + totalYard;
@@ -151,7 +157,17 @@
             const place       = mainRow[8]  || '---';
             const nCont       = mainRow[3]  || '---';
 
-            const rowBg  = isInvoiceSent ? '#f0fdf4' : '#fff1f2';
+            let rowBg = '#ffffff';
+            if (!isInvoiceSent && isOrderPendingPayment) {
+                rowBg = '#fee2e2'; // RED
+            } else if (isInvoiceSent && isOrderPendingPayment) {
+                rowBg = '#ffedd5'; // ORANGE
+            } else if (isInvoiceSent && !isOrderPendingPayment) {
+                rowBg = '#dcfce7'; // GREEN
+            } else {
+                rowBg = '#f1f5f9'; // DEFAULT (Paid but invoice not sent)
+            }
+
             const cs     = 'padding: 11px 13px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #0f172a;';
             const invBadge = isInvoiceSent
                 ? `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">SENT ✓</span>`
@@ -160,7 +176,7 @@
             const tr = document.createElement('tr');
             tr.style.background = rowBg;
             tr.style.transition = 'background 0.15s';
-            tr.onmouseenter = () => tr.style.background = '#f1f5f9';
+            tr.onmouseenter = () => tr.style.background = '#e2e8f0'; // darker hover to see clearly
             tr.onmouseleave = () => tr.style.background = rowBg;
 
             // Store the order's global index (first row) for quick lookup
