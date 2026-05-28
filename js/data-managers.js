@@ -82,12 +82,14 @@
             document.getElementById('ejs-public-key').value = localStorage.getItem('ejs_public_key') || '';
             document.getElementById('ejs-service-id').value = localStorage.getItem('ejs_service_id') || '';
             document.getElementById('ejs-template-id').value = localStorage.getItem('ejs_template_id') || '';
+            document.getElementById('ejs-invoice-template-id').value = localStorage.getItem('ejs_invoice_template_id') || '';
             document.getElementById('email-settings-modal').style.display = 'block';
         }
         window.saveEmailSettings = function () {
             localStorage.setItem('ejs_public_key', document.getElementById('ejs-public-key').value);
             localStorage.setItem('ejs_service_id', document.getElementById('ejs-service-id').value);
             localStorage.setItem('ejs_template_id', document.getElementById('ejs-template-id').value);
+            localStorage.setItem('ejs_invoice_template_id', document.getElementById('ejs-invoice-template-id').value);
             alert('Settings Saved Locally');
             closeEmailSettings();
         }

@@ -98,35 +98,40 @@
         let pdfBlob = existingBlob;
         
         try {
-            // 1. Generate high-quality PDF if not provided
+            // 1. Generate Receipt PDF (no photos)
             if (!pdfBlob) {
-                pdfBlob = await window.generatePDFFromData(rowData, { isEmailVersion: true, scale: 1.5, quality: 0.8 });
+                if (window.getTripReceiptContent) {
+                    const html = window.getTripReceiptContent(rowData, { excludePhotos: true });
+                    pdfBlob = await htmlToPDFBlob(html, 'p');
+                } else {
+                    pdfBlob = await window.generatePDFFromData(rowData, { isEmailVersion: true, scale: 1.5, quality: 0.8, excludePhotos: true });
+                }
             }
 
             if (!pdfBlob) throw new Error("Could not generate PDF");
 
-            // 2. Upload to Supabase Storage
+            // 2. Upload Receipt to Supabase Storage
             const tripId = rowData[0] || 'manual';
             const orderNo = rowData[5] || 'no-order';
-            const fileName = `receipt_${orderNo}_${tripId}_${Date.now()}.pdf`;
-            const filePath = `invoices/${fileName}`;
+            const ts = Date.now();
+            
+            const receiptUrl = await uploadPDFToSupabase(pdfBlob, `receipt_${orderNo}_${tripId}_${ts}.pdf`);
+            console.log("Receipt PDF Public URL:", receiptUrl);
 
-            console.log("Uploading PDF to Supabase...");
-            const { data: uploadData, error: uploadError } = await db.storage
-                .from('receipts')
-                .upload(filePath, pdfBlob, {
-                    contentType: 'application/pdf',
-                    upsert: true
-                });
-
-            if (uploadError) throw uploadError;
-
-            // 3. Get Public URL
-            const { data: { publicUrl } } = db.storage
-                .from('receipts')
-                .getPublicUrl(filePath);
-
-            console.log("PDF Public URL:", publicUrl);
+            // 3. Generate and Upload Photos PDF (if there are photos)
+            const photosArray = rowData[55];
+            const hasPhotos = Array.isArray(photosArray) && photosArray.length > 0;
+            let photosUrl = receiptUrl; // Fallback to receipt link if no photos
+            
+            if (hasPhotos && window.getTripPhotosOnlyContent) {
+                console.log("Generating Photos PDF...");
+                const photosHtml = window.getTripPhotosOnlyContent(rowData);
+                const pBlob = await htmlToPDFBlob(photosHtml, 'p');
+                if (pBlob) {
+                    photosUrl = await uploadPDFToSupabase(pBlob, `photos_${orderNo}_${tripId}_${ts}.pdf`);
+                    console.log("Photos PDF Public URL:", photosUrl);
+                }
+            }
 
             // 4. Send Email via EmailJS
             const serviceId = localStorage.getItem('ejs_service_id');
@@ -139,34 +144,27 @@
             }
 
             emailjs.init(publicKey);
-
-            // We still send the base64 for attachment, but now we also send pdf_url for the button
-            const reader = new FileReader();
-            reader.readAsDataURL(pdfBlob);
             
             return new Promise((resolve, reject) => {
-                reader.onloadend = async function () {
-                    const base64data = reader.result.split(',')[1];
-                    
-                    const templateParams = {
-                        to_email: rowData[36],
-                        customer_name: rowData[11],
-                        order_no: orderNo,
-                        date: rowData[1],
-                        pdf_url: publicUrl // The button in EmailJS template must use {{pdf_url}}
-                    };
-
-                    try {
-                        const response = await emailjs.send(serviceId, templateId, templateParams);
-                        if (window.showToast) window.showToast("Email sent with active link!", "success");
-                        else alert("Email sent successfully!");
-                        resolve(response);
-                    } catch (err) {
-                        console.error('EmailJS Error:', err);
-                        alert("Error sending email: " + (err.text || JSON.stringify(err)));
-                        reject(err);
-                    }
+                const templateParams = {
+                    to_email: rowData[36],
+                    customer_name: rowData[11],
+                    order_no: orderNo,
+                    date: rowData[1],
+                    receipt_url: receiptUrl,
+                    photos_url: photosUrl,
+                    pdf_url: receiptUrl // Fallback in case old template variable is used
                 };
+
+                emailjs.send(serviceId, templateId, templateParams).then(response => {
+                    if (window.showToast) window.showToast("Email sent with active links!", "success");
+                    else alert("Email sent successfully!");
+                    resolve(response);
+                }).catch(err => {
+                    console.error('EmailJS Error:', err);
+                    alert("Error sending email: " + (err.text || JSON.stringify(err)));
+                    reject(err);
+                });
             });
 
         } catch (err) {
@@ -327,7 +325,7 @@
 
         // ── Send via EmailJS ──────────────────────────────────
         const serviceId  = localStorage.getItem('ejs_service_id');
-        const templateId = localStorage.getItem('ejs_template_id');
+        const templateId = localStorage.getItem('ejs_invoice_template_id') || localStorage.getItem('ejs_template_id'); // Fallback if invoice template is missing
         const publicKey  = localStorage.getItem('ejs_public_key');
 
         if (!serviceId || !templateId || !publicKey) {
