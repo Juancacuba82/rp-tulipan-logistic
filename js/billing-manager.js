@@ -115,58 +115,37 @@
         window.billingRows = filtered;
         body.innerHTML    = '';
 
-        // Group by order number so one row per order
-        const orderMap = new Map();
-        filtered.forEach((row, idx) => {
-            const orderNo = (row[5] || '---').toString().toUpperCase();
-            if (!orderMap.has(orderNo)) {
-                orderMap.set(orderNo, { rows: [], firstIdx: idx });
-            }
-            orderMap.get(orderNo).rows.push(row);
-        });
-
         let visibleCount = 0;
 
-        orderMap.forEach(({ rows, firstIdx }, orderNo) => {
-            const mainRow = rows[0];
-            const isInvoiceSent = (mainRow[57] === 'YES');
+        filtered.forEach((row) => {
+            const orderNo = (row[5] || '---').toString().toUpperCase();
+            const isInvoiceSent = (row[57] === 'YES');
 
-            // Compute totals for this order group
+            // Compute totals for this single row
             let totalTrans = 0;
             let totalSales = 0;
             let totalYard  = 0;
             let isOrderPendingPayment = false;
 
-            rows.forEach(r => {
-                const hasTrans = r[42] === 'YES';
-                const hasSales = r[43] === 'YES';
-                const qty      = parseInt(r[53]) || 1;
-                if (hasTrans) totalTrans += (parseFloat(r[18]) || 0);
-                if (hasSales) totalSales += (parseFloat(r[20]) || 0) * qty;
-                totalYard  += (parseFloat(r[13]) || 0);
-                
-                if (rowHasPendingPayment(r)) {
-                    isOrderPendingPayment = true;
-                }
-            });
+            const hasTrans = row[42] === 'YES';
+            const hasSales = row[43] === 'YES';
+            const qty      = parseInt(row[53]) || 1;
+            if (hasTrans) totalTrans += (parseFloat(row[18]) || 0);
+            if (hasSales) totalSales += (parseFloat(row[20]) || 0) * qty;
+            totalYard  += (parseFloat(row[13]) || 0);
+            
+            if (rowHasPendingPayment(row)) {
+                isOrderPendingPayment = true;
+            }
 
             const grandTotal = totalTrans + totalSales + totalYard;
-            const displayDate = fmtDate(mainRow[1]);
-            const customer    = mainRow[11] || '---';
-            const city        = mainRow[6]  || '---';
-            const place       = mainRow[8]  || '---';
-            const nCont       = mainRow[3]  || '---';
+            const displayDate = fmtDate(row[1]);
+            const customer    = row[11] || '---';
+            const city        = row[6]  || '---';
+            const place       = row[8]  || '---';
+            const nCont       = row[3]  || '---';
 
-            let rowBg = '#ffffff';
-            if (!isInvoiceSent && isOrderPendingPayment) {
-                rowBg = '#fee2e2'; // RED
-            } else if (isInvoiceSent && isOrderPendingPayment) {
-                rowBg = '#ffedd5'; // ORANGE
-            } else if (isInvoiceSent && !isOrderPendingPayment) {
-                rowBg = '#dcfce7'; // GREEN
-            } else {
-                rowBg = '#f1f5f9'; // DEFAULT (Paid but invoice not sent)
-            }
+            let rowBg = isOrderPendingPayment ? '#fee2e2' : '#dcfce7'; // RED if pending, GREEN if paid
 
             const cs     = 'padding: 11px 13px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #0f172a;';
             const invBadge = isInvoiceSent
@@ -179,8 +158,8 @@
             tr.onmouseenter = () => tr.style.background = '#e2e8f0'; // darker hover to see clearly
             tr.onmouseleave = () => tr.style.background = rowBg;
 
-            // Store the order's global index (first row) for quick lookup
-            const dataIdx = window.billingRows.indexOf(mainRow);
+            // We need the global index from currentTrips to easily identify this exact row
+            const globalIdx = (window.currentTrips || []).indexOf(row);
 
             tr.innerHTML = `
                 <td style="${cs}">${displayDate}</td>
@@ -196,10 +175,16 @@
                 <td style="${cs}">${invBadge}</td>
                 <td style="${cs}">
                     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-                        <button onclick="openBillingDetail('${orderNo}')"
+                        <button onclick="openBillingDetail(${globalIdx})"
                             style="background:#1e293b;color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.72rem;font-weight:800;display:flex;align-items:center;gap:5px;white-space:nowrap;">
                             <i class="fas fa-file-invoice-dollar"></i> VIEW & SEND
                         </button>
+                        ${isOrderPendingPayment ? `
+                        <button onclick="markBillingRowAsPaid(${globalIdx}, this)"
+                            style="background:#10b981;color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.72rem;font-weight:800;display:flex;align-items:center;gap:5px;white-space:nowrap;" title="Mark as Paid">
+                            <i class="fas fa-check-double"></i> PAID
+                        </button>
+                        ` : ''}
                     </div>
                 </td>
             `;
@@ -226,17 +211,18 @@
     };
 
     // ── OPEN DETAIL MODAL ─────────────────────────────────────
-    window.openBillingDetail = function (orderNo) {
-        const trips    = window.currentTrips || [];
-        const matches  = trips.filter(r => (r[5] || '').toString().trim().toUpperCase() === orderNo.toUpperCase());
+    window.openBillingDetail = function (globalIdx) {
+        const trips = window.currentTrips || [];
+        const row = trips[globalIdx];
 
-        if (matches.length === 0) {
-            alert(`No records found for Order #${orderNo}`);
+        if (!row) {
+            alert(`Record not found.`);
             return;
         }
 
-        window.currentBillingOrderRows = matches;
-        renderBillingDetailModal(matches, orderNo);
+        const orderNo = (row[5] || '---').toString();
+        window.currentBillingOrderRows = [row];
+        renderBillingDetailModal([row], orderNo);
 
         const modal = document.getElementById('billing-detail-modal');
         if (modal) {
@@ -605,6 +591,69 @@
             if (window.loadTableData) await window.loadTableData();
         }
         window.renderBillingTable();
+    };
+
+    // ── MARK AS PAID DIRECTLY ─────────────────────────────────
+    window.markBillingRowAsPaid = async function(globalIdx, btn) {
+        const trips = window.currentTrips || [];
+        const row = trips[globalIdx];
+        if (!row) return;
+
+        const tripId = row[0];
+        const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+        if (!tripId || !isUUID(tripId)) {
+            alert("No se puede marcar como pagado. ID inválido.");
+            return;
+        }
+
+        const confirmPay = confirm(`¿Marcar la orden ${row[5]} como totalmente PAGADA?`);
+        if (!confirmPay) return;
+
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        try {
+            const updateData = {
+                st_rate: 'PAID',
+                st_sales: 'PAID',
+                st_yard: 'PAID',
+                st_amount: 'PAID',
+                st_tax: 'PAID',
+                paid: true
+            };
+
+            await window.updateTrip(tripId, updateData);
+
+            // Update local state
+            row[32] = 'PAID'; // st_rate
+            row[33] = 'PAID'; // st_sales
+            row[30] = 'PAID'; // st_yard
+            row[34] = 'PAID'; // st_amount
+            row[52] = 'PAID'; // st_tax
+
+            if (window.allTripsUnfiltered) {
+                const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                if (ufRow) {
+                    ufRow[32] = 'PAID';
+                    ufRow[33] = 'PAID';
+                    ufRow[30] = 'PAID';
+                    ufRow[34] = 'PAID';
+                    ufRow[52] = 'PAID';
+                }
+            }
+
+            if (window.showToast) window.showToast('Marcado como pagado exitosamente', 'success');
+            else alert('Marcado como pagado exitosamente');
+            
+            // Re-render billing table
+            window.renderBillingTable();
+        } catch (err) {
+            console.error('Error marking as paid:', err);
+            alert('Error al marcar como pagado.');
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
     };
 
 })();
