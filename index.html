@@ -32,7 +32,7 @@
     <script src="./js/email-service.js?v=10"></script>
     <script src="./js/fleet.js?v=1700"></script>
     <script src="./js/tasks.js?v=10"></script>
-    <script src="./js/master-invoice.js?v=1700"></script>
+    <script src="./js/billing-manager.js?v=100"></script>
     <script src="./js/attendance.js?v=1"></script>
 
     <!-- PDF & Email Service Libraries -->
@@ -713,10 +713,9 @@
                 <button onclick="closeMenu(); showView('profit-report')" class="btn-calendar" title="PROFIT REPORT"><i class="fas fa-chart-line"></i> PROFIT</button>
                 <button onclick="closeMenu(); showView('reports')" class="btn-calendar" title="DRIVERS REPORTS"><i class="fas fa-truck-loading"></i> DRIVERS</button>
                 <button onclick="closeMenu(); showView('releases')" class="btn-calendar" title="FORM RELEASES"><i class="fas fa-file-signature"></i> RELEASES</button>
-                <button onclick="closeMenu(); showView('master-invoice')" class="btn-calendar" title="MASTER INVOICE"><i class="fas fa-file-invoice-dollar"></i> MASTER INV.</button>
+                <button onclick="closeMenu(); showView('billing-center')" class="btn-calendar" title="BILLING & INVOICES"><i class="fas fa-file-invoice-dollar"></i> BILLING</button>
                 <button onclick="closeMenu(); showView('docs')" class="btn-calendar" title="DOCS & RECEIPTS"><i class="fas fa-receipt"></i> DOCS</button>
                 <button onclick="closeMenu(); showView('calendar')" class="btn-calendar" title="DELIVERY CALENDAR"><i class="fas fa-calendar-check"></i> CALENDAR</button>
-                <button onclick="closeMenu(); showView('cust-invoice')" class="btn-calendar" title="CUSTOMERS INVOICE"><i class="fas fa-file-invoice"></i> INVOICES</button>
                 <button onclick="closeMenu(); showView('expenses')" class="btn-calendar" title="EXPENSES MANAGEMENT"><i class="fas fa-money-bill-wave"></i> EXPENSES</button>
                 <button onclick="closeMenu(); showView('inventory')" class="btn-calendar" title="FORM INVENTOR"><i class="fas fa-boxes"></i> INVENTORY</button>
                 <button onclick="closeMenu(); showView('calls')" class="btn-calendar" title="FORM CALL"><i class="fas fa-phone-alt"></i> CALLS</button>
@@ -803,9 +802,9 @@
                         <i class="fas fa-file-signature"></i>
                         <span>FORM RELEASES</span>
                     </button>
-                    <button onclick="showView('master-invoice')" class="dash-card">
+                    <button onclick="showView('billing-center')" class="dash-card">
                         <i class="fas fa-file-invoice-dollar"></i>
-                        <span>MASTER INVOICE</span>
+                        <span>BILLING & INVOICES</span>
                     </button>
                     <button onclick="showView('docs')" class="dash-card">
                         <i class="fas fa-receipt"></i>
@@ -814,10 +813,6 @@
                     <button onclick="showView('calendar')" class="dash-card">
                         <i class="fas fa-calendar-check"></i>
                         <span>DELIVERY CALENDAR</span>
-                    </button>
-                    <button onclick="showView('cust-invoice')" class="dash-card">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                        <span>CUSTOMERS INVOICE</span>
                     </button>
                     <button onclick="showView('expenses')" class="dash-card">
                         <i class="fas fa-file-invoice-dollar"></i>
@@ -3167,7 +3162,279 @@
             </div>
         </section>
 
-        <!-- CUSTOMERS INVOICE View -->
+        <!-- BILLING CENTER View (unified: Customer Invoice + Master Invoice) -->
+        <section id="billing-center-view" class="view-section hidden">
+            <div style="max-width: 1500px; margin: 0 auto; padding: 20px;">
+
+                <!-- ── HEADER TOOLBAR ─────────────────────────────── -->
+                <div class="attendance-toolbar-modern">
+                    <div class="report-title">
+                        <h2 style="font-size: 1.8rem; font-weight: 900; color: #1e293b; margin: 0; letter-spacing: -0.5px;">
+                            <i class="fas fa-file-invoice-dollar" style="color:#1e40af;margin-right:10px;"></i>Billing & Invoices
+                        </h2>
+                        <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">
+                            All pending invoices · Click <strong>VIEW & SEND</strong> on any row to open the detailed invoice
+                        </p>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <div class="filter-summary-card" style="margin-bottom: 0;">
+                            <div class="filter-summary-icon" style="background: #eff6ff; color: #3b82f6;">
+                                <i class="fas fa-file-invoice"></i>
+                            </div>
+                            <div class="filter-summary-info">
+                                <span class="filter-summary-label">Pending Orders</span>
+                                <span class="filter-summary-value" id="billing-count-display">0</span>
+                            </div>
+                        </div>
+                        <button onclick="downloadBillingStatement('IMAGE', this)" class="btn-calendar"
+                            style="background:#10b981;color:white;padding:0 18px;border:none;border-radius:10px;cursor:pointer;font-weight:800;font-size:0.75rem;height:45px;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-camera"></i> CAPTURE
+                        </button>
+                        <button onclick="downloadBillingStatement('PDF', this)" class="btn-calendar"
+                            style="background:#1e40af;color:white;padding:0 18px;border:none;border-radius:10px;cursor:pointer;font-weight:800;font-size:0.75rem;height:45px;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-file-pdf"></i> STATEMENT PDF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ── FILTERS ──────────────────────────────────────── -->
+                <div class="attendance-toolbar-modern" style="margin-top:-15px;padding:25px;">
+                    <div class="attendance-filters-wrapper" style="width:100%;gap:15px;">
+                        <div style="display:flex;gap:15px;flex-wrap:wrap;width:100%;align-items:flex-end;">
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-hashtag"></i> ORDER #</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="bc-f-order" class="form-input" placeholder="Search Order..." oninput="renderBillingTable()" style="width:160px;">
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-city"></i> CITY</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <select id="bc-f-city" class="form-select" onchange="renderBillingTable()" style="width:160px;">
+                                        <option value="">All Cities</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-truck-loading"></i> PLACE</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-warehouse"></i>
+                                    <select id="bc-f-place" class="form-select" onchange="renderBillingTable()" style="width:180px;">
+                                        <option value="">All Places</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-user-tie"></i> CUSTOMER</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-address-book"></i>
+                                    <select id="bc-f-customer" class="form-select" onchange="renderBillingTable()" style="width:200px;">
+                                        <option value="">All Customers</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="far fa-calendar-alt"></i> FROM</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-calendar-day"></i>
+                                    <input type="date" id="bc-f-from" class="form-input" onchange="renderBillingTable()">
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="far fa-calendar-check"></i> TO</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <input type="date" id="bc-f-to" class="form-input" onchange="renderBillingTable()">
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-file-invoice"></i> INVOICE STATUS</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-check-circle"></i>
+                                    <select id="bc-f-invoice" class="form-select" onchange="renderBillingTable()" style="width:120px;font-weight:700;">
+                                        <option value="">All</option>
+                                        <option value="YES">Sent</option>
+                                        <option value="NO">Not Sent</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-money-bill-wave"></i> PAYMENT STATUS</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-filter"></i>
+                                    <select id="bc-f-payment" class="form-select" onchange="renderBillingTable()" style="width:120px;font-weight:700;">
+                                        <option value="all">All</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="paid">Paid</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button onclick="resetBillingFilters()" class="btn-reset-modern" style="margin-top:0;">
+                                <i class="fas fa-undo"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── MAIN TABLE ───────────────────────────────────── -->
+                <div class="table-scroll-container" style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow-x:auto;">
+                    <table id="billing-center-table" style="width:100%;min-width:1200px;border-collapse:collapse;font-family:var(--font-main);font-size:0.8rem;">
+                        <thead>
+                            <tr class="header-row">
+                                <th style="padding:12px;background:#1e293b;color:white;">DATE</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">ORDER #</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">N. CONT</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">CUSTOMER</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">CITY</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">DELIVERY PLACE</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">TRANSPORT</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">SALES</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">YARD</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">TOTAL DUE</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">INVOICE STATUS</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="billing-table-body">
+                            <!-- Dynamic rows injected by billing-manager.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── BILLING DETAIL MODAL ──────────────────────────────── -->
+        <div id="billing-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9990;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 15px;">
+            <div style="background:white;border-radius:16px;width:100%;max-width:860px;box-shadow:0 25px 60px rgba(0,0,0,0.3);position:relative;margin:auto;">
+
+                <!-- Modal Header bar -->
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 30px;border-bottom:1px solid #e2e8f0;background:#f8fafc;border-radius:16px 16px 0 0;">
+                    <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;">
+                        <!-- Company selector -->
+                        <div style="display:flex;flex-direction:column;gap:4px;">
+                            <label style="font-size:0.65rem;font-weight:900;color:#3b82f6;text-transform:uppercase;">BILLING COMPANY:</label>
+                            <select id="bm-company-selector" onchange="updateBillingCompany()"
+                                style="padding:8px 12px;border:2px solid #3b82f6;border-radius:8px;font-weight:bold;font-size:0.85rem;background:white;cursor:pointer;">
+                                <option value="RP TULIPAN TRANSPORT INC">RP TULIPAN TRANSPORT INC</option>
+                                <option value="JR SUPER CRAME INC">JR SUPER CRAME INC</option>
+                            </select>
+                        </div>
+                        <h3 style="margin:0;color:#1e293b;font-size:1.1rem;">
+                            <i class="fas fa-file-invoice-dollar" style="color:#1e40af;margin-right:8px;"></i>Invoice Detail
+                        </h3>
+                    </div>
+                    <button onclick="closeBillingDetail()"
+                        style="background:#f1f5f9;border:none;border-radius:50%;width:38px;height:38px;cursor:pointer;font-size:1.3rem;color:#64748b;display:flex;align-items:center;justify-content:center;transition:background 0.2s;"
+                        onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Invoice preview content -->
+                <div id="bm-invoice-preview" style="padding:40px;">
+                    <!-- ── Invoice Header ── -->
+                    <div style="display:flex;justify-content:space-between;border-bottom:3px solid #1e293b;padding-bottom:20px;margin-bottom:30px;">
+                        <div>
+                            <h1 style="margin:0;color:#1e293b;font-size:2.2rem;font-weight:900;">INVOICE</h1>
+                            <p id="bm-company-name-display" style="margin:5px 0 0;color:#000;font-weight:700;">RP TULIPAN TRANSPORT INC</p>
+                            <p style="margin:2px 0 0;color:#000;font-weight:700;font-size:0.9rem;">9804 NW 80th Ave, Hialeah Gardens FL 33016</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <div id="bm-status-badge" style="display:inline-block;padding:5px 15px;border-radius:20px;font-weight:900;font-size:0.75rem;margin-bottom:10px;"></div>
+                            <p style="margin:0;font-weight:800;color:#1e293b;">Order #: <span id="bm-order-display">---</span></p>
+                            <p style="margin:0;color:#000;font-size:0.85rem;">Date: <span id="bm-date-display">---</span></p>
+                            <p style="margin:5px 0 0;color:#000;font-size:0.85rem;font-weight:700;">Payment Term: NET 15</p>
+                        </div>
+                    </div>
+
+                    <!-- ── Client Info ── -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:40px;">
+                        <div>
+                            <h4 style="text-transform:uppercase;color:#000;font-size:0.75rem;margin-bottom:10px;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">Bill To:</h4>
+                            <p id="bm-bill-to-name" style="margin:0;font-size:1.1rem;font-weight:900;color:#1e293b;"></p>
+                            <p id="bm-bill-to-address" style="margin:5px 0;color:#000;line-height:1.4;display:none;"></p>
+                        </div>
+                        <div>
+                            <h4 style="text-transform:uppercase;color:#000;font-size:0.75rem;margin-bottom:10px;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">SERVICE LOCATION / DELIVERY ADDRESS:</h4>
+                            <p style="margin:0;font-weight:700;color:#1e293b;">FROM: <span id="bm-from-address" style="font-weight:400;color:#000;"></span></p>
+                            <p style="margin:5px 0;font-weight:700;color:#1e293b;">TO: <span id="bm-to-address" style="font-weight:400;color:#000;"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- ── Services Table ── -->
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:30px;">
+                        <thead>
+                            <tr style="background:#1e293b;color:white;">
+                                <th style="padding:12px 15px;text-align:left;font-size:0.75rem;text-transform:uppercase;">Description</th>
+                                <th style="padding:12px 15px;text-align:center;font-size:0.75rem;text-transform:uppercase;">QTY</th>
+                                <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Unit Cost</th>
+                                <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bm-services-body"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" style="padding:15px;text-align:right;font-weight:700;color:#000;">Subtotal:</td>
+                                <td id="bm-subtotal" style="padding:15px;text-align:right;font-weight:700;color:#1e293b;">$0.00</td>
+                            </tr>
+                            <tr id="bm-tax-row" style="display:none;">
+                                <td colspan="3" style="padding:10px 15px;text-align:right;font-weight:700;color:#000;">Tax (<span id="bm-tax-rate">0</span>%):</td>
+                                <td id="bm-tax-amount" style="padding:10px 15px;text-align:right;font-weight:700;color:#ef4444;">$0.00</td>
+                            </tr>
+                            <tr style="background:#f8fafc;border-top:2px solid #1e293b;">
+                                <td colspan="3" style="padding:20px 15px;text-align:right;font-size:1.2rem;font-weight:900;color:#1e293b;">GRAND TOTAL:</td>
+                                <td id="bm-total" style="padding:20px 15px;text-align:right;font-size:1.2rem;font-weight:900;color:#1e40af;">$0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <!-- ── ACH / Wire ── -->
+                    <div style="margin-top:30px;padding:20px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;border-left:5px solid #1e40af;">
+                        <h4 style="margin:0 0 15px;color:#1e293b;font-size:1rem;display:flex;align-items:center;gap:10px;font-weight:800;">
+                            <i class="fas fa-university" style="color:#1e40af;"></i> ACH / WIRE PAYMENT INFORMATION
+                        </h4>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:0.9rem;color:#000;">
+                            <div>
+                                <p style="margin:5px 0;"><strong>Bank Name:</strong> Bank Of America</p>
+                                <p style="margin:5px 0;"><strong>Company Name:</strong> RP TULIPAN TRANSPORT INC</p>
+                                <p style="margin:5px 0;"><strong>Account Number:</strong> 898111245429</p>
+                            </div>
+                            <div>
+                                <p style="margin:5px 0;"><strong>Routing Number:</strong> 063100277</p>
+                                <p style="margin:5px 0;"><strong>Wire/Swift Code:</strong> BOFAUS3N</p>
+                                <p style="margin:5px 0;"><strong>Bank Address:</strong> 900 W 49 ST, Hialeah, FL 33012</p>
+                                <p style="margin:5px 0;color:#1e40af;font-weight:800;"><strong>ZELLE:</strong> 786-768-4409</p>
+                            </div>
+                        </div>
+                        <p style="margin-top:15px;font-size:0.8rem;color:#000;font-style:italic;">* Please include the Invoice or Order number in the payment reference.</p>
+                    </div>
+
+                    <!-- ── Actions ── -->
+                    <div id="bm-invoice-actions" style="display:flex;justify-content:flex-end;gap:15px;border-top:1px solid #e2e8f0;padding-top:30px;margin-top:30px;flex-wrap:wrap;">
+                        <button onclick="sendBillingEmail()"
+                            style="background:linear-gradient(135deg,#1e40af,#6366f1);color:white;border:none;padding:14px 32px;border-radius:10px;cursor:pointer;font-weight:800;font-size:0.9rem;display:flex;align-items:center;gap:10px;transition:opacity 0.2s;"
+                            onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                            <i class="fas fa-paper-plane"></i>
+                            SEND EMAIL (3 PDFs)
+                        </button>
+                        <button onclick="downloadBillingInvoicePDF()"
+                            style="background:#10b981;color:white;border:none;padding:14px 32px;border-radius:10px;cursor:pointer;font-weight:800;font-size:0.9rem;display:flex;align-items:center;gap:10px;transition:opacity 0.2s;"
+                            onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                            <i class="fas fa-download"></i>
+                            DOWNLOAD INVOICE PDF
+                        </button>
+                        <button onclick="closeBillingDetail()"
+                            style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:14px 24px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;">
+                            <i class="fas fa-times"></i> CLOSE
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- CUSTOMERS INVOICE View (Deprecated, now merged into Billing Center) -->
         <section id="cust-invoice-view" class="view-section hidden">
             <div style="max-width: 1400px; margin: 0 auto; padding: 20px;">
                 <div class="attendance-toolbar-modern">
@@ -4158,7 +4425,7 @@
                                     <th>ASSIGNED TO</th>
                                     <th>STATUS</th>
                                     <th>COMPLETED AT</th>
-                                    <th>ACTIONS</th>
+                                    <th>ACTION</th>
                                 </tr>
                             </thead>
                             <tbody id="tasks-body"></tbody>
@@ -4168,169 +4435,6 @@
             </div>
         </section>
         
-        <!-- MASTER INVOICE View -->
-        <section id="master-invoice-view" class="view-section hidden">
-            <div style="max-width: 1200px; margin: 0 auto; padding: 30px 20px;">
-                <div class="inv-header-flex" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-                    <div>
-                        <h2 style="font-size: 2rem; color: #1e293b; margin-bottom: 5px;">Master Invoice Generator</h2>
-                        <p style="color: #64748b; font-size: 0.9rem;">Generate and send detailed invoices by Order #</p>
-                    </div>
-                    <div style="display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;">
-                        <!-- BILLING COMPANY -->
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
-                            <label style="font-size: 0.7rem; font-weight: 900; color: #3b82f6; text-transform: uppercase;">BILLING COMPANY:</label>
-                            <select id="mi-company-selector" onchange="updateMasterInvoiceCompany()" 
-                                style="padding: 10px; border: 2px solid #3b82f6; border-radius: 8px; font-weight: bold; font-size: 0.9rem; background: white; cursor: pointer; min-width: 220px;">
-                                <option value="RP TULIPAN TRANSPORT INC">RP TULIPAN TRANSPORT INC</option>
-                                <option value="JR SUPER CRAME INC">JR SUPER CRAME INC</option>
-                            </select>
-                        </div>
-
-                        <!-- CUSTOMER DROPDOWN -->
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
-                            <label style="font-size: 0.7rem; font-weight: 900; color: #10b981; text-transform: uppercase;">
-                                <i class="fas fa-user" style="margin-right:4px;"></i>SELECT CUSTOMER:
-                            </label>
-                            <select id="mi-customer-select" onchange="onMICustomerChange()"
-                                style="padding: 10px 14px; border: 2px solid #10b981; border-radius: 8px; font-weight: bold; font-size: 0.9rem; background: white; cursor: pointer; min-width: 240px; color: #1e293b;">
-                                <option value="">— Select a customer —</option>
-                            </select>
-                        </div>
-
-                        <!-- ORDER DROPDOWN -->
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
-                            <label style="font-size: 0.7rem; font-weight: 900; color: #f59e0b; text-transform: uppercase;">
-                                <i class="fas fa-file-invoice" style="margin-right:4px;"></i>SELECT ORDER:
-                            </label>
-                            <select id="mi-order-select" onchange="onMIOrderChange()"
-                                style="padding: 10px 14px; border: 2px solid #f59e0b; border-radius: 8px; font-weight: bold; font-size: 0.9rem; background: white; cursor: pointer; min-width: 200px; color: #1e293b;" disabled>
-                                <option value="">— Select order —</option>
-                            </select>
-                        </div>
-
-                        <!-- DIVIDER -->
-                        <div style="width: 1px; height: 48px; background: #e2e8f0; align-self: flex-end; margin: 0 4px;"></div>
-
-                        <!-- MANUAL SEARCH -->
-                        <div style="position: relative;">
-                            <label style="font-size: 0.7rem; font-weight: 900; color: #3b82f6; text-transform: uppercase; display: block; margin-bottom: 5px;">SEARCH ORDER #:</label>
-                            <input type="text" id="mi-search-order" placeholder="Enter Order #..." 
-                                style="padding: 12px 50px 12px 15px; border: 2px solid #3b82f6; border-radius: 8px; width: 200px; font-weight: bold; font-size: 1rem;">
-                            <button onclick="loadMasterInvoiceByOrder()" 
-                                style="position: absolute; right: 5px; bottom: 5px; background: #3b82f6; color: white; border: none; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 800;">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </div>
-
-                        <!-- RESET -->
-                        <button onclick="resetMasterInvoice()" 
-                            style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 700; transition: all 0.3s; display: flex; align-items: center; gap: 8px; align-self: flex-end;"
-                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
-                            <i class="fas fa-undo-alt"></i> RESET
-                        </button>
-                    </div>
-                </div>
-
-                <div id="mi-invoice-preview" class="invoice-container" style="display: none; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
-                    <!-- Invoice Header -->
-                    <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px;">
-                        <div>
-                            <h1 style="margin: 0; color: #1e293b; font-size: 2.2rem; font-weight: 900;">INVOICE</h1>
-                            <p id="mi-company-name-display" style="margin: 5px 0 0 0; color: #000000; font-weight: 700;">RP TULIPAN TRANSPORT INC</p>
-                            <p style="margin: 2px 0 0 0; color: #000000; font-weight: 700; font-size: 0.9rem;">9804 NW 80th Ave, Hialeah Gardens FL 33016</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <div id="mi-status-badge" style="display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: 900; font-size: 0.75rem; margin-bottom: 10px;"></div>
-                            <p style="margin: 0; font-weight: 800; color: #1e293b;">Order #: <span id="mi-order-display">---</span></p>
-                            <p style="margin: 0; color: #000000; font-size: 0.85rem;">Date: <span id="mi-date-display">---</span></p>
-                            <p style="margin: 5px 0 0 0; color: #000000; font-size: 0.85rem; font-weight: 700;">Payment Term : NET 15</p>
-                        </div>
-                    </div>
-
-                    <!-- Client Info -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
-                        <div>
-                            <h4 style="text-transform: uppercase; color: #000000; font-size: 0.75rem; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Bill To:</h4>
-                            <p id="mi-bill-to-name" style="margin: 0; font-size: 1.1rem; font-weight: 900; color: #1e293b;">Nationwide Transport Services LLC</p>
-                            <p id="mi-bill-to-address" style="margin: 5px 0; color: #000000; line-height: 1.4; display: none;">2765 West Cypress Creek RD<br>Ft Lauderdale, FL 33309</p>
-                        </div>
-                        <div>
-                            <h4 style="text-transform: uppercase; color: #000000; font-size: 0.75rem; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">SERVICE LOCATION/DELIVERY ADDRESS:</h4>
-                            <p style="margin: 0; font-weight: 700; color: #1e293b;">FROM: <span id="mi-from-address" style="font-weight: 400; color: #000000;">4121 Dillon St.</span></p>
-                            <p style="margin: 5px 0; font-weight: 700; color: #1e293b;">TO: <span id="mi-to-address" style="font-weight: 400; color: #000000;">10122 Authentic Loop</span></p>
-                        </div>
-                    </div>
-
-                    <!-- Services Table -->
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                        <thead>
-                            <tr style="background: #1e293b; color: white;">
-                                <th style="padding: 12px 15px; text-align: left; font-size: 0.75rem; text-transform: uppercase;">Description</th>
-                                <th style="padding: 12px 15px; text-align: center; font-size: 0.75rem; text-transform: uppercase;">QTY</th>
-                                <th style="padding: 12px 15px; text-align: right; font-size: 0.75rem; text-transform: uppercase;">Unit Cost</th>
-                                <th style="padding: 12px 15px; text-align: right; font-size: 0.75rem; text-transform: uppercase;">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="mi-services-body">
-                            <!-- Rows injected by JS -->
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="3" style="padding: 15px; text-align: right; font-weight: 700; color: #000000;">Subtotal:</td>
-                                <td id="mi-subtotal" style="padding: 15px; text-align: right; font-weight: 700; color: #1e293b;">$0.00</td>
-                            </tr>
-                            <tr id="mi-tax-row" style="display: none;">
-                                <td colspan="3" style="padding: 10px 15px; text-align: right; font-weight: 700; color: #000000;">Tax (<span id="mi-tax-rate">0</span>%):</td>
-                                <td id="mi-tax-amount" style="padding: 10px 15px; text-align: right; font-weight: 700; color: #ef4444;">$0.00</td>
-                            </tr>
-                            <tr style="background: #f8fafc; border-top: 2px solid #1e293b;">
-                                <td colspan="3" style="padding: 20px 15px; text-align: right; font-size: 1.2rem; font-weight: 900; color: #1e293b;">GRAND TOTAL:</td>
-                                <td id="mi-total" style="padding: 20px 15px; text-align: right; font-size: 1.2rem; font-weight: 900; color: #1e40af;">$0.00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-
-                    <!-- ACH / Wire Payment Info -->
-                    <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; border-left: 5px solid #1e40af;">
-                        <h4 style="margin: 0 0 15px 0; color: #1e293b; font-size: 1rem; display: flex; align-items: center; gap: 10px; font-weight: 800;">
-                            <i class="fas fa-university" style="color: #1e40af;"></i> ACH / WIRE PAYMENT INFORMATION
-                        </h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 0.9rem; color: #000000;">
-                            <div>
-                                <p style="margin: 5px 0;"><strong>Bank Name:</strong> Bank Of America</p>
-                                <p style="margin: 5px 0;"><strong>Company Name:</strong> RP TULIPAN TRANSPORT INC</p>
-                                <p style="margin: 5px 0;"><strong>Account Number:</strong> 898111245429</p>
-                            </div>
-                            <div>
-                                <p style="margin: 5px 0;"><strong>Routing Number:</strong> 063100277</p>
-                                <p style="margin: 5px 0;"><strong>Wire/Swift Code:</strong> BOFAUS3N</p>
-                                <p style="margin: 5px 0;"><strong>Bank Address:</strong> 900 W 49 ST, Hialeah, FL 33012</p>
-                                <p style="margin: 5px 0; color: #1e40af; font-weight: 800;"><strong>ZELLE:</strong> 786-768-4409</p>
-                            </div>
-                        </div>
-                        <p style="margin-top: 15px; font-size: 0.8rem; color: #000000; font-style: italic;">* Please include the Invoice or Order number in the payment reference.</p>
-                    </div>
-
-                    <!-- Actions -->
-                    <div id="mi-invoice-actions" style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #e2e8f0; padding-top: 30px;">
-                        <button onclick="sendMasterInvoiceEmail()" class="btn-calendar" style="background: #1e40af; padding: 12px 30px; font-size: 1rem;">
-                            <i class="fas fa-envelope"></i> SEND EMAIL
-                        </button>
-                        <button onclick="downloadMasterInvoicePDF()" class="btn-calendar" style="background: #10b981; padding: 12px 30px; font-size: 1rem;">
-                            <i class="fas fa-download"></i> DOWNLOAD PDF
-                        </button>
-                    </div>
-                </div>
-
-                <div id="mi-empty-state" style="text-align: center; padding: 100px 0; color: #000000;">
-                    <i class="fas fa-search" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.2;"></i>
-                    <h3>No Order Loaded</h3>
-                    <p>Enter an order number above to generate a master invoice.</p>
-                </div>
-            </div>
-        </section>
-
     </main>
 
     <!-- CLIENT TRANSFER MODAL -->
@@ -4836,7 +4940,7 @@
                     finalView = 'docs';
                 }
             } else if (normalizedRole === 'driver') {
-                const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'cust-invoice', 'rentals', 'tasks', 'master-invoice', 'inventory', 'calls'];
+                const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'billing-center', 'rentals', 'tasks', 'inventory', 'calls'];
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
                     console.warn("Driver redirected to Docs from:", finalView);
                     finalView = 'docs';
@@ -5040,11 +5144,9 @@
                         })();
                     } else if (viewId === 'inventory') {
                         if (window.renderInventorTable) window.renderInventorTable();
-                    } else if (viewId === 'cust-invoice') {
+                    } else if (viewId === 'billing-center') {
                         (async () => {
-                            // PERSIST FILTERS: Do not clear cust-invoice filters
-                            if (window.loadTableData) await window.loadTableData();
-                            if (window.renderCustInvoiceTable) window.renderCustInvoiceTable();
+                            if (window.initBillingCenter) await window.initBillingCenter();
                         })();
                     } else if (viewId === 'calls') {
                         (async () => {
@@ -5053,15 +5155,6 @@
                         })();
                     } else if (viewId === 'tasks') {
                         if (window.loadTasksData) window.loadTasksData();
-                    } else if (finalView === 'master-invoice') {
-                        // Ensure data is loaded but don't reset preview
-                        if (window.loadTableData) {
-                            window.loadTableData().then(() => {
-                                if (window.populateMIDropdowns) window.populateMIDropdowns();
-                            });
-                        } else if (window.populateMIDropdowns) {
-                            window.populateMIDropdowns();
-                        }
                     }
 
                     // Always ensure data managers are loaded

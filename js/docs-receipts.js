@@ -362,7 +362,8 @@
         }
     };
 
-    window.getTripReceiptContent = function (trip) {
+    // options: { excludePhotos: boolean }
+    window.getTripReceiptContent = function (trip, options = {}) {
         if (!trip) return '';
         const takeTax = (trip[49] === true || trip[49] === 'true' || trip[49] === 'YES' || trip[49] === 'on' || trip[49] === 1);
         const taxRate = takeTax ? (parseFloat(trip[50]) || 0) : 0;
@@ -468,7 +469,7 @@
 
         const photos = trip[55] || [];
         let photosHtml = '';
-        if (photos.length > 0) {
+        if (photos.length > 0 && !options.excludePhotos) {
             let imgList = '';
             photos.forEach(url => { imgList += `<img src="${url}" style="width: 31%; height: 180px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">`; });
             photosHtml = `<div class="receipt-section-title" style="margin-top: 35px;">Evidence</div><div style="display: flex; gap: 3%; flex-wrap: wrap; margin-top: 15px;">${imgList}</div>`;
@@ -507,6 +508,52 @@
             </div>
         `;
     }
+
+    // ── PHOTOS-ONLY RECEIPT CONTENT (for 3rd PDF in email) ───
+    window.getTripPhotosOnlyContent = function (trip) {
+        const photos  = trip[55] || [];
+        const orderNo = (trip[5] && trip[5] !== '---') ? trip[5] : '';
+        const dateStr = window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(trip[1]) : (trip[1] || '');
+
+        if (photos.length === 0) {
+            return `
+                <div style="padding:40px;font-family:'Outfit',sans-serif;text-align:center;color:#64748b;">
+                    <h2>RP TULIPAN TRANSPORT, INC.</h2>
+                    <p>Order: ${orderNo} | Date: ${dateStr}</p>
+                    <p style="margin-top:60px;font-size:1.2rem;">No photos uploaded for this order.</p>
+                </div>
+            `;
+        }
+
+        let imgList = '';
+        photos.forEach(url => {
+            imgList += `
+                <div style="break-inside:avoid;margin-bottom:15px;">
+                    <img src="${url}" style="width:100%;max-height:260px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+                </div>
+            `;
+        });
+
+        return `
+            <div style="padding:30px;font-family:'Outfit',sans-serif;">
+                <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e293b;padding-bottom:15px;margin-bottom:25px;">
+                    <div>
+                        <h1 style="color:#b91c1c;margin:0;font-size:1.8rem;font-weight:900;">RP TULIPAN</h1>
+                        <p style="font-weight:900;margin:0;">TRANSPORT, INC.</p>
+                    </div>
+                    <div style="text-align:right;">
+                        <h2 style="margin:0;color:#1e293b;">DELIVERY EVIDENCE</h2>
+                        <p style="margin:3px 0;">Order: <strong>${orderNo}</strong></p>
+                        <p style="margin:3px 0;">Date: <strong>${dateStr}</strong></p>
+                        <p style="margin:3px 0;color:#64748b;font-size:0.85rem;">${photos.length} photo(s) attached</p>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">
+                    ${imgList}
+                </div>
+            </div>
+        `;
+    };
 
     window.drawReceipt = function () {
         const preview = document.getElementById('receipt-a4');
