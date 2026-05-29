@@ -417,12 +417,10 @@
             customer: (trip[11] && trip[11] !== '---') ? trip[11] : ''
         };
 
-        // Parse Phone # field: format is "CLIENT NAME 305-555-1234"
-        // Split text (name) from the phone number (first digit-starting sequence at the end)
+        // Show the entire phone field content exactly as entered
         const _raw = data._rawPhone;
-        const _phoneMatch = _raw.match(/^(.*?)\s*(\+?\(?\d[\d\s\-\.\(\)]{5,})$/);
-        data.clientName = _phoneMatch ? _phoneMatch[1].trim() : '';
-        data.phone = _phoneMatch ? _phoneMatch[2].trim() : _raw;
+        data.clientName = ''; 
+        data.phone = _raw;
 
         const subtotal = data.yard + data.storage + data.transp + data.sales;
         const taxVal = subtotal * (data.taxRate / 100);
