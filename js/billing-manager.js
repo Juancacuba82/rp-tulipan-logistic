@@ -618,7 +618,6 @@
                 st_rate: 'PAID',
                 st_sales: 'PAID',
                 st_yard: 'PAID',
-                st_amount: 'PAID',
                 st_tax: 'PAID',
                 paid: true
             };
@@ -629,7 +628,8 @@
             row[32] = 'PAID'; // st_rate
             row[33] = 'PAID'; // st_sales
             row[30] = 'PAID'; // st_yard
-            row[34] = 'PAID'; // st_amount
+            // NOTE: row[34] (st_amount) is NOT updated here — it belongs to the calendar
+            // "amount" field and indicates if that amount was collected in cash, not billing status.
             row[52] = 'PAID'; // st_tax
 
             if (window.allTripsUnfiltered) {
@@ -638,7 +638,7 @@
                     ufRow[32] = 'PAID';
                     ufRow[33] = 'PAID';
                     ufRow[30] = 'PAID';
-                    ufRow[34] = 'PAID';
+                    // NOTE: ufRow[34] (st_amount) is intentionally NOT updated here.
                     ufRow[52] = 'PAID';
                 }
             }

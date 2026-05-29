@@ -464,7 +464,7 @@
         if (data.sales > 0) billingRows += `<tr><td>Sales</td><td style="text-align:right;">${bBadge(data.salesStatus)}$${data.sales.toFixed(2)}</td></tr>`;
         if (data.takeTax && taxVal > 0) billingRows += `<tr><td>Taxes (${data.taxRate}%)</td><td style="text-align:right;">${bBadge(data.taxStatus)}$${taxVal.toFixed(2)}</td></tr>`;
 
-        const canSeeBilling = (isManager || data.showBilling);
+        const canSeeBilling = data.showBilling;
         let billingSectionHtml = (total > 0 && canSeeBilling) ? `<div class="receipt-section-title">Billing Summary</div><table class="receipt-table"><tbody>${billingRows}</tbody><tfoot><tr class="receipt-total-row"><td>TOTAL DUE</td><td style="text-align:right;">$${total.toFixed(2)}</td></tr></tfoot></table>` : '';
 
         const photos = trip[55] || [];

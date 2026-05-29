@@ -306,10 +306,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
                 if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount')?.value || '0') || 0;
 
-                let existingSig = '', existingPhotos = [];
+                let existingSig = '', existingPhotos = [], existingSigDriver = '';
                 if (editingIndex !== null && window.currentTrips[editingIndex]) {
                     existingSig = window.currentTrips[editingIndex][54] || '';
                     existingPhotos = window.currentTrips[editingIndex][55] || [];
+                    existingSigDriver = window.currentTrips[editingIndex][56] || '';
                 }
 
                 const rowData = [
@@ -321,7 +322,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     document.getElementById('in-yard-cash').checked, document.getElementById('in-rate-cash').checked, document.getElementById('in-sales-cash').checked,
                     document.getElementById('in-showtax')?.checked || false, parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0,
                     document.getElementById('in-hideamounts')?.checked || false, document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND',
-                    newQtyVal, existingSig, existingPhotos, '', document.getElementById('in-invoice-sent')?.value || 'NO',
+                    newQtyVal, existingSig, existingPhotos, existingSigDriver, (document.getElementById('in-sendemail')?.checked ? 'YES' : (document.getElementById('in-invoice-sent')?.value || 'NO')),
                     containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard
                 ];
 

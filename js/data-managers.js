@@ -291,6 +291,7 @@
             renderCustomerManagerList();
         }
         window.closeCustomerManager = function () {
+            if (window.cancelEditCustomer) window.cancelEditCustomer();
             document.getElementById('customer-manager-modal').style.display = 'none';
         }
 
@@ -361,16 +362,10 @@
                 sideSel.addEventListener('change', (e) => {
                     const opt = sideSel.options[sideSel.selectedIndex];
                     const email = opt.dataset.email;
-                    const address = opt.dataset.address;
                     
                     const emailField = document.getElementById('in-email');
                     if (emailField) {
                         emailField.value = email || '';
-                    }
-                    
-                    const deliveryField = document.getElementById('in-delivery');
-                    if (deliveryField && address) {
-                        deliveryField.value = address;
                     }
                 });
                 sideSel.dataset.listenerAdded = "true";
@@ -393,7 +388,7 @@
                         <span style="font-size: 0.7rem; color: #475569; font-weight: normal; margin-top: 2px;">${c.address || 'no address'}</span>
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        <button onclick="editCustomerAddress('${c.name.replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Address">
+                        <button onclick="startEditCustomer('${c.name.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Customer">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button onclick="deleteCustomer('${c.name.replace(/'/g, "\\'")}')" class="btn-del-driver" title="Delete Customer">
@@ -404,6 +399,60 @@
                 container.appendChild(item);
             });
         }
+
+        let editingCustomerOriginalName = null;
+
+        window.startEditCustomer = function(name, email, address) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage customers.");
+                return;
+            }
+            
+            editingCustomerOriginalName = name;
+            
+            const inputName = document.getElementById('new-customer-name');
+            const inputEmail = document.getElementById('new-customer-email');
+            const inputAddress = document.getElementById('new-customer-address');
+            const btnAddUpdate = document.getElementById('btn-add-update-customer');
+            const btnCancel = document.getElementById('btn-cancel-edit-customer');
+            
+            if (inputName) inputName.value = name;
+            if (inputEmail) inputEmail.value = email;
+            if (inputAddress) inputAddress.value = address;
+            
+            if (btnAddUpdate) {
+                btnAddUpdate.textContent = 'UPDATE';
+                btnAddUpdate.style.background = '#f59e0b';
+            }
+            if (btnCancel) {
+                btnCancel.style.display = 'inline-block';
+            }
+            
+            if (inputName) inputName.focus();
+        };
+
+        window.cancelEditCustomer = function() {
+            editingCustomerOriginalName = null;
+            
+            const inputName = document.getElementById('new-customer-name');
+            const inputEmail = document.getElementById('new-customer-email');
+            const inputAddress = document.getElementById('new-customer-address');
+            const btnAddUpdate = document.getElementById('btn-add-update-customer');
+            const btnCancel = document.getElementById('btn-cancel-edit-customer');
+            
+            if (inputName) inputName.value = '';
+            if (inputEmail) inputEmail.value = '';
+            if (inputAddress) inputAddress.value = '';
+            
+            if (btnAddUpdate) {
+                btnAddUpdate.textContent = 'ADD';
+                btnAddUpdate.style.background = '#3b82f6';
+            }
+            if (btnCancel) {
+                btnCancel.style.display = 'none';
+            }
+        };
 
         async function addNewCustomer() {
             const role = (window.currentUserRole || '').toLowerCase().trim();
@@ -422,51 +471,39 @@
             if (!name) return;
 
             try {
-                const { error } = await db.from('customers').insert([{ name: name, email: email, address: address }]);
-                if (error) {
-                    if (error.code === '23505') alert("Customer already exists!");
-                    else throw error;
+                if (editingCustomerOriginalName) {
+                    const { data, error } = await db.from('customers').update({ name: name, email: email, address: address }).eq('name', editingCustomerOriginalName).select();
+                    if (error) {
+                        if (error.code === '23505') alert("Another customer with that name already exists!");
+                        else throw error;
+                        return;
+                    }
+                    if (!data || data.length === 0) {
+                        throw new Error("No se pudo actualizar el cliente. Revise las políticas de UPDATE (RLS) en Supabase para la tabla 'customers'.");
+                    }
+                    cancelEditCustomer();
+                } else {
+                    const { error } = await db.from('customers').insert([{ name: name, email: email, address: address }]);
+                    if (error) {
+                        if (error.code === '23505') alert("Customer already exists!");
+                        else throw error;
+                        return;
+                    }
+                    input.value = '';
+                    if (emailInput) emailInput.value = '';
+                    if (addressInput) addressInput.value = '';
                 }
-                input.value = '';
-                if (emailInput) emailInput.value = '';
-                if (addressInput) addressInput.value = '';
                 
                 await loadCustomersData(true);
                 renderCustomerManagerList();
             } catch (err) {
-                console.error("Failed to add customer:", err);
-                alert("Error adding customer: " + (err.message || "Unknown error"));
+                console.error("Failed to save customer:", err);
+                alert("Error saving customer: " + (err.message || "Unknown error"));
             }
         }
         window.addNewCustomer = addNewCustomer;
 
-        async function editCustomerAddress(name, currentAddress) {
-            const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage customers.");
-                return;
-            }
-            
-            const newAddress = prompt("Update Address for this customer:", currentAddress);
-            if (newAddress === null) return; // User cancelled
-            
-            try {
-                // We use .select() to confirm the row was actually updated.
-                // If RLS blocks it, data will be an empty array.
-                const { data, error } = await db.from('customers').update({ address: newAddress.trim() }).eq('name', name).select();
-                if (error) throw error;
-                if (!data || data.length === 0) {
-                    throw new Error("No se pudo actualizar el cliente. Revise las políticas de UPDATE (RLS) en Supabase para la tabla 'customers'.");
-                }
-                
-                await loadCustomersData(true);
-                renderCustomerManagerList();
-            } catch (err) {
-                console.error("Failed to update customer address:", err);
-                alert("Error updating address: " + (err.message || "Unknown error"));
-            }
-        }
-        window.editCustomerAddress = editCustomerAddress;
+
 
         async function deleteCustomer(name) {
             const role = (window.currentUserRole || '').toLowerCase().trim();

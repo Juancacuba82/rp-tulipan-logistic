@@ -5700,8 +5700,10 @@
                     <input type="text" id="new-customer-name" placeholder="NAME..." style="flex: 1; min-width: 120px;">
                     <input type="text" id="new-customer-email" placeholder="EMAIL..." style="text-transform: none; flex: 1; min-width: 120px;">
                     <input type="text" id="new-customer-address" placeholder="ADDRESS..." style="flex: 2; min-width: 200px;">
-                    <button onclick="addNewCustomer()" class="btn-add-driver-confirm"
+                    <button id="btn-add-update-customer" onclick="addNewCustomer()" class="btn-add-driver-confirm"
                         style="background: #3b82f6;">ADD</button>
+                    <button id="btn-cancel-edit-customer" onclick="cancelEditCustomer()" class="btn-add-driver-confirm"
+                        style="background: #64748b; display: none;">CANCEL</button>
                 </div>
                 <p style="font-size: 0.65rem; color: #64748b; margin: 0; margin-top: 5px;">* Tip: Deleting a customer only removes them
                     from future entries.</p>

@@ -415,10 +415,7 @@
             // Indices: 6:City, 2:Size, 11:Customer, 16:Driver, 15:Company
             const filters = {
                 'f-city': 6,
-                'f-size': 2,
-                'f-customer': 11,
-                'f-driver': 16,
-                'f-company': 15
+                'f-size': 2
             };
 
             for (let id in filters) {
@@ -431,50 +428,12 @@
                     .filter(val => val && val !== '---' && val !== '')
                     .sort();
 
-                // For City filter specifically, show ALL available cities from the form list
                 if (id === 'f-city') {
                     uniqueValues = [
                         "MIAMI", "TAMPA", "JACKSONVILLE", "SAVANNAH", "TITUSVILLE",
                         "MASCOTTE", "ORLANDO", "ATLANTA", "CHARLESTON", "NEWARK",
                         "SUMMERVILLE", "BALTIMORE"
                     ].sort();
-                } else if (id === 'f-company') {
-                    // Use dynamic companies list if available
-                    if (typeof currentCompanies !== 'undefined' && currentCompanies.length > 0) {
-                        uniqueValues = currentCompanies.map(c => c.name).sort();
-                    } else {
-                        uniqueValues = ["RP TULIPAN", "JR SUPER CRAME", "CONTRACTOR", "ONLY SALES"].sort();
-                    }
-                } else if (id === 'f-customer') {
-                    // Use dynamic customers list if available
-                    if (typeof currentCustomers !== 'undefined' && currentCustomers.length > 0) {
-                        uniqueValues = currentCustomers.map(c => c.name).sort();
-                    } else {
-                        uniqueValues = [
-                            "ANTONIO RENT", "RICHARD HAYNES", "MARK MORRINSON", "KEMOY",
-                            "GLOBAL CONTAINER & CHASSIS", "PROSTAR GROUP CONTAINER",
-                            "MAREX ROAD SERVICES", "ZUM SHIPPING"
-                        ].sort();
-                    }
-                } else if (id === 'f-driver') {
-                    // Use dynamic drivers list if available
-                    if (typeof currentDrivers !== 'undefined' && currentDrivers.length > 0) {
-                        uniqueValues = currentDrivers.map(d => d.name).sort();
-                    } else {
-                        uniqueValues = [
-                            "LUIS GARRIDO", "ROBERT CORTEZ", "MILAY MIRANDA", 
-                            "JORGE A RAMIREZ", "JOSE", "ANTONIO R CUBA", "TRAVIS JOSEY"
-                        ].sort();
-                    }
-                } else if (id === 'f-pickup') {
-                    // Use dynamic pickup addresses list if available
-                    if (typeof currentPickupAddresses !== 'undefined' && currentPickupAddresses.length > 0) {
-                        uniqueValues = currentPickupAddresses.map(a => a.name).sort();
-                    } else {
-                        uniqueValues = [
-                            "HIALEAH GARDENS", "POMPANO BEACH", "PORT EVERGLADES", "PORT MIAMI"
-                        ].sort();
-                    }
                 }
 
                 // Keep the "All" option
