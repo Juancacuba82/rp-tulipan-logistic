@@ -619,7 +619,8 @@
                 st_sales: 'PAID',
                 st_yard: 'PAID',
                 st_tax: 'PAID',
-                paid: true
+                paid: true,
+                invoice_sent: 'YES'
             };
 
             await window.updateTrip(tripId, updateData);
@@ -631,6 +632,7 @@
             // NOTE: row[34] (st_amount) is NOT updated here — it belongs to the calendar
             // "amount" field and indicates if that amount was collected in cash, not billing status.
             row[52] = 'PAID'; // st_tax
+            row[57] = 'YES'; // invoice_sent
 
             if (window.allTripsUnfiltered) {
                 const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
@@ -640,6 +642,7 @@
                     ufRow[30] = 'PAID';
                     // NOTE: ufRow[34] (st_amount) is intentionally NOT updated here.
                     ufRow[52] = 'PAID';
+                    ufRow[57] = 'YES';
                 }
             }
 
