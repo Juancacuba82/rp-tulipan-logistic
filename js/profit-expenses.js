@@ -403,7 +403,7 @@
             });            // 1.5 Process Rentals Independently (Accumulated Total)
             if (window.currentRentals && window.calculateRentalCost) {
                 window.currentRentals.forEach(row => {
-                    const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
+                    const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent, dateFrom, dateTo);
                     totals.rentals += costInfo.total;
                 });
             }

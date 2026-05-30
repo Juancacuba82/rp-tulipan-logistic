@@ -187,7 +187,7 @@
         }
     }
 
-    function calculateRentalCost(startDateStr, finalDateStr, basePrice, dailyRate, status, timeRent) {
+    function calculateRentalCost(startDateStr, finalDateStr, basePrice, dailyRate, status, timeRent, dateFrom = null, dateTo = null) {
         if (!startDateStr) return { total: 0, days: 0 };
         const start = new Date(startDateStr); start.setHours(0, 0, 0, 0);
         let endDate = (status === 'FINISHED' && finalDateStr) ? new Date(finalDateStr) : new Date();
@@ -195,8 +195,10 @@
         const diffDays = Math.ceil((endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
         const daysPassed = Math.max(0, diffDays);
         
-        // Cumulative Calculation based on time periods
         let units = 1;
+        let filteredUnits = 0;
+        let useFilter = dateFrom || dateTo;
+
         if (startDateStr && finalDateStr) {
             const sDate = new Date(startDateStr);
             const fDate = new Date(finalDateStr);
@@ -204,18 +206,44 @@
                 let count = 0;
                 let temp = new Date(sDate);
                 while (temp < fDate) {
+                    let periodStart = new Date(temp);
                     if (timeRent === 'monthly') temp.setMonth(temp.getMonth() + 1);
                     else if (timeRent === 'weekly') temp.setDate(temp.getDate() + 7);
                     else if (timeRent === 'diary') temp.setDate(temp.getDate() + 1);
                     else { temp.setMonth(temp.getMonth() + 1); } // Default monthly
+                    let periodEnd = new Date(temp);
                     count++;
+
+                    if (useFilter) {
+                        let pStr = periodEnd.toISOString().split('T')[0];
+                        // If period end falls inside the filter
+                        if ((!dateFrom || pStr >= dateFrom) && (!dateTo || pStr <= dateTo)) {
+                            filteredUnits++;
+                        }
+                    }
+
                     if (count > 1000) break; // Safety
                 }
                 units = count;
+            } else if (useFilter) {
+                let pStr = sDate.toISOString().split('T')[0];
+                if ((!dateFrom || pStr >= dateFrom) && (!dateTo || pStr <= dateTo)) {
+                    filteredUnits = 1;
+                } else {
+                    filteredUnits = 0;
+                }
+            }
+        } else if (useFilter) {
+            let pStr = start.toISOString().split('T')[0];
+            if ((!dateFrom || pStr >= dateFrom) && (!dateTo || pStr <= dateTo)) {
+                filteredUnits = 1;
+            } else {
+                filteredUnits = 0;
             }
         }
 
-        const total = parseFloat(basePrice) * units;
+        let finalUnits = useFilter ? filteredUnits : units;
+        const total = parseFloat(basePrice) * finalUnits;
         return { total: total, days: daysPassed };
     }
 

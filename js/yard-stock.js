@@ -83,6 +83,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             
             currentYardStock = data || [];
             if (window.populateYardCustomerSelect) window.populateYardCustomerSelect();
+            if (window.updateYardCustomerFilters) window.updateYardCustomerFilters();
             renderYardTable();
             renderStorageTable();
             updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
@@ -100,6 +101,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const searchTerm = document.getElementById('yf-search')?.value.toLowerCase() || '';
         const sizeFilter = document.getElementById('yf-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
+        const customerFilter = document.getElementById('yf-customer')?.value || '';
 
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
@@ -108,12 +110,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
                                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
+            const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
             
             let matchStatus = true;
             if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
             else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
             
-            return matchSearch && matchSize && matchStatus;
+            return matchSearch && matchSize && matchStatus && matchCustomer;
         });
 
         if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
@@ -221,6 +224,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const searchTerm = document.getElementById('sf-search')?.value.toLowerCase() || '';
         const sizeFilter = document.getElementById('sf-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
+        const customerFilter = document.getElementById('sf-customer')?.value || '';
 
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
@@ -229,12 +233,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
                                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
+            const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
             
             let matchStatus = true;
             if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
             else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
 
-            return matchSearch && matchSize && matchStatus;
+            return matchSearch && matchSize && matchStatus && matchCustomer;
         });
 
         if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
@@ -706,6 +711,44 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             }
         });
         if (currentVal) sel.value = currentVal;
+    };
+
+    window.updateYardCustomerFilters = function() {
+        const yfCustomer = document.getElementById('yf-customer');
+        const sfCustomer = document.getElementById('sf-customer');
+        
+        if (!yfCustomer && !sfCustomer) return;
+
+        // Get unique customers from ACTIVE records only
+        const activeCustomers = new Set();
+        currentYardStock.forEach(item => {
+            if (item.status !== 'SOLD' && item.customer_name) {
+                activeCustomers.add(item.customer_name);
+            }
+        });
+
+        // Convert set to array and sort alphabetically
+        const sortedCustomers = Array.from(activeCustomers).sort();
+
+        const updateSelect = (sel) => {
+            if (!sel) return;
+            const currentVal = sel.value;
+            sel.innerHTML = '<option value="">All Customers</option>';
+            sortedCustomers.forEach(customer => {
+                const opt = document.createElement('option');
+                opt.value = customer;
+                opt.textContent = customer;
+                sel.appendChild(opt);
+            });
+            if (sortedCustomers.includes(currentVal)) {
+                sel.value = currentVal;
+            } else {
+                sel.value = ''; // Reset if previously selected customer is no longer active
+            }
+        };
+
+        updateSelect(yfCustomer);
+        updateSelect(sfCustomer);
     };
 
     document.addEventListener('DOMContentLoaded', () => {

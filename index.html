@@ -4194,6 +4194,20 @@
                                         </div>
                                     </div>
 
+                                    <!-- Customer Filter -->
+                                    <div style="flex: 1.5; min-width: 140px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-user-tag" style="margin-right: 5px; color: #f59e0b;"></i> Customer
+                                        </label>
+                                        <div style="position: relative;">
+                                            <select id="yf-customer" onchange="renderYardTable()" 
+                                                style="width: 100%; padding: 10px 25px 10px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                                <option value="">All Customers</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
                                     <!-- Refresh Button -->
                                     <button onclick="loadYardData(true)" class="btn-refresh-modern" 
                                         style="height: 38px; width: 38px; background: #0f172a; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
@@ -4275,6 +4289,20 @@
                                                 <option value="20'">20' Containers</option>
                                                 <option value="40'">40' Containers</option>
                                                 <option value="45'">45' Containers</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Customer Filter -->
+                                    <div style="flex: 1.5; min-width: 140px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-user-tag" style="margin-right: 5px; color: #f59e0b;"></i> Customer
+                                        </label>
+                                        <div style="position: relative;">
+                                            <select id="sf-customer" onchange="renderStorageTable()" 
+                                                style="width: 100%; padding: 10px 25px 10px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                                <option value="">All Customers</option>
                                             </select>
                                             <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
                                         </div>
