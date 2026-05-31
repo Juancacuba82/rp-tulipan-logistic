@@ -40,6 +40,7 @@
         const cities     = new Set();
         const places     = new Set();
         const customers  = new Set();
+        const drivers    = new Set();
 
         (window.currentTrips || []).forEach(row => {
             const status = (row[41] || '').toUpperCase();
@@ -49,6 +50,7 @@
             if (row[6] && row[6] !== '---') cities.add(row[6]);
             if (row[8] && row[8] !== '---') places.add(row[8]);
             if (row[11] && row[11] !== '---') customers.add(row[11]);
+            if (row[17] && row[17] !== '---') drivers.add(row[17]);
         });
 
         const fill = (id, vals, defaultTxt) => {
@@ -68,6 +70,7 @@
         fill('bc-f-city',     cities,    'All Cities');
         fill('bc-f-place',    places,    'All Places');
         fill('bc-f-customer', customers, 'All Customers');
+        fill('bc-f-driver',   drivers,   'All Drivers');
     };
 
     // ── RENDER MAIN TABLE ─────────────────────────────────────
@@ -81,6 +84,7 @@
         const fCity     = (document.getElementById('bc-f-city')?.value     || '').trim();
         const fPlace    = (document.getElementById('bc-f-place')?.value    || '').trim();
         const fCustomer = (document.getElementById('bc-f-customer')?.value || '').trim();
+        const fDriver   = (document.getElementById('bc-f-driver')?.value   || '').trim();
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
         const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
@@ -98,6 +102,7 @@
             const city     = (row[6]  || '').toString().trim();
             const place    = (row[8]  || '').toString().trim();
             const customer = (row[11] || '').toString().trim();
+            const driver   = (row[17] || '').toString().trim();
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
 
@@ -105,6 +110,7 @@
             if (fCity     && city     !== fCity)            return false;
             if (fPlace    && place    !== fPlace)           return false;
             if (fCustomer && customer !== fCustomer)        return false;
+            if (fDriver   && driver   !== fDriver)          return false;
             if (fFrom     && rowDate  < fFrom)              return false;
             if (fTo       && rowDate  > fTo)                return false;
             if (fInvoice  && invSent  !== fInvoice)         return false;
@@ -144,6 +150,7 @@
             const city        = row[6]  || '---';
             const place       = row[8]  || '---';
             const nCont       = row[3]  || '---';
+            const driverName  = row[17] || '---';
 
             let rowBg = isOrderPendingPayment ? '#fee2e2' : '#dcfce7'; // RED if pending, GREEN if paid
 
@@ -168,6 +175,7 @@
                 <td style="${cs}">${customer}</td>
                 <td style="${cs}">${city}</td>
                 <td style="${cs} white-space:normal; min-width:130px; text-align:left;">${place}</td>
+                <td style="${cs}">${driverName}</td>
                 <td style="${cs} color:#1e40af;">${fmtMoney(totalTrans)}</td>
                 <td style="${cs} color:#10b981;">${fmtMoney(totalSales)}</td>
                 <td style="${cs} color:#f59e0b;">${fmtMoney(totalYard)}</td>
@@ -203,7 +211,7 @@
 
     // ── RESET FILTERS ─────────────────────────────────────────
     window.resetBillingFilters = function () {
-        ['bc-f-order','bc-f-city','bc-f-place','bc-f-customer','bc-f-from','bc-f-to','bc-f-invoice']
+        ['bc-f-order','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
         if (fPayment) fPayment.value = 'all';
