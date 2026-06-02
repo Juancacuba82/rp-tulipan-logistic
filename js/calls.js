@@ -4,6 +4,7 @@
 
 let currentCalls = [];
 let editingCallId = null;
+let callsRealtimeChannel = null;
 
 // OPT: Cache profiles locally to avoid 3 separate queries during load/transfer
 let cachedProfilesEmails = null;
@@ -45,12 +46,7 @@ async function loadCallsData(force = false) {
         const dateStr = sixMonthsAgo.toISOString().split('T')[0];
 
         let query = db.from('call_logs').select('*').gte('date', dateStr);
-        
-        // If the user is not admin, only show their own records or those marked for EVERYONE
-        const role = (window.currentUserRole || '').toLowerCase().trim();
-        if (role !== 'admin' && window.userEmail) {
-            query = query.or(`created_by.eq.${window.userEmail},created_by.eq.EVERYONE`);
-        }
+        // Todos los empleados ven todos los registros — visibilidad total del equipo
 
         const { data, error } = await query.order('date', { ascending: false }).limit(1000);
 
@@ -63,6 +59,7 @@ async function loadCallsData(force = false) {
             await autoAssignWebsiteLeads();
         }
 
+        subscribeToCallsRealtime();
         renderCallsTable();
         await updateCallSellerDropdown();
         await populateCallAssignedSelect();
@@ -146,11 +143,11 @@ function renderCallsTable() {
 
     const isAdmin = (window.currentUserRole === 'admin');
 
-    // Toggle admin-only UI elements
+    // Show all UI elements for all roles — todos pueden ver todo
     const sellerFilterItem = document.getElementById('cf-seller-filter-item');
-    if (sellerFilterItem) sellerFilterItem.style.display = isAdmin ? 'block' : 'none';
+    if (sellerFilterItem) sellerFilterItem.style.display = 'block';
     
-    document.querySelectorAll('.admin-th-assigned').forEach(el => el.style.display = isAdmin ? '' : 'none');
+    document.querySelectorAll('.admin-th-assigned').forEach(el => el.style.display = '');
 
     // Get filter values
     const fFrom = document.getElementById('cf-from-date')?.value || "";
@@ -258,10 +255,11 @@ function renderCallsTable() {
             <td style="color: #15803d; font-weight: 800;">$${Number(c.amount || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
             <td style="color: #b91c1c; font-weight: 700;">${nextStr}</td>
             <td><span class="inv-badge ${getStatusBadgeClass(c.status)}">${c.status || 'PENDING'}</span></td>
-            <td class="admin-td-assigned" style="${isAdmin ? '' : 'display:none;'} font-weight: 700; color: #1e40af;">${worker}</td>
+            <td class="admin-td-assigned" style="font-weight: 700; color: #1e40af;">${worker}</td>
             <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.description || ''}">
                 ${(c.description || "---").toUpperCase()}
             </td>
+            <td style="text-align: center; min-width: 130px; padding: 6px 8px;">${buildCallButton(c)}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -422,6 +420,14 @@ async function saveCallLog() {
             alert("¡Lead convertido a VENDIDO y transferido al Delivery Calendar!");
         } else {
             if (editingCallId) {
+                // Liberar candado si este empleado estaba en llamada
+                const existingCall = currentCalls.find(c => c.id === editingCallId);
+                const myName = _getMyDisplayName();
+                if (existingCall && existingCall.is_on_call && existingCall.calling_by === myName) {
+                    payload.is_on_call = false;
+                    payload.last_called_at = new Date().toISOString();
+                    // calling_by se mantiene para registrar quién llamó por última vez
+                }
                 const { data, error } = await db.from('call_logs').update(payload).eq('id', editingCallId).select();
                 if (error) throw error;
                 if (data && data.length > 0) {
@@ -736,3 +742,224 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ── CALL LOCKING SYSTEM ─────────────────────────────────────────────────────
+
+/**
+ * Returns the display name of the currently logged-in user.
+ * Used to identify who is on a call.
+ */
+function _getMyDisplayName() {
+    const myEmail = (window.userEmail || '').toLowerCase().trim();
+    const mapped = window.globalUserNameMap && window.globalUserNameMap[myEmail];
+    return mapped ? mapped.toUpperCase() : (window.userEmail || '').split('@')[0].toUpperCase();
+}
+
+/**
+ * startCallLock(id)
+ * Marks a call_log record as "on call" by this employee.
+ * Other employees will see a red pulsing indicator on that row.
+ * Also opens the record in the editing form for convenience.
+ */
+async function startCallLock(id) {
+    const myName = _getMyDisplayName();
+    try {
+        const { data, error } = await db.from('call_logs')
+            .update({ is_on_call: true, calling_by: myName })
+            .eq('id', id)
+            .select();
+        if (error) throw error;
+
+        // Update local state immediately
+        if (data && data[0]) {
+            const idx = currentCalls.findIndex(c => c.id === id);
+            if (idx !== -1) currentCalls[idx] = { ...currentCalls[idx], ...data[0] };
+        }
+
+        // Open record in the form so the employee can fill in notes
+        editCallLog(id);
+        renderCallsTable();
+    } catch (err) {
+        console.error('Error starting call lock:', err);
+        alert('Error al iniciar llamada: ' + err.message);
+    }
+}
+
+/**
+ * buildCallButton(c)
+ * Returns the HTML for the call action button in each table row.
+ * States:
+ *   🟢 LLAMAR        — available, not called today
+ *   🟡 LLAMAR        — available but already called today (shows time)
+ *   🟠 EN LLAMADA    — I am currently on this call
+ *   🔴 OCUPADO       — another employee is on this call right now
+ */
+function buildCallButton(c) {
+    const myName = _getMyDisplayName();
+
+    // ── Someone is actively on this call ──
+    if (c.is_on_call) {
+        const caller = c.calling_by || 'Alguien';
+        const isMe = caller === myName;
+        if (isMe) {
+            return `<button class="clk-btn clk-mine" onclick="event.stopPropagation();"
+                title="Tú estás en llamada ahora. Guarda el registro para terminar.">
+                <span class="clk-dot"></span>EN LLAMADA (YO)
+            </button>`;
+        } else {
+            const shortName = caller.split(' ')[0];
+            return `<button class="clk-btn clk-busy" disabled
+                title="${caller} está en llamada ahora mismo. Espera que termine.">
+                🔴 OCUPADO · ${shortName}
+            </button>`;
+        }
+    }
+
+    // ── Check if called today ──
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    if (c.last_called_at) {
+        const lastDate = new Date(c.last_called_at);
+        if (lastDate >= todayStart) {
+            const timeStr = lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const byName = (c.calling_by || '').split(' ')[0];
+            const badge = byName ? `🕒 ${timeStr} · ${byName}` : `🕒 ${timeStr}`;
+            return `<div class="clk-last-badge">${badge}</div>
+                <button class="clk-btn clk-today"
+                    onclick="event.stopPropagation(); startCallLock('${c.id}')"
+                    title="Ya llamado hoy a las ${timeStr}${byName ? ' por ' + byName : ''}. Clic para volver a llamar.">
+                    📞 LLAMAR
+                </button>`;
+        }
+    }
+
+    // ── Not called today — fully available ──
+    return `<button class="clk-btn clk-available"
+        onclick="event.stopPropagation(); startCallLock('${c.id}')"
+        title="Iniciar llamada con ${(c.customer || '').toUpperCase()}">
+        📞 LLAMAR
+    </button>`;
+}
+
+/**
+ * subscribeToCallsRealtime()
+ * Opens a Supabase Realtime channel so all employees see lock changes
+ * instantly without refreshing the page.
+ */
+function subscribeToCallsRealtime() {
+    if (callsRealtimeChannel) return; // Already subscribed
+
+    callsRealtimeChannel = db.channel('calls_realtime_v1')
+        .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'call_logs' },
+            (payload) => {
+                if (!payload.new) return;
+                const idx = currentCalls.findIndex(c => c.id === payload.new.id);
+                if (idx !== -1) {
+                    // Merge updated fields into local state
+                    currentCalls[idx] = { ...currentCalls[idx], ...payload.new };
+                    renderCallsTable();
+                }
+            }
+        )
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('✅ Calls Realtime activo — cambios en vivo habilitados');
+            }
+        });
+}
+
+// ── Call button styles (injected once) ──────────────────────────────────────
+(function injectCallLockStyles() {
+    if (document.getElementById('call-lock-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'call-lock-styles';
+    style.textContent = `
+        .clk-btn {
+            border: none;
+            border-radius: 7px;
+            padding: 6px 10px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: block;
+            width: 100%;
+            text-align: center;
+            letter-spacing: 0.3px;
+        }
+        /* 🟢 Available */
+        .clk-available {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1.5px solid #86efac;
+        }
+        .clk-available:hover {
+            background: #16a34a;
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(21,128,61,0.3);
+        }
+        /* 🟡 Already called today */
+        .clk-today {
+            background: #fef9c3;
+            color: #92400e;
+            border: 1.5px solid #fde68a;
+        }
+        .clk-today:hover {
+            background: #d97706;
+            color: white;
+        }
+        /* 🟠 I am on this call */
+        .clk-mine {
+            background: linear-gradient(135deg, #fff7ed, #ffedd5);
+            color: #c2410c;
+            border: 2px solid #fb923c;
+            cursor: default;
+            animation: clk-pulse-orange 1.6s ease-in-out infinite;
+        }
+        /* 🔴 Another employee is on this call */
+        .clk-busy {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+            cursor: not-allowed;
+            animation: clk-pulse-red 1.6s ease-in-out infinite;
+        }
+        @keyframes clk-pulse-orange {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(251,146,60,0.5); }
+            50%       { box-shadow: 0 0 0 6px rgba(251,146,60,0); }
+        }
+        @keyframes clk-pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); }
+            50%       { box-shadow: 0 0 0 7px rgba(239,68,68,0); }
+        }
+        /* Small badge under button showing last call time */
+        .clk-last-badge {
+            font-size: 0.59rem;
+            color: #64748b;
+            text-align: center;
+            margin-bottom: 3px;
+            font-weight: 700;
+        }
+        /* Pulsing dot inside "on call" button */
+        .clk-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ea580c;
+            margin-right: 5px;
+            vertical-align: middle;
+            animation: clk-dot-blink 1s ease-in-out infinite;
+        }
+        @keyframes clk-dot-blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.15; }
+        }
+    `;
+    document.head.appendChild(style);
+})();
