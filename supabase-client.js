@@ -69,21 +69,25 @@ async function getTrips() {
             .select('*')
             .order('date', { ascending: false });
 
-        // Apply driver-specific filtering at the database level for efficiency and security
+        // PERFORMANCE: Apply driver-specific filtering at the DB level.
+        // This prevents the driver's phone from downloading the full trips table.
+        // Robert Cortez is excluded from filtering as he needs to see all trips.
         if (window.currentUserRole === 'driver') {
-            const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+            const drvRef = (window.currentDriverNameRef || '').toUpperCase().trim();
             const userEmail = (window.userEmail || '').toLowerCase();
-            const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
-            
+            const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === 'ROBERT CORTEZ' || drvRef === 'ROBER CORTES');
+
             if (!isRobert && drvRef) {
-                // Removed ilike filter to allow frontend to handle complex name matching
+                // Filter server-side: only fetch trips where driver name contains drvRef
+                query = query.ilike('driver', `%${drvRef}%`);
+                console.log(`[DRIVER FILTER] Fetching only trips for: ${drvRef}`);
             }
         }
 
         const { data, error } = await query;
 
         if (error) throw error;
-        console.log("Viajes obtenidos de Supabase (historial completo):", data.length);
+        console.log("Viajes obtenidos de Supabase:", data.length);
         return data || [];
     } catch (err) {
         console.error('Error fetching trips:', err);
@@ -102,14 +106,18 @@ async function getAllTrips(dateFrom = null, dateTo = null) {
         if (dateFrom) query = query.gte('date', dateFrom);
         if (dateTo)   query = query.lte('date', dateTo);
 
-        // Apply driver-specific filtering at the database level
+        // PERFORMANCE: Apply driver-specific filtering at the DB level.
+        // This prevents the driver's phone from downloading the full trips table.
+        // Robert Cortez is excluded from filtering as he needs to see all trips.
         if (window.currentUserRole === 'driver') {
-            const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+            const drvRef = (window.currentDriverNameRef || '').toUpperCase().trim();
             const userEmail = (window.userEmail || '').toLowerCase();
-            const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
-            
+            const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === 'ROBERT CORTEZ' || drvRef === 'ROBER CORTES');
+
             if (!isRobert && drvRef) {
-                // Removed ilike filter to allow frontend to handle complex name matching
+                // Filter server-side: only fetch trips where driver name contains drvRef
+                query = query.ilike('driver', `%${drvRef}%`);
+                console.log(`[DRIVER FILTER] Fetching only trips for: ${drvRef}`);
             }
         }
 
