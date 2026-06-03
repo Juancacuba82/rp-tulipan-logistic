@@ -122,7 +122,9 @@
                 t.yard_item_id || '',          // 59
                 t.created_by || '---',         // 60
                 t.closed_by || '---',          // 61
-                t.move_to_yard || false        // 62
+                t.move_to_yard || false,       // 62
+                t.invoice_last_sent || null,    // 63  NEW — ISO date string of last invoice send
+                t.invoice_reminder_count || 0   // 64  NEW — total sends/reminders counter
             ];
         }
 

@@ -32,7 +32,8 @@
     <script src="./js/email-service.js?v=10"></script>
     <script src="./js/fleet.js?v=1700"></script>
     <script src="./js/tasks.js?v=10"></script>
-    <script src="./js/billing-manager.js?v=100"></script>
+    <script src="./js/billing-manager.js?v=101"></script>
+    <script src="./js/invoice-automation.js?v=1"></script>
     <script src="./js/attendance.js?v=1"></script>
 
     <!-- PDF & Email Service Libraries -->
@@ -3164,7 +3165,7 @@
 
         <!-- BILLING CENTER View (unified: Customer Invoice + Master Invoice) -->
         <section id="billing-center-view" class="view-section hidden">
-            <div style="max-width: 1500px; margin: 0 auto; padding: 20px;">
+            <div style="max-width: 1800px; margin: 0 auto; padding: 20px;">
 
                 <!-- ── HEADER TOOLBAR ─────────────────────────────── -->
                 <div class="attendance-toolbar-modern">
@@ -3290,7 +3291,7 @@
 
                 <!-- ── MAIN TABLE ───────────────────────────────────── -->
                 <div class="table-scroll-container" style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow-x:auto;">
-                    <table id="billing-center-table" style="width:100%;min-width:1200px;border-collapse:collapse;font-family:var(--font-main);font-size:0.8rem;">
+                    <table id="billing-center-table" style="width:100%;min-width:1500px;border-collapse:collapse;font-family:var(--font-main);font-size:0.8rem;">
                         <thead>
                             <tr class="header-row">
                                 <th style="padding:12px;background:#1e293b;color:white;">DATE</th>
@@ -3305,6 +3306,8 @@
                                 <th style="padding:12px;background:#1e293b;color:white;">YARD</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">TOTAL DUE</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">INVOICE STATUS</th>
+                                <th style="padding:12px;background:#0f4c8a;color:#93c5fd;" title="Checks photos, signatures & email">DATA STATUS</th>
+                                <th style="padding:12px;background:#0f4c8a;color:#93c5fd;" title="Date of last invoice sent">LAST SENT</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">ACTIONS</th>
                             </tr>
                         </thead>

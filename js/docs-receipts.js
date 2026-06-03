@@ -111,7 +111,9 @@
                 });
 
                 const isComplete = (trip[41] === 'COMPLETE');
-                const nameMatch = isRobert || (drv === drvRef.toLowerCase());
+                const drvClean = drv.replace(/[^a-z0-9]/gi, '');
+                const drvRefClean = drvRef.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                const nameMatch = isRobert || (drvClean.length > 0 && drvRefClean.length > 0 && (drvClean.includes(drvRefClean) || drvRefClean.includes(drvClean)));
 
                 // All drivers (including Robert): only see trips that are NOT complete
                 roleDriverMatch = nameMatch && !isComplete;

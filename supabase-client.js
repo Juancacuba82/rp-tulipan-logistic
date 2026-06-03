@@ -76,8 +76,7 @@ async function getTrips() {
             const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
             
             if (!isRobert && drvRef) {
-                // Supabase ilike is case-insensitive, filtering trips where 'driver' contains drvRef
-                query = query.ilike('driver', `%${drvRef}%`);
+                // Removed ilike filter to allow frontend to handle complex name matching
             }
         }
 
@@ -110,7 +109,7 @@ async function getAllTrips(dateFrom = null, dateTo = null) {
             const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
             
             if (!isRobert && drvRef) {
-                query = query.ilike('driver', `%${drvRef}%`);
+                // Removed ilike filter to allow frontend to handle complex name matching
             }
         }
 

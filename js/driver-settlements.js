@@ -31,7 +31,10 @@
                     // ROLE SECURITY: Driver ONLY sees their own name
                     if (window.currentUserRole === 'driver') {
                         const drvRef = (window.currentDriverNameRef || '').toLowerCase();
-                        if (rDriver.toLowerCase() !== drvRef) return false;
+                        const rDrvClean = rDriver.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                        const drvRefClean = drvRef.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                        if (rDrvClean.length === 0 || drvRefClean.length === 0) return false;
+                        if (!rDrvClean.includes(drvRefClean) && !drvRefClean.includes(rDrvClean)) return false;
                     }
 
                     const rStAmount = r[34];
@@ -401,7 +404,9 @@
                 if (window.currentUserRole === 'driver') {
                     const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                     if (drvRef !== "ROBERT CORTEZ") {
-                        if (sDrv !== drvRef.toLowerCase()) return false;
+                        const drvClean = sDrv.replace(/[^a-z0-9]/gi, '');
+                        const drvRefClean = drvRef.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                        if (drvClean.length === 0 || drvRefClean.length === 0 || (!drvClean.includes(drvRefClean) && !drvRefClean.includes(drvClean))) return false;
                     }
                 }
 

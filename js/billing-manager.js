@@ -159,10 +159,25 @@
                 ? `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">SENT ✓</span>`
                 : `<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">PENDING</span>`;
 
+            // Validation badge (Guardian check)
+            const validBadge = window.getInvoiceValidationBadge
+                ? window.getInvoiceValidationBadge(row)
+                : '';
+
+            // Last sent / reminder count info
+            const lastSentDate = row[63];
+            const reminderCount = parseInt(row[64]) || 0;
+            let lastSentText = '—';
+            if (lastSentDate) {
+                const daysSince = Math.floor((Date.now() - new Date(lastSentDate)) / 86400000);
+                lastSentText = daysSince === 0 ? 'Today' : `${daysSince}d ago`;
+                if (reminderCount > 1) lastSentText += ` (×${reminderCount})`;
+            }
+
             const tr = document.createElement('tr');
             tr.style.background = rowBg;
             tr.style.transition = 'background 0.15s';
-            tr.onmouseenter = () => tr.style.background = '#e2e8f0'; // darker hover to see clearly
+            tr.onmouseenter = () => tr.style.background = '#e2e8f0';
             tr.onmouseleave = () => tr.style.background = rowBg;
 
             // We need the global index from currentTrips to easily identify this exact row
@@ -181,6 +196,8 @@
                 <td style="${cs} color:#f59e0b;">${fmtMoney(totalYard)}</td>
                 <td style="${cs} font-size:1rem; font-weight:900; color:#1e293b;">${fmtMoney(grandTotal)}</td>
                 <td style="${cs}">${invBadge}</td>
+                <td style="${cs}">${validBadge}</td>
+                <td style="${cs} font-size:0.7rem; color:#475569;">${lastSentText}</td>
                 <td style="${cs}">
                     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
                         <button onclick="openBillingDetail(${globalIdx})"
@@ -446,41 +463,15 @@
     // Make it globally accessible for email-service
     window.generateMasterInvoiceBlob = generateMasterInvoiceBlob;
 
-    // ── SEND EMAIL (3 PDFs) ───────────────────────────────────
-    window.sendBillingEmail = async function () {
-        const rows = window.currentBillingOrderRows;
-        if (!rows || rows.length === 0) return;
-
-        const customerEmail = rows[0][36];
-        if (!customerEmail || customerEmail === '---') {
-            alert('This customer has no email registered.');
-            return;
+    // ── SEND EMAIL (3 PDFs) — routed through Guardian ────────
+    // The actual implementation lives in invoice-automation.js (sendBillingEmailWithValidation).
+    // This wrapper keeps backward compatibility with the HTML button onclick.
+    window.sendBillingEmail = function () {
+        if (window.sendBillingEmailWithValidation) {
+            return window.sendBillingEmailWithValidation();
         }
-
-        const orderNo = (rows[0][5] || 'N/A').toString();
-        const confirmSend = confirm(`Send 3-document invoice package to ${customerEmail} for Order #${orderNo}?`);
-        if (!confirmSend) return;
-
-        const btn  = event.currentTarget;
-        const orig = btn.innerHTML;
-        btn.disabled  = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating PDFs...';
-
-        try {
-            if (!window.sendThreePDFEmail) {
-                alert('Email service not loaded. Please refresh.');
-                return;
-            }
-            await window.sendThreePDFEmail(rows);
-            if (window.showToast) window.showToast('Emails sent successfully! (3 PDFs)', 'success');
-            else alert(`Invoice package sent successfully to ${customerEmail}!`);
-        } catch (e) {
-            console.error('Billing email error:', e);
-            alert('Error sending emails: ' + (e.message || e));
-        } finally {
-            btn.disabled  = false;
-            btn.innerHTML = orig;
-        }
+        // Fallback if automation module hasn't loaded yet
+        alert('Invoice automation module not loaded. Please refresh the page.');
     };
 
     // ── ACCOUNT STATEMENT (bulk summary for selected customer) ─
@@ -599,6 +590,16 @@
             if (window.loadTableData) await window.loadTableData();
         }
         window.renderBillingTable();
+        // Run the invoice automation engine (banner + auto-send + reminders)
+        if (window.runInvoiceAutomation) {
+            setTimeout(() => window.runInvoiceAutomation(), 800);
+        }
+    };
+
+    // Expose renderBillingDetailModal globally so the automation engine
+    // can silently populate the invoice preview before generating PDFs
+    window.renderBillingDetailModalForRow = function(rows, orderNo) {
+        renderBillingDetailModal(rows, orderNo);
     };
 
     // ── MARK AS PAID DIRECTLY ─────────────────────────────────
