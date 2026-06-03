@@ -357,18 +357,27 @@
         const rows = window.currentBillingOrderRows;
         if (!rows || rows.length === 0) return;
 
+        const btn = event?.currentTarget;
+        const row = rows[0];
+
         // ── 1. Run the Guardian ──────────────────────────────
-        const validation = window.validateInvoiceReadiness(rows[0]);
+        const validation = window.validateInvoiceReadiness(row);
         if (!validation.ok) {
-            showValidationBlockModal(rows[0], validation.reasons);
+            showValidationBlockModal(row, validation.reasons, () => {
+                executeManualSendProcess(row, btn);
+            });
             return;
         }
 
+        executeManualSendProcess(row, btn);
+    };
+
+    async function executeManualSendProcess(row, btn) {
         // ── 2. Confirm send ──────────────────────────────────
-        const customerEmail = rows[0][36];
-        const orderNo = (rows[0][5] || 'N/A').toString();
-        const lastSentDate = rows[0][63];
-        const reminderCount = parseInt(rows[0][64]) || 0;
+        const customerEmail = row[36];
+        const orderNo = (row[5] || 'N/A').toString();
+        const lastSentDate = row[63];
+        const reminderCount = parseInt(row[64]) || 0;
         let lastSentText = '—';
         if (lastSentDate) {
             const daysSince = Math.floor((Date.now() - new Date(lastSentDate)) / 86400000);
@@ -384,12 +393,11 @@
         if (!confirm(confirmMsg)) return;
 
         // ── 3. Get the button that triggered the event ───────
-        const btn = event?.currentTarget;
         const orig = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
 
         try {
-            await sendInvoiceForRow(rows[0], 'manual');
+            await sendInvoiceForRow(row, 'manual');
             if (window.showToast) window.showToast('✅ Invoice sent & tracking updated!', 'success');
             else alert(`Invoice package sent to ${customerEmail}!`);
         } catch (e) {
@@ -398,10 +406,10 @@
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = orig; }
         }
-    };
+    }
 
     // ── VALIDATION BLOCK MODAL ────────────────────────────────
-    function showValidationBlockModal(row, reasons) {
+    function showValidationBlockModal(row, reasons, onForceSend) {
         // Remove old if exists
         const old = document.getElementById('invoice-blocked-modal');
         if (old) old.remove();
@@ -409,7 +417,7 @@
         const orderNo = (row[5] || '').toString().toUpperCase();
         const reasonItems = reasons.map(r =>
             `<li style="padding:6px 0;border-bottom:1px solid #fde68a;color:#92400e;font-size:0.85rem;">
-                <i class="fas fa-times-circle" style="color:#dc2626;margin-right:8px;"></i>${r}
+                <i class="fas fa-exclamation-circle" style="color:#f59e0b;margin-right:8px;"></i>${r}
             </li>`
         ).join('');
 
@@ -420,24 +428,36 @@
             z-index: 99999; display: flex; align-items: center; justify-content: center;
             animation: fadeIn 0.2s ease;
         `;
+
+        // Expose callback globally so the button can call it
+        window.__forceSendInvoiceCallback = () => {
+            modal.remove();
+            if (onForceSend) onForceSend();
+        };
+
         modal.innerHTML = `
             <div style="background:white;border-radius:16px;max-width:500px;width:90%;padding:0;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.4);">
-                <div style="background:linear-gradient(135deg,#dc2626,#991b1b);padding:20px 25px;display:flex;align-items:center;gap:12px;">
-                    <i class="fas fa-ban" style="color:white;font-size:1.5rem;"></i>
+                <div style="background:linear-gradient(135deg,#d97706,#b45309);padding:20px 25px;display:flex;align-items:center;gap:12px;">
+                    <i class="fas fa-exclamation-triangle" style="color:white;font-size:1.5rem;"></i>
                     <div>
-                        <div style="color:white;font-weight:900;font-size:1rem;">Invoice Blocked — Order #${orderNo}</div>
-                        <div style="color:rgba(255,255,255,0.8);font-size:0.75rem;margin-top:2px;">This invoice cannot be sent until the following issues are resolved</div>
+                        <div style="color:white;font-weight:900;font-size:1rem;">Incomplete Data — Order #${orderNo}</div>
+                        <div style="color:rgba(255,255,255,0.8);font-size:0.75rem;margin-top:2px;">This order is missing data required for automatic sending.</div>
                     </div>
                 </div>
                 <div style="padding:20px 25px;">
+                    <div style="font-size:0.85rem;color:#475569;margin-bottom:12px;">You can force send it manually, but note the following missing items:</div>
                     <ul style="list-style:none;padding:0;margin:0;">
                         ${reasonItems}
                     </ul>
                 </div>
                 <div style="padding:15px 25px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #f1f5f9;">
                     <button onclick="document.getElementById('invoice-blocked-modal').remove()"
-                        style="background:#1e293b;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">
-                        <i class="fas fa-check"></i> Understood
+                        style="background:#f1f5f9;color:#334155;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85rem;">
+                        Cancel
+                    </button>
+                    <button onclick="window.__forceSendInvoiceCallback()"
+                        style="background:#dc2626;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;box-shadow:0 4px 12px rgba(220,38,38,0.2);">
+                        <i class="fas fa-paper-plane"></i> Force Send Anyway
                     </button>
                 </div>
             </div>
