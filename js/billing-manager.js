@@ -122,6 +122,7 @@
         body.innerHTML    = '';
 
         let visibleCount = 0;
+        let totalOwedAmount = 0;
 
         filtered.forEach((row) => {
             const orderNo = (row[5] || '---').toString().toUpperCase();
@@ -140,6 +141,21 @@
             if (hasSales) totalSales += (parseFloat(row[20]) || 0) * qty;
             totalYard  += (parseFloat(row[13]) || 0);
             
+            // Calculate pending portions for total due
+            let rowSubtotalOwed = 0;
+            if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += (parseFloat(row[18]) || 0);
+            if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += (parseFloat(row[20]) || 0) * qty;
+            if ((parseFloat(row[13]) || 0) > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += (parseFloat(row[13]) || 0);
+            
+            const takeTax = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
+            let rowTaxOwed = 0;
+            if (takeTax && row[52] !== 'PAID') {
+                const taxPct = parseFloat(row[50]) || 0;
+                rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
+            }
+            
+            totalOwedAmount += (rowSubtotalOwed + rowTaxOwed);
+
             if (rowHasPendingPayment(row)) {
                 isOrderPendingPayment = true;
             }
@@ -224,6 +240,10 @@
         // Counter
         const counter = document.getElementById('billing-count-display');
         if (counter) counter.textContent = visibleCount;
+
+        // Total Due
+        const totalDueDisplay = document.getElementById('billing-total-due-display');
+        if (totalDueDisplay) totalDueDisplay.textContent = fmtMoney(totalOwedAmount);
 
         // Update the incomplete orders alert banner to reflect the filtered rows
         if (typeof window.renderIncompleteOrdersBanner === 'function') {
