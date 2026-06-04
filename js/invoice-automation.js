@@ -71,7 +71,8 @@
         const existing = document.getElementById('invoice-incomplete-banner');
         if (existing) existing.remove();
 
-        const trips = window.currentTrips || [];
+        // Use billingRows to respect the current table filters, fallback to currentTrips
+        const trips = (typeof window.billingRows !== 'undefined') ? window.billingRows : (window.currentTrips || []);
         const incomplete = [];
 
         trips.forEach(row => {

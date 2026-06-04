@@ -224,6 +224,11 @@
         // Counter
         const counter = document.getElementById('billing-count-display');
         if (counter) counter.textContent = visibleCount;
+
+        // Update the incomplete orders alert banner to reflect the filtered rows
+        if (typeof window.renderIncompleteOrdersBanner === 'function') {
+            window.renderIncompleteOrdersBanner();
+        }
     };
 
     // ── RESET FILTERS ─────────────────────────────────────────
