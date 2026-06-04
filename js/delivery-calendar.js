@@ -1299,16 +1299,37 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 let isAlreadyMapped = false;
                 if (preloadedData) {
                     if (Array.isArray(preloadedData[0])) {
-                        // Already mapped array of arrays passed directly (e.g. from local update)
                         data = preloadedData;
                         isAlreadyMapped = true;
                     } else {
-                        // Raw Supabase objects passed directly
                         data = preloadedData;
+                    }
+                    
+                    // Apply local date filtering even on preloadedData to prevent UI resets on edit
+                    if (dateFrom || dateTo) {
+                        data = data.filter(trip => {
+                            const tDate = isAlreadyMapped ? trip[1] : (trip.date || '');
+                            if (!tDate) return false;
+                            if (dateFrom && tDate < dateFrom) return false;
+                            if (dateTo && tDate > dateTo) return false;
+                            return true;
+                        });
                     }
                 } else {
                     if (dateFrom || dateTo) {
-                        data = await getAllTrips(dateFrom, dateTo);
+                        if (window.allTripsUnfiltered && window.allTripsUnfiltered.length > 0) {
+                            // Filter locally using the complete cached list
+                            data = window.allTripsUnfiltered.filter(trip => {
+                                const tDate = trip[1]; // Date is at index 1
+                                if (!tDate) return false;
+                                if (dateFrom && tDate < dateFrom) return false;
+                                if (dateTo && tDate > dateTo) return false;
+                                return true;
+                            });
+                            isAlreadyMapped = true;
+                        } else {
+                            data = await getAllTrips(dateFrom, dateTo);
+                        }
                     } else {
                         data = await getTrips();
                     }
@@ -1334,11 +1355,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // Clear and rebuild table
                 logisticsBody.innerHTML = '';
-                window.currentTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
+                
+                let renderedTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
 
-                // Cache complete list on unfiltered query
+                // Cache complete list on unfiltered query (initial load)
                 if (!dateFrom && !dateTo && !preloadedData) {
-                    window.allTripsUnfiltered = window.currentTrips;
+                    window.currentTrips = renderedTrips;
+                    window.allTripsUnfiltered = renderedTrips;
+                } else if (!window.currentTrips || window.currentTrips.length === 0) {
+                    // Fallback if somehow global cache is missing
+                    window.currentTrips = renderedTrips;
+                    window.allTripsUnfiltered = renderedTrips;
                 }
 
                 // --- POPULATE FILTER DROPDOWNS (City, Size, Customer, Driver, Company) ---
@@ -1350,7 +1377,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // --- TOP SCROLLBAR SYNC ---
                 setTimeout(syncTopScroll, 100); 
 
-                window.currentTrips.forEach((rowData, idx) => {
+                renderedTrips.forEach((rowData, idx) => {
                     try {
                         const tr = document.createElement('tr');
                         
@@ -1716,7 +1743,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             }
 
                             if (window.selectedTripIds.length > 0) {
-                                loadTripToEdit(idx);
+                                // Find the actual index in currentTrips for editing
+                                let realIdx = window.currentTrips.findIndex(t => t[0] === tripId);
+                                if (realIdx === -1) realIdx = idx;
+                                loadTripToEdit(realIdx);
                             } else {
                                 editingIndex = null;
                                 editingTripDbId = null;
@@ -1725,14 +1755,18 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                             // Dynamic Highlighting Refresh
                             document.querySelectorAll('#table-body tr').forEach((row, rIdx) => {
-                                const rData = window.currentTrips[rIdx];
+                                const rData = renderedTrips[rIdx];
                                 row.classList.remove('editing-row', 'selected-row');
-                                if (editingIndex === rIdx) row.classList.add('editing-row');
+                                const globalIdx = window.currentTrips.findIndex(t => t[0] === rData?.[0]);
+                                if (editingIndex === globalIdx && globalIdx !== -1) row.classList.add('editing-row');
                                 else if (window.selectedTripIds.includes(rData?.[0])) row.classList.add('selected-row');
                             });
                         };
-                        if (editingIndex === idx || window.selectedTripIds.includes(rowData[0])) {
-                            tr.classList.add(editingIndex === idx ? 'editing-row' : 'selected-row');
+                        
+                        // Check if this row is the editing row
+                        const globalIdxForThis = window.currentTrips.findIndex(t => t[0] === rowData[0]);
+                        if (editingIndex === globalIdxForThis || window.selectedTripIds.includes(rowData[0])) {
+                            tr.classList.add(editingIndex === globalIdxForThis ? 'editing-row' : 'selected-row');
                         }
 
                         // OVERDUE RENT HIGHLIGHTING
