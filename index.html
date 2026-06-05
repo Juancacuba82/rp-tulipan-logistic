@@ -3256,6 +3256,27 @@
                                 </div>
                             </div>
                             <div class="attendance-input-group">
+                                <label><i class="fas fa-layer-group"></i> SERVICE</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-concierge-bell"></i>
+                                    <select id="bc-f-service" class="form-select" onchange="renderBillingTable()" style="width:160px;">
+                                        <option value="">All Services</option>
+                                        <option value="TRANSPORT">TRANSPORT</option>
+                                        <option value="SALES">SALES</option>
+                                        <option value="YARD">YARD</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-barcode"></i> RELEASE #</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-tag"></i>
+                                    <select id="bc-f-release" class="form-select" onchange="renderBillingTable()" style="width:160px;">
+                                        <option value="">All Releases</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
                                 <label><i class="far fa-calendar-alt"></i> FROM</label>
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-calendar-day"></i>

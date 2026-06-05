@@ -41,12 +41,15 @@
         const places     = new Set();
         const customers  = new Set();
         const drivers    = new Set();
+        const releases   = new Set();
 
         const fOrder    = (document.getElementById('bc-f-order')?.value    || '').toLowerCase().trim();
         const fCity     = (document.getElementById('bc-f-city')?.value     || '').trim();
         const fPlace    = (document.getElementById('bc-f-place')?.value    || '').trim();
         const fCustomer = (document.getElementById('bc-f-customer')?.value || '').trim();
         const fDriver   = (document.getElementById('bc-f-driver')?.value   || '').trim();
+        const fService  = (document.getElementById('bc-f-service')?.value  || '').trim();
+        const fRelease  = (document.getElementById('bc-f-release')?.value  || '').trim();
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
         const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
@@ -63,8 +66,13 @@
             const place    = (row[8]  || '').toString().trim();
             const customer = (row[11] || '').toString().trim();
             const driver   = (row[17] || '').toString().trim();
+            const release  = (row[4]  || '---').toString().trim();
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
+
+            const hasTrans = row[42] === 'YES';
+            const hasSales = row[43] === 'YES';
+            const hasYard  = (parseFloat(row[13]) || 0) > 0.01;
 
             // Check non-dropdown filters
             if (fPayment === 'pending' && !isPending) return;
@@ -73,17 +81,24 @@
             if (fFrom && rowDate < fFrom) return;
             if (fTo && rowDate > fTo) return;
             if (fInvoice && invSent !== fInvoice) return;
+            if (fRelease && release !== fRelease) return;
+
+            if (fService === 'TRANSPORT' && !hasTrans) return;
+            if (fService === 'SALES' && !hasSales) return;
+            if (fService === 'YARD' && !hasYard) return;
 
             // To add a value to a specific dropdown, it must pass all OTHER dropdown filters
             const passCity = !fCity || city === fCity;
             const passPlace = !fPlace || place === fPlace;
             const passCustomer = !fCustomer || customer === fCustomer;
             const passDriver = !fDriver || driver === fDriver;
+            const passRelease = !fRelease || release === fRelease;
 
-            if (passPlace && passCustomer && passDriver && city && city !== '---') cities.add(city);
-            if (passCity && passCustomer && passDriver && place && place !== '---') places.add(place);
-            if (passCity && passPlace && passDriver && customer && customer !== '---') customers.add(customer);
-            if (passCity && passPlace && passCustomer && driver && driver !== '---') drivers.add(driver);
+            if (passPlace && passCustomer && passDriver && passRelease && city && city !== '---') cities.add(city);
+            if (passCity && passCustomer && passDriver && passRelease && place && place !== '---') places.add(place);
+            if (passCity && passPlace && passDriver && passRelease && customer && customer !== '---') customers.add(customer);
+            if (passCity && passPlace && passCustomer && passRelease && driver && driver !== '---') drivers.add(driver);
+            if (passCity && passPlace && passCustomer && passDriver && release && release !== '---') releases.add(release);
         });
 
         const fill = (id, vals, defaultTxt) => {
@@ -108,6 +123,7 @@
         fill('bc-f-place',    places,    'All Places');
         fill('bc-f-customer', customers, 'All Customers');
         fill('bc-f-driver',   drivers,   'All Drivers');
+        fill('bc-f-release',  releases,  'All Releases');
     };
 
     // ── RENDER MAIN TABLE ─────────────────────────────────────
@@ -122,6 +138,8 @@
         const fPlace    = (document.getElementById('bc-f-place')?.value    || '').trim();
         const fCustomer = (document.getElementById('bc-f-customer')?.value || '').trim();
         const fDriver   = (document.getElementById('bc-f-driver')?.value   || '').trim();
+        const fService  = (document.getElementById('bc-f-service')?.value || '').trim();
+        const fRelease  = (document.getElementById('bc-f-release')?.value || '').trim();
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
         const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
@@ -140,14 +158,24 @@
             const place    = (row[8]  || '').toString().trim();
             const customer = (row[11] || '').toString().trim();
             const driver   = (row[17] || '').toString().trim();
+            const release  = (row[4]  || '---').toString().trim();
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
+            
+            const hasTrans = row[42] === 'YES';
+            const hasSales = row[43] === 'YES';
+            const hasYard  = (parseFloat(row[13]) || 0) > 0.01;
 
             if (fOrder    && !orderNo.includes(fOrder))    return false;
             if (fCity     && city     !== fCity)            return false;
             if (fPlace    && place    !== fPlace)           return false;
             if (fCustomer && customer !== fCustomer)        return false;
             if (fDriver   && driver   !== fDriver)          return false;
+            if (fRelease  && release  !== fRelease)         return false;
+
+            if (fService === 'TRANSPORT' && !hasTrans)      return false;
+            if (fService === 'SALES'     && !hasSales)      return false;
+            if (fService === 'YARD'      && !hasYard)       return false;
             if (fFrom     && rowDate  < fFrom)              return false;
             if (fTo       && rowDate  > fTo)                return false;
             if (fInvoice  && invSent  !== fInvoice)         return false;
@@ -290,7 +318,7 @@
 
     // ── RESET FILTERS ─────────────────────────────────────────
     window.resetBillingFilters = function () {
-        ['bc-f-order','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-from','bc-f-to','bc-f-invoice']
+        ['bc-f-order','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-service','bc-f-release','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
         if (fPayment) fPayment.value = 'pending';

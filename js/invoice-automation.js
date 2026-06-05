@@ -241,8 +241,8 @@
 
             if (daysSince < REMINDER_DAYS) return;  // not yet time
 
-            const validation = window.validateInvoiceReadiness(row);
-            if (!validation.ok) return;  // Guardian blocks it
+            // Omitimos la validación del Guardián aquí para respetar los envíos forzados
+            // y permitir que el recordatorio siga saliendo cada 7 días.
 
             toRemind.push({ row, daysSince });
         });
@@ -528,11 +528,12 @@
             return;
         }
 
-        try {
-            await window.autoSendNewCompleteInvoices();
-        } catch (err) {
-            console.warn('[AutoInvoice] autoSendNewCompleteInvoices error:', err);
-        }
+        // ── Desactivado: El primer envío ahora siempre debe ser manual ──
+        // try {
+        //     await window.autoSendNewCompleteInvoices();
+        // } catch (err) {
+        //     console.warn('[AutoInvoice] autoSendNewCompleteInvoices error:', err);
+        // }
 
         try {
             await window.checkAndSendInvoiceReminders();
