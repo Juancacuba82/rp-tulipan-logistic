@@ -78,6 +78,23 @@
 
             pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
 
+            // Add clickable links over images
+            const pxToMm = imgWidth / container.clientWidth;
+            const rectContainer = container.getBoundingClientRect();
+            Array.from(images).forEach(img => {
+                if (!img.src || img.src.startsWith('data:')) return; // Skip signatures
+                const rectImg = img.getBoundingClientRect();
+                const xPx = rectImg.left - rectContainer.left;
+                const yPx = rectImg.top - rectContainer.top;
+                
+                const xMm = xPx * pxToMm;
+                const yMm = yPx * pxToMm;
+                const wMm = rectImg.width * pxToMm;
+                const hMm = rectImg.height * pxToMm;
+
+                pdf.link(xMm, yMm, wMm, hMm, { url: img.src });
+            });
+
             const blob = pdf.output('blob');
             console.log("PDF Generated. Size:", (blob.size / 1024).toFixed(2), "KB");
             return blob;
@@ -240,6 +257,30 @@
                     if (ov > 0) pdf.rect(0, ph - margin, pw, margin + 1, 'F');
                 }
             }
+
+            // Add clickable links over images
+            const pxToMm = iw / container.clientWidth;
+            const rectContainer = container.getBoundingClientRect();
+            Array.from(images).forEach(img => {
+                if (!img.src || img.src.startsWith('data:')) return; // Skip signatures
+                const rectImg = img.getBoundingClientRect();
+                const xPx = rectImg.left - rectContainer.left;
+                const yPx = rectImg.top - rectContainer.top;
+                
+                const xMm = xPx * pxToMm;
+                const yMmAll = yPx * pxToMm;
+                const wMm = rectImg.width * pxToMm;
+                const hMm = rectImg.height * pxToMm;
+
+                const startPage = Math.floor(yMmAll / usable);
+                const yoOnPage = margin + (yMmAll % usable);
+
+                // Check if page exists before setting
+                if (startPage < Math.ceil(ih / usable)) {
+                    pdf.setPage(startPage + 1);
+                    pdf.link(xMm, yoOnPage, wMm, hMm, { url: img.src });
+                }
+            });
 
             return pdf.output('blob');
         } finally {
