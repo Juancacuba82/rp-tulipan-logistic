@@ -42,15 +42,48 @@
         const customers  = new Set();
         const drivers    = new Set();
 
+        const fOrder    = (document.getElementById('bc-f-order')?.value    || '').toLowerCase().trim();
+        const fCity     = (document.getElementById('bc-f-city')?.value     || '').trim();
+        const fPlace    = (document.getElementById('bc-f-place')?.value    || '').trim();
+        const fCustomer = (document.getElementById('bc-f-customer')?.value || '').trim();
+        const fDriver   = (document.getElementById('bc-f-driver')?.value   || '').trim();
+        const fFrom     = document.getElementById('bc-f-from')?.value || '';
+        const fTo       = document.getElementById('bc-f-to')?.value   || '';
+        const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
+        const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
+
         (window.currentTrips || []).forEach(row => {
             const status = (row[41] || '').toUpperCase();
-            const ready  = status === 'COMPLETE' || status === 'DELIVERED' || status === 'PAID';
-            if (!ready) return;
-            // No longer filtering by rowHasPendingPayment here, so filters include all relevant orders
-            if (row[6] && row[6] !== '---') cities.add(row[6]);
-            if (row[8] && row[8] !== '---') places.add(row[8]);
-            if (row[11] && row[11] !== '---') customers.add(row[11]);
-            if (row[17] && row[17] !== '---') drivers.add(row[17]);
+            if (!(status === 'COMPLETE' || status === 'DELIVERED' || status === 'PAID')) return;
+
+            const isPending = rowHasPendingPayment(row);
+            
+            const orderNo  = (row[5]  || '').toString().toLowerCase();
+            const city     = (row[6]  || '').toString().trim();
+            const place    = (row[8]  || '').toString().trim();
+            const customer = (row[11] || '').toString().trim();
+            const driver   = (row[17] || '').toString().trim();
+            const rowDate  = row[1]   || '';
+            const invSent  = (row[57] || 'NO').toUpperCase();
+
+            // Check non-dropdown filters
+            if (fPayment === 'pending' && !isPending) return;
+            if (fPayment === 'paid' && isPending) return;
+            if (fOrder && !orderNo.includes(fOrder)) return;
+            if (fFrom && rowDate < fFrom) return;
+            if (fTo && rowDate > fTo) return;
+            if (fInvoice && invSent !== fInvoice) return;
+
+            // To add a value to a specific dropdown, it must pass all OTHER dropdown filters
+            const passCity = !fCity || city === fCity;
+            const passPlace = !fPlace || place === fPlace;
+            const passCustomer = !fCustomer || customer === fCustomer;
+            const passDriver = !fDriver || driver === fDriver;
+
+            if (passPlace && passCustomer && passDriver && city && city !== '---') cities.add(city);
+            if (passCity && passCustomer && passDriver && place && place !== '---') places.add(place);
+            if (passCity && passPlace && passDriver && customer && customer !== '---') customers.add(customer);
+            if (passCity && passPlace && passCustomer && driver && driver !== '---') drivers.add(driver);
         });
 
         const fill = (id, vals, defaultTxt) => {
@@ -64,7 +97,11 @@
                 opt.textContent = v;
                 sel.appendChild(opt);
             });
-            if (cur) sel.value = cur;
+            if (cur && vals.has(cur)) {
+                sel.value = cur;
+            } else {
+                sel.value = '';
+            }
         };
 
         fill('bc-f-city',     cities,    'All Cities');
@@ -256,7 +293,7 @@
         ['bc-f-order','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
-        if (fPayment) fPayment.value = 'all';
+        if (fPayment) fPayment.value = 'pending';
         window.renderBillingTable();
     };
 
