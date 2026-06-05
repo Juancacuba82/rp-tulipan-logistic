@@ -240,7 +240,7 @@
             }
         }
 
-        const file = input.files[0];
+        const files = Array.from(input.files);
         input.value = ''; // Reset so same file can be picked again
 
         // Show loading state on the button
@@ -250,31 +250,34 @@
 
         try {
             const tripId = window.currentDocTrip[0];
-            const ext = file.name.split('.').pop() || 'jpg';
-            const fileName = `trip_${tripId}_${Date.now()}.${ext}`;
-            const filePath = `trip-photos/${fileName}`;
-
-            // Upload to Supabase Storage bucket 'receipts'
-            const { data: uploadData, error: uploadError } = await db.storage
-                .from('receipts')
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: false,
-                    contentType: file.type
-                });
-
-            if (uploadError) throw uploadError;
-
-            // Get public URL
-            const { data: { publicUrl } } = db.storage
-                .from('receipts')
-                .getPublicUrl(filePath);
-
-            // Add URL to photos array
             const currentPhotos = Array.isArray(window.currentDocTrip[55])
                 ? [...window.currentDocTrip[55]]
                 : [];
-            currentPhotos.push(publicUrl);
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const ext = file.name.split('.').pop() || 'jpg';
+                const fileName = `trip_${tripId}_${Date.now()}_${i}.${ext}`;
+                const filePath = `trip-photos/${fileName}`;
+
+                // Upload to Supabase Storage bucket 'receipts'
+                const { data: uploadData, error: uploadError } = await db.storage
+                    .from('receipts')
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: false,
+                        contentType: file.type
+                    });
+
+                if (uploadError) throw uploadError;
+
+                // Get public URL
+                const { data: { publicUrl } } = db.storage
+                    .from('receipts')
+                    .getPublicUrl(filePath);
+
+                currentPhotos.push(publicUrl);
+            }
 
             // Save to Supabase
             const { error: updateError } = await db.from('trips')
@@ -292,7 +295,7 @@
             window.renderTripPhotos();
             window.drawReceipt();
 
-            if (window.showToast) window.showToast('Photo uploaded successfully!', 'success');
+            if (window.showToast) window.showToast('Photos uploaded successfully!', 'success');
 
         } catch (err) {
             console.error('Error uploading photo:', err);
