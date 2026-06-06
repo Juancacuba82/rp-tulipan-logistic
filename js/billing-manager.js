@@ -23,8 +23,8 @@
     }
 
     function rowHasPendingPayment(row) {
-        const hasTrans = row[42] === 'YES';
-        const hasSales = row[43] === 'YES';
+        const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+        const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
         const yardRate = parseFloat(row[13]) || 0;
         const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
 
@@ -70,8 +70,8 @@
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
 
-            const hasTrans = row[42] === 'YES';
-            const hasSales = row[43] === 'YES';
+            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
             const hasYard  = (parseFloat(row[13]) || 0) > 0.01;
 
             // Check non-dropdown filters
@@ -162,8 +162,8 @@
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
             
-            const hasTrans = row[42] === 'YES';
-            const hasSales = row[43] === 'YES';
+            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
             const hasYard  = (parseFloat(row[13]) || 0) > 0.01;
 
             if (fOrder    && !orderNo.includes(fOrder))    return false;
@@ -199,8 +199,8 @@
             let totalYard  = 0;
             let isOrderPendingPayment = false;
 
-            const hasTrans = row[42] === 'YES';
-            const hasSales = row[43] === 'YES';
+            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
             const qty      = parseInt(row[53]) || 1;
             if (hasTrans) totalTrans += (parseFloat(row[18]) || 0);
             if (hasSales) totalSales += (parseFloat(row[20]) || 0) * qty;
@@ -271,10 +271,10 @@
                 <td style="${cs}">${customer}</td>
                 <td style="${cs}">${city}</td>
                 <td style="${cs} white-space:normal; min-width:130px; text-align:left;">${place}</td>
-                <td style="${cs}">${driverName}</td>
-                <td style="${cs} color:#1e40af;">${fmtMoney(totalTrans)}</td>
-                <td style="${cs} color:#10b981;">${fmtMoney(totalSales)}</td>
-                <td style="${cs} color:#f59e0b;">${fmtMoney(totalYard)}</td>
+                <td style="display:none; ${cs}">${driverName}</td>
+                <td style="${cs} color:#1e40af;">${totalTrans > 0 ? fmtMoney(totalTrans) : ''}</td>
+                <td style="${cs} color:#10b981;">${totalSales > 0 ? fmtMoney(totalSales) : ''}</td>
+                <td style="${cs} color:#f59e0b;">${totalYard > 0 ? fmtMoney(totalYard) : ''}</td>
                 <td style="${cs} font-size:1rem; font-weight:900; color:#1e293b;">${fmtMoney(grandTotal)}</td>
                 <td style="${cs}">${invBadge}</td>
                 <td style="${cs}">${validBadge}</td>
@@ -396,8 +396,8 @@
         // Status badge
         let isEntirelyPaid = true;
         rows.forEach(r => {
-            const hasTrans  = r[42] === 'YES';
-            const hasSales  = r[43] === 'YES';
+            const hasTrans  = r[42] === 'YES' && (parseFloat(r[18]) || 0) > 0;
+            const hasSales  = r[43] === 'YES' && (parseFloat(r[20]) || 0) > 0;
             const yardRate  = parseFloat(r[13]) || 0;
             const takeTax   = r[49] === true || r[49] === 'true' || r[49] === 'YES' || r[49] === 'on' || r[49] === 1;
             if (hasTrans  && r[32] !== 'PAID') isEntirelyPaid = false;
@@ -419,8 +419,8 @@
         let subtotal   = 0;
 
         rows.forEach(row => {
-            const hasTrans        = row[42] === 'YES';
-            const hasSales        = row[43] === 'YES';
+            const hasTrans        = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+            const hasSales        = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
             const yardDesc        = row[12] && row[12] !== '---' ? row[12] : '';
             const yardRate        = parseFloat(row[13]) || 0;
             const qty             = parseInt(row[53]) || 1;
@@ -597,10 +597,18 @@
         tableClone.style.cssText = 'width:100%;border-collapse:collapse;font-size:0.85rem;';
 
         const headerRow = tableClone.querySelector('thead tr');
-        if (headerRow && headerRow.lastElementChild) headerRow.lastElementChild.remove();
+        if (headerRow) {
+            const ths = headerRow.querySelectorAll('th');
+            for (let i = ths.length - 1; i >= 11; i--) {
+                if (ths[i]) ths[i].remove();
+            }
+        }
 
         tableClone.querySelectorAll('tbody tr').forEach(tr => {
-            if (tr.lastElementChild) tr.lastElementChild.remove();
+            const tds = tr.querySelectorAll('td');
+            for (let i = tds.length - 1; i >= 11; i--) {
+                if (tds[i]) tds[i].remove();
+            }
             tr.querySelectorAll('td').forEach(td => {
                 td.style.borderBottom = '1px solid #e2e8f0';
                 td.style.padding      = '10px';
@@ -611,8 +619,8 @@
 
         let totalPending = 0;
         window.billingRows.forEach(row => {
-            const hasTrans  = row[42] === 'YES';
-            const hasSales  = row[43] === 'YES';
+            const hasTrans  = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+            const hasSales  = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
             const qty       = parseInt(row[53]) || 1;
             if (hasTrans && row[32] === 'PEND') totalPending += (parseFloat(row[18]) || 0);
             if (hasSales && row[33] === 'PEND') totalPending += (parseFloat(row[20]) || 0) * qty;
