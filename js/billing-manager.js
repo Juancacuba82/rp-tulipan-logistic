@@ -231,6 +231,7 @@
             const city        = row[6]  || '---';
             const place       = row[8]  || '---';
             const nCont       = row[3]  || '---';
+            const release     = row[4]  || '---';
             const driverName  = row[17] || '---';
 
             let rowBg = isOrderPendingPayment ? '#fee2e2' : '#dcfce7'; // RED if pending, GREEN if paid
@@ -268,6 +269,7 @@
                 <td style="${cs}">${displayDate}</td>
                 <td style="${cs}">${orderNo}</td>
                 <td style="${cs}">${nCont}</td>
+                <td style="${cs}">${release}</td>
                 <td style="${cs}">${customer}</td>
                 <td style="${cs}">${city}</td>
                 <td style="${cs} white-space:normal; min-width:130px; text-align:left;">${place}</td>
@@ -572,6 +574,10 @@
 
         const btn = btnElement || (window.event ? window.event.currentTarget : null);
         const originalContent = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        }
 
         const customerSel  = document.getElementById('bc-f-customer');
         const customerName = customerSel ? customerSel.value || 'All Customers' : 'All Customers';
@@ -599,14 +605,14 @@
         const headerRow = tableClone.querySelector('thead tr');
         if (headerRow) {
             const ths = headerRow.querySelectorAll('th');
-            for (let i = ths.length - 1; i >= 11; i--) {
+            for (let i = ths.length - 1; i >= 12; i--) {
                 if (ths[i]) ths[i].remove();
             }
         }
 
         tableClone.querySelectorAll('tbody tr').forEach(tr => {
             const tds = tr.querySelectorAll('td');
-            for (let i = tds.length - 1; i >= 11; i--) {
+            for (let i = tds.length - 1; i >= 12; i--) {
                 if (tds[i]) tds[i].remove();
             }
             tr.querySelectorAll('td').forEach(td => {
