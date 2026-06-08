@@ -513,11 +513,6 @@ window.handleTopDelete = function() {
 };
 
 async function deleteCallLog(id) {
-    const role = (window.currentUserRole || '').toLowerCase().trim();
-    if (role === 'student') {
-        alert("Students cannot delete records.");
-        return;
-    }
     if (!confirm("Are you sure you want to delete this lead?")) return;
 
     try {

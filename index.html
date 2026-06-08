@@ -687,10 +687,66 @@
             color: #1e293b;
             line-height: 1.2;
         }
+
+        /* Sticky Task Banner Styles */
+        #global-task-banner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #fef08a; /* Yellow */
+            color: #854d0e; /* Dark yellow/brown text */
+            text-align: center;
+            padding: 12px 20px;
+            font-weight: 900;
+            z-index: 100000;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-bottom: 2px solid #eab308;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        #global-task-banner.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            animation: slideDown 0.4s ease-out;
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(0); }
+        }
+        .btn-banner-action {
+            background-color: #ca8a04;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        .btn-banner-action:hover {
+            background-color: #a16207;
+        }
+        body.banner-active {
+            padding-top: 45px;
+        }
+        body.banner-active #header-nav {
+            top: 45px; /* Adjust sticky nav if active */
+        }
     </style>
 </head>
 
 <body>
+    <!-- Sticky Pending Tasks Banner -->
+    <div id="global-task-banner">
+        <span>⚠️ You have <span id="pending-tasks-count">0</span> pending assigned tasks.</span>
+        <button class="btn-banner-action" onclick="goToTasks()">VIEW TASKS</button>
+    </div>
+
     <!-- Navbar Navigation -->
     <header class="navbar" id="header-nav">
         <div class="container-nav">
@@ -4580,6 +4636,7 @@
                     console.log("User authenticated:", user.id);
                     const success = await checkAuth();
                     if (success) {
+                        window.checkGlobalTasks(); // Check for pending tasks
                         const savedView = localStorage.getItem('activeSection') || 'hero';
                         showView(savedView);
                     } else {
@@ -4609,12 +4666,62 @@
                 // Clear login fields for security
                 document.getElementById('auth-email').value = '';
                 document.getElementById('auth-password').value = '';
+                
+                // Hide banner on logout
+                document.getElementById('global-task-banner').classList.remove('show');
+                document.body.classList.remove('banner-active');
+                
                 showView('auth');
             } catch (err) {
                 console.error("Logout error:", err);
             }
         }
         window.handleLogout = handleLogout;
+
+        // Sticky Banner Global Check
+        window.goToTasks = function() {
+            document.getElementById('global-task-banner').classList.remove('show');
+            document.body.classList.remove('banner-active');
+            if(typeof closeMenu === 'function') closeMenu();
+            showView('tasks');
+        };
+
+        window.checkGlobalTasks = async function() {
+            if (!window.db || !window.userEmail) return;
+            try {
+                const role = (window.currentUserRole || '').toLowerCase().trim();
+                const email = (window.userEmail || '').toLowerCase().trim();
+                
+                // Solo mostrar la barra a empleados y estudiantes, no a los administradores.
+                if (role === 'admin') {
+                    document.getElementById('global-task-banner').classList.remove('show');
+                    document.body.classList.remove('banner-active');
+                    return;
+                }
+                
+                let query = window.db.from('tasks').select('*', { count: 'exact' })
+                              .eq('is_deleted', false)
+                              .eq('status', 'PENDING')
+                              .or(`assigned_to_email.eq.${email},assigned_to_email.eq.EVERYONE,assigned_to_email.eq.everyone`);
+                
+                const { count, error } = await query;
+                if (error) throw error;
+                
+                const banner = document.getElementById('global-task-banner');
+                const countEl = document.getElementById('pending-tasks-count');
+                
+                if (count && count > 0) {
+                    countEl.textContent = count;
+                    banner.classList.add('show');
+                    document.body.classList.add('banner-active');
+                } else {
+                    banner.classList.remove('show');
+                    document.body.classList.remove('banner-active');
+                }
+            } catch (err) {
+                console.error("Error checking global tasks:", err);
+            }
+        };
 
         async function checkAuth() {
             try {
@@ -5719,6 +5826,7 @@
             console.log("App starting up...");
             const authSuccess = await checkAuth();
             if (authSuccess) {
+                window.checkGlobalTasks(); // Check for pending tasks
                 const savedView = localStorage.getItem('activeSection') || 'hero';
                 showView(savedView);
                 if (window.applyRoleVisibility) window.applyRoleVisibility();
