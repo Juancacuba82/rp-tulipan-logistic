@@ -895,6 +895,7 @@
 
             // Refresh UI States
             updateDriverCommission();
+            if (window.filterDriversByCompany) window.filterDriversByCompany();
 
             // Update UI Button
             const btn = document.querySelector('.btn-add-sidebar');

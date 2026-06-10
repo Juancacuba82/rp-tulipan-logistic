@@ -1217,6 +1217,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Refresh UI States
             toggleModeFields();
             updateDriverCommission();
+            if (window.filterDriversByCompany) window.filterDriversByCompany();
 
             setTripArchiveButton({ label: 'Update order', isUpdate: true, disabled: false, opacity: 1, title: 'Save changes to this trip' });
             if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();

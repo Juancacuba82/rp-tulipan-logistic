@@ -211,6 +211,41 @@
         }
         window.refreshDriverSelects = refreshDriverSelects;
 
+        window.filterDriversByCompany = function() {
+            const companySel = document.getElementById('in-company');
+            const driverSel = document.getElementById('in-driver');
+            if (!companySel || !driverSel) return;
+
+            const company = companySel.value;
+            const currentDriverVal = driverSel.value;
+            
+            // Re-populate driverSel from scratch based on filter
+            driverSel.innerHTML = '<option value="" disabled selected>Select Driver</option>';
+            
+            const exclusiveDrivers = ["MILAY MIRANDA", "LUIS GARRIDO", "JORGE A RAMIREZ", "GREGORY CUTINO", "ROBERT CORTEZ"];
+            
+            let filteredDrivers = currentDrivers;
+            if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+                filteredDrivers = currentDrivers.filter(d => exclusiveDrivers.includes(d.name.toUpperCase()));
+            } else if (company === 'CONTRACTOR') {
+                filteredDrivers = currentDrivers.filter(d => !exclusiveDrivers.includes(d.name.toUpperCase()));
+            }
+
+            filteredDrivers.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.name;
+                opt.textContent = d.name;
+                driverSel.appendChild(opt);
+            });
+            
+            // Try to keep the previously selected driver if it still exists in the new list
+            if (currentDriverVal && Array.from(driverSel.options).some(opt => opt.value === currentDriverVal)) {
+                driverSel.value = currentDriverVal;
+            } else {
+                driverSel.value = "";
+            }
+        };
+
         function populateDriverAuditList() {
             const list = document.getElementById('fleet-drivers-list');
             if (!list) return;

@@ -1249,7 +1249,7 @@
                                 <button onclick="openCompanyManager()" class="btn-manage-inline">Manage</button>
                             </div>
                             <select id="in-company"
-                                onchange="updateDriverCommission(); if(window.updateNetPayInfo) updateNetPayInfo();"
+                                onchange="updateDriverCommission(); if(window.updateNetPayInfo) updateNetPayInfo(); if(window.filterDriversByCompany) filterDriversByCompany();"
                                 required>
                                 <option value="" disabled selected>Loading companies...</option>
                             </select>
