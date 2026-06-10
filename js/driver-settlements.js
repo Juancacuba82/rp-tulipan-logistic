@@ -695,6 +695,7 @@
 
             try {
                 let error;
+                let targetSettlementId = editingSettlementId;
                 if (editingSettlementId) {
                     const result = await db.from('settlement_history').update(entry).eq('id', editingSettlementId);
                     error = result.error;
@@ -713,28 +714,67 @@
                         return;
                     }
 
-                    const result = await db.from('settlement_history').insert([entry]);
+                    const result = await db.from('settlement_history').insert([entry]).select();
                     error = result.error;
+                    if (!error && result.data && result.data.length > 0) {
+                        targetSettlementId = result.data[0].id;
+                    }
                 }
                 
                 if (error) throw error;
 
-                // AUTOMATIC EXPENSE INTEGRATION (Restored)
+                // AUTOMATIC EXPENSE INTEGRATION (Restored & Improved)
                 const expenseAmount = salaryAmountFinal;
                 const expenseDate = val_final || new Date().toISOString().split('T')[0];
+                const expenseDescription = `Liquidación de ${driverNameFinal} - ${expenseDate}`;
+                
                 const expData = [
                     expenseDate,
                     'Driver Payment',
-                    `${editingSettlementId ? 'Updated' : 'Liquidación'} de ${driverNameFinal} - ${expenseDate}`,
+                    expenseDescription,
                     `$${expenseAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-                    `Auto-generated from Driver Settlement ${editingSettlementId ? 'Update' : 'Archive'}`
+                    `Auto-generated from Driver Settlement ID: ${targetSettlementId || 'Unknown'}`
                 ];
-                if (window.mapArrayToExpense && window.addExpense) {
+
+                if (window.mapArrayToExpense) {
                     const expenseObj = window.mapArrayToExpense(expData);
-                    await window.addExpense(expenseObj);
+                    
+                    if (editingSettlementId) {
+                        // UPDATE EXISTING EXPENSE (Plan A & Plan B)
+                        // Plan A: Look by hidden ID in the note
+                        const noteSearch = `Auto-generated from Driver Settlement ID: ${editingSettlementId}`;
+                        let { data: existingExp } = await db.from('expenses').select('id').ilike('note', `%${noteSearch}%`);
+                        
+                        // Plan B: Look by old description (for old records before this update)
+                        if (!existingExp || existingExp.length === 0) {
+                            const oldSettlement = window.currentSettlements.find(s => s.id === editingSettlementId);
+                            if (oldSettlement) {
+                                const oldDesc1 = `Liquidación de ${oldSettlement.driver_name} - ${oldSettlement.end_date}`;
+                                const oldDesc2 = `Updated de ${oldSettlement.driver_name} - ${oldSettlement.end_date}`;
+                                const { data: fallbackExp } = await db.from('expenses').select('id')
+                                    .eq('category', 'Driver Payment')
+                                    .in('description', [oldDesc1, oldDesc2]);
+                                if (fallbackExp && fallbackExp.length > 0) {
+                                    existingExp = fallbackExp;
+                                }
+                            }
+                        }
+
+                        if (existingExp && existingExp.length > 0) {
+                            // Update the found expense instead of adding a new one
+                            const expIdToUpdate = existingExp[0].id;
+                            await db.from('expenses').update(expenseObj).eq('id', expIdToUpdate);
+                        } else {
+                            // Fallback if absolutely nothing was found
+                            if (window.addExpense) await window.addExpense(expenseObj);
+                        }
+                    } else {
+                        // NEW SETTLEMENT -> ADD NEW EXPENSE
+                        if (window.addExpense) await window.addExpense(expenseObj);
+                    }
                 }
 
-                if (window.fetchHistory) await window.fetchHistory(); 
+                if (window.fetchHistory) await window.fetchHistory(true); 
 
                 alert(editingSettlementId ? "Settlement Updated Successfully!" : "Archive & Expense Saved Successfully!");
                 resetSettlementEdit();
@@ -756,7 +796,7 @@
             try {
                 const { error } = await db.from('settlement_history').delete().eq('id', id);
                 if (error) throw error;
-                fetchHistory();
+                fetchHistory(true);
             } catch (err) {
                 alert("Delete failed: " + err.message);
             }
