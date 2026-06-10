@@ -417,7 +417,7 @@
             });
 
             if (filtered.length === 0) {
-                body.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 30px; color: #64748b; font-style: italic;">No records matching filter.</td></tr>`;
+                body.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 30px; color: #64748b; font-style: italic;">No records matching filter.</td></tr>`;
                 return;
             }
 
@@ -438,6 +438,10 @@
                 const balance = s.cash_balance || 0;
                 const balanceColor = balance < 0 ? '#ef4444' : '#10b981';
 
+                const dSalary = s.driver_salary || 0;
+                const absSalary = Math.abs(dSalary);
+                const cashAdvance = s.cash_collected || 0;
+
                 // Calculate Aging (Days between start and end)
                 const start = new Date(s.start_date);
                 const end = new Date(s.end_date);
@@ -456,8 +460,11 @@
                     <td style="color: #475569;">${fDate(s.start_date)}</td>
                     <td style="color: #475569;">${fDate(s.end_date)}</td>
                     <td style="color: #64748b; font-size: 0.85rem;">${diffDays} Days</td>
-                    <td style="font-weight: 800; color: ${balanceColor}; font-size: 1.1rem; text-align: center !important;">
-                        $${balance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
+                    <td style="font-weight: 800; color: #ef4444; font-size: 1.1rem; text-align: center !important;">
+                        $${absSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td style="font-weight: 800; color: #10b981; font-size: 1.1rem; text-align: center !important;">
+                        $${cashAdvance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
                     </td>
                     ${window.currentUserRole !== 'driver' ? `
                     <td style="text-align: center;">
@@ -674,6 +681,7 @@
                 start_date: val_inicio,
                 end_date: val_final,
                 cash_balance: cashAmountFinal,
+                driver_salary: salaryAmountFinal,
                 status: val_status,
                 payment_type: val_type,
                 // Calculator Inputs
