@@ -351,24 +351,37 @@
     };
 
     async function generateMasterInvoiceBlob() {
-        const element = document.getElementById('mi-invoice-preview');
-        // Temporarily hide actions for PDF
-        const actions = document.getElementById('mi-invoice-actions');
+        const originalEl = document.getElementById('mi-invoice-preview');
+        if (!originalEl) return null;
+
+        // Temporarily clone the element off-screen to ensure it renders correctly
+        // even if it's currently hidden by display: none
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:860px;background:white;z-index:-1;';
+        
+        const clone = originalEl.cloneNode(true);
+        const actions = clone.querySelector('#mi-invoice-actions');
         if (actions) actions.style.display = 'none';
 
-        const { jsPDF } = window.jspdf;
-        const canvas = await html2canvas(element, { scale: 2 });
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
-        
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const imgWidth = pageWidth;
-        const imgHeight = (canvas.height * pageWidth) / canvas.width;
+        container.appendChild(clone);
+        document.body.appendChild(container);
 
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-        
-        actions.style.display = 'flex'; // Restore actions
-        return pdf.output('blob');
+        try {
+            const { jsPDF } = window.jspdf;
+            const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const imgWidth = pageWidth;
+            const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+            pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+            
+            return pdf.output('blob');
+        } finally {
+            document.body.removeChild(container);
+        }
     }
 
     window.updateMasterInvoiceCompany = function () {

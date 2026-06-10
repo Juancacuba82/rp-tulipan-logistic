@@ -515,41 +515,57 @@
 
     // ── GENERATE MASTER INVOICE PDF BLOB ─────────────────────
     async function generateMasterInvoiceBlob() {
-        const el      = document.getElementById('bm-invoice-preview');
-        const actions = document.getElementById('bm-invoice-actions');
+        const originalEl = document.getElementById('bm-invoice-preview');
+        if (!originalEl) return null;
+
+        // Create an off-screen container to ensure html2canvas can render it
+        // even if the modal is hidden (display: none).
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:860px;background:white;z-index:-1;';
+        
+        // Clone the preview element deeply
+        const clone = originalEl.cloneNode(true);
+        // Temporarily hide actions for PDF in the clone
+        const actions = clone.querySelector('#bm-invoice-actions');
         if (actions) actions.style.display = 'none';
 
-        const { jsPDF } = window.jspdf;
-        const canvas    = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-        const imgData   = canvas.toDataURL('image/jpeg', 0.9);
+        container.appendChild(clone);
+        document.body.appendChild(container);
 
-        const pdf      = new jsPDF('p', 'mm', 'a4');
-        const pw       = pdf.internal.pageSize.getWidth();
-        const imgW     = pw;
-        const imgH     = (canvas.height * pw) / canvas.width;
+        try {
+            const { jsPDF } = window.jspdf;
+            const canvas    = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData   = canvas.toDataURL('image/jpeg', 0.9);
 
-        // Multi-page support
-        const ph       = pdf.internal.pageSize.getHeight();
-        const margin   = 5;
-        const usable   = ph - margin * 2;
+            const pdf      = new jsPDF('p', 'mm', 'a4');
+            const pw       = pdf.internal.pageSize.getWidth();
+            const imgW     = pw;
+            const imgH     = (canvas.height * pw) / canvas.width;
 
-        if (imgH <= usable) {
-            pdf.addImage(imgData, 'JPEG', 0, margin, imgW, imgH);
-        } else {
-            const pages = Math.ceil(imgH / usable);
-            for (let pg = 0; pg < pages; pg++) {
-                if (pg > 0) pdf.addPage();
-                const yOffset = -(pg * usable) + margin;
-                pdf.addImage(imgData, 'JPEG', 0, yOffset, imgW, imgH);
-                pdf.setFillColor(255, 255, 255);
-                if (pg > 0) pdf.rect(0, 0, pw, margin, 'F');
-                const over = yOffset + imgH - ph + margin;
-                if (over > 0) pdf.rect(0, ph - margin, pw, margin + 1, 'F');
+            // Multi-page support
+            const ph       = pdf.internal.pageSize.getHeight();
+            const margin   = 5;
+            const usable   = ph - margin * 2;
+
+            if (imgH <= usable) {
+                pdf.addImage(imgData, 'JPEG', 0, margin, imgW, imgH);
+            } else {
+                const pages = Math.ceil(imgH / usable);
+                for (let pg = 0; pg < pages; pg++) {
+                    if (pg > 0) pdf.addPage();
+                    const yOffset = -(pg * usable) + margin;
+                    pdf.addImage(imgData, 'JPEG', 0, yOffset, imgW, imgH);
+                    pdf.setFillColor(255, 255, 255);
+                    if (pg > 0) pdf.rect(0, 0, pw, margin, 'F');
+                    const over = yOffset + imgH - ph + margin;
+                    if (over > 0) pdf.rect(0, ph - margin, pw, margin + 1, 'F');
+                }
             }
-        }
 
-        if (actions) actions.style.display = 'flex';
-        return pdf.output('blob');
+            return pdf.output('blob');
+        } finally {
+            document.body.removeChild(container);
+        }
     }
 
     // Make it globally accessible for email-service
