@@ -436,7 +436,8 @@
                 }
 
                 const balance = s.cash_balance || 0;
-                const balanceColor = balance < 0 ? '#ef4444' : '#10b981';
+                const displayBalance = Math.max(0, balance);
+                const balanceColor = displayBalance === 0 ? '#64748b' : '#10b981';
 
                 const dSalary = s.driver_salary || 0;
                 const absSalary = Math.abs(dSalary);
@@ -463,8 +464,16 @@
                     <td style="font-weight: 800; color: #ef4444; font-size: 1.1rem; text-align: center !important;">
                         $${absSalary.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
                     </td>
-                    <td style="font-weight: 800; color: #10b981; font-size: 1.1rem; text-align: center !important;">
-                        $${cashAdvance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
+                    <td style="font-weight: 800; color: ${balanceColor}; font-size: 1.1rem; text-align: center !important;">
+                        <span style="display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <span>$${displayBalance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</span>
+                            ${window.currentUserRole === 'admin' ? `
+                            <button onclick="event.stopPropagation(); window.editSettlementCashBalance('${s.id}', ${displayBalance})"
+                                style="background:#e0f2fe; border:none; color:#0284c7; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:0.7rem; font-weight:700;">
+                                <i class='fas fa-pen'></i>
+                            </button>
+                            ` : ''}
+                        </span>
                     </td>
                     ${window.currentUserRole !== 'driver' ? `
                     <td style="text-align: center;">
@@ -477,6 +486,41 @@
                 body.appendChild(tr);
             });
         }
+
+        window.editSettlementCashBalance = async function(id, currentVal) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role !== 'admin') return;
+
+            const newValStr = prompt(
+                `Edit Cash Balance for this settlement:\n(Current: $${parseFloat(currentVal).toFixed(2)})\n\nEnter new amount (e.g., 0 to clear balance):`,
+                parseFloat(currentVal).toFixed(2)
+            );
+            if (newValStr === null) return; // cancelled
+
+            const newVal = parseFloat(newValStr);
+            if (isNaN(newVal)) {
+                alert('Please enter a valid number.');
+                return;
+            }
+
+            try {
+                const { error } = await db.from('settlement_history').update({ cash_balance: newVal }).eq('id', id);
+                if (error) throw error;
+
+                // Update in-memory data
+                const st = window.currentSettlements.find(s => String(s.id) === String(id));
+                if (st) st.cash_balance = newVal;
+
+                // Re-render table
+                renderSettlementHistory();
+                
+                // If a driver is selected, sync to update the Last Week Balance field
+                if (window.syncDriverNames) window.syncDriverNames();
+            } catch (err) {
+                console.error('Error updating cash balance:', err);
+                alert('Failed to update: ' + err.message);
+            }
+        };
 
         window.loadSettlementToCalculator = function(id) {
             const settlement = window.currentSettlements.find(s => s.id === id);
