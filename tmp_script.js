@@ -17,7 +17,7 @@
                         console.log(`Realtime update on ${table}:`, payload.eventType);
                         
                         // Intelligent refresh:
-                        if (table === 'trips') await loadTableData();
+                        if (table === 'trips') await loadTableData(true);
                         if (table === 'releases') await loadReleasesData();
                         if (table === 'expenses') await loadExpensesData();
                         if (table === 'fleet') await loadFleetData();
@@ -468,25 +468,23 @@
                 toDate: document.getElementById('f-to-date')?.value || ''
             };
 
-            const rows = document.querySelectorAll('#table-body tr');
-            rows.forEach((tr, rIdx) => {
-                const cells = tr.cells;
-                if (cells.length < 20) return; 
+            const trs = document.querySelectorAll('#table-body tr');
+            trs.forEach((tr, idx) => {
+                const row = currentTrips[idx];
+                if (!row) return;
 
-                // UPDATED INDICES FOR New 27-Column Structure (Display Grid)
-                const valID = (cells[0].textContent || '').toLowerCase();
-                const valDate = (cells[1].textContent || '');
-                const valSize = (cells[2].textContent || '').toLowerCase();
-                const valNcont = (cells[3].textContent || '').toLowerCase();
-                const valRelease = (cells[4].textContent || '').toLowerCase();
-                const valOrder = (cells[5].textContent || '').toLowerCase();
-                const valCity = (cells[6].textContent || '').toLowerCase();
-                const valDriver = (cells[17].textContent || '').toLowerCase(); // Shifted: 16 -> 17
-                const valPhone = (cells[23].textContent || '').toLowerCase(); // Shifted: 22 -> 23
+                const valDate = (row[1] || '');
+                const valSize = (row[2] || '').toString().toLowerCase();
+                const valNcont = (row[3] || '').toString().toLowerCase();
+                const valRelease = (row[4] || '').toString().toLowerCase();
+                const valOrder = (row[5] || '').toString().toLowerCase();
+                const valCity = (row[6] || '').toString().toLowerCase();
+                const valDriver = (row[17] || '').toString().toLowerCase();
+                const valPhone = (row[23] || '').toString().toLowerCase();
                 
-                const matchCity = !filters.city || valCity === filters.city.toLowerCase();
+                const matchCity = !filters.city || valCity === filters.city;
                 const matchSize = !filters.size || valSize.includes(filters.size);
-                const matchDriver = !filters.driver || valDriver === filters.driver.toLowerCase();
+                const matchDriver = !filters.driver || valDriver === filters.driver;
                 
                 const matchNcont = !filters.ncont || valNcont.includes(filters.ncont);
                 const matchOrder = !filters.order || valOrder.includes(filters.order);
@@ -910,17 +908,20 @@
         }
 
         let isLoadingTable = false;
-        async function loadTableData() {
+        async function loadTableData(forceFetch = false) {
             if (isLoadingTable) return;
             isLoadingTable = true;
 
             const logisticsBody = document.getElementById('table-body');
             if (!logisticsBody) { isLoadingTable = false; return; }
 
-            // Fetch from Supabase FIRST
+            // Fetch from Supabase ONLY if forced or empty cache
             try {
-                const data = await getTrips();
-                console.log("Calendar View DEBUG: Records from Supabase ->", data ? data.length : 0);
+                if (forceFetch || currentTrips.length === 0) {
+                    const data = await getTrips();
+                    console.log("Calendar View DEBUG: Records from Supabase ->", data ? data.length : 0);
+                    currentTrips = data.map(mapTripToArray);
+                }
                 
                 // Clear ONLY when data is ready
                 logisticsBody.innerHTML = '';
@@ -928,10 +929,10 @@
                 // Populating dynamic filters
                 populateFilterPickers();
 
-                currentTrips = data.map(mapTripToArray);
-
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded (Initial Load) ---
                 if (window.renderDriverLog) window.renderDriverLog();
+
+                const fragment = document.createDocumentFragment();
 
                 currentTrips.forEach((rowData, idx) => {
                     try {
@@ -1069,11 +1070,14 @@
                             tr.style.backgroundColor = '#fff7ed';
                             tr.style.border = '2px solid #f97316';
                         }
-                        logisticsBody.appendChild(tr);
+                        fragment.appendChild(tr);
                     } catch (rowErr) {
                         console.error("Rendering error for row", idx, rowErr);
                     }
                 });
+            
+            logisticsBody.appendChild(fragment);
+            
             // Apply existing filters if any (for real-time persistence)
             applyAdvancedFilters();
             } catch (err) {

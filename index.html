@@ -5245,26 +5245,28 @@
                         })();
                     } else if (finalView === 'calendar') {
                         // PERSIST FILTERS: filter inputs are not cleared on entry.
-                        // loadTableData dynamically fetches from Supabase based on date filters.
                         if (window.loadTableData) window.loadTableData();
-                        
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
                         if (window.loadReleasesData) window.loadReleasesData();
 
-                        // --- EMERGENCY UI AUDIT PATCH ---
-                        setInterval(() => {
-                            const relSel = document.getElementById('in-release-sel');
-                            if (relSel && typeof currentReleases !== 'undefined') {
-                                for (let i = relSel.options.length - 1; i >= 0; i--) {
-                                    const opt = relSel.options[i];
-                                    if (!opt.value || opt.value === "" || opt.disabled) continue;
-                                    const master = currentReleases.find(r => r[0] === opt.value);
-                                    if (master && (Number(master[14]) || 0) <= 0) {
-                                        relSel.remove(i);
+                        // --- RELEASE STOCK AUDIT (one-time, not recurring) ---
+                        // Only register the interval once per page load using a guard flag.
+                        if (!window._releaseAuditActive) {
+                            window._releaseAuditActive = true;
+                            window._releaseAuditInterval = setInterval(() => {
+                                const relSel = document.getElementById('in-release-sel');
+                                if (relSel && typeof currentReleases !== 'undefined') {
+                                    for (let i = relSel.options.length - 1; i >= 0; i--) {
+                                        const opt = relSel.options[i];
+                                        if (!opt.value || opt.value === "" || opt.disabled) continue;
+                                        const master = currentReleases.find(r => r[0] === opt.value);
+                                        if (master && (Number(master[14]) || 0) <= 0) {
+                                            relSel.remove(i);
+                                        }
                                     }
                                 }
-                            }
-                        }, 1000);
+                            }, 3000); // Reduced frequency: runs every 3s instead of 1s
+                        }
                     } else if (finalView === 'releases') {
                         if (window.loadReleasesData) window.loadReleasesData();
                     } else if (finalView === 'fleet') {
@@ -5275,27 +5277,25 @@
                         if (window.loadCustomersData) window.loadCustomersData();
                         if (window.loadRentalsData) window.loadRentalsData();
 
-                        // --- EMERGENCY SYNC FOR RENTALS ---
+                        // --- SAFE SYNC FOR RENTALS (self-terminating, max 20 attempts = 10s) ---
+                        let _rentalSyncAttempts = 0;
                         const syncInterval = setInterval(() => {
+                            _rentalSyncAttempts++;
                             const selCust = document.getElementById('rental-customer-sel');
                             const selRel = document.getElementById('rental-release-sel');
                             
-                            // Sync Customers
                             if (selCust && window.currentCustomers && window.currentCustomers.length > 0) {
                                 if (selCust.options.length <= 1 && window.populateRentalCustomerSelect) {
                                     window.populateRentalCustomerSelect();
                                 }
                             }
-                            
-                            // Sync Releases
                             if (selRel && window.currentReleases && window.currentReleases.length > 0) {
                                 if (selRel.options.length <= 1 && window.populateRentalReleaseSelect) {
                                     window.populateRentalReleaseSelect();
                                 }
                             }
-
-                            // If both are populated, stop interval
-                            if (selCust && selRel && selCust.options.length > 1 && selRel.options.length > 1) {
+                            // Stop when both are populated OR after max attempts
+                            if (_rentalSyncAttempts >= 20 || (selCust && selRel && selCust.options.length > 1 && selRel.options.length > 1)) {
                                 clearInterval(syncInterval);
                             }
                         }, 500);
@@ -5341,16 +5341,19 @@
                         if (window.loadTasksData) window.loadTasksData();
                     }
 
-                    // Always ensure data managers are loaded
-                    if (window.loadDriversData) window.loadDriversData();
-                    if (window.loadCustomersData) window.loadCustomersData();
-                    if (window.loadPickupAddressesData) window.loadPickupAddressesData();
-                    if (window.loadDepotsData) window.loadDepotsData();
-                    if (window.loadSellersData) window.loadSellersData();
-            if (window.loadStaffProfiles) window.loadStaffProfiles();
-                    if (window.loadCompaniesData) window.loadCompaniesData();
-                    if (window.loadContainerSizesData) window.loadContainerSizesData();
-                    if (window.loadExpenseCategoriesData) window.loadExpenseCategoriesData();
+                    // Load data managers ONCE per session (not on every tab change)
+                    if (!window._dataMgrLoaded) {
+                        window._dataMgrLoaded = true;
+                        if (window.loadDriversData) window.loadDriversData();
+                        if (window.loadCustomersData) window.loadCustomersData();
+                        if (window.loadPickupAddressesData) window.loadPickupAddressesData();
+                        if (window.loadDepotsData) window.loadDepotsData();
+                        if (window.loadSellersData) window.loadSellersData();
+                        if (window.loadStaffProfiles) window.loadStaffProfiles();
+                        if (window.loadCompaniesData) window.loadCompaniesData();
+                        if (window.loadContainerSizesData) window.loadContainerSizesData();
+                        if (window.loadExpenseCategoriesData) window.loadExpenseCategoriesData();
+                    }
                 }, 50);
             } else {
                 console.warn("View not found:", targetId);
