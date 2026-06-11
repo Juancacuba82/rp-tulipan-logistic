@@ -226,7 +226,7 @@
             
             let filteredDrivers = currentDrivers;
             if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
-                filteredDrivers = currentDrivers.filter(d => exclusiveDrivers.includes(d.name.toUpperCase()));
+                filteredDrivers = currentDrivers.filter(d => exclusiveDrivers.includes(d.name.toUpperCase()) || d.name.toUpperCase() === "ROLY PEREZ");
             } else if (company === 'CONTRACTOR') {
                 filteredDrivers = currentDrivers.filter(d => !exclusiveDrivers.includes(d.name.toUpperCase()));
             }
