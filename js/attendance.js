@@ -677,8 +677,7 @@ window.loadAttendanceData = async function(force = false) {
         // --- NEW: PAYROLL CALCULATION ---
         const HOURLY_RATES = {
             'garridoyariselis@gmail.com': 25.00,
-            'rptulipantransport@gmail.com': 17.50,
-            'anthonyps06@icloud.com': 14.00
+            'rptulipantransport@gmail.com': 17.50
         };
 
         const payrollSummary = {}; // employeeName -> { hours, pay, email }

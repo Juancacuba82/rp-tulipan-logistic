@@ -8,21 +8,6 @@ let callsRealtimeChannel = null;
 
 // OPT: Cache profiles locally to avoid 3 separate queries during load/transfer
 let cachedProfilesEmails = null;
-const ANTHONY_EMAIL = 'anthonyps06@icloud.com';
-
-async function autoAssignWebsiteLeads() {
-    try {
-        // Find leads from website that are not assigned to Anthony
-        const { error } = await db.from('call_logs')
-            .update({ created_by: ANTHONY_EMAIL })
-            .eq('source', 'website')
-            .or(`created_by.is.null,created_by.neq.${ANTHONY_EMAIL}`);
-        
-        if (error) console.warn("Auto-assignment of website leads failed:", error);
-    } catch (err) {
-        console.error("Critical error in auto-assignment:", err);
-    }
-}
 async function getProfilesEmails() {
     if (cachedProfilesEmails) return cachedProfilesEmails;
     const { data, error } = await db.from('profiles')
@@ -53,11 +38,7 @@ async function loadCallsData(force = false) {
         if (error) throw error;
         currentCalls = data || [];
 
-        // Auto-assign website leads if admin or Anthony is viewing
-        const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
-        if (isAdmin || window.userEmail === ANTHONY_EMAIL) {
-            await autoAssignWebsiteLeads();
-        }
+
 
         subscribeToCallsRealtime();
         renderCallsTable();
