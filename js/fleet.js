@@ -117,23 +117,24 @@
                     task: "Oil Service (Quick Reset)",
                     mileage: unit.miles
                 }]);
-                await loadFleetData();
+                await loadFleetData(true);
             } catch (err) { alert("Failed to reset oil."); }
         };
 
         window.resetGeneralFromCard = async function(id) {
             const unit = currentFleet.find(u => u.id === id);
             if (!unit) return;
-            if (!confirm(`Confirm GENERAL MAINTENANCE (24k) completed for Unit #${unit.num}?`)) return;
+            const targetGen = unit.genInterval || 24000;
+            if (!confirm(`Confirm GENERAL MAINTENANCE (${(targetGen/1000).toFixed(0)}k) completed for Unit #${unit.num}?`)) return;
             try {
                 const dbUnit = mapUIToFleet({ ...unit, lastGeneralMiles: unit.miles, lastMiles: unit.miles });
                 await saveFleet(dbUnit);
                 await db.from('fleet_maintenance_log').insert([{
                     unit_id: id,
-                    task: "General Maintenance Reset (24k)",
+                    task: `General Maintenance Reset (${(targetGen/1000).toFixed(0)}k)`,
                     mileage: unit.miles
                 }]);
-                await loadFleetData();
+                await loadFleetData(true);
                 alert(`General maintenance recorded! Counter reset for Unit #${unit.num}.`);
             } catch (err) { alert("Failed to reset general maintenance."); }
         };
@@ -163,7 +164,7 @@
             try {
                 const dbUnit = mapUIToFleet({ ...unit, note: null });
                 await saveFleet(dbUnit);
-                await loadFleetData();
+                await loadFleetData(true);
                 closeFleetNoteModal();
             } catch (err) { alert("Action failed."); }
         };
@@ -201,6 +202,8 @@
                     lastMiles: lastMilesVal,
                     lastGeneralMiles: lastGeneralMilesVal,
                     lastInspection: document.getElementById('f-inspection-date').value || '',
+                    oilInterval: document.getElementById('f-oil-interval')?.value || 8000,
+                    genInterval: document.getElementById('f-general-interval')?.value || 24000,
                     status: 'Available'
                 };
 
@@ -274,16 +277,18 @@
             filtered.forEach(u => {
                 const currentMiles = parseInt(u.miles) || 0;
                 
-                // OIL (8k)
+                // OIL
+                const targetOil = u.oilInterval || 8000;
                 const lastOilMiles = parseInt(u.lastMiles) || 0;
                 const oilDiff = Math.max(0, currentMiles - lastOilMiles);
-                const oilPercent = Math.min(100, (oilDiff / 8000) * 100);
+                const oilPercent = Math.min(100, (oilDiff / targetOil) * 100);
                 let oilColor = oilPercent >= 100 ? '#ef4444' : oilPercent >= 90 ? '#f59e0b' : '#10b981';
 
-                // GENERAL (24k)
+                // GENERAL
+                const targetGen = u.genInterval || 24000;
                 const lastGenMiles = parseInt(u.lastGeneralMiles) || 0;
                 const genDiff = Math.max(0, currentMiles - lastGenMiles);
-                const genPercent = Math.min(100, (genDiff / 24000) * 100);
+                const genPercent = Math.min(100, (genDiff / targetGen) * 100);
                 let genColor = genPercent >= 100 ? '#5b21b6' : genPercent >= 85 ? '#a78bfa' : '#7c3aed';
 
                 // INSPECTION (1 Year)
@@ -327,14 +332,14 @@
                         <!-- Oil -->
                         <div>
                             <div style="display: flex; justify-content: space-between; font-size: 0.55rem; font-weight: 800; margin-bottom: 2px;">
-                                <span>OIL SERVICE</span><span>${oilDiff.toLocaleString()} / 8k mi</span>
+                                <span>OIL SERVICE</span><span>${oilDiff.toLocaleString()} / ${(targetOil/1000).toFixed(0)}k mi</span>
                             </div>
                             <div style="height: 5px; background: #e2e8f0; border-radius: 10px; overflow: hidden;"><div style="width: ${oilPercent}%; height: 100%; background: ${oilColor};"></div></div>
                         </div>
                         <!-- General -->
                         <div>
                             <div style="display: flex; justify-content: space-between; font-size: 0.55rem; font-weight: 800; margin-bottom: 2px;">
-                                <span style="color: #6d28d9;">GENERAL MAINT (24k)</span><span>${genDiff.toLocaleString()} / 24k mi</span>
+                                <span style="color: #6d28d9;">GENERAL MAINT (${(targetGen/1000).toFixed(0)}k)</span><span>${genDiff.toLocaleString()} / ${(targetGen/1000).toFixed(0)}k mi</span>
                             </div>
                             <div style="height: 5px; background: #e2e8f0; border-radius: 10px; overflow: hidden;"><div style="width: ${genPercent}%; height: 100%; background: ${genColor};"></div></div>
                         </div>
@@ -378,6 +383,8 @@
             safeSetVal('f-last-miles', unit.lastMiles);
             safeSetVal('f-general-miles', unit.lastGeneralMiles);
             safeSetVal('f-inspection-date', unit.lastInspection);
+            safeSetVal('f-oil-interval', unit.oilInterval || 8000);
+            safeSetVal('f-general-interval', unit.genInterval || 24000);
             
             const chk = document.getElementById('f-reset-general');
             if (chk) chk.checked = false;
@@ -388,7 +395,14 @@
 
         window.deleteFleetUnit = async function (id) {
             if (!confirm('Permanently delete this truck?')) return;
-            try { await window.supabaseDeleteFleetUnit(id); await loadFleetData(); } catch (err) {}
+            try { await window.supabaseDeleteFleetUnit(id); await loadFleetData(true); } catch (err) {}
+        };
+
+        window.deleteCurrentUnitFromForm = async function() {
+            const id = document.getElementById('f-id').value;
+            if (!id) return;
+            await window.deleteFleetUnit(id);
+            resetFleetForm();
         };
 
         function resetFleetForm() {
@@ -399,6 +413,12 @@
             });
             const chk = document.getElementById('f-reset-general');
             if (chk) chk.checked = false;
+
+            const oilEl = document.getElementById('f-oil-interval');
+            if (oilEl) oilEl.value = '8000';
+            
+            const genEl = document.getElementById('f-general-interval');
+            if (genEl) genEl.value = '24000';
 
             document.getElementById('fleet-form-title').textContent = 'Fleet Management';
             document.getElementById('fleet-delete-btn').style.display = 'none';
@@ -464,7 +484,7 @@
                     }]);
                 }
 
-                await loadFleetData();
+                await loadFleetData(true);
                 newMilesInput.value = '';
                 document.getElementById('quick-driver-name').value = '';
                 document.getElementById('quick-note').value = '';

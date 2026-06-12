@@ -2326,13 +2326,24 @@
                             <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
                                 <input type="number" id="f-last-miles" placeholder="0" style="font-weight: 900; color: #1e293b; font-size: 1.1rem; flex: 1; height: 40px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 12px;">
                                 <label style="display: flex; align-items: center; gap: 6px; font-size: 0.6rem; font-weight: 800; color: #6d28d9; cursor: pointer; background: #f5f3ff; padding: 6px 10px; border-radius: 6px; border: 1px solid #ddd6fe; white-space: nowrap; height: 40px;">
-                                    <input type="checkbox" id="f-reset-general" style="width: 16px; height: 16px; cursor: pointer; accent-color: #6d28d9;"> RESET GENERAL (24k)
+                                    <input type="checkbox" id="f-reset-general" style="width: 16px; height: 16px; cursor: pointer; accent-color: #6d28d9;"> RESET GENERAL
                                 </label>
                             </div>
                         </div>
-                        <div class="form-group" style="background: #fffbeb; padding: 10px; border-radius: 8px; border-left: 4px solid #d97706;">
+                        <div class="form-group" style="background: #fffbeb; padding: 10px; border-radius: 8px; border-left: 4px solid #d97706; margin-bottom: 12px;">
                             <label style="color: #92400e; font-weight: 800;">LAST TECHNICAL INSPECTION</label>
                             <input type="date" id="f-inspection-date" style="font-weight: bold; color: #92400e;">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                            <div class="form-group" style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <label style="color: #475569; font-weight: 800; font-size: 0.65rem;">OIL INTERVAL (MILES)</label>
+                                <input type="number" id="f-oil-interval" placeholder="8000" style="font-size: 0.9rem; font-weight: bold; color: #1e293b;">
+                            </div>
+                            <div class="form-group" style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <label style="color: #475569; font-weight: 800; font-size: 0.65rem;">GEN. INTERVAL (MILES)</label>
+                                <input type="number" id="f-general-interval" placeholder="24000" style="font-size: 0.9rem; font-weight: bold; color: #1e293b;">
+                            </div>
                         </div>
                         
                         <!-- HIDDEN DATA FOR LOGIC -->

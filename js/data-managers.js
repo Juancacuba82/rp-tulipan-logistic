@@ -1427,7 +1427,9 @@
                 lastUpdate: f.last_update_date || f.updated_at,
                 note: f.note,
                 lastInspection: f.last_inspection_date || '',
-                lastGeneralMiles: f.last_general_maintenance_miles || 0
+                lastGeneralMiles: f.last_general_maintenance_miles || 0,
+                oilInterval: f.oil_interval || 8000,
+                genInterval: f.general_interval || 24000
             };
         }
 
@@ -1449,7 +1451,9 @@
                 last_update_date: u.lastUpdate || new Date().toISOString(),
                 note: u.note || null,
                 last_inspection_date: u.lastInspection === '' ? null : u.lastInspection,
-                last_general_maintenance_miles: parseInt(u.lastGeneralMiles) || 0
+                last_general_maintenance_miles: parseInt(u.lastGeneralMiles) || 0,
+                oil_interval: parseInt(u.oilInterval) || 8000,
+                general_interval: parseInt(u.genInterval) || 24000
             };
         }
 
