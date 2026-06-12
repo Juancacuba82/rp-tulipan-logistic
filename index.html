@@ -20,26 +20,28 @@
     <link rel="stylesheet" href="./style.css">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=10"></script>
     <script src="./js/data-mapping.js?v=10"></script>
-    <script src="./js/data-managers.js?v=1700"></script>
-    <script src="./js/delivery-calendar.js?v=1702"></script>
-    <script src="./js/driver-settlements.js?v=1700"></script>
-    <script src="./js/releases.js?v=1700"></script>
-    <script src="./js/profit-expenses.js?v=1700"></script>
+    <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
+    <script src="./js/data-managers.js?v=1700" defer></script>
+    <script src="./js/delivery-calendar.js?v=1702" defer></script>
+    <script src="./js/driver-settlements.js?v=1700" defer></script>
+    <script src="./js/releases.js?v=1700" defer></script>
+    <script src="./js/profit-expenses.js?v=1700" defer></script>
     
-    <script src="./js/docs-receipts.js?v=1700"></script>
-    <script src="./js/email-service.js?v=10"></script>
-    <script src="./js/fleet.js?v=1700"></script>
-    <script src="./js/tasks.js?v=10"></script>
-    <script src="./js/billing-manager.js?v=101"></script>
-    <script src="./js/invoice-automation.js?v=1"></script>
-    <script src="./js/attendance.js?v=1"></script>
+    <script src="./js/docs-receipts.js?v=1700" defer></script>
+    <script src="./js/email-service.js?v=10" defer></script>
+    <script src="./js/fleet.js?v=1700" defer></script>
+    <script src="./js/tasks.js?v=10" defer></script>
+    <script src="./js/billing-manager.js?v=101" defer></script>
+    <script src="./js/invoice-automation.js?v=1" defer></script>
+    <script src="./js/attendance.js?v=1" defer></script>
 
     <!-- PDF & Email Service Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js" defer></script>
     <style>
         /* Force Sidebar Badge Layout (Bypassing CSS Cache) */
         .input-paid-wrap input[type="number"] {
@@ -5249,13 +5251,14 @@
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
                         if (window.loadReleasesData) window.loadReleasesData();
 
-                        // --- RELEASE STOCK AUDIT (one-time, not recurring) ---
-                        // Only register the interval once per page load using a guard flag.
+                        // --- RELEASE STOCK AUDIT (one-time, runs once on idle after data loads) ---
+                        // PERF FIX: Replaced recurring setInterval (every 3s) with a single
+                        // one-shot check using requestIdleCallback so it never blocks user interaction.
                         if (!window._releaseAuditActive) {
                             window._releaseAuditActive = true;
-                            window._releaseAuditInterval = setInterval(() => {
+                            const runAudit = () => {
                                 const relSel = document.getElementById('in-release-sel');
-                                if (relSel && typeof currentReleases !== 'undefined') {
+                                if (relSel && typeof currentReleases !== 'undefined' && currentReleases.length > 0) {
                                     for (let i = relSel.options.length - 1; i >= 0; i--) {
                                         const opt = relSel.options[i];
                                         if (!opt.value || opt.value === "" || opt.disabled) continue;
@@ -5265,7 +5268,13 @@
                                         }
                                     }
                                 }
-                            }, 3000); // Reduced frequency: runs every 3s instead of 1s
+                            };
+                            // Run once after data is likely loaded, on browser idle time
+                            if (typeof requestIdleCallback !== 'undefined') {
+                                requestIdleCallback(runAudit, { timeout: 5000 });
+                            } else {
+                                setTimeout(runAudit, 3000);
+                            }
                         }
                     } else if (finalView === 'releases') {
                         if (window.loadReleasesData) window.loadReleasesData();

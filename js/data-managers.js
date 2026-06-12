@@ -35,7 +35,6 @@
                 }]);
 
                 if (error) throw error;
-                console.log(`Activity logged (v900): ${actionType} for ${driverName}`);
 
                 // Notify any open views to refresh their read-receipt icons
                 window.dispatchEvent(new CustomEvent('activityLogged', {

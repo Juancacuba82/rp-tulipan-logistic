@@ -65,7 +65,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (fieldName === 'st_amount') updateData.paid = (value === 'PAID');
 
             try {
-                console.log(`Syncing ${fieldName} -> ${value} for ${tripId}`);
                 await updateTrip(tripId, updateData);
                 
                 // Update local state instead of full reload
@@ -93,7 +92,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 }
                 
-                console.log("Local state updated, skipping full database reload for efficiency.");
+                // (local state already updated above)
             } catch (err) {
                 console.error("Immediate sync failed:", err);
                 alert("DATABASE ERROR: " + (err.message || "Failed to sync field " + fieldName));
@@ -773,6 +772,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const relType = document.getElementById('in-rel-type');
             const relCond = document.getElementById('in-rel-condition');
 
+            // PERF FIX: Guard against duplicate listener registration.
+            // setupReleaseValidation() is called both at init AND inside loadTableData().
+            // Without this guard, every table reload stacks new event listeners on these inputs,
+            // causing 5x, 10x, etc. validation callbacks on each change.
+            if (relSel && relSel.dataset.validationBound === 'true') return;
+            if (relSel) relSel.dataset.validationBound = 'true';
+
             const validateStockUI = () => {
                 const selectedRel = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
                 const selectedSize = inSizeSelect ? inSizeSelect.value : '';
@@ -1378,6 +1384,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // --- TOP SCROLLBAR SYNC ---
                 setTimeout(syncTopScroll, 100); 
 
+                // PERF FIX: Use DocumentFragment to batch all DOM insertions into a single reflow
+                // instead of one reflow per row (200 rows = 1 reflow vs 200 reflows).
+                const tableFragment = document.createDocumentFragment();
+                // Pre-compute current time once outside the loop (avoids 200+ Date object allocations)
+                const now = new Date();
+
                 renderedTrips.forEach((rowData, idx) => {
                     try {
                         const tr = document.createElement('tr');
@@ -1548,10 +1560,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     
                                     const APP_DRIVERS = DRIVER_GROUPS.flat();
                                     
-                                    // DIAGNOSTIC (Only show for the first 5 rows)
-                                    if (window.currentUserRole === 'admin' && !window.didDebugNames && text !== '---') {
-                                        console.log("DEBUG CALENDARIO - Original: '" + text + "' Cleaned: '" + driverNameClean + "'");
-                                    }
 
                                     const isRegistered = APP_DRIVERS.includes(driverNameClean);
 
@@ -1754,14 +1762,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 if (window.resetForm) window.resetForm();
                             }
 
-                            // Dynamic Highlighting Refresh
-                            document.querySelectorAll('#table-body tr').forEach((row, rIdx) => {
-                                const rData = renderedTrips[rIdx];
-                                row.classList.remove('editing-row', 'selected-row');
-                                const globalIdx = window.currentTrips.findIndex(t => t[0] === rData?.[0]);
-                                if (editingIndex === globalIdx && globalIdx !== -1) row.classList.add('editing-row');
-                                else if (window.selectedTripIds.includes(rData?.[0])) row.classList.add('selected-row');
-                            });
+                            // PERF FIX: O(1) highlight update instead of O(n²) querySelectorAll+findIndex.
+                            // Only remove highlight from the previously highlighted row, not scan all rows.
+                            if (window._lastEditingTr && window._lastEditingTr !== tr) {
+                                window._lastEditingTr.classList.remove('editing-row', 'selected-row');
+                            }
+                            tr.classList.remove('editing-row', 'selected-row');
+                            if (editingIndex !== null) {
+                                tr.classList.add('editing-row');
+                                window._lastEditingTr = tr;
+                            } else if (window.selectedTripIds.length > 0) {
+                                tr.classList.add('selected-row');
+                                window._lastEditingTr = tr;
+                            } else {
+                                window._lastEditingTr = null;
+                            }
                         };
                         
                         // Check if this row is the editing row
@@ -1771,15 +1786,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
 
                         // OVERDUE RENT HIGHLIGHTING
-                        if (mode === 'RENT' && nextDueVal !== '---' && new Date(nextDueVal + 'T00:00:00') < new Date()) {
+                        if (mode === 'RENT' && nextDueVal !== '---' && new Date(nextDueVal + 'T00:00:00') < now) {
                             tr.style.backgroundColor = '#fff7ed';
                             tr.style.border = '2px solid #f97316';
                         }
-                        logisticsBody.appendChild(tr);
+                        tableFragment.appendChild(tr);
                     } catch (rowErr) {
                         console.error("Rendering error for row", idx, rowErr);
                     }
                 });
+                // Single DOM insertion: one reflow instead of one per row
+                logisticsBody.appendChild(tableFragment);
                 // Apply existing filters if any (for real-time persistence)
                 applyAdvancedFilters();
                 if (window.loadDocTrips) window.loadDocTrips();
@@ -2096,7 +2113,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
         // --- Mechanism 1: Same-tab custom event ---
         window.addEventListener('activityLogged', (e) => {
-            console.log('activityLogged event (same-tab):', e.detail);
             if (window.syncTimer) clearTimeout(window.syncTimer);
             window.syncTimer = setTimeout(() => refreshReadReceiptIcons(), 400);
         });
@@ -2113,7 +2129,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 .on('postgres_changes',
                     { event: 'INSERT', schema: 'public', table: 'activity_logs' },
                     (payload) => {
-                        console.log('Realtime INSERT on activity_logs!', payload.new);
                         // TARGETED UPDATE: Instead of fetching 500 rows, we just update the specific row UI
                         if (typeof updateIconFromLog === 'function') {
                             updateIconFromLog(payload.new);
@@ -2124,7 +2139,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 )
                 .subscribe((status) => {
-                    console.log('Supabase Realtime channel status:', status);
                     if (status === 'SUBSCRIBED') {
                         console.log('Realtime ACTIVE: will detect driver views instantly.');
                     }
@@ -2164,7 +2178,12 @@ function syncTopScroll() {
     }
 }
 
-window.addEventListener('resize', syncTopScroll);
+// PERF FIX: Debounce resize event so syncTopScroll only fires once after resize ends
+let _syncScrollResizeTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(_syncScrollResizeTimer);
+    _syncScrollResizeTimer = setTimeout(syncTopScroll, 150);
+});
 // Initial setup
 setTimeout(syncTopScroll, 1000);
 
