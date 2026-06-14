@@ -799,26 +799,35 @@ function buildCallButton(c) {
         }
     }
 
-    // ── Check if called today ──
+    // ── Check last called at ──
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
     if (c.last_called_at) {
         const lastDate = new Date(c.last_called_at);
-        if (lastDate >= todayStart) {
-            const timeStr = lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            const byName = (c.calling_by || '').split(' ')[0];
-            const badge = byName ? `🕒 ${timeStr} · ${byName}` : `🕒 ${timeStr}`;
-            return `<div class="clk-last-badge">${badge}</div>
-                <button class="clk-btn clk-today"
-                    onclick="event.stopPropagation(); startCallLock('${c.id}')"
-                    title="Ya llamado hoy a las ${timeStr}${byName ? ' por ' + byName : ''}. Clic para volver a llamar.">
-                    📞 LLAMAR
-                </button>`;
+        const isToday = lastDate >= todayStart;
+        
+        let dateStr = '';
+        if (isToday) {
+            dateStr = lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        } else {
+            dateStr = lastDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         }
+
+        const byName = (c.calling_by || '').split(' ')[0];
+        const badge = byName ? `🕒 ${dateStr} · ${byName}` : `🕒 ${dateStr}`;
+        const btnClass = isToday ? 'clk-today' : 'clk-available';
+        const titlePrefix = isToday ? 'Ya llamado hoy a las' : 'Última llamada el';
+
+        return `<div class="clk-last-badge">${badge}</div>
+            <button class="clk-btn ${btnClass}"
+                onclick="event.stopPropagation(); startCallLock('${c.id}')"
+                title="${titlePrefix} ${dateStr}${byName ? ' por ' + byName : ''}. Clic para volver a llamar.">
+                📞 LLAMAR
+            </button>`;
     }
 
-    // ── Not called today — fully available ──
+    // ── Never called — fully available ──
     return `<button class="clk-btn clk-available"
         onclick="event.stopPropagation(); startCallLock('${c.id}')"
         title="Iniciar llamada con ${(c.customer || '').toUpperCase()}">
