@@ -38,7 +38,15 @@ async function loadCallsData(force = false) {
         if (error) throw error;
         currentCalls = data || [];
 
-
+        // Aseguramos que todos los registros provenientes de la web de ventas
+        // tengan como usuario asignado a rptulipantransport@gmail.com
+        currentCalls.forEach(c => {
+            if (c.source === 'website' && c.created_by !== 'rptulipantransport@gmail.com') {
+                c.created_by = 'rptulipantransport@gmail.com';
+                // Actualizamos silenciosamente en la base de datos
+                db.from('call_logs').update({ created_by: 'rptulipantransport@gmail.com' }).eq('id', c.id).then();
+            }
+        });
 
         subscribeToCallsRealtime();
         renderCallsTable();
@@ -836,6 +844,27 @@ function subscribeToCallsRealtime() {
                 if (idx !== -1) {
                     // Merge updated fields into local state
                     currentCalls[idx] = { ...currentCalls[idx], ...payload.new };
+                    renderCallsTable();
+                }
+            }
+        )
+        .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'call_logs' },
+            (payload) => {
+                if (!payload.new) return;
+                let newRecord = payload.new;
+                
+                // Si el registro nuevo viene de la web, asignarlo a rptulipantransport
+                if (newRecord.source === 'website' && newRecord.created_by !== 'rptulipantransport@gmail.com') {
+                    newRecord.created_by = 'rptulipantransport@gmail.com';
+                    // Solo intentamos actualizar la base de datos si somos administradores para evitar conflictos de concurrencia
+                    // o lo hacemos directamente, Supabase soporta updates concurrentes al mismo registro.
+                    db.from('call_logs').update({ created_by: 'rptulipantransport@gmail.com' }).eq('id', newRecord.id).then();
+                }
+
+                if (!currentCalls.find(c => c.id === newRecord.id)) {
+                    currentCalls.unshift(newRecord);
                     renderCallsTable();
                 }
             }
