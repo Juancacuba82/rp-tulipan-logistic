@@ -121,10 +121,18 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 const isTransport = document.getElementById('in-flag2').checked;
                 const compVal = document.getElementById('in-company').value;
+                const driverVal = document.getElementById('in-driver').value;
 
-                // Company is only MANDATORY if it's a transport-related order
+                // Company and Driver are MANDATORY if it's a transport-related order
                 if (isTransport && (!compVal || compVal === '---')) {
                     alert("ERROR: Debes seleccionar una compañía para órdenes que incluyan servicios de transporte.");
+                    isSaving = false;
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
+
+                if (isTransport && (!driverVal || driverVal === '---')) {
+                    alert("ERROR: Debes seleccionar un conductor para órdenes que incluyan servicios de transporte.");
                     isSaving = false;
                     restoreTripArchiveButtonUI();
                     return;
