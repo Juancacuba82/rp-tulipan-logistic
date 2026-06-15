@@ -1233,6 +1233,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             updateDriverCommission();
             if (window.filterDriversByCompany) window.filterDriversByCompany();
 
+            // FIX: Re-apply the driver value because the initial set in the loop failed
+            // due to the options not being populated yet for the selected company.
+            const driverInput = document.getElementById('in-driver');
+            const expectedDriver = rowData[17];
+            if (driverInput && expectedDriver && expectedDriver !== '---') {
+                driverInput.value = expectedDriver;
+            }
+
             setTripArchiveButton({ label: 'Update order', isUpdate: true, disabled: false, opacity: 1, title: 'Save changes to this trip' });
             if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
 
