@@ -72,6 +72,9 @@
                 }
             });
 
+            let pendingThisMonthCount = 0;
+            const currentMonthStr = new Date().toISOString().substring(0, 7); // "YYYY-MM"
+
             body.innerHTML = '';
             filtered.forEach((rowData) => {
                 const tr = document.createElement('tr');
@@ -82,10 +85,27 @@
                 const rowKey = rowData.slice(0, 5).map(val => (val || '').toString().trim().toUpperCase()).join('|');
                 const isDuplicate = rowCounts[rowKey] > 1;
 
+                const amountStr = (rowData[3] || '0').toString().replace('$', '').replace(/,/g, '');
+                const amount = parseFloat(amountStr) || 0;
+                const rowDateStr = rowData[0] || '';
+                const noteStr = (rowData[4] || '').toUpperCase();
+                
+                const isPending = (amount === 0) && (noteStr.includes('PENDIENTE') || rowDateStr.startsWith(currentMonthStr));
+                
+                if (isPending && rowDateStr.startsWith(currentMonthStr)) {
+                    pendingThisMonthCount++;
+                }
+
                 // Highlight if duplicate found globally
                 if (isDuplicate) {
                     tr.style.backgroundColor = '#fef2f2'; // Soft red background
                     tr.style.borderLeft = '4px solid #ef4444'; // Bright red indicator
+                }
+
+                // Highlight if it's a pending expense
+                if (isPending) {
+                    tr.style.backgroundColor = '#fff1f2'; // rose-50
+                    tr.style.borderLeft = '4px solid #e11d48'; // rose-600
                 }
 
                 if (window.editingExpenseId === expenseId) {
@@ -103,8 +123,8 @@
                         td.style.textAlign = 'right';
                     }
 
-                    // If it's a strict duplicate, highlight the text
-                    if (isDuplicate) {
+                    // If it's a strict duplicate or pending, highlight the text
+                    if (isDuplicate || isPending) {
                         td.style.color = (i === 3) ? '#b91c1c' : '#991b1b';
                         if (i === 2) td.style.fontWeight = '900'; // Make description boldest
                     }
@@ -150,6 +170,37 @@
                 // Visual feedback: red if filtering
                 const isFiltered = fromDate || toDate || category || driverName || search;
                 countEl.style.color = isFiltered ? '#ef4444' : '#1e293b';
+            }
+
+            // Update Global Expense Banner
+            const expenseBanner = document.getElementById('global-expense-banner');
+            const expenseCountSpan = document.getElementById('pending-expenses-count');
+            if (expenseBanner && expenseCountSpan) {
+                if (pendingThisMonthCount > 0) {
+                    expenseCountSpan.textContent = pendingThisMonthCount;
+                    expenseBanner.style.display = 'flex';
+                    expenseBanner.style.justifyContent = 'center';
+                    expenseBanner.style.alignItems = 'center';
+                    
+                    if (document.body.classList.contains('banner-active')) {
+                        expenseBanner.style.top = '45px';
+                        document.body.style.paddingTop = '90px';
+                        document.getElementById('header-nav').style.top = '90px';
+                    } else {
+                        expenseBanner.style.top = '0';
+                        document.body.style.paddingTop = '45px';
+                        document.getElementById('header-nav').style.top = '45px';
+                    }
+                } else {
+                    expenseBanner.style.display = 'none';
+                    if (document.body.classList.contains('banner-active')) {
+                        document.body.style.paddingTop = '45px';
+                        document.getElementById('header-nav').style.top = '45px';
+                    } else {
+                        document.body.style.paddingTop = '0';
+                        document.getElementById('header-nav').style.top = '0';
+                    }
+                }
             }
         };
 

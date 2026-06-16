@@ -749,6 +749,12 @@
         <button class="btn-banner-action" onclick="goToTasks()">VIEW TASKS</button>
     </div>
 
+    <!-- Sticky Pending Expenses Banner -->
+    <div id="global-expense-banner" style="display: none; position: fixed; top: 0; left: 0; width: 100%; background-color: #ef4444; color: white; text-align: center; padding: 12px 20px; font-weight: 900; z-index: 100001; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-bottom: 2px solid #b91c1c; font-size: 0.95rem; box-sizing: border-box;">
+        <span>🔴 Tienes <span id="pending-expenses-count">0</span> gastos de este mes pendientes de importe.</span>
+        <button class="btn-banner-action" style="background-color: #991b1b; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; transition: all 0.2s; font-size: 0.8rem; margin-left: 15px;" onclick="closeMenu(); showView('expenses');">IR A GASTOS</button>
+    </div>
+
     <!-- Navbar Navigation -->
     <header class="navbar" id="header-nav">
         <div class="container-nav">
