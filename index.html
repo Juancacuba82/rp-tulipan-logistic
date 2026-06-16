@@ -19,9 +19,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="./style.css">
     <!-- Supabase SDK -->
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=10"></script>
@@ -6211,39 +6209,57 @@
         </div>
     </div>
 
-    <!-- Leaflet Routing Map Modal -->
+    <!-- Google Maps Routing Modal -->
     <div id="routing-map-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.8);z-index:9999;align-items:center;justify-content:center;padding:20px;">
         <div style="background:white;border-radius:12px;width:100%;max-width:800px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
-                <h3 style="margin:0;font-size:1.1rem;color:#1e293b;font-weight:700;">Ruta Calculada</h3>
+                <h3 style="margin:0;font-size:1.1rem;color:#1e293b;font-weight:700;">Ruta Calculada (Google Maps)</h3>
                 <button onclick="document.getElementById('routing-map-modal').style.display='none'" style="background:none;border:none;font-size:1.5rem;color:#64748b;cursor:pointer;line-height:1;padding:0;">&times;</button>
             </div>
-            <div id="routing-map-container" style="height:450px;width:100%;background:#e2e8f0;position:relative;z-index:1;"></div>
+            <iframe id="routing-map-iframe" width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
     </div>
 
     <script>
-        // --- OSRM & LEAFLET MILEAGE LOGIC ---
-        let routeMap = null;
-        let routeLayer = null;
-        let originMarker = null;
-        let destMarker = null;
+        // --- GOOGLE MAPS MILEAGE GLOBAL LOGIC ---
+        const getApiKey = () => localStorage.getItem('google_maps_api_key') || 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
 
-        async function fetchLocationInfo(query) {
-            if (!query || query.length < 3) return null;
-            try {
-                // Using Photon API (based on OSM) as it's much more forgiving with typos and US address formats
-                const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1`;
-                const response = await fetch(url, { headers: { 'User-Agent': 'TulipanLogistics/1.0' } });
-                const data = await response.json();
-                if (data && data.features && data.features.length > 0) {
-                    const coords = data.features[0].geometry.coordinates; // [lon, lat]
-                    return { lat: coords[1], lon: coords[0] };
-                }
-                return null;
-            } catch (e) {
-                console.error("Photon fetch error:", e);
-                return null;
+        window.googleMapsPromise = null;
+        function loadGoogleMapsScript(key) {
+            if (typeof google !== 'undefined' && google.maps) return Promise.resolve();
+            if (window.googleMapsPromise) return window.googleMapsPromise;
+
+            window.googleMapsPromise = new Promise((resolve, reject) => {
+                window.__initGoogleMaps = () => {
+                    console.log("Google Maps script initialized via callback.");
+                    resolve();
+                };
+
+                const timeout = setTimeout(() => {
+                    window.googleMapsPromise = null;
+                    reject(new Error("Tiempo de espera agotado al cargar Google Maps. Revisa tu conexión."));
+                }, 10000);
+                
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry&callback=__initGoogleMaps`;
+                script.async = true;
+                script.defer = true;
+                script.onerror = (e) => {
+                    clearTimeout(timeout);
+                    window.googleMapsPromise = null;
+                    console.error("Failed to load Google Maps script", e);
+                    reject(new Error("No se pudo cargar el script de Google. Revisa tu API Key o conexión."));
+                };
+                document.head.appendChild(script);
+            });
+            return window.googleMapsPromise;
+        }
+
+        function testGoogleConnection() {
+            if (typeof google === 'undefined' || !google.maps) {
+                alert("Google Maps no está inicializado.");
+            } else {
+                alert("Conexión con Google Maps activa.");
             }
         }
 
@@ -6251,6 +6267,9 @@
             const milesInput = document.getElementById('in-miles');
             const setStatus = (msg, color = "#fffbeb") => {
                 if (milesInput) {
+                    if (msg.startsWith("Err:") || msg.startsWith("API:") || msg.startsWith("Google:")) {
+                        milesInput.value = ''; // Clear value to ensure placeholder is visible
+                    }
                     milesInput.placeholder = msg;
                     milesInput.style.backgroundColor = color;
                     console.log("Mileage Status:", msg);
@@ -6259,8 +6278,17 @@
 
             try {
                 const checkbox = document.getElementById('auto-calc-miles');
-                // Si no es manual y el checkbox no esta marcado, no calcular.
                 if (!isManual && (!checkbox || !checkbox.checked)) return;
+
+                let apiKey = getApiKey();
+                if (apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE') {
+                    const userKey = prompt("Ingresa tu Google API Key:");
+                    if (userKey) {
+                        localStorage.setItem('google_maps_api_key', userKey.trim());
+                        apiKey = userKey.trim();
+                    } else return;
+                }
+                apiKey = apiKey.trim();
 
                 const pickupSel = document.getElementById('in-pickup-sel');
                 const pickupMan = document.getElementById('in-pickup');
@@ -6273,88 +6301,74 @@
 
                 if (!origin || !destination || origin.trim() === '' || destination.trim() === '') {
                     if (isManual) setStatus("Err: Missing Address", "#fee2e2");
+                    console.log("Mileage Calc aborted: missing origin or destination.");
                     return;
                 }
 
-                setStatus("Geocoding...");
+                setStatus("Step 1: Connecting...");
 
-                // 1. Convertir direcciones a coordenadas
-                const [originData, destData] = await Promise.all([
-                    fetchLocationInfo(origin),
-                    fetchLocationInfo(destination)
-                ]);
-
-                if (!originData) {
-                    setStatus("Err: PickUp no coord", "#fee2e2");
-                    return;
-                }
-                if (!destData) {
-                    setStatus("Err: Delivery no coord", "#fee2e2");
-                    return;
+                if (typeof google === 'undefined' || !google.maps) {
+                    await loadGoogleMapsScript(apiKey);
                 }
 
-                setStatus("Calculating...");
+                setStatus("Step 2: Sending Req...");
+                console.log("Sending to Google:", { origin, destination });
 
-                // 2. Trazar ruta con OSRM
-                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originData.lon},${originData.lat};${destData.lon},${destData.lat}?overview=full&geometries=geojson`;
-                const response = await fetch(osrmUrl);
-                const data = await response.json();
-
-                if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-                    setStatus("Err: Route not found", "#fee2e2");
-                    return;
-                }
-
-                const route = data.routes[0];
-                // Convert meters to miles
-                const miles = Math.ceil(route.distance * 0.000621371);
+                let callbackTimeout;
+                const service = new google.maps.DistanceMatrixService();
                 
-                if (milesInput) {
-                    milesInput.value = miles;
-                    milesInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    setStatus("0", ""); 
-                }
+                callbackTimeout = setTimeout(() => {
+                    setStatus("Err: Google Timeout", "#fee2e2");
+                    console.warn("Google Distance Matrix request timed out after 15s.");
+                }, 15000);
 
-                // 3. Mostrar el mapa en el modal
-                showRoutingMap(originData, destData, route.geometry);
+                service.getDistanceMatrix({
+                    origins: [origin],
+                    destinations: [destination],
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.IMPERIAL,
+                }).then((response) => {
+                    clearTimeout(callbackTimeout);
+                    const element = response.rows[0].elements[0];
+                    if (element.status === 'OK') {
+                        const miles = Math.ceil(element.distance.value * 0.000621371);
+                        milesInput.value = miles;
+                        milesInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        setStatus("0", ""); 
+                        
+                        // Use the geocoded exact addresses from Google for the visual map, 
+                        // as the Embed API can be strict with raw input names like "MARITIME -"
+                        const resolvedOrigin = (response.originAddresses && response.originAddresses[0]) ? response.originAddresses[0] : origin;
+                        const resolvedDestination = (response.destinationAddresses && response.destinationAddresses[0]) ? response.destinationAddresses[0] : destination;
+
+                        // Show Embed Map
+                        const modal = document.getElementById('routing-map-modal');
+                        const iframe = document.getElementById('routing-map-iframe');
+                        const embedUrl = `https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${encodeURIComponent(resolvedOrigin)}&destination=${encodeURIComponent(resolvedDestination)}`;
+                        iframe.src = embedUrl;
+                        modal.style.display = 'flex';
+
+                    } else {
+                        setStatus("Google: " + element.status, "#fee2e2");
+                    }
+                }).catch((error) => {
+                    clearTimeout(callbackTimeout);
+                    let errStatus = error.code || error.message || 'UNKNOWN_ERROR';
+                    setStatus("API: " + errStatus, "#fee2e2");
+                    
+                    if (errStatus.includes('REQUEST_DENIED')) {
+                        alert("Google Maps API REQUEST_DENIED.\n\nAsegúrate de que:\n1. La API Key sea correcta y tenga la 'Maps JavaScript API', 'Distance Matrix API' y 'Maps Embed API' habilitadas.\n2. Las restricciones de Referrer coincidan con tu URL actual.\n\nLa clave actual se ha borrado y la página se recargará para que ingreses la nueva.");
+                        localStorage.removeItem('google_maps_api_key');
+                        window.location.reload();
+                    } else {
+                        console.error("Distance Matrix Error: ", error);
+                    }
+                });
 
             } catch (err) {
-                console.error("Routing Error:", err);
+                if (typeof callbackTimeout !== 'undefined') clearTimeout(callbackTimeout);
                 setStatus("Err: " + err.message, "#fee2e2");
             }
-        }
-
-        function showRoutingMap(originData, destData, geometry) {
-            const modal = document.getElementById('routing-map-modal');
-            modal.style.display = 'flex';
-
-            // Wait a bit for the modal to be visible so Leaflet can get correct sizes
-            setTimeout(() => {
-                if (!routeMap) {
-                    routeMap = L.map('routing-map-container', { zoomControl: false, attributionControl: false }).setView([28.5, -82.0], 6);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(routeMap);
-                    L.control.zoom({ position: 'bottomright' }).addTo(routeMap);
-                }
-
-                if (routeLayer) routeMap.removeLayer(routeLayer);
-                if (originMarker) routeMap.removeLayer(originMarker);
-                if (destMarker) routeMap.removeLayer(destMarker);
-
-                // Dibujar linea
-                routeLayer = L.geoJSON(geometry, {
-                    style: { color: '#3b82f6', weight: 5, opacity: 0.9 }
-                }).addTo(routeMap);
-
-                // Dibujar marcadores
-                originMarker = L.marker([originData.lat, originData.lon]).addTo(routeMap);
-                destMarker = L.marker([destData.lat, destData.lon]).addTo(routeMap);
-
-                // Centrar mapa
-                routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
-                
-                // Fix map size just in case
-                routeMap.invalidateSize();
-            }, 50);
         }
 
         // Initialize listeners
