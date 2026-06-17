@@ -124,7 +124,8 @@
                 t.closed_by || '---',          // 61
                 t.move_to_yard || false,       // 62
                 t.invoice_last_sent || null,    // 63  NEW — ISO date string of last invoice send
-                t.invoice_reminder_count || 0   // 64  NEW — total sends/reminders counter
+                t.invoice_reminder_count || 0,  // 64  NEW — total sends/reminders counter
+                t.booking_no || '---'           // 65  NEW — Booking Number
             ];
         }
 
@@ -192,7 +193,8 @@
                 yard_item_id: row[59] || null,
                 created_by: row[60] || null,
                 closed_by: row[61] || '---',
-                move_to_yard: row[62] === true || row[62] === 'true'
+                move_to_yard: row[62] === true || row[62] === 'true',
+                booking_no: row[65] || '---'
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB

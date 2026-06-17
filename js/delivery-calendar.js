@@ -330,7 +330,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     document.getElementById('in-showtax')?.checked || false, parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0,
                     document.getElementById('in-hideamounts')?.checked || false, document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND',
                     newQtyVal, existingSig, existingPhotos, existingSigDriver, (document.getElementById('in-sendemail')?.checked ? 'YES' : (document.getElementById('in-invoice-sent')?.value || 'NO')),
-                    containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard
+                    containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard,
+                    null, null, // indices 63-64: invoice_last_sent, invoice_reminder_count
+                    (document.getElementById('in-booking')?.value || '---').toUpperCase() // 65: booking_no
                 ];
 
                 const dbObj = mapArrayToTrip(rowData);
@@ -512,7 +514,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount',
                 'in-phone', 'in-note', 'in-mrate', 'in-taxpercent', 'in-paiddriver',
                 'in-pickup', 'in-customer', 'in-email', 'in-qty', 'in-size',
-                'in-yard', 'in-collect', 'in-mode', 'in-income'
+                'in-yard', 'in-collect', 'in-mode', 'in-income', 'in-booking'
             ];
 
             fieldsToClear.forEach(id => {
@@ -666,9 +668,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const fmtDate = (ds) => window.formatDateMMDDYYYY(ds);
             
             // Map table cells to rowData indices
+            // Cells: 0=Date, 1=Size, 2=N.Cont, 3=Booking#, 4=Release#, 5=Order, 6=City, 7=PickUp, 8=Delivery, 9=Doors, 10=Miles, 11=Customer, 12=YardRate, 13=PPDay, 14=DateOut, 15=Company, 16=Driver, 17=TransPay, 18=SalesPrice, 19=Amount, 20=Phone, 21=PaidDriver, 22=Note
             const displayMapping = [
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 20, 22, 23, 24, 25
+                1, 2, 3, 65, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 20, 22, 23, 24, 25
             ];
+
 
             const cells = tr.querySelectorAll('td');
             displayMapping.forEach((dataIdx, cellIdx) => {
@@ -1226,6 +1230,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 ppdInput.value = (rowData[14] === undefined || rowData[14] === null) ? 0 : rowData[14];
             }
 
+            // Booking Number (Index 65)
+            const bookingInput = document.getElementById('in-booking');
+            if (bookingInput) {
+                bookingInput.value = (rowData[65] && rowData[65] !== '---') ? rowData[65] : '';
+            }
+
+
             // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
 
             // Refresh UI States
@@ -1469,44 +1480,45 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             fmtDate(rowData[1]),  // 0: Date (MM/DD/YYYY)
                             rowData[2],           // 1: Size
                             rowData[3],           // 2: N. Cont
-                            rowData[4],           // 3: Release #
-                            rowData[5],           // 4: Order
-                            rowData[6],           // 5: City
-                            rowData[7],           // 6: Pick Up Address
-                            rowData[8],           // 7: Delivery Place
-                            rowData[9],           // 8: Doors Direction
-                            rowData[10],          // 9: Miles
-                            rowData[11],          // 10: Customer
-                            rowData[13],          // 11: Yard Rate
-                            rowData[14],          // 12: Price per Day
-                            fmtDate(rowData[15]), // 13: Date Out (MM/DD/YYYY)
-                            rowData[16],          // 14: Company
-                            rowData[17],          // 15: Driver
-                            rowData[18],          // 16: Trans. Pay
-                            rowData[20],          // 17: Sales Price
-                            rowData[22],          // 18: Amount
-                            rowData[23],          // 19: Phone #
-                            rowData[24],          // 20: Paid Driver
-                            rowData[25],          // 21: Note
+                            (rowData[65] && rowData[65] !== '---') ? rowData[65] : '', // 3: Booking Number
+                            rowData[4],           // 4: Release #
+                            rowData[5],           // 5: Order
+                            rowData[6],           // 6: City
+                            rowData[7],           // 7: Pick Up Address
+                            rowData[8],           // 8: Delivery Place
+                            rowData[9],           // 9: Doors Direction
+                            rowData[10],          // 10: Miles
+                            rowData[11],          // 11: Customer
+                            rowData[13],          // 12: Yard Rate
+                            rowData[14],          // 13: Price per Day
+                            fmtDate(rowData[15]), // 14: Date Out (MM/DD/YYYY)
+                            rowData[16],          // 15: Company
+                            rowData[17],          // 16: Driver
+                            rowData[18],          // 17: Trans. Pay
+                            rowData[20],          // 18: Sales Price
+                            rowData[22],          // 19: Amount
+                            rowData[23],          // 20: Phone #
+                            rowData[24],          // 21: Paid Driver
+                            rowData[25],          // 22: Note
                             (() => {
                                 const emailVal = rowData[61];
                                 if (!emailVal || emailVal === '---') return '---';
                                 const clean = emailVal.trim().toLowerCase();
                                 const name = window.globalUserNameMap ? window.globalUserNameMap[clean] : null;
                                 return name || emailVal.split('@')[0].toUpperCase();
-                            })(), // 22: Employee (Seller)
-                            email                 // 23: Email
+                            })(), // 23: Employee (Seller)
+                            email                 // 24: Email
                         ];
 
                         displayData.forEach((text, i) => {
                             const td = document.createElement('td');
 
-                            // Money formatting for specific columns: [11-YardRate, 12-PricePerDay, 16-TransPay, 17-SalesPrice, 18-Amount, 20-PaidDriver]
-                            if ([11, 12, 16, 17, 18, 20].includes(i)) {
+                            // Money formatting for specific columns: [12-YardRate, 13-PricePerDay, 17-TransPay, 18-SalesPrice, 19-Amount, 21-PaidDriver]
+                            if ([12, 13, 17, 18, 19, 21].includes(i)) {
                                 const val = parseFloat(text) || 0;
                                 td.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                 td.style.fontWeight = 'bold';
-                                if (i === 11) { // Yard Rate
+                                if (i === 12) { // Yard Rate
                                     const isClear = (stYard === 'PAID' || val <= 0.01);
                                     const isCash = !!rowData[46];
                                     const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
@@ -1514,11 +1526,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                     td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                                     td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 12) { // Price per Day
+                                } else if (i === 13) { // Price per Day
                                     const isClear = (rowData[31] === 'PAID' || val <= 0.01);
                                     td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                                     td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 16) { // Trans Pay
+                                } else if (i === 17) { // Trans Pay
                                     const isClear = (stRate === 'PAID' || val <= 0.01);
                                     const isCash = !!rowData[47];
                                     const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
@@ -1526,7 +1538,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                     td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                                     td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 17) { // Sales Price
+                                } else if (i === 18) { // Sales Price
                                     const isClear = (stSales === 'PAID' || val <= 0.01);
                                     const isCash = !!rowData[48];
                                     const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
@@ -1534,7 +1546,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                     td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                                     td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 18) { // Amount
+                                } else if (i === 19) { // Amount
                                     // NO Background color as requested. Just Icons:
                                     const iconClass = (stAmount === 'PAID') ? 'fas fa-money-bill-wave' : 'fas fa-university';
                                     const iconColor = (stAmount === 'PAID') ? '#059669' : '#3b82f6';
@@ -1544,14 +1556,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 td.textContent = text;
                             }
 
-                            // Highlight Employee (Seller) column specifically (now index 22)
-                            if (i === 22) {
+                            // Highlight Employee (Seller) column specifically (now index 23)
+                            if (i === 23) {
                                 td.style.fontWeight = 'bold';
                                 td.style.color = '#1e40af'; // Blue
                             }
 
                             // Custom styling for Driver Cell (Seen Indicator)
-                            if (i === 15) { 
+                            if (i === 16) { 
                                 if (text && text !== '---') {
                                     // Ultra-robust cleaning function for names
                                     // Ultra-robust cleaning function (handles accents/diacritics)

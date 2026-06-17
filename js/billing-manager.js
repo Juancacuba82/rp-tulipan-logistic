@@ -231,6 +231,7 @@
             const city        = row[6]  || '---';
             const place       = row[8]  || '---';
             const nCont       = row[3]  || '---';
+            const bookingNo   = (row[65] && row[65] !== '---') ? row[65] : '—';
             const release     = row[4]  || '---';
             const driverName  = row[17] || '---';
 
@@ -269,6 +270,7 @@
                 <td style="${cs}">${displayDate}</td>
                 <td style="${cs}">${orderNo}</td>
                 <td style="${cs}">${nCont}</td>
+                <td style="${cs}">${bookingNo}</td>
                 <td style="${cs}">${release}</td>
                 <td style="${cs}">${customer}</td>
                 <td style="${cs}">${city}</td>
@@ -301,7 +303,7 @@
         });
 
         if (visibleCount === 0) {
-            body.innerHTML = '<tr><td colspan="12" style="padding:50px;text-align:center;color:#94a3b8;font-style:italic;">No pending invoices found for the selected filters.</td></tr>';
+            body.innerHTML = '<tr><td colspan="13" style="padding:50px;text-align:center;color:#94a3b8;font-style:italic;">No pending invoices found for the selected filters.</td></tr>';
         }
 
         // Counter

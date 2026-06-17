@@ -419,7 +419,8 @@
             taxStatus: (trip[52] === 'PAID' || trip[52] === true || trip[52] === 'true') ? 'PAID' : 'PENDING',
             signature: trip[54] || '',
             signature_driver: trip[56] || '',
-            customer: (trip[11] && trip[11] !== '---') ? trip[11] : ''
+            customer: (trip[11] && trip[11] !== '---') ? trip[11] : '',
+            bookingNo: (trip[65] && trip[65] !== '---') ? trip[65] : ''
         };
 
         // Show the entire phone field content exactly as entered
@@ -441,7 +442,7 @@
             return `<div class="receipt-section-title">${title}</div><div class="receipt-grid-3">${content}</div>`;
         };
 
-        const logisticContent = f('RELEASE / BOOKING', data.rel) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver) + f('DISPATCHER', data.seller);
+        const logisticContent = f('RELEASE / BOOKING', data.rel) + f('BOOKING NUMBER', data.bookingNo) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver) + f('DISPATCHER', data.seller);
         const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
         
         const isManager = (window.currentUserRole !== 'driver');

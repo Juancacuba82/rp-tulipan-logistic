@@ -1094,6 +1094,8 @@
                         </div>
                         <div class="form-group"><label class="sidebar-label-btn">N. Cont</label><input type="text"
                                 id="in-ncont" placeholder="N. Cont"></div>
+                        <div class="form-group"><label class="sidebar-label-btn">Booking #</label><input type="text"
+                                id="in-booking" placeholder="Booking Number"></div>
                         <div class="form-group"><label class="sidebar-label-btn">Qty</label><input type="number"
                                 id="in-qty" placeholder="1" value="1" min="1"></div>
                         <!-- NEW: CONTAINER SOURCE TOGGLE -->
@@ -1660,6 +1662,7 @@
                                     <th>Date</th>
                                     <th>Size</th>
                                     <th>N. Cont</th>
+                                    <th>Booking #</th>
                                     <th>Release #</th>
                                     <th>Order - Bol Cont #</th>
                                     <th>City</th>
@@ -1685,7 +1688,8 @@
                                     <th style="width: 100px;">Actions</th>
                                 </tr>
                                 <tr id="table-totals-row" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white; font-weight: 900; font-size: 0.75rem; letter-spacing: 0.3px;">
-                                    <td colspan="11" style="padding: 7px 12px; text-align: right; color: #64748b; font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;"><i class="fas fa-sigma" style="margin-right:5px; color:#475569;"></i>TOTALS</td>
+                                    <td colspan="12" style="padding: 7px 12px; text-align: right; color: #64748b; font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;"><i class="fas fa-sigma" style="margin-right:5px; color:#475569;"></i>TOTALS</td>
+
                                     <td id="total-yard-rate" style="padding: 7px 8px; text-align: center; color: #86efac; border-left: 1px solid #334155; white-space: nowrap;">$0.00</td>
                                     <td id="total-price-per-day" style="padding: 7px 8px; text-align: center; color: #86efac; white-space: nowrap;">$0.00</td>
                                     <td colspan="3" style="background: transparent;"></td>
@@ -3404,6 +3408,7 @@
                                 <th style="padding:12px;background:#1e293b;color:white;">DATE</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">ORDER #</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">N. CONT</th>
+                                <th style="padding:12px;background:#1e293b;color:white;">BOOKING #</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">RELEASES</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">CUSTOMER</th>
                                 <th style="padding:12px;background:#1e293b;color:white;">CITY</th>
@@ -5602,18 +5607,18 @@
                 const cells = tr.cells;
                 if (cells.length < 20) return;
 
-                // Cell indices: Date, Size, ... (matches table without Mode column)
+                // Cell indices: Date[0], Size[1], N.Cont[2], Booking#[3], Release#[4], Order[5], City[6], ...
                 const valDate = (cells[0].textContent || '').trim();
                 const valSize = (cells[1].textContent || '').toLowerCase().trim();
                 const valNcont = (cells[2].textContent || '').toLowerCase().trim();
-                const valRelease = (cells[3].textContent || '').toLowerCase().trim();
-                const valOrder = (cells[4].textContent || '').toLowerCase().trim();
-                const valCity = (cells[5].textContent || '').toLowerCase().trim();
-                const valCustomer = (cells[10].textContent || '').toLowerCase().trim();
-                const valCompany = (cells[14].textContent || '').toLowerCase().trim();
-                const valDriver = (cells[15].textContent || '').toLowerCase().trim();
-                const valCollect = (cells[18].textContent || '').toLowerCase().trim();
-                const valPhone = (cells[19].textContent || '').toLowerCase().trim();
+                const valRelease = (cells[4].textContent || '').toLowerCase().trim();
+                const valOrder = (cells[5].textContent || '').toLowerCase().trim();
+                const valCity = (cells[6].textContent || '').toLowerCase().trim();
+                const valCustomer = (cells[11].textContent || '').toLowerCase().trim();
+                const valCompany = (cells[15].textContent || '').toLowerCase().trim();
+                const valDriver = (cells[16].textContent || '').toLowerCase().trim();
+                const valCollect = (cells[19].textContent || '').toLowerCase().trim();
+                const valPhone = (cells[20].textContent || '').toLowerCase().trim();
                 const valSeller = (tr.dataset.seller || '').toLowerCase().trim();
 
                 const matchTransferred = !filters.transferredOnly || tr.dataset.fromCall === 'YES';
