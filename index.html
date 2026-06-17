@@ -1491,6 +1491,13 @@
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
+                                    <label><i class="fas fa-search"></i> BOOKING #</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-tag"></i>
+                                        <input type="text" id="f-booking" class="form-input" placeholder="Search..." oninput="applyAdvancedFiltersDebounced()" style="width: 100%;">
+                                    </div>
+                                </div>
+                                <div class="attendance-input-group">
                                     <label><i class="fas fa-file-invoice"></i> ORDER / BOL</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-hashtag"></i>
@@ -3298,6 +3305,13 @@
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-search"></i>
                                     <input type="text" id="bc-f-order" class="form-input" placeholder="Search Order..." oninput="renderBillingTable()" style="width:160px;">
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-search"></i> BOOKING #</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-tag"></i>
+                                    <input type="text" id="bc-f-booking" class="form-input" placeholder="Search Booking..." oninput="renderBillingTable()" style="width:160px;">
                                 </div>
                             </div>
                             <div class="attendance-input-group">
@@ -5591,6 +5605,7 @@
                 serviceType: document.getElementById('f-service-type')?.value || '',
 
                 ncont: document.getElementById('f-ncont')?.value.toLowerCase() || '',
+                booking: document.getElementById('f-booking')?.value.toLowerCase() || '',
                 order: document.getElementById('f-order')?.value.toLowerCase() || '',
                 release: document.getElementById('f-release')?.value.toLowerCase() || '',
                 phone: document.getElementById('f-phone')?.value.toLowerCase() || '',
@@ -5611,6 +5626,7 @@
                 const valDate = (cells[0].textContent || '').trim();
                 const valSize = (cells[1].textContent || '').toLowerCase().trim();
                 const valNcont = (cells[2].textContent || '').toLowerCase().trim();
+                const valBooking = (cells[3].textContent || '').toLowerCase().trim();
                 const valRelease = (cells[4].textContent || '').toLowerCase().trim();
                 const valOrder = (cells[5].textContent || '').toLowerCase().trim();
                 const valCity = (cells[6].textContent || '').toLowerCase().trim();
@@ -5631,6 +5647,7 @@
                 const matchCompany = !filters.company || valCompany === filters.company.toLowerCase().trim();
 
                 const matchNcont = !filters.ncont || valNcont.includes(filters.ncont.toLowerCase().trim());
+                const matchBooking = !filters.booking || valBooking.includes(filters.booking.toLowerCase().trim());
                 const matchOrder = !filters.order || valOrder.includes(filters.order.toLowerCase().trim());
                 const matchRelease = !filters.release || valRelease.includes(filters.release.toLowerCase().trim());
                 const matchPhone = !filters.phone || valPhone.includes(filters.phone.toLowerCase().trim());
@@ -5721,7 +5738,7 @@
                 }
 
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
-                    matchNcont && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent) {
+                    matchNcont && matchBooking && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent) {
                     tr.style.display = '';
                 } else {
                     tr.style.display = 'none';

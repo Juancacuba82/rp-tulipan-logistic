@@ -134,6 +134,7 @@
         window.populateBillingFilters();
 
         const fOrder    = (document.getElementById('bc-f-order')?.value    || '').toLowerCase().trim();
+        const fBooking  = (document.getElementById('bc-f-booking')?.value  || '').toLowerCase().trim();
         const fCity     = (document.getElementById('bc-f-city')?.value     || '').trim();
         const fPlace    = (document.getElementById('bc-f-place')?.value    || '').trim();
         const fCustomer = (document.getElementById('bc-f-customer')?.value || '').trim();
@@ -159,6 +160,7 @@
             const customer = (row[11] || '').toString().trim();
             const driver   = (row[17] || '').toString().trim();
             const release  = (row[4]  || '---').toString().trim();
+            const booking  = (row[65] && row[65] !== '---') ? row[65].toString().toLowerCase() : '';
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
             
@@ -167,6 +169,7 @@
             const hasYard  = (parseFloat(row[13]) || 0) > 0.01;
 
             if (fOrder    && !orderNo.includes(fOrder))    return false;
+            if (fBooking  && !booking.includes(fBooking))  return false;
             if (fCity     && city     !== fCity)            return false;
             if (fPlace    && place    !== fPlace)           return false;
             if (fCustomer && customer !== fCustomer)        return false;
@@ -322,7 +325,7 @@
 
     // ── RESET FILTERS ─────────────────────────────────────────
     window.resetBillingFilters = function () {
-        ['bc-f-order','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-service','bc-f-release','bc-f-from','bc-f-to','bc-f-invoice']
+        ['bc-f-order','bc-f-booking','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-service','bc-f-release','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
         if (fPayment) fPayment.value = 'pending';
