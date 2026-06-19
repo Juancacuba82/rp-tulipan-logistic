@@ -1260,7 +1260,7 @@
                                 <button onclick="openCompanyManager()" class="btn-manage-inline">Manage</button>
                             </div>
                             <select id="in-company"
-                                onchange="updateDriverCommission(); if(window.updateNetPayInfo) updateNetPayInfo(); if(window.filterDriversByCompany) filterDriversByCompany();"
+                                onchange="updateDriverCommission('company'); if(window.updateNetPayInfo) updateNetPayInfo(); if(window.filterDriversByCompany) filterDriversByCompany();"
                                 required>
                                 <option value="" disabled selected>Loading companies...</option>
                             </select>
@@ -1279,7 +1279,7 @@
                         <div class="form-group" id="trans-pay-group" style="display:none;">
                             <label class="sidebar-label-btn sidebar-label-btn-blue">Trans. Price</label>
                             <div class="input-paid-wrap">
-                                <input type="number" id="in-rate" oninput="updateDriverCommission()" placeholder="0.00">
+                                <input type="number" id="in-rate" oninput="updateDriverCommission('rate')" placeholder="0.00">
                                 <div class="input-paid-badges-group">
                                     <label class="input-paid-badge" title="Mark as paid">
                                         <input type="checkbox" id="in-ratepaid"
@@ -1363,7 +1363,7 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn">Amount</label>
                             <div class="input-paid-wrap">
-                                <input type="number" id="in-amount" oninput="updateDriverCommission()"
+                                <input type="number" id="in-amount" oninput="updateDriverCommission('amount')"
                                     placeholder="0.00">
                                 <div class="input-paid-badges-group">
                                     <label class="input-paid-badge" title="Mark as cash">
@@ -5839,19 +5839,28 @@
 
 
                 // --- AUTO COMMISSION LOGIC ---
-        window.updateDriverCommission = function () {
+        window.updateDriverCommission = function (source = null) {
             const elCompany = document.getElementById('in-company');
             const elCommText = document.getElementById('in-comission');
             const elPaidBase = document.getElementById('in-paiddriver');
             const elCommRes = document.getElementById('in-comidriver');
+            const elRate = document.getElementById('in-rate');
 
             // Safety validation: Ensure elements exist before reading .value
-            if (!elCompany || !elCommText || !elPaidBase) {
+            if (!elCompany || !elPaidBase) {
                 return; // Silently stop if form is not present (e.g., in other views)
             }
 
             const company = elCompany.value;
-            const commText = elCommText.value;
+
+            // NEW: Auto-sync Trans Price to Paid Driver for specific companies
+            if (source === 'rate' && (company === 'RP TULIPAN' || company === 'JR SUPER CRAME')) {
+                if (elRate) {
+                    elPaidBase.value = elRate.value;
+                }
+            }
+
+            const commText = elCommText ? elCommText.value : '30';
             const commPercent = parseFloat(commText) || 30;
             const paidBase = parseFloat(elPaidBase.value) || 0;
 
