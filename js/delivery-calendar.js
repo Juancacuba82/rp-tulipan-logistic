@@ -197,7 +197,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const yardVal = yardEl ? yardEl.value : (document.getElementById('in-flag1')?.checked ? 'YES' : 'NO');
                 const yardOnly = yardVal === 'YES' && (parseFloat(document.getElementById('in-sales')?.value || '0') === 0);
 
-                const isDeductionCandidate = !isYardSource && (selectedRelease && selectedRelease !== '---' && !yardOnly && releaseExists);
+                const bookingNumberForDeduction = (document.getElementById('in-booking')?.value || '').trim();
+                const isDeductionCandidate = !isYardSource && (selectedRelease && selectedRelease !== '---' && !yardOnly && releaseExists) && (!bookingNumberForDeduction);
                 const isYardDeductionCandidate = isYardSource && yardItemId && isFinalized;
 
                 let wasFinalized = false;
@@ -215,8 +216,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const oldYardId = oldRow[59];
                         const oldRel = (oldRow[4] || '').trim().toUpperCase();
                         const oldRelExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === oldRel);
+                        const oldBookingStr = (oldRow[65] || '').trim();
+                        const oldBookingNumber = oldBookingStr === '---' ? '' : oldBookingStr;
                         
-                        wasDeductionCandidate = (oldSource === 'RELEASE') && (oldRel && oldRel !== '---' && oldRelExists);
+                        wasDeductionCandidate = (oldSource === 'RELEASE') && (oldRel && oldRel !== '---' && oldRelExists) && (!oldBookingNumber);
                         const wasYardDeductionCandidate = (oldSource === 'YARD' || oldSource === 'STORAGE') && oldYardId && wasFinalized;
                         
                         if (wasYardDeductionCandidate) {
@@ -249,7 +252,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (editingIndex !== null) {
                     const oldRow = window.currentTrips[editingIndex];
                     const clean = (v) => (v || '').toString().split('(')[0].trim().toUpperCase();
-                    if (clean(oldRow[4]) === clean(selectedRelease) && clean(oldRow[2]) === clean(selectedSize) && (wasFinalized === isFinalized)) {
+                    if (clean(oldRow[4]) === clean(selectedRelease) && clean(oldRow[2]) === clean(selectedSize) && (wasFinalized === isFinalized) && (wasDeductionCandidate === isDeductionCandidate)) {
                         revertOld = false; deductNew = false;
                     }
                 }
