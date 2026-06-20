@@ -2219,3 +2219,240 @@ window.addEventListener('resize', () => {
 setTimeout(syncTopScroll, 1000);
 
 
+// ============================================================
+// NEARBY TRUCKS FINDER — Uses Google Distance Matrix API
+// Scans PENDING orders across ALL dates and finds trucks with
+// deliveries within 50 miles of a given zip code.
+// ============================================================
+
+window.openNearbyTrucksModal = function () {
+    const modal = document.getElementById('nearby-trucks-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    document.getElementById('nearby-zipcode-input').value = '';
+    document.getElementById('nearby-trucks-status').style.display = 'none';
+    document.getElementById('nearby-trucks-placeholder').style.display = 'block';
+    document.getElementById('nearby-trucks-list').style.display = 'none';
+    document.getElementById('nearby-trucks-list').innerHTML = '';
+    setTimeout(() => document.getElementById('nearby-zipcode-input').focus(), 100);
+};
+
+window.closeNearbyTrucksModal = function () {
+    const modal = document.getElementById('nearby-trucks-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.searchNearbyTrucks = async function () {
+    const inputEl = document.getElementById('nearby-zipcode-input');
+    const zipCode = (inputEl?.value || '').trim().replace(/\s+/g, '');
+    if (!zipCode) { inputEl?.focus(); return; }
+
+    // Use allTripsUnfiltered to scan ALL dates in the system
+    const allTrips = window.allTripsUnfiltered || window.currentTrips || [];
+    if (!allTrips || allTrips.length === 0) {
+        alert('No hay ordenes en el sistema para buscar.');
+        return;
+    }
+
+    // Group PENDING trips by delivery place (Delivery Place = rowData[8])
+    // Skip COMPLETE and PAID orders — those trucks already made that delivery
+    const tripsByDelivery = {};
+    allTrips.forEach(trip => {
+        const status = trip[41] || 'PENDING_PAYMENT';
+        if (status === 'COMPLETE' || status === 'PAID') return;
+        const delivery = (trip[8] || '').trim();
+        if (!delivery || delivery === '---') return;
+        if (!tripsByDelivery[delivery]) tripsByDelivery[delivery] = [];
+        tripsByDelivery[delivery].push(trip);
+    });
+
+    const uniqueDeliveries = Object.keys(tripsByDelivery);
+    if (uniqueDeliveries.length === 0) {
+        alert('No se encontraron ordenes PENDIENTES con direcciones de entrega.');
+        return;
+    }
+
+    // Show loading state
+    const statusEl = document.getElementById('nearby-trucks-status');
+    const statusText = document.getElementById('nearby-trucks-status-text');
+    const searchBtn = document.getElementById('btn-search-nearby');
+    statusEl.style.display = 'flex';
+    statusText.textContent = 'Connecting to Google Maps...';
+    if (searchBtn) { searchBtn.disabled = true; searchBtn.style.opacity = '0.6'; }
+    document.getElementById('nearby-trucks-placeholder').style.display = 'none';
+    document.getElementById('nearby-trucks-list').style.display = 'none';
+    document.getElementById('nearby-trucks-list').innerHTML = '';
+
+    try {
+        // Reuse the same Google API Key already stored by the mileage calculator
+        let apiKey = localStorage.getItem('google_maps_api_key') || '';
+        if (!apiKey) {
+            const userKey = prompt('Ingresa tu Google Maps API Key para usar esta funcion:');
+            if (userKey) { localStorage.setItem('google_maps_api_key', userKey.trim()); apiKey = userKey.trim(); }
+            else { throw new Error('No se proporciono una API Key.'); }
+        }
+
+        if (typeof google === 'undefined' || !google.maps) {
+            statusText.textContent = 'Loading Google Maps SDK...';
+            if (typeof window.loadGoogleMapsScript === 'function') {
+                await window.loadGoogleMapsScript(apiKey);
+            } else {
+                throw new Error('Google Maps SDK no esta disponible.');
+            }
+        }
+
+        const service = new google.maps.DistanceMatrixService();
+        const BATCH_SIZE = 25; // Google Distance Matrix allows up to 25 destinations per request
+        const RADIUS_MILES = 50;
+        const origin = zipCode + ', USA';
+        const matched = [];
+
+        // Process deliveries in batches to respect Google API limits
+        for (let i = 0; i < uniqueDeliveries.length; i += BATCH_SIZE) {
+            const batch = uniqueDeliveries.slice(i, i + BATCH_SIZE);
+            statusText.textContent = 'Calculating distances... (' + Math.min(i + BATCH_SIZE, uniqueDeliveries.length) + ' / ' + uniqueDeliveries.length + ')';
+
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error('Google API timeout')), 20000);
+                service.getDistanceMatrix({
+                    origins: [origin],
+                    destinations: batch,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.IMPERIAL,
+                }, (response, status) => {
+                    clearTimeout(timer);
+                    if (status !== 'OK') { reject(new Error('Google API Error: ' + status)); return; }
+                    response.rows[0].elements.forEach((el, idx) => {
+                        if (el.status === 'OK') {
+                            const distanceMiles = el.distance.value * 0.000621371;
+                            if (distanceMiles <= RADIUS_MILES) {
+                                matched.push({
+                                    delivery: batch[idx],
+                                    distanceMiles: distanceMiles,
+                                    distanceText: el.distance.text,
+                                    durationText: el.duration.text,
+                                    trips: tripsByDelivery[batch[idx]]
+                                });
+                            }
+                        }
+                    });
+                    resolve();
+                });
+            });
+        }
+
+        // Sort results from closest to farthest
+        matched.sort((a, b) => a.distanceMiles - b.distanceMiles);
+
+        // Render results
+        const listEl = document.getElementById('nearby-trucks-list');
+        listEl.innerHTML = '';
+
+        if (matched.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#94a3b8;">' +
+                '<i class="fas fa-exclamation-circle" style="font-size:2.5rem; color:#f59e0b; margin-bottom:12px; display:block;"></i>' +
+                '<p style="font-size:1rem; font-weight:700; color:#374151; margin:0 0 6px;">No pending trucks found within 50 miles</p>' +
+                '<p style="font-size:0.85rem; margin:0; color:#6b7280;">No pending orders have deliveries within 50 miles of ZIP code <strong>' + zipCode + '</strong>.</p>' +
+                '</div>';
+        } else {
+            const fmtDate = (ds) => window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(ds) : ds;
+
+            // Summary banner
+            const summaryEl = document.createElement('div');
+            summaryEl.style.cssText = 'margin-bottom:16px; padding:12px 16px; background:linear-gradient(135deg,#eff6ff,#dbeafe); border-radius:10px; border:1px solid #bfdbfe; display:flex; align-items:center; gap:10px;';
+            summaryEl.innerHTML = '<i class="fas fa-check-circle" style="color:#2563eb; font-size:1.2rem;"></i>' +
+                '<span style="font-weight:800; color:#1e3a8a; font-size:0.95rem;">Found <strong>' + matched.length + '</strong> pending delivery location(s) within 50 miles of ZIP <strong>' + zipCode + '</strong></span>';
+            listEl.appendChild(summaryEl);
+
+            matched.forEach(function(item) {
+                const card = document.createElement('div');
+                card.style.cssText = 'border:1px solid #e2e8f0; border-radius:12px; margin-bottom:14px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.05);';
+
+                // Color code by distance: green <=20mi, amber 21-35mi, red >35mi
+                let badgeColor = '#10b981';
+                if (item.distanceMiles > 35) badgeColor = '#ef4444';
+                else if (item.distanceMiles > 20) badgeColor = '#f59e0b';
+
+                const header = document.createElement('div');
+                header.style.cssText = 'background:linear-gradient(135deg,#f8fafc,#f1f5f9); padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;';
+                header.innerHTML = '<div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">' +
+                    '<i class="fas fa-map-marker-alt" style="color:#3b82f6; flex-shrink:0;"></i>' +
+                    '<span style="font-weight:800; font-size:0.9rem; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + item.delivery + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex; align-items:center; gap:10px; flex-shrink:0; margin-left:10px;">' +
+                    '<span style="background:' + badgeColor + '; color:white; padding:4px 12px; border-radius:20px; font-size:0.8rem; font-weight:800; white-space:nowrap;">' +
+                    '<i class="fas fa-road" style="margin-right:4px;"></i>' + item.distanceText + '</span>' +
+                    '<span style="color:#64748b; font-size:0.75rem; white-space:nowrap;">~' + item.durationText + '</span>' +
+                    '</div>';
+                card.appendChild(header);
+
+                const tripsContainer = document.createElement('div');
+                tripsContainer.style.cssText = 'padding:10px 16px; display:flex; flex-direction:column; gap:8px;';
+                item.trips.forEach(function(trip) {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 10px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; font-size:0.8rem; cursor:pointer; transition:background 0.15s;';
+                    row.title = 'Click to view map: ' + item.delivery + ' → ' + zipCode;
+                    row.onmouseenter = function() { this.style.background = '#eff6ff'; this.style.borderColor = '#93c5fd'; };
+                    row.onmouseleave = function() { this.style.background = '#f8fafc'; this.style.borderColor = '#e2e8f0'; };
+                    row.onclick = function() {
+                        var apiKey = localStorage.getItem('google_maps_api_key') || '';
+                        var routeModal = document.getElementById('routing-map-modal');
+                        var routeIframe = document.getElementById('routing-map-iframe');
+                        if (!routeModal || !routeIframe || !apiKey) {
+                            alert('No se pudo abrir el mapa. Verifica tu API Key de Google.');
+                            return;
+                        }
+                        // Show route: from the existing order delivery → to the searched ZIP
+                        var origin = encodeURIComponent(item.delivery);
+                        var destination = encodeURIComponent(zipCode + ', USA');
+                        routeIframe.src = 'https://www.google.com/maps/embed/v1/directions?key=' + apiKey + '&origin=' + origin + '&destination=' + destination;
+                        routeModal.style.display = 'flex';
+                    };
+                    row.innerHTML =
+                        '<span style="display:flex; align-items:center; gap:5px; color:#1e293b; font-weight:800; min-width:120px;">' +
+                        '<i class="fas fa-truck" style="color:#3b82f6;"></i> ' + (trip[17] || '---') + '</span>' +
+                        '<span style="color:#64748b; min-width:80px;">' +
+                        '<i class="fas fa-expand-arrows-alt" style="color:#6366f1; margin-right:4px;"></i>' + (trip[2] || '---') + '</span>' +
+                        '<span style="color:#64748b; min-width:100px;">' +
+                        '<i class="fas fa-city" style="color:#10b981; margin-right:4px;"></i>' + (trip[6] || '---') + '</span>' +
+                        '<span style="color:#64748b;">' +
+                        '<i class="far fa-calendar-alt" style="color:#3b82f6; margin-right:4px;"></i>' + fmtDate(trip[1]) + '</span>' +
+                        '<span style="color:#64748b;">' +
+                        '<i class="fas fa-box" style="color:#94a3b8; margin-right:4px;"></i>' + (trip[3] || '---') + '</span>' +
+                        '<span style="background:#f59e0b; color:white; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;">Pending</span>' +
+                        '<span style="margin-left:auto; color:#3b82f6; font-size:0.75rem; display:flex; align-items:center; gap:4px; white-space:nowrap;">' +
+                        '<i class="fas fa-map-marked-alt"></i> Ver mapa</span>';
+                    tripsContainer.appendChild(row);
+                });
+                card.appendChild(tripsContainer);
+                listEl.appendChild(card);
+            });
+        }
+
+        statusEl.style.display = 'none';
+        listEl.style.display = 'block';
+
+    } catch (err) {
+        statusEl.style.display = 'none';
+        document.getElementById('nearby-trucks-list').style.display = 'block';
+        document.getElementById('nearby-trucks-list').innerHTML =
+            '<div style="text-align:center; padding:30px 20px;">' +
+            '<i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444; margin-bottom:10px; display:block;"></i>' +
+            '<p style="font-weight:700; color:#991b1b; margin:0 0 5px;">Error</p>' +
+            '<p style="font-size:0.85rem; color:#64748b; margin:0;">' + (err.message || 'Unknown error occurred') + '</p>' +
+            '</div>';
+    } finally {
+        if (searchBtn) { searchBtn.disabled = false; searchBtn.style.opacity = '1'; }
+    }
+};
+
+// Close modal when clicking outside (on the dark backdrop)
+document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('nearby-trucks-modal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) window.closeNearbyTrucksModal();
+        });
+    }
+});
+
