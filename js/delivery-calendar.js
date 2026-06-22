@@ -335,7 +335,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     newQtyVal, existingSig, existingPhotos, existingSigDriver, (document.getElementById('in-sendemail')?.checked ? 'YES' : (document.getElementById('in-invoice-sent')?.value || 'NO')),
                     containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard,
                     null, null, // indices 63-64: invoice_last_sent, invoice_reminder_count
-                    (document.getElementById('in-booking')?.value || '---').toUpperCase() // 65: booking_no
+                    (document.getElementById('in-booking')?.value || '---').toUpperCase(), // 65: booking_no
+                    parseFloat(document.getElementById('in-rate-cash-amt')?.value) || 0, // 66: trans_cash_amt
+                    parseFloat(document.getElementById('in-rate-bank-amt')?.value) || 0, // 67: trans_bank_amt
+                    parseFloat(document.getElementById('in-yard-cash-amt')?.value) || 0, // 68: yard_cash_amt
+                    parseFloat(document.getElementById('in-yard-bank-amt')?.value) || 0, // 69: yard_bank_amt
+                    parseFloat(document.getElementById('in-sales-cash-amt')?.value) || 0, // 70: sales_cash_amt
+                    parseFloat(document.getElementById('in-sales-bank-amt')?.value) || 0, // 71: sales_bank_amt
+                    parseFloat(document.getElementById('in-amount-cash-amt')?.value) || 0, // 72: amount_cash_amt
+                    parseFloat(document.getElementById('in-amount-bank-amt')?.value) || 0 // 73: amount_bank_amt
                 ];
 
                 const dbObj = mapArrayToTrip(rowData);
@@ -1239,6 +1247,38 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 bookingInput.value = (rowData[65] && rowData[65] !== '---') ? rowData[65] : '';
             }
 
+            // Populate Split Payment Amounts
+            const splits = [
+                { type: 'rate', cashIdx: 66, bankIdx: 67 },
+                { type: 'yard', cashIdx: 68, bankIdx: 69 },
+                { type: 'sales', cashIdx: 70, bankIdx: 71 },
+                { type: 'amount', cashIdx: 72, bankIdx: 73 }
+            ];
+            
+            splits.forEach(s => {
+                const cashAmt = parseFloat(rowData[s.cashIdx]) || 0;
+                const bankAmt = parseFloat(rowData[s.bankIdx]) || 0;
+                const totalSplit = cashAmt + bankAmt;
+                const payMethodSelect = document.getElementById(`in-${s.type}-pay-method`);
+                const cashCheckbox = document.getElementById(s.type === 'amount' ? 'in-amount-cash' : `in-${s.type}-cash`);
+                
+                if (totalSplit > 0) {
+                    if (payMethodSelect) payMethodSelect.value = 'split';
+                    const cInput = document.getElementById(`in-${s.type}-cash-amt`);
+                    const bInput = document.getElementById(`in-${s.type}-bank-amt`);
+                    if (cInput) cInput.value = cashAmt > 0 ? cashAmt : '';
+                    if (bInput) bInput.value = bankAmt > 0 ? bankAmt : '';
+                } else {
+                    const isCash = cashCheckbox ? cashCheckbox.checked : false;
+                    if (payMethodSelect) payMethodSelect.value = isCash ? 'cash' : 'bank';
+                    const cInput = document.getElementById(`in-${s.type}-cash-amt`);
+                    const bInput = document.getElementById(`in-${s.type}-bank-amt`);
+                    if (cInput) cInput.value = '';
+                    if (bInput) bInput.value = '';
+                }
+                
+                if (window.toggleSplit) window.toggleSplit(s.type);
+            });
 
             // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
 

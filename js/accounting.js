@@ -134,7 +134,7 @@
 
             // 1. Cargar Ingresos (Trips)
             const pTrips = window.db.from('trips')
-                .select('trip_id, date, amount, driver, order_no, release_no, status, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont');
+                .select('trip_id, date, amount, driver, order_no, release_no, status, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt');
 
             // 2. Cargar Egresos (Expenses)
             const pExpenses = window.db.from('expenses').select('*');
@@ -190,64 +190,55 @@
 
                 // A. Ventas
                 if (t.has_sales === 'YES' || t.has_sales === true) {
-                    const salesMonto = (parseFloat(t.sales_price) || 0) * qty;
-                    if (salesMonto > 0) {
-                        unified.push({
-                            id: (t.trip_id || Math.random().toString()) + '-s',
-                            created_at: t.date || '2000-01-01',
-                            tipo: 'ingreso',
-                            metodo: isSCash ? 'cash' : 'bank',
-                            monto: salesMonto,
-                            descripcion: `Venta de Contenedor`,
-                            referencia: orderRef,
-                            chofer: '',
-                            customer: t.customer || '',
-                            n_cont: t.n_cont || '',
-                            order_no: t.order_no || '',
-                            release_no: t.release_no || ''
-                        });
+                    const cAmt = parseFloat(t.sales_cash_amt) || 0;
+                    const bAmt = parseFloat(t.sales_bank_amt) || 0;
+                    if (cAmt > 0 || bAmt > 0) {
+                        if (cAmt > 0) unified.push({ id: t.trip_id + '-sc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                        if (bAmt > 0) unified.push({ id: t.trip_id + '-sb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                    } else {
+                        const salesMonto = (parseFloat(t.sales_price) || 0) * qty;
+                        if (salesMonto > 0) {
+                            unified.push({
+                                id: (t.trip_id || Math.random().toString()) + '-s', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isSCash ? 'cash' : 'bank', monto: salesMonto,
+                                descripcion: `Venta de Contenedor`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || ''
+                            });
+                        }
                     }
                 }
 
                 // B. Transporte
                 if (t.has_trans === 'YES' || t.has_trans === true) {
-                    const transMonto = parseFloat(t.trans_pay) || 0;
-                    if (transMonto > 0) {
-                        unified.push({
-                            id: (t.trip_id || Math.random().toString()) + '-t',
-                            created_at: t.date || '2000-01-01',
-                            tipo: 'ingreso',
-                            metodo: isRCash ? 'cash' : 'bank',
-                            monto: transMonto,
-                            descripcion: `Servicio de Transporte`,
-                            referencia: orderRef,
-                            chofer: t.driver || '',
-                            customer: t.customer || '',
-                            n_cont: t.n_cont || '',
-                            order_no: t.order_no || '',
-                            release_no: t.release_no || ''
-                        });
+                    const cAmt = parseFloat(t.trans_cash_amt) || 0;
+                    const bAmt = parseFloat(t.trans_bank_amt) || 0;
+                    if (cAmt > 0 || bAmt > 0) {
+                        if (cAmt > 0) unified.push({ id: t.trip_id + '-tc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                        if (bAmt > 0) unified.push({ id: t.trip_id + '-tb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                    } else {
+                        const transMonto = parseFloat(t.trans_pay) || 0;
+                        if (transMonto > 0) {
+                            unified.push({
+                                id: (t.trip_id || Math.random().toString()) + '-t', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isRCash ? 'cash' : 'bank', monto: transMonto,
+                                descripcion: `Servicio de Transporte`, referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || ''
+                            });
+                        }
                     }
                 }
 
                 // C. Yarda
                 if (t.yard_services === 'YES' || t.yard_services === true) {
-                    const yardMonto = (parseFloat(t.yard_rate) || 0) * qty;
-                    if (yardMonto > 0) {
-                        unified.push({
-                            id: (t.trip_id || Math.random().toString()) + '-y',
-                            created_at: t.date || '2000-01-01',
-                            tipo: 'ingreso',
-                            metodo: isYCash ? 'cash' : 'bank',
-                            monto: yardMonto,
-                            descripcion: `Servicio de Yarda`,
-                            referencia: orderRef,
-                            chofer: '',
-                            customer: t.customer || '',
-                            n_cont: t.n_cont || '',
-                            order_no: t.order_no || '',
-                            release_no: t.release_no || ''
-                        });
+                    const cAmt = parseFloat(t.yard_cash_amt) || 0;
+                    const bAmt = parseFloat(t.yard_bank_amt) || 0;
+                    if (cAmt > 0 || bAmt > 0) {
+                        if (cAmt > 0) unified.push({ id: t.trip_id + '-yc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                        if (bAmt > 0) unified.push({ id: t.trip_id + '-yb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                    } else {
+                        const yardMonto = (parseFloat(t.yard_rate) || 0) * qty;
+                        if (yardMonto > 0) {
+                            unified.push({
+                                id: (t.trip_id || Math.random().toString()) + '-y', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isYCash ? 'cash' : 'bank', monto: yardMonto,
+                                descripcion: `Servicio de Yarda`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || ''
+                            });
+                        }
                     }
                 }
             });

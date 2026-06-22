@@ -1280,21 +1280,26 @@
                         </div>
                         <div class="form-group" id="trans-pay-group" style="display:none;">
                             <label class="sidebar-label-btn sidebar-label-btn-blue">Trans. Price</label>
-                            <div class="input-paid-wrap">
-                                <input type="number" id="in-rate" oninput="updateDriverCommission('rate')" placeholder="0.00">
-                                <div class="input-paid-badges-group">
-                                    <label class="input-paid-badge" title="Mark as paid">
-                                        <input type="checkbox" id="in-ratepaid"
-                                            onchange="syncImmediate('st_rate', this.checked ? 'PAID' : 'PEND')">
-                                        <span>PAID</span>
-                                    </label>
-                                    <label class="input-paid-badge"
-                                        style="background-color: #f1f5f9; color: #475569; border-color: #cbd5e1;"
-                                        title="Payment in cash?">
-                                        <input type="checkbox" id="in-rate-cash"
-                                            onchange="syncImmediate('r_cash', this.checked)">
-                                        <span>CASH</span>
-                                    </label>
+                            <div style="display: flex; flex-direction: column;">
+                                <div class="input-paid-wrap">
+                                    <input type="number" id="in-rate" oninput="updateDriverCommission('rate')" placeholder="0.00">
+                                    <div class="input-paid-badges-group">
+                                        <label class="input-paid-badge" title="Mark as paid">
+                                            <input type="checkbox" id="in-ratepaid"
+                                                onchange="syncImmediate('st_rate', this.checked ? 'PAID' : 'PEND')">
+                                            <span>PAID</span>
+                                        </label>
+                                        <select id="in-rate-pay-method" class="input-paid-badge" style="padding: 0 4px; border-color: #cbd5e1; color: #475569; background: #f1f5f9; outline: none; appearance: none; -webkit-appearance: none; text-align: center;" onchange="window.toggleSplit('rate')">
+                                            <option value="bank">BANK</option>
+                                            <option value="cash">CASH</option>
+                                            <option value="split">SPLIT</option>
+                                        </select>
+                                        <input type="checkbox" id="in-rate-cash" style="display:none;" onchange="syncImmediate('r_cash', this.checked)">
+                                    </div>
+                                </div>
+                                <div id="rate-split-group" style="display:none; gap: 5px; margin-top: 5px;">
+                                    <input type="number" id="in-rate-cash-amt" placeholder="Cash $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('rate')">
+                                    <input type="number" id="in-rate-bank-amt" placeholder="Bank $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('rate')">
                                 </div>
                             </div>
                         </div>
@@ -1312,21 +1317,26 @@
                         <!-- Removed Yard Services dropdown as it is now a checkbox above -->
                         <div class="form-group" id="yard-rate-group" style="display:none;">
                             <label class="sidebar-label-btn sidebar-label-btn-orange">Yard Rate</label>
-                            <div class="input-paid-wrap">
-                                <input type="number" id="in-yardrate" placeholder="0.00">
-                                <div class="input-paid-badges-group">
-                                    <label class="input-paid-badge" title="Mark as paid">
-                                        <input type="checkbox" id="in-yardpaid"
-                                            onchange="syncImmediate('st_yard', this.checked ? 'PAID' : 'PEND')">
-                                        <span>PAID</span>
-                                    </label>
-                                    <label class="input-paid-badge"
-                                        style="background-color: #f1f5f9; color: #475569; border-color: #cbd5e1;"
-                                        title="Payment in cash?">
-                                        <input type="checkbox" id="in-yard-cash"
-                                            onchange="syncImmediate('y_cash', this.checked)">
-                                        <span>CASH</span>
-                                    </label>
+                            <div style="display: flex; flex-direction: column; width: 100%;">
+                                <div class="input-paid-wrap">
+                                    <input type="number" id="in-yardrate" placeholder="0.00">
+                                    <div class="input-paid-badges-group">
+                                        <label class="input-paid-badge" title="Mark as paid">
+                                            <input type="checkbox" id="in-yardpaid"
+                                                onchange="syncImmediate('st_yard', this.checked ? 'PAID' : 'PEND')">
+                                            <span>PAID</span>
+                                        </label>
+                                        <select id="in-yard-pay-method" class="input-paid-badge" style="padding: 0 4px; border-color: #cbd5e1; color: #475569; background: #f1f5f9; outline: none; appearance: none; -webkit-appearance: none; text-align: center;" onchange="window.toggleSplit('yard')">
+                                            <option value="bank">BANK</option>
+                                            <option value="cash">CASH</option>
+                                            <option value="split">SPLIT</option>
+                                        </select>
+                                        <input type="checkbox" id="in-yard-cash" style="display:none;" onchange="syncImmediate('y_cash', this.checked)">
+                                    </div>
+                                </div>
+                                <div id="yard-split-group" style="display:none; gap: 5px; margin-top: 5px;">
+                                    <input type="number" id="in-yard-cash-amt" placeholder="Cash $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('yard')">
+                                    <input type="number" id="in-yard-bank-amt" placeholder="Bank $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('yard')">
                                 </div>
                             </div>
                         </div>
@@ -1342,21 +1352,26 @@
 
                         <div class="form-group" id="sales-price-group" style="display:none;">
                             <label class="sidebar-label-btn sidebar-label-btn-green">Sales Price</label>
-                            <div class="input-paid-wrap">
-                                <input type="number" id="in-sales" placeholder="0.00">
-                                <div class="input-paid-badges-group">
-                                    <label class="input-paid-badge" title="Mark as paid">
-                                        <input type="checkbox" id="in-salespaid"
-                                            onchange="syncImmediate('st_sales', this.checked ? 'PAID' : 'PEND')">
-                                        <span>PAID</span>
-                                    </label>
-                                    <label class="input-paid-badge"
-                                        style="background-color: #f1f5f9; color: #475569; border-color: #cbd5e1;"
-                                        title="Payment in cash?">
-                                        <input type="checkbox" id="in-sales-cash"
-                                            onchange="syncImmediate('s_cash', this.checked)">
-                                        <span>CASH</span>
-                                    </label>
+                            <div style="display: flex; flex-direction: column; width: 100%;">
+                                <div class="input-paid-wrap">
+                                    <input type="number" id="in-sales" placeholder="0.00">
+                                    <div class="input-paid-badges-group">
+                                        <label class="input-paid-badge" title="Mark as paid">
+                                            <input type="checkbox" id="in-salespaid"
+                                                onchange="syncImmediate('st_sales', this.checked ? 'PAID' : 'PEND')">
+                                            <span>PAID</span>
+                                        </label>
+                                        <select id="in-sales-pay-method" class="input-paid-badge" style="padding: 0 4px; border-color: #cbd5e1; color: #475569; background: #f1f5f9; outline: none; appearance: none; -webkit-appearance: none; text-align: center;" onchange="window.toggleSplit('sales')">
+                                            <option value="bank">BANK</option>
+                                            <option value="cash">CASH</option>
+                                            <option value="split">SPLIT</option>
+                                        </select>
+                                        <input type="checkbox" id="in-sales-cash" style="display:none;" onchange="syncImmediate('s_cash', this.checked)">
+                                    </div>
+                                </div>
+                                <div id="sales-split-group" style="display:none; gap: 5px; margin-top: 5px;">
+                                    <input type="number" id="in-sales-cash-amt" placeholder="Cash $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('sales')">
+                                    <input type="number" id="in-sales-bank-amt" placeholder="Bank $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('sales')">
                                 </div>
                             </div>
                         </div>
@@ -1364,15 +1379,27 @@
 
                         <div class="form-group">
                             <label class="sidebar-label-btn">Amount</label>
-                            <div class="input-paid-wrap">
-                                <input type="number" id="in-amount" oninput="updateDriverCommission('amount')"
-                                    placeholder="0.00">
-                                <div class="input-paid-badges-group">
-                                    <label class="input-paid-badge" title="Mark as cash">
-                                        <input type="checkbox" id="in-amountpaid"
-                                            onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING')">
-                                        <span>CASH</span>
-                                    </label>
+                            <div style="display: flex; flex-direction: column;">
+                                <div class="input-paid-wrap">
+                                    <input type="number" id="in-amount" oninput="updateDriverCommission('amount')"
+                                        placeholder="0.00">
+                                    <div class="input-paid-badges-group">
+                                        <label class="input-paid-badge" title="Mark as cash">
+                                            <input type="checkbox" id="in-amountpaid"
+                                                onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING')">
+                                            <span>PAID</span>
+                                        </label>
+                                        <select id="in-amount-pay-method" class="input-paid-badge" style="padding: 0 4px; border-color: #cbd5e1; color: #475569; background: #f1f5f9; outline: none; appearance: none; -webkit-appearance: none; text-align: center;" onchange="window.toggleSplit('amount')">
+                                            <option value="bank">BANK</option>
+                                            <option value="cash">CASH</option>
+                                            <option value="split">SPLIT</option>
+                                        </select>
+                                        <input type="checkbox" id="in-amount-cash" style="display:none;" onchange="syncImmediate('is_cash', this.checked)">
+                                    </div>
+                                </div>
+                                <div id="amount-split-group" style="display:none; gap: 5px; margin-top: 5px;">
+                                    <input type="number" id="in-amount-cash-amt" placeholder="Cash $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('amount')">
+                                    <input type="number" id="in-amount-bank-amt" placeholder="Bank $" style="width: 50%; font-size:0.8rem; padding:4px;" oninput="window.updateSplitTotal('amount')">
                                 </div>
                             </div>
                         </div>
@@ -6544,6 +6571,66 @@
         });
         
         window.triggerMileageCalc = triggerMileageCalc;
+        // Payment Methods logic for Delivery Calendar
+        window.toggleSplit = function(type) {
+            const method = document.getElementById(`in-${type}-pay-method`).value;
+            const splitGroup = document.getElementById(`${type}-split-group`);
+            const mainInputId = type === 'yard' ? 'in-yardrate' : `in-${type}`;
+            const mainInput = document.getElementById(mainInputId);
+            const cashCheckbox = document.getElementById(type === 'amount' ? 'in-amount-cash' : `in-${type}-cash`);
+
+            if (method === 'split') {
+                splitGroup.style.display = 'flex';
+                mainInput.readOnly = true;
+                mainInput.style.backgroundColor = '#f1f5f9';
+                if(cashCheckbox) {
+                    cashCheckbox.checked = false;
+                    cashCheckbox.dispatchEvent(new Event('change'));
+                }
+            } else {
+                splitGroup.style.display = 'none';
+                mainInput.readOnly = false;
+                mainInput.style.backgroundColor = '';
+                
+                // Clear split inputs
+                const cashAmt = document.getElementById(`in-${type}-cash-amt`);
+                const bankAmt = document.getElementById(`in-${type}-bank-amt`);
+                if(cashAmt) cashAmt.value = '';
+                if(bankAmt) bankAmt.value = '';
+
+                // Handle regular cash/bank
+                if(cashCheckbox) {
+                    cashCheckbox.checked = (method === 'cash');
+                    cashCheckbox.dispatchEvent(new Event('change'));
+                }
+            }
+        };
+
+        window.updateSplitTotal = function(type) {
+            const cashAmt = parseFloat(document.getElementById(`in-${type}-cash-amt`).value) || 0;
+            const bankAmt = parseFloat(document.getElementById(`in-${type}-bank-amt`).value) || 0;
+            const total = cashAmt + bankAmt;
+            
+            const mainInputId = type === 'yard' ? 'in-yardrate' : `in-${type}`;
+            const mainInput = document.getElementById(mainInputId);
+            
+            mainInput.value = total > 0 ? total.toFixed(2) : '';
+            mainInput.dispatchEvent(new Event('input')); // Trigger commission calculation
+            // Force save to trigger Grid update if there's a listener
+            if(typeof syncImmediate === 'function') {
+                syncImmediate(); // Try to sync
+            }
+        };
+
+        window.resetSplitForms = function() {
+            ['rate', 'yard', 'sales', 'amount'].forEach(type => {
+                const select = document.getElementById(`in-${type}-pay-method`);
+                if(select) {
+                    select.value = 'bank'; // Default to bank or cash
+                    // window.toggleSplit(type); // Toggle visually
+                }
+            });
+        };
     </script>
 
         <!-- =====================================================================

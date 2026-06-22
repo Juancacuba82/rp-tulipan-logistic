@@ -125,7 +125,15 @@
                 t.move_to_yard || false,       // 62
                 t.invoice_last_sent || null,    // 63  NEW — ISO date string of last invoice send
                 t.invoice_reminder_count || 0,  // 64  NEW — total sends/reminders counter
-                t.booking_no || '---'           // 65  NEW — Booking Number
+                t.booking_no || '---',          // 65  NEW — Booking Number
+                t.trans_cash_amt || 0,          // 66  NEW — Split amount cash for transport
+                t.trans_bank_amt || 0,          // 67  NEW — Split amount bank for transport
+                t.yard_cash_amt || 0,           // 68  NEW — Split amount cash for yard
+                t.yard_bank_amt || 0,           // 69  NEW — Split amount bank for yard
+                t.sales_cash_amt || 0,          // 70  NEW — Split amount cash for sales
+                t.sales_bank_amt || 0,          // 71  NEW — Split amount bank for sales
+                t.amount_cash_amt || 0,         // 72  NEW — Split amount cash for amount
+                t.amount_bank_amt || 0          // 73  NEW — Split amount bank for amount
             ];
         }
 
@@ -194,7 +202,15 @@
                 created_by: row[60] || null,
                 closed_by: row[61] || '---',
                 move_to_yard: row[62] === true || row[62] === 'true',
-                booking_no: row[65] || '---'
+                booking_no: row[65] || '---',
+                trans_cash_amt: parseFloat(row[66]) || 0,
+                trans_bank_amt: parseFloat(row[67]) || 0,
+                yard_cash_amt: parseFloat(row[68]) || 0,
+                yard_bank_amt: parseFloat(row[69]) || 0,
+                sales_cash_amt: parseFloat(row[70]) || 0,
+                sales_bank_amt: parseFloat(row[71]) || 0,
+                amount_cash_amt: parseFloat(row[72]) || 0,
+                amount_bank_amt: parseFloat(row[73]) || 0
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB
