@@ -38,6 +38,7 @@
     <script src="./js/billing-manager.js?v=101" defer></script>
     <script src="./js/invoice-automation.js?v=1" defer></script>
     <script src="./js/attendance.js?v=1" defer></script>
+    <script src="./js/accounting.js?v=100" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
@@ -789,6 +790,7 @@
                 <button onclick="closeMenu(); showView('yard')" class="btn-calendar" title="YARD STOCK"><i class="fas fa-warehouse"></i> YARD</button>
                 <button onclick="closeMenu(); showView('tasks')" class="btn-calendar" title="TASKS & TO-DO"><i class="fas fa-tasks"></i> TASKS</button>
                 <button onclick="closeMenu(); showView('attendance')" id="btn-attendance-nav" class="btn-calendar" title="ATTENDANCE"><i class="fas fa-calendar-check"></i> ATTENDANCE</button>
+                <button onclick="closeMenu(); showView('accounting')" id="btn-accounting-nav" class="btn-calendar" title="CASH LEDGER" style="display:none; background:linear-gradient(135deg,#059669,#10b981); border-color:#059669;"><i class="fas fa-coins"></i> LEDGER</button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -5174,12 +5176,22 @@
                     finalView = 'docs';
                 }
             } else if (normalizedRole === 'student' || normalizedRole === 'employee' || normalizedRole === 'staff') {
-                const forbiddenForStudents = ['profit-report'];
+                const forbiddenForStudents = ['profit-report', 'accounting'];
                 if (forbiddenForStudents.includes(finalView)) {
                     console.warn("Restricted user redirected to Hero from:", finalView);
                     finalView = 'hero';
                 }
             }
+
+            // ACCOUNTING: Admin-only view
+            if (finalView === 'accounting' && normalizedRole !== 'admin') {
+                console.warn('Non-admin redirected from Accounting to hero.');
+                finalView = 'hero';
+            }
+
+            // Show/hide LEDGER nav button based on role
+            const btnAcct = document.getElementById('btn-accounting-nav');
+            if (btnAcct) btnAcct.style.display = (normalizedRole === 'admin') ? 'inline-flex' : 'none';
 
             // 2. Hide ALL sections
             sections.forEach(s => {
@@ -6469,6 +6481,170 @@
         
         window.triggerMileageCalc = triggerMileageCalc;
     </script>
+
+        <!-- =====================================================================
+             ACCOUNTING VIEW - Cash Ledger Module (Admin Only)
+             ===================================================================== -->
+        <section id="accounting-view" class="view-section hidden">
+
+            <div class="acct-view-header">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h1><i class="fas fa-coins" style="margin-right:10px; color:#34d399;"></i>CASH LEDGER</h1>
+                        <p>Control de Efectivo y Banco - Solo visible para Administradores</p>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="background:rgba(255,255,255,0.1); color:#94a3b8; padding:6px 14px; border-radius:8px; font-size:0.75rem; font-weight:700;">
+                            <i class="fas fa-receipt" style="margin-right:6px;"></i>
+                            <span id="acct-tx-count">0</span> TRANSACCIONES
+                        </span>
+                        <button onclick="window.loadAccountingData(true)" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#ffffff; padding:8px 16px; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer; font-family:'Outfit',sans-serif; display:inline-flex; align-items:center; gap:6px;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                            <i class="fas fa-sync-alt"></i> REFRESH
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="acct-summary-grid">
+                <div class="acct-card acct-card-cash">
+                    <i class="fas fa-money-bill-wave acct-card-icon"></i>
+                    <div class="acct-card-label">Caja (Efectivo Fisico)</div>
+                    <div class="acct-card-value" id="acct-cash-balance">$0.00</div>
+                    <div class="acct-card-sub">
+                        <span class="acct-sub-in" id="acct-cash-in">+$0.00</span>
+                        <span class="acct-sub-out" id="acct-cash-out">-$0.00</span>
+                    </div>
+                </div>
+                <div class="acct-card acct-card-driver">
+                    <i class="fas fa-truck acct-card-icon"></i>
+                    <div class="acct-card-label">En la Calle (Choferes)</div>
+                    <div class="acct-card-value" id="acct-driver-wallet" style="color:#d97706;">$0.00</div>
+                    <div class="acct-card-sub">
+                        <span style="background:#fffbeb; color:#92400e; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700;">Efectivo en transito</span>
+                    </div>
+                </div>
+                <div class="acct-card acct-card-bank">
+                    <i class="fas fa-university acct-card-icon"></i>
+                    <div class="acct-card-label">Banco / Online</div>
+                    <div class="acct-card-value" id="acct-bank-balance">$0.00</div>
+                    <div class="acct-card-sub">
+                        <span class="acct-sub-in" id="acct-bank-in">+$0.00</span>
+                        <span class="acct-sub-out" id="acct-bank-out">-$0.00</span>
+                    </div>
+                </div>
+                <div class="acct-card acct-card-total">
+                    <i class="fas fa-chart-pie acct-card-icon"></i>
+                    <div class="acct-card-label">Balance Total Empresa</div>
+                    <div class="acct-card-value" id="acct-total-balance">$0.00</div>
+                    <div class="acct-card-sub">
+                        <span style="background:#f5f3ff; color:#6d28d9; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700;">Todos los fondos</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="acct-form-panel">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:2px;">
+                    <i class="fas fa-plus-circle" style="color:#059669; font-size:1.1rem;"></i>
+                    <span style="font-weight:900; color:#1e293b; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.5px;">Registrar Transaccion Manual</span>
+                    <span style="font-size:0.7rem; color:#94a3b8; font-weight:500;">(Ingresos/Egresos que no vienen de Settlements o Releases)</span>
+                </div>
+                <div class="acct-form-grid">
+                    <div class="acct-form-group">
+                        <label>Tipo</label>
+                        <select id="acct-form-tipo">
+                            <option value="egreso">Egreso (Salida)</option>
+                        </select>
+                    </div>
+                    <div class="acct-form-group">
+                        <label>Metodo</label>
+                        <select id="acct-form-metodo">
+                            <option value="cash">Efectivo (Cash)</option>
+                            <option value="bank">Banco / Online</option>
+                            <option value="driver_wallet">Billetera Chofer</option>
+                        </select>
+                    </div>
+                    <div class="acct-form-group">
+                        <label>Monto ($)</label>
+                        <input type="number" id="acct-form-monto" placeholder="0.00" min="0" step="0.01">
+                    </div>
+                    <div class="acct-form-group" style="grid-column: span 2;">
+                        <label>Descripcion *</label>
+                        <input type="text" id="acct-form-desc" placeholder="Ej: Pago combustible, Renta oficina...">
+                    </div>
+                    <div class="acct-form-group">
+                        <label>Referencia / # Orden</label>
+                        <input type="text" id="acct-form-ref" placeholder="Ej: ORD-001, REL-22...">
+                    </div>
+                    <div class="acct-form-group">
+                        <label>Chofer (si aplica)</label>
+                        <input type="text" id="acct-form-chofer" placeholder="Nombre del chofer...">
+                    </div>
+                </div>
+                <button class="btn-acct-save" id="btn-acct-save-tx" onclick="window.saveManualTransaction()">
+                    <i class="fas fa-save"></i> SAVE TRANSACTION
+                </button>
+            </div>
+
+            <div class="acct-table-wrapper">
+                <div class="acct-table-header">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i class="fas fa-list-alt" style="color:#3b82f6; font-size:1.1rem;"></i>
+                        <span style="font-weight:900; color:#1e293b; font-size:0.9rem; text-transform:uppercase;">Historial de Transacciones</span>
+                    </div>
+                    <div class="acct-toggle-group">
+                        <div style="position:relative; margin-right:15px;">
+                            <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.8rem;"></i>
+                            <input type="text" id="acct-text-search" placeholder="Buscar chofer, ref, concepto..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 12px 6px 28px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:'Outfit',sans-serif; width: 220px; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+                        </div>
+                        <span style="font-size:0.7rem; color:#94a3b8; font-weight:700; margin-right:4px;">FILTRAR:</span>
+                        <button class="acct-toggle-btn acct-toggle-active" id="btn-acct-all" onclick="window.filterAccountingView('all')">
+                            <i class="fas fa-layer-group"></i> Ver Todo
+                        </button>
+                        <button class="acct-toggle-btn acct-cash" id="btn-acct-cash" onclick="window.filterAccountingView('cash')">
+                            <i class="fas fa-money-bill-wave"></i> Solo Efectivo
+                        </button>
+                        <button class="acct-toggle-btn" id="btn-acct-bank" onclick="window.filterAccountingView('bank')">
+                            <i class="fas fa-university"></i> Solo Banco
+                        </button>
+                    </div>
+                </div>
+                <div class="acct-advanced-filters" style="padding: 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <span style="font-size:0.75rem; color:#64748b; font-weight:700;"><i class="fas fa-filter"></i> ADVANCED FILTERS:</span>
+                    <input type="date" id="acct-filter-date-from" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem;" title="Date From">
+                    <input type="date" id="acct-filter-date-to" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem;" title="Date To">
+                    <input type="text" id="acct-filter-customer" placeholder="Customer..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 140px;">
+                    <input type="text" id="acct-filter-container" placeholder="Container #..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 120px;">
+                    <input type="text" id="acct-filter-release" placeholder="Release #..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 110px;">
+                    <input type="text" id="acct-filter-order" placeholder="Order #..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 110px;">
+                    <button onclick="window.resetAccountingFilters()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; padding:6px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:600;"><i class="fas fa-times"></i> Clear</button>
+                </div>
+                <div class="acct-table-scroll">
+                    <table id="acct-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th style="text-align:center;">Tipo</th>
+                                <th>Metodo</th>
+                                <th>Descripcion / Referencia</th>
+                                <th style="text-align:center;">Chofer</th>
+                                <th style="text-align:right;">Monto</th>
+                                <th style="text-align:right;">Balance</th>
+                                <th style="text-align:center;">Accion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="acct-table-body">
+                            <tr>
+                                <td colspan="8" style="text-align:center; padding:40px; color:#94a3b8; font-style:italic;">
+                                    <i class="fas fa-coins" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                                    Haz clic en REFRESH para cargar los datos.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div style="height:60px;"></div>
+        </section>
 </body>
 
 </html>

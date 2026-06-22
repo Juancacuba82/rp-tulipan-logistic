@@ -2710,3 +2710,112 @@ main {
     transition: none !important;
 }
 
+/* ==========================================================================
+   ACCOUNTING MODULE — Cash Ledger (accounting.js)
+   Added at end of file to avoid impacting existing styles.
+   ========================================================================== */
+
+.acct-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 24px 24px 0;
+}
+@media (max-width: 1100px) { .acct-summary-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .acct-summary-grid { grid-template-columns: 1fr; } }
+
+.acct-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.acct-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+.acct-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; border-radius:16px 16px 0 0; }
+.acct-card-cash::before   { background: linear-gradient(90deg,#10b981,#34d399); }
+.acct-card-bank::before   { background: linear-gradient(90deg,#3b82f6,#60a5fa); }
+.acct-card-driver::before { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+.acct-card-total::before  { background: linear-gradient(90deg,#8b5cf6,#a78bfa); }
+
+.acct-card-label {
+    font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.8px; color: #64748b; margin-bottom: 6px;
+}
+.acct-card-value { font-size: 1.7rem; font-weight: 900; color: #1e293b; line-height: 1.1; transition: color 0.3s; }
+.acct-card-sub { display:flex; gap:10px; margin-top:6px; }
+.acct-card-sub span { font-size:0.7rem; font-weight:700; padding:2px 6px; border-radius:5px; }
+.acct-sub-in  { background:#f0fdf4; color:#15803d; }
+.acct-sub-out { background:#fef2f2; color:#b91c1c; }
+.acct-card-icon { position:absolute; top:16px; right:18px; font-size:1.6rem; opacity:0.08; }
+
+.acct-toggle-group { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.acct-toggle-btn {
+    display:inline-flex; align-items:center; gap:6px; padding:8px 18px;
+    border-radius:10px; border:2px solid #e2e8f0; background:#ffffff; color:#64748b;
+    font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;
+    cursor:pointer; transition:all 0.2s ease; font-family:'Outfit',sans-serif;
+}
+.acct-toggle-btn:hover { border-color:#94a3b8; color:#1e293b; transform:translateY(-1px); }
+.acct-toggle-active {
+    background:linear-gradient(135deg,#1e40af,#3b82f6) !important;
+    border-color:transparent !important; color:#ffffff !important;
+    box-shadow:0 4px 12px rgba(59,130,246,0.35) !important;
+}
+.acct-toggle-active.acct-cash { background:linear-gradient(135deg,#059669,#10b981) !important; box-shadow:0 4px 12px rgba(16,185,129,0.35) !important; }
+
+.acct-table-wrapper {
+    margin:16px 24px 24px; background:#ffffff; border-radius:16px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06); border:1px solid #e2e8f0; overflow:hidden;
+}
+.acct-table-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 20px; border-bottom:1px solid #f1f5f9; background:#f8fafc; flex-wrap:wrap; gap:12px;
+}
+.acct-table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+#acct-table { width:100%; min-width:800px; border-collapse:collapse; font-family:'Outfit',sans-serif; font-size:0.82rem; }
+#acct-table thead th {
+    background:#0a192f; color:#ffffff; padding:12px 14px; text-align:left;
+    font-weight:800; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;
+}
+.acct-table-row td { padding:12px 14px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.acct-table-row:last-child td { border-bottom:none; }
+.acct-table-row:hover { background:#f8fafc !important; }
+
+.acct-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:8px; font-size:0.7rem; font-weight:800; text-transform:uppercase; white-space:nowrap; }
+.acct-badge-cash { background:#f0fdf4; color:#059669; border:1px solid #bbf7d0; }
+.acct-badge-bank { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+
+.acct-form-panel { background:#ffffff; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.06); border:1px solid #e2e8f0; padding:20px 22px; margin:16px 24px 0; }
+.acct-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:14px; }
+.acct-form-group { display:flex; flex-direction:column; gap:4px; }
+.acct-form-group label { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; }
+.acct-form-group select, .acct-form-group input { border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 10px; font-family:'Outfit',sans-serif; font-size:0.82rem; font-weight:600; color:#1e293b; transition:border-color 0.2s; background:#ffffff; }
+.acct-form-group select:focus, .acct-form-group input:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+
+.btn-acct-save {
+    display:inline-flex; align-items:center; gap:7px;
+    background:linear-gradient(135deg,#10b981,#059669); color:#ffffff; border:none;
+    padding:10px 22px; border-radius:10px; font-weight:800; font-size:0.78rem; text-transform:uppercase;
+    cursor:pointer; font-family:'Outfit',sans-serif; transition:all 0.2s ease; box-shadow:0 4px 12px rgba(16,185,129,0.3); margin-top:12px;
+}
+.btn-acct-save:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(16,185,129,0.4); }
+.btn-acct-save:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+
+.acct-view-header {
+    background:linear-gradient(135deg,#0a192f 0%,#1e3a5f 100%);
+    padding:28px 24px 22px; border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.acct-view-header h1 { color:#ffffff; font-size:1.4rem; font-weight:900; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+.acct-view-header p { color:rgba(255,255,255,0.55); font-size:0.78rem; font-weight:500; }
+
+@media (max-width: 768px) {
+    .acct-form-grid { grid-template-columns:1fr 1fr; }
+    .acct-table-header { flex-direction:column; align-items:flex-start; }
+    .acct-table-wrapper, .acct-form-panel { margin:12px; }
+    .acct-summary-grid { padding:12px; gap:10px; }
+}

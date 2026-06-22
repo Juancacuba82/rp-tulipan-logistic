@@ -321,8 +321,12 @@
 
             // Show loading status on the button or title if possible
             const titleEl = document.querySelector('#profit-report-view h2');
-            const originalTitle = titleEl ? titleEl.innerHTML : 'Financial Profit Report';
-            if (titleEl) titleEl.innerHTML = 'Financial Profit Report <i class="fas fa-spinner fa-spin" style="font-size:1rem; margin-left: 10px;"></i>';
+            if (titleEl) {
+                // Remove any existing spinner before saving the original title
+                const cleanTitle = titleEl.innerHTML.replace(/<i class="fas fa-spinner fa-spin".*?<\/i>/g, '').trim();
+                titleEl.dataset.originalTitle = cleanTitle;
+                titleEl.innerHTML = `${cleanTitle} <i class="fas fa-spinner fa-spin" style="font-size:1rem; margin-left: 10px;"></i>`;
+            }
 
             // --- FETCH ALL LOGISTICS DATA directly from database ---
             let logisticsData = [];
@@ -352,7 +356,9 @@
                 logisticsData = tripsData || window.currentTrips || [];
             }
 
-            if (titleEl) titleEl.innerHTML = originalTitle;
+            if (titleEl && titleEl.dataset.originalTitle) {
+                titleEl.innerHTML = titleEl.dataset.originalTitle;
+            }
 
             const expensesData = window.currentExpenses || [];
 
@@ -571,6 +577,10 @@
             if (document.getElementById('bar-releases'))   document.getElementById('bar-releases').style.width   = `${(totals.releases / maxVal) * 100}%`;
             } catch (err) {
                 console.error("CRITICAL ERROR in renderProfitReport:", err);
+                const titleEl = document.querySelector('#profit-report-view h2');
+                if (titleEl && titleEl.dataset.originalTitle) {
+                    titleEl.innerHTML = titleEl.dataset.originalTitle;
+                }
             }
         };
 
