@@ -114,7 +114,7 @@
 
                 tr.onclick = () => window.editExpenseRow(rowData);
 
-                rowData.slice(0, 5).forEach((text, i) => { // Show first 5 columns
+                rowData.slice(0, 4).forEach((text, i) => { // Show first 4 columns (Date, Category, Description, Amount)
                     const td = document.createElement('td');
                     td.textContent = (i === 0) ? window.formatDateMMDDYYYY(text) : text;
                     
@@ -132,6 +132,27 @@
                     tr.appendChild(td);
                 });
 
+                // Payment Method Badge (index 6) - Column 5
+                const pmTd = document.createElement('td');
+                // Use flexbox to force centering in the table cell
+                pmTd.style.display = 'flex';
+                pmTd.style.justifyContent = 'center';
+                pmTd.style.alignItems = 'center';
+                pmTd.style.height = '100%';
+                
+                const pm = rowData[6] || 'cash';
+                if (pm === 'cash') {
+                    pmTd.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:800;margin:auto;"><i class="fas fa-money-bill-wave"></i> CASH</span>`;
+                } else {
+                    pmTd.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:800;margin:auto;"><i class="fas fa-university"></i> BANK</span>`;
+                }
+                tr.appendChild(pmTd);
+
+                // Note (index 4) - Column 6
+                const noteTd = document.createElement('td');
+                noteTd.textContent = rowData[4];
+                tr.appendChild(noteTd);
+
                 // Action Cell (Delete using expense_id at rowData[5])
                 const actionsTd = document.createElement('td');
                 actionsTd.onclick = (e) => e.stopPropagation(); // Don't trigger edit when deleting
@@ -148,6 +169,9 @@
                             // Update local state instead of full reload
                             window.currentExpenses = window.currentExpenses.filter(row => row[5] !== expenseId);
                             renderExpensesHistory();
+
+                            // Sync al Cash Ledger local, sin query a Supabase
+                            if (window.syncExpenseToLedger) window.syncExpenseToLedger({ id: expenseId }, 'delete');
                         } catch (e) {
                             console.error("Error deleting expense:", e);
                             alert("Failed to delete expense.");
@@ -234,6 +258,10 @@
             const amountStr = (rowData[3] || '0').replace('$', '').replace(/,/g, '');
             document.getElementById('exp-amount').value = parseFloat(amountStr) || 0;
             document.getElementById('exp-note').value = rowData[4] || '';
+
+            // Load payment method (index 6)
+            const pm = rowData[6] || 'cash';
+            if (window.selectExpensePaymentMethod) window.selectExpensePaymentMethod(pm);
 
             // Update Button
             const btn = document.getElementById('btn-save-expense');

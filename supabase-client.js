@@ -225,7 +225,7 @@ async function getExpenses() {
         const dateStr = threeMonthsAgo.toISOString().split('T')[0];
 
         const { data, error } = await db.from('expenses')
-            .select('id, date, category, description, amount, note')
+            .select('id, date, category, description, amount, note, payment_method')
             .gte('date', dateStr)
             .order('date', { ascending: false });
         if (error) throw error;

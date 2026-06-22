@@ -16,6 +16,16 @@
     let currentFilter = 'all'; // 'all' | 'cash' | 'bank'
     let isLoading = false;
 
+    // Helper para extraer nombre del chofer de los gastos automáticos
+    function extractDriverFromExpense(expense) {
+        if (expense.category === 'Driver Payment' && expense.description) {
+            let s = expense.description.replace(/Liquidaci[oó]n de\s+/i, '');
+            return s.split(' - ')[0].trim();
+        }
+        return '';
+    }
+
+
     // =========================================================================
     // API PÚBLICA: window.logCashTransaction
     // Llamada pasivamente por driver-settlements.js y releases.js
@@ -47,6 +57,61 @@
             }
         } catch (err) {
             console.warn('[Accounting] logCashTransaction exception (non-fatal):', err.message);
+        }
+    };
+
+    // =========================================================================
+    // API PÚBLICA: window.syncExpenseToLedger
+    // Llamada por releases.js al crear/editar/eliminar un gasto.
+    // Actualiza el array local SIN hacer una query a Supabase.
+    // =========================================================================
+    window.syncExpenseToLedger = function (expenseData, mode) {
+        // mode: 'add' | 'update' | 'delete'
+        // expenseData: objeto con { id, date, category, description, amount, note, payment_method }
+        try {
+            const amt = parseFloat(expenseData.amount) || 0;
+
+            if (mode === 'delete') {
+                allTransactions = allTransactions.filter(t => t.id !== expenseData.id);
+            } else {
+                const metodo = (expenseData.payment_method === 'bank') ? 'bank' : 'cash';
+                const newTx = {
+                    id: expenseData.id || Math.random().toString(),
+                    created_at: expenseData.date || new Date().toISOString().split('T')[0],
+                    tipo: 'egreso',
+                    metodo: metodo,
+                    monto: amt,
+                    descripcion: expenseData.description || expenseData.category || 'Gasto General',
+                    referencia: expenseData.note || '',
+                    chofer: extractDriverFromExpense(expenseData),
+                    customer: '',
+                    n_cont: '',
+                    order_no: '',
+                    release_no: ''
+                };
+
+                if (mode === 'update') {
+                    const idx = allTransactions.findIndex(t => t.id === expenseData.id);
+                    if (idx !== -1) {
+                        allTransactions[idx] = newTx;
+                    } else {
+                        // Si por alguna razón no existe (ej: primer load aún no ocurrió), lo insertamos
+                        allTransactions.unshift(newTx);
+                    }
+                } else { // 'add'
+                    allTransactions.unshift(newTx);
+                    // Re-sort por fecha descendente
+                    allTransactions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                }
+            }
+
+            // Si el Cash Ledger está actualmente visible, re-renderizar
+            const view = document.getElementById('accounting-view');
+            if (view && view.style.display !== 'none') {
+                window.renderAccountingDashboard();
+            }
+        } catch (err) {
+            console.warn('[Accounting] syncExpenseToLedger error (non-fatal):', err.message);
         }
     };
 
@@ -187,24 +252,24 @@
                 }
             });
 
-            // Procesar Expenses (Egresos y Pagos a Chofer)
+            // Procesar Expenses (Egresos)
             (resExpenses.data || []).forEach(e => {
                 const amt = parseFloat(e.amount) || 0;
                 if (amt > 0) {
-                    // Si el expense fue por un "Driver Payment", restarlo del driver_wallet (efectivo que el chofer devuelve/retiene)
-                    const isDriverPayment = (e.category === 'Driver Payment' || (e.description || '').toLowerCase().includes('liquidación'));
+                    // Usar el campo payment_method real de la base de datos.
+                    // Fallback a 'cash' para registros antiguos sin el campo.
+                    const metodo = (e.payment_method === 'bank') ? 'bank' : 'cash';
                     const descStr = `${e.category || ''} - ${e.description || ''}`;
-                    const isBank = descStr.toLowerCase().includes('zelle') || descStr.toLowerCase().includes('bank') || descStr.toLowerCase().includes('check');
 
                     unified.push({
                         id: e.id || Math.random().toString(),
                         created_at: e.date || '2000-01-01',
                         tipo: 'egreso',
-                        metodo: isDriverPayment ? 'driver_wallet' : (isBank ? 'bank' : 'cash'),
+                        metodo: metodo,
                         monto: amt,
                         descripcion: e.description || e.category || 'Gasto General',
                         referencia: e.note || '',
-                        chofer: '',
+                        chofer: extractDriverFromExpense(e),
                         customer: '',
                         n_cont: '',
                         order_no: '',

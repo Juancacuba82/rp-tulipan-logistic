@@ -1462,7 +1462,8 @@
             return [
                 e.date || '---', e.category || '---', e.description || '---',
                 `$${(e.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, e.note || '---',
-                e.id
+                e.id,
+                e.payment_method || 'cash' // Index 6: 'cash' | 'bank'
             ];
         }
 
@@ -1472,7 +1473,8 @@
                 category: row[1],
                 description: row[2],
                 amount: parseFloat(row[3].replace('$', '').replace(/,/g, '')) || 0,
-                note: row[4]
+                note: row[4],
+                payment_method: row[6] || 'cash'
             };
         }
 

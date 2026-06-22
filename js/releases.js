@@ -554,6 +554,7 @@
             const otherVal = document.getElementById('exp-other-desc').value;
             const amount = parseFloat(document.getElementById('exp-amount').value) || 0;
             const note = document.getElementById('exp-note').value || '---';
+            const paymentMethod = document.querySelector('input[name="exp-payment-method"]:checked')?.value || 'cash';
 
             const btn = document.getElementById('btn-save-expense');
 
@@ -561,7 +562,7 @@
             if (!cat) return alert("Please select a category.");
 
             let desc = otherVal || cat;
-            const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note];
+            const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note, null, paymentMethod];
 
             try {
                 const expenseObj = mapArrayToExpense(rowData);
@@ -573,6 +574,9 @@
                         const mapped = mapExpenseToArray(data[0]);
                         const idx = window.currentExpenses.findIndex(row => row[5] === window.editingExpenseId);
                         if (idx !== -1) window.currentExpenses[idx] = mapped;
+
+                        // Sync al Cash Ledger local, sin query a Supabase
+                        if (window.syncExpenseToLedger) window.syncExpenseToLedger(data[0], 'update');
                     }
                     alert("Expense updated successfully!");
                 } else {
@@ -580,6 +584,9 @@
                     if (data && data.length > 0) {
                         const mapped = mapExpenseToArray(data[0]);
                         window.currentExpenses.unshift(mapped);
+
+                        // Sync al Cash Ledger local, sin query a Supabase
+                        if (window.syncExpenseToLedger) window.syncExpenseToLedger(data[0], 'add');
                     }
                     alert("Expense saved successfully!");
                 }
@@ -589,6 +596,31 @@
             } catch (err) {
                 console.error("Error saving expense:", err);
                 alert("Failed to save expense to database.");
+            }
+        };
+
+        // Visual toggle for payment method
+        window.selectExpensePaymentMethod = function(method) {
+            document.getElementById('exp-pm-cash').checked = (method === 'cash');
+            document.getElementById('exp-pm-bank').checked = (method === 'bank');
+
+            const cashLabel = document.getElementById('exp-pm-cash-label');
+            const bankLabel = document.getElementById('exp-pm-bank-label');
+
+            if (method === 'cash') {
+                cashLabel.style.background = '#10b981';
+                cashLabel.style.borderColor = '#10b981';
+                cashLabel.style.color = 'white';
+                bankLabel.style.background = 'white';
+                bankLabel.style.borderColor = '#cbd5e1';
+                bankLabel.style.color = '#64748b';
+            } else {
+                bankLabel.style.background = '#3b82f6';
+                bankLabel.style.borderColor = '#3b82f6';
+                bankLabel.style.color = 'white';
+                cashLabel.style.background = 'white';
+                cashLabel.style.borderColor = '#cbd5e1';
+                cashLabel.style.color = '#64748b';
             }
         };
 
@@ -603,6 +635,9 @@
             document.getElementById('exp-amount').value = '0';
             document.getElementById('exp-note').value = '';
             
+            // Reset payment method to default (cash)
+            if (window.selectExpensePaymentMethod) window.selectExpensePaymentMethod('cash');
+
             const btn = document.getElementById('btn-save-expense');
             if (btn) {
                 btn.textContent = "Save Expense";

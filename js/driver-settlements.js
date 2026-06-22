@@ -553,7 +553,12 @@
             const statusField = document.getElementById('settlement-status');
             const typeField   = document.getElementById('settlement-payment-type');
             if (statusField) statusField.value = settlement.status       || 'PENDING';
-            if (typeField)   typeField.value   = settlement.payment_type || 'CASH';
+            if (typeField) typeField.value   = settlement.payment_type || 'cash';
+
+            // Restore payment method toggle visual
+            if (window.selectSettlementPaymentMethod) {
+                window.selectSettlementPaymentMethod((settlement.payment_type || 'cash').toLowerCase());
+            }
 
             // Recalculate with the saved values
             if (window.updateWeeklyCalc) window.updateWeeklyCalc();
@@ -616,8 +621,75 @@
                 if (el) el.value = 0;
             });
 
+            // Reset payment method to CASH
+            if (window.selectSettlementPaymentMethod) window.selectSettlementPaymentMethod('cash');
+
             if (window.updateWeeklyCalc) window.updateWeeklyCalc();
             renderSettlementHistory();
+        };
+
+        // =========================================================================
+        // PAYMENT METHOD TOGGLE — selectSettlementPaymentMethod
+        // =========================================================================
+        window.selectSettlementPaymentMethod = function(method) {
+            const cashR = document.getElementById('spm-cash');
+            const bankR = document.getElementById('spm-bank');
+            const splitR = document.getElementById('spm-split');
+            if (cashR) cashR.checked = (method === 'cash');
+            if (bankR) bankR.checked = (method === 'bank');
+            if (splitR) splitR.checked = (method === 'split');
+
+            const hidden = document.getElementById('settlement-payment-type');
+            if (hidden) hidden.value = method;
+
+            const styles = {
+                cash:  { el: 'spm-cash-label',  bg: '#10b981', border: '#10b981' },
+                bank:  { el: 'spm-bank-label',  bg: '#3b82f6', border: '#3b82f6' },
+                split: { el: 'spm-split-label', bg: '#7c3aed', border: '#7c3aed' }
+            };
+            ['cash', 'bank', 'split'].forEach(m => {
+                const el = document.getElementById(styles[m].el);
+                if (!el) return;
+                if (m === method) {
+                    el.style.background = styles[m].bg;
+                    el.style.borderColor = styles[m].border;
+                    el.style.color = 'white';
+                } else {
+                    el.style.background = 'white';
+                    el.style.borderColor = '#cbd5e1';
+                    el.style.color = '#64748b';
+                }
+            });
+
+            const splitFields = document.getElementById('spm-split-fields');
+            if (splitFields) splitFields.style.display = (method === 'split') ? 'block' : 'none';
+            if (method === 'split' && window.validateSplitAmounts) window.validateSplitAmounts();
+        };
+
+        window.validateSplitAmounts = function() {
+            const cashAmt = parseFloat(document.getElementById('spm-split-cash')?.value) || 0;
+            const bankAmt = parseFloat(document.getElementById('spm-split-bank')?.value) || 0;
+            const sum = cashAmt + bankAmt;
+            const salaryEl = document.getElementById('res-driver-salary');
+            const salary = Math.abs(parseFloat(salaryEl?.dataset?.value) || 0);
+            const sumDisplay = document.getElementById('spm-split-sum-display');
+            const statusEl   = document.getElementById('spm-split-status');
+            const fmt = n => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
+            if (sumDisplay) sumDisplay.textContent = `${fmt(sum)} / ${fmt(salary)}`;
+            const isOk = Math.abs(sum - salary) < 0.01;
+            if (statusEl) {
+                if (isOk) {
+                    statusEl.textContent = '✅ Cuadra perfecto';
+                    statusEl.style.color = '#15803d';
+                    if (sumDisplay) sumDisplay.style.color = '#15803d';
+                } else {
+                    const diff = salary - sum;
+                    statusEl.textContent = diff > 0 ? `⚠ Faltan: ${fmt(diff)}` : `⚠ Excede: ${fmt(-diff)}`;
+                    statusEl.style.color = '#ef4444';
+                    if (sumDisplay) sumDisplay.style.color = '#ef4444';
+                }
+            }
+            return isOk;
         };
 
         function syncDriverNames() {
@@ -706,6 +778,15 @@
             const cashAmountFinal = cashField ? (parseFloat(cashField.dataset.value) || 0) : 0;
             const salaryAmountFinal = salaryField ? (parseFloat(salaryField.dataset.value) || 0) : 0;
 
+            // Validate SPLIT mode before confirming
+            if (val_type === 'split') {
+                const isValid = window.validateSplitAmounts ? window.validateSplitAmounts() : false;
+                if (!isValid) {
+                    alert('⚠ SPLIT MODE: La suma de Cash Amount y Bank Amount debe ser igual al Net Driver Salary antes de archivar.');
+                    return;
+                }
+            }
+
             const confirmMsg = editingSettlementId 
                 ? `Are you sure you want to UPDATE this settlement for ${driverNameFinal}?`
                 : `Are you sure you want to ARCHIVE this settlement for ${driverNameFinal}?`;
@@ -767,30 +848,37 @@
                 
                 if (error) throw error;
 
-                // AUTOMATIC EXPENSE INTEGRATION (Restored & Improved)
-                const expenseAmount = salaryAmountFinal;
+                // AUTOMATIC EXPENSE INTEGRATION
+                const expenseAmount = Math.abs(salaryAmountFinal);
                 const expenseDate = val_final || new Date().toISOString().split('T')[0];
                 const expenseDescription = `Liquidación de ${driverNameFinal} - ${expenseDate}`;
-                
-                const expData = [
-                    expenseDate,
-                    'Driver Payment',
-                    expenseDescription,
-                    `$${expenseAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-                    `Auto-generated from Driver Settlement ID: ${targetSettlementId || 'Unknown'}`
-                ];
+                const noteBase = `Auto-generated from Driver Settlement ID: ${targetSettlementId || 'Unknown'}`;
 
-                if (window.mapArrayToExpense) {
-                    const expenseObj = window.mapArrayToExpense(expData);
-                    
+                if (window.mapArrayToExpense && window.addExpense) {
+                    const buildExpenseObj = (amount, pm, label) => {
+                        const desc = label || expenseDescription;
+                        const rowData = [
+                            expenseDate, 'Driver Payment', desc,
+                            `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+                            noteBase, null, pm
+                        ];
+                        return window.mapArrayToExpense(rowData);
+                    };
+
+                    // Helper: save one expense and immediately sync to Cash Ledger locally
+                    const saveAndSync = async (expObj, syncMode) => {
+                        const saved = await window.addExpense(expObj);
+                        if (saved && saved.length > 0 && window.syncExpenseToLedger) {
+                            window.syncExpenseToLedger(saved[0], syncMode);
+                        }
+                    };
+
                     if (editingSettlementId) {
-                        // UPDATE EXISTING EXPENSE (Plan A & Plan B)
-                        // Plan A: Look by hidden ID in the note
+                        // UPDATE: find and delete existing expense(s)
                         const noteSearch = `Auto-generated from Driver Settlement ID: ${editingSettlementId}`;
-                        let { data: existingExp } = await db.from('expenses').select('id').ilike('note', `%${noteSearch}%`);
-                        
-                        // Plan B: Look by old description (for old records before this update)
-                        if (!existingExp || existingExp.length === 0) {
+                        let { data: existingExps } = await db.from('expenses').select('id').ilike('note', `%${noteSearch}%`);
+
+                        if (!existingExps || existingExps.length === 0) {
                             const oldSettlement = window.currentSettlements.find(s => s.id === editingSettlementId);
                             if (oldSettlement) {
                                 const oldDesc1 = `Liquidación de ${oldSettlement.driver_name} - ${oldSettlement.end_date}`;
@@ -798,27 +886,44 @@
                                 const { data: fallbackExp } = await db.from('expenses').select('id')
                                     .eq('category', 'Driver Payment')
                                     .in('description', [oldDesc1, oldDesc2]);
-                                if (fallbackExp && fallbackExp.length > 0) {
-                                    existingExp = fallbackExp;
-                                }
+                                if (fallbackExp && fallbackExp.length > 0) existingExps = fallbackExp;
                             }
                         }
 
-                        if (existingExp && existingExp.length > 0) {
-                            // Update the found expense instead of adding a new one
-                            const expIdToUpdate = existingExp[0].id;
-                            await db.from('expenses').update(expenseObj).eq('id', expIdToUpdate);
-                        } else {
-                            // Fallback if absolutely nothing was found
-                            if (window.addExpense) await window.addExpense(expenseObj);
+                        // Delete old expense(s) — also sync deletion to Cash Ledger locally
+                        if (existingExps && existingExps.length > 0) {
+                            for (const exp of existingExps) {
+                                await db.from('expenses').delete().eq('id', exp.id);
+                                if (window.syncExpenseToLedger) window.syncExpenseToLedger({ id: exp.id }, 'delete');
+                            }
                         }
+
+                        // Re-create based on current payment method
+                        if (val_type === 'split') {
+                            const splitCash = parseFloat(document.getElementById('spm-split-cash')?.value) || 0;
+                            const splitBank = parseFloat(document.getElementById('spm-split-bank')?.value) || 0;
+                            if (splitCash > 0) await saveAndSync(buildExpenseObj(splitCash, 'cash', `${expenseDescription} (Cash)`), 'add');
+                            if (splitBank > 0) await saveAndSync(buildExpenseObj(splitBank, 'bank', `${expenseDescription} (Bank)`), 'add');
+                        } else {
+                            await saveAndSync(buildExpenseObj(expenseAmount, val_type === 'bank' ? 'bank' : 'cash'), 'add');
+                        }
+
                     } else {
-                        // NEW SETTLEMENT -> ADD NEW EXPENSE
-                        if (window.addExpense) await window.addExpense(expenseObj);
+                        // NEW SETTLEMENT: create expense(s)
+                        if (val_type === 'split') {
+                            const splitCash = parseFloat(document.getElementById('spm-split-cash')?.value) || 0;
+                            const splitBank = parseFloat(document.getElementById('spm-split-bank')?.value) || 0;
+                            if (splitCash > 0) await saveAndSync(buildExpenseObj(splitCash, 'cash', `${expenseDescription} (Cash)`), 'add');
+                            if (splitBank > 0) await saveAndSync(buildExpenseObj(splitBank, 'bank', `${expenseDescription} (Bank)`), 'add');
+                        } else {
+                            await saveAndSync(buildExpenseObj(expenseAmount, val_type === 'bank' ? 'bank' : 'cash'), 'add');
+                        }
                     }
                 }
 
+
                 if (window.fetchHistory) await window.fetchHistory(true); 
+                if (window.loadExpensesData) await window.loadExpensesData(true);
 
                 alert(editingSettlementId ? "Settlement Updated Successfully!" : "Archive & Expense Saved Successfully!");
                 resetSettlementEdit();

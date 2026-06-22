@@ -2554,16 +2554,11 @@
                                 </button>
                             </div>
                         </div>
-                        
                         <div style="display: flex; gap: 10px;">
                             <button onclick="toggleSelectAllDrivers()" class="btn-add-sidebar" style="background: #1e293b; font-size: 0.75rem; height: 38px; border-radius: 8px;">
                                 <i class="fas fa-tasks"></i> SELECT ALL DISPLAYED
                             </button>
                         </div>
-                        
-                        <!-- Hidden inputs for logic -->
-                        <input type="hidden" id="settlement-status" value="PAID">
-                        <input type="hidden" id="settlement-payment-type" value="CASH">
                     </div>
 
                     <!-- Driver confirmed indicator - shown automatically by JS when driver confirmed this week -->
@@ -2667,7 +2662,6 @@
                                oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
                                onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
                     </div>
-
                     <div class="final-result-box">
                         <span class="final-label">Net Driver Salary</span>
                         <div id="res-driver-salary" class="final-value">$0.00</div>
@@ -2675,7 +2669,63 @@
                 </div>
             </div>
 
-            <!-- COMPACT ARCHIVE ACTION (Clean & Professional) -->
+            <!-- PAYMENT METHOD SELECTOR (Admin only - before archiving) -->
+            <div class="admin-only" id="settlement-payment-method-section" style="background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; padding: 20px 25px; margin-bottom: 16px;">
+                <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-credit-card" style="color: #7c3aed;"></i> PAYMENT METHOD
+                </div>
+
+                <!-- 3-way toggle -->
+                <div style="display: flex; gap: 10px; margin-bottom: 0;" id="settlement-pm-toggle">
+                    <label id="spm-cash-label" onclick="selectSettlementPaymentMethod('cash')"
+                        style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 0; border-radius:10px; cursor:pointer; font-weight:800; font-size:0.85rem; border:2px solid #10b981; background:#10b981; color:white; transition:all 0.2s;">
+                        <input type="radio" name="spm-radio" id="spm-cash" value="cash" checked style="display:none;">
+                        <i class="fas fa-money-bill-wave"></i> CASH
+                    </label>
+                    <label id="spm-bank-label" onclick="selectSettlementPaymentMethod('bank')"
+                        style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 0; border-radius:10px; cursor:pointer; font-weight:800; font-size:0.85rem; border:2px solid #cbd5e1; background:white; color:#64748b; transition:all 0.2s;">
+                        <input type="radio" name="spm-radio" id="spm-bank" value="bank" style="display:none;">
+                        <i class="fas fa-university"></i> BANK / ONLINE
+                    </label>
+                    <label id="spm-split-label" onclick="selectSettlementPaymentMethod('split')"
+                        style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 0; border-radius:10px; cursor:pointer; font-weight:800; font-size:0.85rem; border:2px solid #cbd5e1; background:white; color:#64748b; transition:all 0.2s;">
+                        <input type="radio" name="spm-radio" id="spm-split" value="split" style="display:none;">
+                        <i class="fas fa-random"></i> SPLIT (MIXTO)
+                    </label>
+                </div>
+
+                <!-- SPLIT fields — hidden unless SPLIT is selected -->
+                <div id="spm-split-fields" style="display:none; margin-top:16px; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0;">
+                    <div style="font-size:0.75rem; font-weight:700; color:#7c3aed; margin-bottom:12px; text-transform:uppercase;">
+                        <i class="fas fa-info-circle"></i> Ingresa cuánto pagas en cada método. La suma debe ser igual al Net Driver Salary.
+                    </div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+                        <div style="flex:1; min-width:140px;">
+                            <label style="font-size:0.72rem; font-weight:800; color:#15803d; display:block; margin-bottom:6px;"><i class="fas fa-money-bill-wave"></i> CASH AMOUNT ($)</label>
+                            <input type="number" id="spm-split-cash" placeholder="0.00" step="0.01" value="0"
+                                oninput="validateSplitAmounts()"
+                                style="width:100%; padding:10px 14px; border:2px solid #10b981; border-radius:8px; font-size:0.95rem; font-weight:700; outline:none;">
+                        </div>
+                        <div style="flex:1; min-width:140px;">
+                            <label style="font-size:0.72rem; font-weight:800; color:#1d4ed8; display:block; margin-bottom:6px;"><i class="fas fa-university"></i> BANK AMOUNT ($)</label>
+                            <input type="number" id="spm-split-bank" placeholder="0.00" step="0.01" value="0"
+                                oninput="validateSplitAmounts()"
+                                style="width:100%; padding:10px 14px; border:2px solid #3b82f6; border-radius:8px; font-size:0.95rem; font-weight:700; outline:none;">
+                        </div>
+                        <div id="spm-split-validation" style="flex:1; min-width:140px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; text-align:center;">
+                            <div style="font-size:0.7rem; color:#64748b; font-weight:600;">SUMA / SALARIO</div>
+                            <div id="spm-split-sum-display" style="font-size:1rem; font-weight:900; color:#64748b;">$0.00 / $0.00</div>
+                            <div id="spm-split-status" style="font-size:0.7rem; font-weight:800; margin-top:4px; color:#ef4444;">⚠ No cuadra</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden inputs for JS logic -->
+            <input type="hidden" id="settlement-status" value="PAID">
+            <input type="hidden" id="settlement-payment-type" value="cash">
+
+            <!-- COMPACT ARCHIVE ACTION -->
             <div style="text-align: center; margin: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 10px;">
                 <button id="btn-archive-settlement" onclick="archiveSettlement()" class="btn-add-sidebar"
                     style="background: #10b981; font-weight: 800; padding: 12px 40px; font-size: 1rem; width: 300px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-radius: 6px; text-transform: uppercase;">
@@ -2758,6 +2808,19 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #059669 !important;">AMOUNT ($)</label>
                             <input type="number" id="exp-amount" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #7c3aed !important; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">PAYMENT METHOD</label>
+                            <div style="display: flex; gap: 8px; width: 100%;" id="exp-payment-toggle">
+                                <label id="exp-pm-cash-label" onclick="selectExpensePaymentMethod('cash')" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 0; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 0.82rem; border: 2px solid #10b981; background: #10b981; color: white; transition: all 0.2s;">
+                                    <input type="radio" name="exp-payment-method" id="exp-pm-cash" value="cash" checked style="display:none;">
+                                    <i class="fas fa-money-bill-wave"></i> CASH
+                                </label>
+                                <label id="exp-pm-bank-label" onclick="selectExpensePaymentMethod('bank')" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 0; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 0.82rem; border: 2px solid #cbd5e1; background: white; color: #64748b; transition: all 0.2s;">
+                                    <input type="radio" name="exp-payment-method" id="exp-pm-bank" value="bank" style="display:none;">
+                                    <i class="fas fa-university"></i> BANK / ONLINE
+                                </label>
+                            </div>
                         </div>
                         <div class="form-group" style="flex-direction: column; align-items: flex-start;">
                             <label class="sidebar-label-btn" style="background: #1e293b !important; width: 100% !important; margin-bottom: 8px;">DETAILS / NOTE</label>
@@ -2855,6 +2918,7 @@
                                     <th>CATEGORY</th>
                                     <th>DESCRIPTION</th>
                                     <th>AMOUNT</th>
+                                    <th>METHOD</th>
                                     <th>NOTE</th>
                                     <th>ACTION</th>
                                 </tr>
