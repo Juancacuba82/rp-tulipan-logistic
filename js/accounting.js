@@ -13,7 +13,7 @@
 
     // --- ESTADO INTERNO DEL MÓDULO ---
     let allTransactions = [];
-    let currentFilter = 'all'; // 'all' | 'cash' | 'bank'
+    let currentFilter = 'cash'; // 'all' | 'cash' | 'bank'
     let isLoading = false;
 
     // Helper para extraer nombre del chofer de los gastos automáticos
@@ -410,7 +410,7 @@
         if (document.getElementById('acct-filter-order')) document.getElementById('acct-filter-order').value = '';
         if (document.getElementById('acct-text-search')) document.getElementById('acct-text-search').value = '';
         
-        window.filterAccountingView('all'); // This internally calls renderAccountingDashboard
+        window.filterAccountingView('cash'); // This internally calls renderAccountingDashboard
     };
 
     function calculateTotals(transactions) {
