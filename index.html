@@ -6768,6 +6768,14 @@
                     <span style="font-size:0.75rem; color:#64748b; font-weight:700;"><i class="fas fa-filter"></i> ADVANCED FILTERS:</span>
                     <input type="date" id="acct-filter-date-from" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem;" title="Date From">
                     <input type="date" id="acct-filter-date-to" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem;" title="Date To">
+                    
+                    <select id="acct-filter-service" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; background:white;">
+                        <option value="">All Services</option>
+                        <option value="Servicio de Transporte">Transport</option>
+                        <option value="Venta de Contenedor">Sales</option>
+                        <option value="Servicio de Yarda">Yard Services</option>
+                    </select>
+
                     <input type="text" id="acct-filter-customer" placeholder="Customer..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 140px;">
                     <input type="text" id="acct-filter-container" placeholder="Container #..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 120px;">
                     <input type="text" id="acct-filter-release" placeholder="Release #..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 110px;">

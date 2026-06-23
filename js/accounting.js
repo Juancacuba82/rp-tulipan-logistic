@@ -367,6 +367,7 @@
         // 3. Advanced Filters
         const dateFrom = document.getElementById('acct-filter-date-from')?.value;
         const dateTo = document.getElementById('acct-filter-date-to')?.value;
+        const filterService = document.getElementById('acct-filter-service')?.value.trim().toLowerCase();
         const filterCust = document.getElementById('acct-filter-customer')?.value.trim().toLowerCase();
         const filterCont = document.getElementById('acct-filter-container')?.value.trim().toLowerCase();
         const filterRel = document.getElementById('acct-filter-release')?.value.trim().toLowerCase();
@@ -377,6 +378,9 @@
             let matchDate = true;
             if (dateFrom && rowDate < dateFrom) matchDate = false;
             if (dateTo && rowDate > dateTo) matchDate = false;
+
+            const tDesc = (t.descripcion || '').toLowerCase();
+            const matchService = !filterService || tDesc.includes(filterService);
 
             const tCust = (t.customer || '').toLowerCase();
             const matchCust = !filterCust || tCust.includes(filterCust);
@@ -390,7 +394,7 @@
             const tOrd = (t.order_no || '').toLowerCase();
             const matchOrd = !filterOrd || tOrd.includes(filterOrd);
 
-            return matchDate && matchCust && matchCont && matchRel && matchOrd;
+            return matchDate && matchService && matchCust && matchCont && matchRel && matchOrd;
         });
 
         return list;
@@ -398,6 +402,7 @@
 
     window.resetAccountingFilters = function() {
         if (document.getElementById('acct-filter-date-from')) document.getElementById('acct-filter-date-from').value = '';
+        if (document.getElementById('acct-filter-service')) document.getElementById('acct-filter-service').value = '';
         if (document.getElementById('acct-filter-date-to')) document.getElementById('acct-filter-date-to').value = '';
         if (document.getElementById('acct-filter-customer')) document.getElementById('acct-filter-customer').value = '';
         if (document.getElementById('acct-filter-container')) document.getElementById('acct-filter-container').value = '';
