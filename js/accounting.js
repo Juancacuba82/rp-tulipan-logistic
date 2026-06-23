@@ -255,7 +255,7 @@
                     unified.push({
                         id: e.id || Math.random().toString(),
                         created_at: e.date || '2000-01-01',
-                        tipo: 'egreso',
+                        tipo: (e.category === 'Ledger Income') ? 'ingreso' : 'egreso',
                         metodo: metodo,
                         monto: amt,
                         descripcion: e.description || e.category || 'Gasto General',
