@@ -4,50 +4,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     let currentYardStock = [];
     let editingYardId = null;
 
-    function parseYardNotes(notesStr) {
-        let entryFee = 0;
-        let dailyRate = 0;
-        let exitDate = '';
-        let cleanNote = notesStr || '';
-
-        // Strip [Storage Yard] first if present
-        const isStorage = cleanNote.includes('[Storage Yard]');
-        if (isStorage) {
-            cleanNote = cleanNote.replace('[Storage Yard] ', '').replace('[Storage Yard]', '');
-        }
-
-        // Parse [EntryFee: X]
-        const entryMatch = cleanNote.match(/\[EntryFee:\s*([\d.]+)\]/);
-        if (entryMatch) {
-            entryFee = parseFloat(entryMatch[1]) || 0;
-            cleanNote = cleanNote.replace(entryMatch[0], '');
-        }
-
-        // Parse [DailyRate: X]
-        const dailyMatch = cleanNote.match(/\[DailyRate:\s*([\d.]+)\]/);
-        if (dailyMatch) {
-            dailyRate = parseFloat(dailyMatch[1]) || 0;
-            cleanNote = cleanNote.replace(dailyMatch[0], '');
-        }
-
-        // Parse [ExitDate: YYYY-MM-DD]
-        const exitMatch = cleanNote.match(/\[ExitDate:\s*([\d\-]+)\]/);
-        if (exitMatch) {
-            exitDate = exitMatch[1].trim();
-            cleanNote = cleanNote.replace(exitMatch[0], '');
-        }
-
-        // Clean up any double spaces and trim
-        cleanNote = cleanNote.replace(/\s+/g, ' ').trim();
-
-        return {
-            isStorage,
-            entryFee,
-            dailyRate,
-            exitDate,
-            cleanNote
-        };
-    }
+    
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
@@ -166,42 +123,47 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 }
             };
 
-            const parsed = parseYardNotes(item.notes);
             const entryDate = new Date(item.created_at || new Date());
-            const endDate = parsed.exitDate ? new Date(parsed.exitDate + 'T12:00:00') : new Date();
+        const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
             const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-            const accumStorage = parsed.dailyRate * days;
-            const exitFee = parsed.exitDate ? parsed.entryFee : 0;
-            const totalCost = parsed.entryFee + accumStorage + exitFee;
+            const accumStorage = (item.daily_rate || 0) * days;
+            const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
+            const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
 
-            const tooltipTitle = parsed.exitDate 
-                ? `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${parsed.entryFee.toFixed(2)} | Exit Date: ${parsed.exitDate}`
-                : `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
+            const tooltipTitle = item.exit_date 
+                ? `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${(item.entry_fee || 0).toFixed(2)} | Exit Date: ${item.exit_date}`
+                : `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
 
             const containerNoDisplay = isExited
                 ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
                 : `${item.container_no || '---'}`;
 
             tr.innerHTML = `
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
                     <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
                 </td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${parsed.cleanNote || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="${tooltipTitle}">
-                    <div style="font-weight: 700; color: #475569;">${days} days${parsed.exitDate ? ' (Exited)' : ''}</div>
-                    <div style="font-weight: 900; color: #10b981;">$${totalCost.toFixed(2)}</div>
-                </td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button onclick="sendYardInvoice('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Send Invoice" style="background: #e0e7ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px; border-radius: 4px;">
+                            <i class="fas fa-envelope"></i>
+                        </button>
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -295,42 +257,47 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 }
             };
 
-            const parsed = parseYardNotes(item.notes);
             const entryDate = new Date(item.created_at || new Date());
-            const endDate = parsed.exitDate ? new Date(parsed.exitDate + 'T12:00:00') : new Date();
+        const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
             const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-            const accumStorage = parsed.dailyRate * days;
-            const exitFee = parsed.exitDate ? parsed.entryFee : 0;
-            const totalCost = parsed.entryFee + accumStorage + exitFee;
+            const accumStorage = (item.daily_rate || 0) * days;
+            const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
+            const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
 
-            const tooltipTitle = parsed.exitDate 
-                ? `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${parsed.entryFee.toFixed(2)} | Exit Date: ${parsed.exitDate}`
-                : `Entry: $${parsed.entryFee.toFixed(2)} | Daily: $${parsed.dailyRate.toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
+            const tooltipTitle = item.exit_date 
+                ? `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${(item.entry_fee || 0).toFixed(2)} | Exit Date: ${item.exit_date}`
+                : `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
 
             const containerNoDisplay = isExited
                 ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
                 : `${item.container_no || '---'}`;
 
             tr.innerHTML = `
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#10b981'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
                     <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
                 </td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${parsed.cleanNote || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem;" title="${tooltipTitle}">
-                    <div style="font-weight: 700; color: #475569;">${days} days${parsed.exitDate ? ' (Exited)' : ''}</div>
-                    <div style="font-weight: 900; color: #10b981;">$${totalCost.toFixed(2)}</div>
-                </td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button onclick="sendYardInvoice('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Send Invoice" style="background: #e0e7ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px; border-radius: 4px;">
+                            <i class="fas fa-envelope"></i>
+                        </button>
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -364,7 +331,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const entryFee = parseFloat(document.getElementById('yard-entry-fee').value) || 0;
         const dailyRate = parseFloat(document.getElementById('yard-daily-rate').value) || 0;
         const exitDate = document.getElementById('yard-exit-date').value || '';
-        const priceTags = `[EntryFee: ${entryFee}] [DailyRate: ${dailyRate}]` + (exitDate ? ` [ExitDate: ${exitDate}]` : '');
+        const orderOut = document.getElementById('yard-order-out')?.value.trim() || '';
+        const lifts = parseFloat(document.getElementById('yard-lifts')?.value) || 0;
+        const liftCost = parseFloat(document.getElementById('yard-lift-cost')?.value) || 50.00;
 
         if (!containerNo) return alert("Please enter a Container Number.");
 
@@ -380,10 +349,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             type,
             condition,
             origin_release: origin,
-            notes: `${yardNotesPrefix}${priceTags} ${note}`.trim(),
+            notes: `${yardNotesPrefix} ${note}`.trim(),
             status: status,
             customer_name: customer,
-            customer_phone: phone
+            customer_phone: phone,
+            entry_fee: entryFee,
+            daily_rate: dailyRate,
+            exit_date: exitDate || null,
+            order_out: orderOut || null,
+            lifts: lifts,
+            lift_cost: liftCost
         };
 
         // Use the date from the input field if provided
@@ -415,6 +390,75 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
+    window.sendYardInvoice = async function(id) {
+        const item = currentYardStock.find(i => i.id === id);
+        if (!item) return;
+
+        const entryDate = new Date(item.created_at || new Date());
+        const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
+        const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+        const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+        const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+        const accumStorage = (item.daily_rate || 0) * days;
+        const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
+        const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
+
+        const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
+        const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+        const publicKey = localStorage.getItem('ejs_public_key');
+
+        if (!serviceId || !templateId || !publicKey) {
+            alert('EmailJS is not configured. Please go to Email Settings.');
+            return;
+        }
+
+        if (!item.customer_name || !item.customer_phone) {
+            alert('Customer Name and Phone are required to send an invoice.');
+            return;
+        }
+
+        // We assume we might need an email address, but we might just use a placeholder if not present
+        // If there's an email field we could use it, for now we will prompt the user for the email
+        const email = prompt("Please enter the customer's email address to send the invoice:", "");
+        if (!email) return; // Cancelled
+
+        const btn = document.activeElement;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        try {
+            emailjs.init(publicKey);
+
+            const templateParams = {
+                to_email: email,
+                customer_name: item.customer_name,
+                container_no: item.container_no,
+                order_in: item.origin_release,
+                order_out: item.order_out,
+                entry_date: window.formatDateMMDDYYYY(item.created_at),
+                exit_date: item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : 'Not Exited',
+                days: days,
+                days_cost: accumStorage.toFixed(2),
+                lifts: item.lifts || 1,
+                lifts_cost: ((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2),
+                total_cost: totalCost.toFixed(2)
+            };
+
+            await emailjs.send(serviceId, templateId, templateParams);
+            
+            if (window.showToast) window.showToast('Invoice sent successfully!', 'success');
+            else alert('Invoice sent successfully!');
+
+        } catch (err) {
+            console.error('EmailJS Error:', err);
+            alert("Error sending email: " + (err.text || JSON.stringify(err)));
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    };
+
     window.editYardItem = function(id) {
         const item = currentYardStock.find(i => i.id === id);
         if (!item) return;
@@ -440,10 +484,15 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (document.getElementById('yard-dest-select')) {
             document.getElementById('yard-dest-select').value = parsed.isStorage ? 'STORAGE' : 'RPTULIPAN';
         }
-        document.getElementById('yard-entry-fee').value = parsed.entryFee > 0 ? parsed.entryFee : '';
-        document.getElementById('yard-daily-rate').value = parsed.dailyRate > 0 ? parsed.dailyRate : '';
-        document.getElementById('yard-exit-date').value = parsed.exitDate || '';
-        document.getElementById('yard-note').value = parsed.cleanNote || '';
+        document.getElementById('yard-entry-fee').value = (item.entry_fee || 0) > 0 ? (item.entry_fee || 0) : '';
+        document.getElementById('yard-daily-rate').value = (item.daily_rate || 0) > 0 ? (item.daily_rate || 0) : '';
+        document.getElementById('yard-exit-date').value = item.exit_date || '';
+        
+        if (document.getElementById('yard-order-out')) document.getElementById('yard-order-out').value = item.order_out || '';
+        if (document.getElementById('yard-lifts')) document.getElementById('yard-lifts').value = (item.lifts || 1) !== undefined ? (item.lifts || 1) : 1;
+        if (document.getElementById('yard-lift-cost')) document.getElementById('yard-lift-cost').value = (item.lift_cost || 50) !== undefined ? (item.lift_cost || 50) : 50.00;
+        
+        document.getElementById('yard-note').value = (item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '';
 
         // Populate the entry date field
         if (item.created_at) {
@@ -491,6 +540,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const eFee = document.getElementById('yard-entry-fee');
         const dRate = document.getElementById('yard-daily-rate');
         const xDate = document.getElementById('yard-exit-date');
+        const orderOut = document.getElementById('yard-order-out');
+        const lifts = document.getElementById('yard-lifts');
+        const liftCost = document.getElementById('yard-lift-cost');
         
         if (cno) cno.value = '';
         if (org) org.value = '';
@@ -499,6 +551,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (eFee) eFee.value = '';
         if (dRate) dRate.value = '';
         if (xDate) xDate.value = '';
+        if (orderOut) orderOut.value = '';
+        if (lifts) lifts.value = '1';
+        if (liftCost) liftCost.value = '50.00';
         
         const selC = document.getElementById('yard-customer-sel');
         const inpC = document.getElementById('yard-customer');

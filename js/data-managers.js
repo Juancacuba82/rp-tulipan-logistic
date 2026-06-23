@@ -82,6 +82,7 @@
             document.getElementById('ejs-service-id').value = localStorage.getItem('ejs_service_id') || '';
             document.getElementById('ejs-template-id').value = localStorage.getItem('ejs_template_id') || '';
             document.getElementById('ejs-invoice-template-id').value = localStorage.getItem('ejs_invoice_template_id') || '';
+            if (document.getElementById('ejs-yard-template-id')) document.getElementById('ejs-yard-template-id').value = localStorage.getItem('ejs_yard_template_id') || '';
             document.getElementById('email-settings-modal').style.display = 'block';
         }
         window.saveEmailSettings = function () {
@@ -89,6 +90,7 @@
             localStorage.setItem('ejs_service_id', document.getElementById('ejs-service-id').value);
             localStorage.setItem('ejs_template_id', document.getElementById('ejs-template-id').value);
             localStorage.setItem('ejs_invoice_template_id', document.getElementById('ejs-invoice-template-id').value);
+            if (document.getElementById('ejs-yard-template-id')) localStorage.setItem('ejs_yard_template_id', document.getElementById('ejs-yard-template-id').value);
             alert('Settings Saved Locally');
             closeEmailSettings();
         }

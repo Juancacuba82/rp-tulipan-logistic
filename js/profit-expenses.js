@@ -517,13 +517,13 @@
                             if ((!dateFrom || entryDateStr >= dateFrom) && (!dateTo || entryDateStr <= dateTo)) {
                                 const parsed = parseYardNotes(item.notes);
                                 const entryDate = new Date(item.created_at || new Date());
-                                const endDate = parsed.exitDate ? new Date(parsed.exitDate + 'T12:00:00') : new Date();
+                                const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
                                 const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
                                 const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
                                 const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-                                const accumStorage = parsed.dailyRate * days;
-                                const exitFee = parsed.exitDate ? parsed.entryFee : 0;
-                                const totalCost = parsed.entryFee + accumStorage + exitFee;
+                                const accumStorage = (item.daily_rate || 0) * days;
+                                const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
+                                const totalCost = (item.entry_fee || 0) + accumStorage + exitFee;
                                 
                                 if (parsed.isStorage) {
                                     storageYardTotal += totalCost;

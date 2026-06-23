@@ -4306,8 +4306,12 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #ef4444 !important;">ORIGIN RELEASE</label>
+                            <label class="sidebar-label-btn" style="background: #ef4444 !important;">ORDER# IN</label>
                             <input type="text" id="yard-origin" placeholder="Release # (Optional)" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #f59e0b !important;">ORDER# OUT</label>
+                            <input type="text" id="yard-order-out" placeholder="Order Out # (Optional)" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-arrow-down" style="color: #10b981;"></i> ENTRY FEE ($)</label>
@@ -4320,6 +4324,14 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-calendar-check" style="color: #ef4444;"></i> EXIT DATE</label>
                             <input type="date" id="yard-exit-date" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-truck-loading" style="color: #3b82f6;"></i> LIFTS</label>
+                            <input type="number" id="yard-lifts" value="1" min="0" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-money-bill" style="color: #10b981;"></i> LIFT COST ($)</label>
+                            <input type="number" id="yard-lift-cost" value="50.00" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
                         </div>
                         <div class="form-group" style="position: relative;">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;"><i class="fas fa-user" style="color: #3b82f6;"></i> CUSTOMER</label>
@@ -4457,19 +4469,24 @@
 
                             <!-- Table Card -->
                             <div class="table-scroll-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
-                                <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">
-                                    <thead style="background: #f1f5f9;">
+                                <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">                                    <thead style="background: #f1f5f9;">
                                         <tr>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ENTRY DATE</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONTAINER #</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">N° CONT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">SIZE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DATE IN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DATE OUT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORDER# IN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORDER# OUT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">LIFTS</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">LIFTS COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TOTAL</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CUSTOMER</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">PHONE</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">SIZE</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TYPE</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONDITION</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORIGIN</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">NOTES</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS / COST</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: center; font-size: 0.8rem;">ACTION</th>
                                         </tr>
                                     </thead>
@@ -4554,19 +4571,24 @@
 
                             <!-- Table Card -->
                             <div class="table-scroll-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
-                                <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">
-                                    <thead style="background: #f1f5f9;">
+                                <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">                                    <thead style="background: #f1f5f9;">
                                         <tr>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ENTRY DATE</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONTAINER #</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">N° CONT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">SIZE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DATE IN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DATE OUT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORDER# IN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORDER# OUT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">LIFTS</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">LIFTS COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TOTAL</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CUSTOMER</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">PHONE</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">SIZE</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TYPE</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONDITION</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORIGIN</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">NOTES</th>
-                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS / COST</th>
                                             <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: center; font-size: 0.8rem;">ACTION</th>
                                         </tr>
                                     </thead>
@@ -6221,6 +6243,10 @@
                 <div class="field-item">
                     <label>INVOICE TEMPLATE ID (BILLING)</label>
                     <input type="text" id="ejs-invoice-template-id" placeholder="e.g. template_xxxx">
+                </div>
+                <div class="field-item">
+                    <label>YARD INVOICE TEMPLATE ID</label>
+                    <input type="text" id="ejs-yard-template-id" placeholder="e.g. template_xxxx">
                 </div>
                 <p style="font-size:0.7rem; color:#64748b; margin-top:10px;">
                     *Make sure your template handles 'content' (base64) and 'to_email'.
