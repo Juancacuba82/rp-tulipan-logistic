@@ -5926,6 +5926,11 @@
             // Reload table data since dates are cleared
             if (window.loadTableData) {
                 window.loadTableData();
+                if (window.applyAdvancedFiltersDebounced) {
+                    window.applyAdvancedFiltersDebounced();
+                } else if (window.applyAdvancedFilters) {
+                    window.applyAdvancedFilters();
+                }
             } else if (window.applyAdvancedFilters) {
                 applyAdvancedFilters();
             }
