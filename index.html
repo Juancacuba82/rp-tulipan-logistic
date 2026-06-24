@@ -6774,8 +6774,8 @@
                         <input type="text" id="acct-form-ref" placeholder="Ej: ORD-001, REL-22...">
                     </div>
                     <div class="acct-form-group">
-                        <label>Chofer (si aplica)</label>
-                        <input type="text" id="acct-form-chofer" placeholder="Nombre del chofer...">
+                        <label>Entidad / Contacto (opcional)</label>
+                        <input type="text" id="acct-form-chofer" placeholder="Nombre de la persona o empresa...">
                     </div>
                 </div>
                 <button class="btn-acct-save" id="btn-acct-save-tx" onclick="window.saveManualTransaction()">
@@ -6811,6 +6811,12 @@
                     <input type="date" id="acct-filter-date-from" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem;" title="Date From">
                     <input type="date" id="acct-filter-date-to" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem;" title="Date To">
                     
+                    <select id="acct-filter-tipo" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; background:white;">
+                        <option value="">All Types</option>
+                        <option value="ingreso">Ingresos (In)</option>
+                        <option value="egreso">Egresos (Out)</option>
+                    </select>
+
                     <select id="acct-filter-service" onchange="window.renderAccountingDashboard()" style="padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; background:white;">
                         <option value="">All Services</option>
                         <option value="Servicio de Transporte">Transport</option>
@@ -6832,7 +6838,7 @@
                                 <th style="text-align:center;">Tipo</th>
                                 <th>Metodo</th>
                                 <th>Descripcion / Referencia</th>
-                                <th style="text-align:center;">Chofer</th>
+                                <th style="text-align:center;">Entidad</th>
                                 <th style="text-align:right;">Monto</th>
                                 <th style="text-align:right;">Balance</th>
                                 <th style="text-align:center;">Accion</th>

@@ -16,11 +16,15 @@
     let currentFilter = 'cash'; // 'all' | 'cash' | 'bank'
     let isLoading = false;
 
-    // Helper para extraer nombre del chofer de los gastos automáticos
-    function extractDriverFromExpense(expense) {
+    // Helper para extraer nombre de la entidad (chofer, cliente, etc.) de los gastos
+    function extractEntityFromExpense(expense) {
         if (expense.category === 'Driver Payment' && expense.description) {
             let s = expense.description.replace(/Liquidaci[oó]n de\s+/i, '');
             return s.split(' - ')[0].trim();
+        }
+        if (expense.category === 'Ledger Income' || expense.category === 'Ledger Expense') {
+            const match = (expense.note || '').match(/\[Entidad:\s*([^\]]+)\]/i);
+            if (match) return match[1].trim();
         }
         return '';
     }
@@ -42,7 +46,7 @@
                 amount: parseFloat(data.monto) || 0,
                 category: data.tipo === 'ingreso' ? 'Ledger Income' : 'Ledger Expense',
                 description: data.descripcion || '',
-                note: `[Ledger: ${data.metodo}] ${data.referencia || ''} ${data.chofer || ''}`.trim()
+                note: `[Ledger: ${data.metodo}] ${data.referencia || ''} ${data.chofer ? '[Entidad: ' + data.chofer + ']' : ''}`.trim()
             };
 
             const { error } = await window.db.from('expenses').insert([entry]);
@@ -260,8 +264,9 @@
                         monto: amt,
                         descripcion: e.description || e.category || 'Gasto General',
                         referencia: e.note || '',
-                        chofer: extractDriverFromExpense(e),
+                        chofer: extractEntityFromExpense(e),
                         customer: '',
+                        category: e.category,
                         n_cont: '',
                         order_no: '',
                         release_no: ''
@@ -271,6 +276,9 @@
 
             // Procesar Releases (Egresos por contenedores)
             (resReleases.data || []).forEach(r => {
+                // Asegurar que solo se procesen los releases que han sido pagados
+                if (!r.paid) return;
+
                 const totalMonto = ((parseFloat(r.qty_20)||0) * (parseFloat(r.price_20)||0)) +
                                    ((parseFloat(r.qty_40)||0) * (parseFloat(r.price_40)||0)) +
                                    ((parseFloat(r.qty_45)||0) * (parseFloat(r.price_45)||0));
@@ -368,6 +376,7 @@
         const dateFrom = document.getElementById('acct-filter-date-from')?.value;
         const dateTo = document.getElementById('acct-filter-date-to')?.value;
         const filterService = document.getElementById('acct-filter-service')?.value.trim().toLowerCase();
+        const filterTipo = document.getElementById('acct-filter-tipo')?.value.trim().toLowerCase();
         const filterCust = document.getElementById('acct-filter-customer')?.value.trim().toLowerCase();
         const filterCont = document.getElementById('acct-filter-container')?.value.trim().toLowerCase();
         const filterRel = document.getElementById('acct-filter-release')?.value.trim().toLowerCase();
@@ -382,6 +391,8 @@
             const tDesc = (t.descripcion || '').toLowerCase();
             const matchService = !filterService || tDesc.includes(filterService);
 
+            const matchTipo = !filterTipo || t.tipo === filterTipo;
+
             const tCust = (t.customer || '').toLowerCase();
             const matchCust = !filterCust || tCust.includes(filterCust);
 
@@ -394,7 +405,7 @@
             const tOrd = (t.order_no || '').toLowerCase();
             const matchOrd = !filterOrd || tOrd.includes(filterOrd);
 
-            return matchDate && matchService && matchCust && matchCont && matchRel && matchOrd;
+            return matchDate && matchTipo && matchService && matchCust && matchCont && matchRel && matchOrd;
         });
 
         return list;
@@ -402,6 +413,7 @@
 
     window.resetAccountingFilters = function() {
         if (document.getElementById('acct-filter-date-from')) document.getElementById('acct-filter-date-from').value = '';
+        if (document.getElementById('acct-filter-tipo')) document.getElementById('acct-filter-tipo').value = '';
         if (document.getElementById('acct-filter-service')) document.getElementById('acct-filter-service').value = '';
         if (document.getElementById('acct-filter-date-to')) document.getElementById('acct-filter-date-to').value = '';
         if (document.getElementById('acct-filter-customer')) document.getElementById('acct-filter-customer').value = '';
@@ -522,8 +534,32 @@
                 : '';
 
             const balColor = balance >= 0 ? '#10b981' : '#ef4444';
-            const choferCell = t.chofer
-                ? `<span style="background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700;">${t.chofer}</span>`
+            
+            let entidadText = '—';
+            let entidadIcon = '';
+            let entidadStyle = 'color:#94a3b8;';
+
+            if (t.chofer) {
+                entidadText = t.chofer;
+                entidadIcon = '<i class="fas fa-truck" style="margin-right:4px;"></i>';
+                entidadStyle = 'background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+            } else if (t.customer) { // Customer or Seller depending on context
+                entidadText = t.customer;
+                if (t.descripcion && t.descripcion.toLowerCase().includes('release')) {
+                    entidadIcon = '<i class="fas fa-building" style="margin-right:4px;"></i>';
+                    entidadStyle = 'background:#f8fafc; color:#475569; border: 1px solid #e2e8f0; padding:1px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+                } else {
+                    entidadIcon = '<i class="fas fa-user" style="margin-right:4px;"></i>';
+                    entidadStyle = 'background:#f0fdf4; color:#166534; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+                }
+            } else if (t.category && t.category !== 'Ledger Income' && t.category !== 'Ledger Expense') {
+                entidadText = t.category;
+                entidadIcon = '<i class="fas fa-tags" style="margin-right:4px;"></i>';
+                entidadStyle = 'background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+            }
+
+            const entidadCell = entidadText !== '—'
+                ? `<span style="${entidadStyle}">${entidadIcon}${entidadText}</span>`
                 : `<span style="color:#94a3b8;">—</span>`;
 
             const deleteBtn = (window.currentUserRole === 'admin')
@@ -551,7 +587,7 @@
                     <div style="font-weight:600; color:#1e293b; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${t.descripcion || ''}">${t.descripcion || '—'}</div>
                     ${t.referencia ? `<div style="color:#64748b; font-size:0.7rem;">${t.referencia}</div>` : ''}
                 </td>
-                <td style="text-align:center;">${choferCell}</td>
+                <td style="text-align:center;">${entidadCell}</td>
                 <td style="text-align:right; white-space:nowrap;">
                     <span style="font-weight:900; font-size:1rem; color:${tipoColor};">
                         ${isIncome ? '+' : '-'}$${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
