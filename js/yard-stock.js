@@ -26,6 +26,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (!force && currentYardStock && currentYardStock.length > 0) {
             renderYardTable();
             renderStorageTable();
+            if (window.renderBothTable) window.renderBothTable();
             updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
             return;
         }
@@ -43,6 +44,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (window.updateYardCustomerFilters) window.updateYardCustomerFilters();
             renderYardTable();
             renderStorageTable();
+            if (window.renderBothTable) window.renderBothTable();
             updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
         } catch (err) {
             console.error("Error loading yard stock:", err);
@@ -190,6 +192,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
         const customerFilter = document.getElementById('sf-customer')?.value || '';
 
+        const globalInvBtn = document.getElementById('btn-global-invoice-storage');
+        if (globalInvBtn) {
+            globalInvBtn.style.display = customerFilter ? 'flex' : 'none';
+        }
+
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
             if (!isStorage) return false; // Right table is only Storage Yard
@@ -310,6 +317,152 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         });
     }
     window.renderStorageTable = renderStorageTable;
+
+    function renderBothTable() {
+        const body = document.getElementById('both-yard-body');
+        const countEl = document.getElementById('both-total-count');
+        if (!body) return;
+
+        const searchTerm = document.getElementById('both-search')?.value.toLowerCase() || '';
+        const sizeFilter = document.getElementById('both-size')?.value || '';
+        const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
+        const customerFilter = document.getElementById('both-customer')?.value || '';
+        const dateFrom = document.getElementById('both-date-from')?.value || '';
+        const dateTo = document.getElementById('both-date-to')?.value || '';
+
+        const globalInvBtn = document.getElementById('btn-global-invoice-both');
+        if (globalInvBtn) {
+            globalInvBtn.style.display = customerFilter ? 'flex' : 'none';
+        }
+
+        const filtered = currentYardStock.filter(item => {
+            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
+                               (item.origin_release || '').toLowerCase().includes(searchTerm);
+            const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
+            const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
+            
+            let matchStatus = true;
+            if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
+            else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
+
+            let matchDate = true;
+            if (dateFrom || dateTo) {
+                const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
+                if (dateFrom && itemDate < dateFrom) matchDate = false;
+                if (dateTo && itemDate > dateTo) matchDate = false;
+            }
+
+            return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
+        });
+
+        if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
+
+        body.innerHTML = '';
+        if (filtered.length === 0) {
+            body.innerHTML = `
+                <tr>
+                    <td colspan="18" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
+                        No items to display
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        filtered.forEach(item => {
+            const isStorage = (item.notes || '').includes('[Storage Yard]');
+            const isSelected = (editingYardId === item.id);
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.style.transition = 'background-color 0.2s ease';
+            tr.style.borderBottom = '1px solid #475569';
+
+            const isExited = item.status === 'SOLD';
+            const baseBgColor = isStorage ? '#f0fdf4' : '#eff6ff'; // Light green for storage, light blue for rptulipan
+            
+            const applyStyle = (isHover) => {
+                if (isSelected) {
+                    tr.style.backgroundColor = '#e0f2fe';
+                    tr.style.borderLeft = '4px solid #0284c7';
+                } else if (isExited) {
+                    tr.style.backgroundColor = '#f1f5f9';
+                    tr.style.opacity = '0.75';
+                    tr.style.color = '#64748b';
+                    tr.style.borderLeft = '4px solid transparent';
+                } else if (isHover) {
+                    tr.style.backgroundColor = '#f8fafc';
+                    tr.style.borderLeft = '4px solid transparent';
+                } else {
+                    tr.style.backgroundColor = baseBgColor;
+                    tr.style.borderLeft = '4px solid transparent';
+                }
+            };
+
+            applyStyle(false);
+            tr.onmouseenter = () => applyStyle(true);
+            tr.onmouseleave = () => applyStyle(false);
+
+            tr.onclick = (e) => {
+                if (e.target.closest('.btn-manage-inline')) return;
+                if (editingYardId === item.id) {
+                    resetYardForm();
+                } else {
+                    editYardItem(item.id);
+                }
+            };
+
+            const entryDate = new Date(item.created_at || new Date());
+            const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
+            const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+            const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+            const accumStorage = (item.daily_rate || 0) * days;
+            const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
+            const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
+
+            const containerNoDisplay = isExited
+                ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
+                : `${item.container_no || '---'}`;
+
+            const yardBadge = isStorage 
+                ? `<span style="font-size: 0.7rem; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;">STORAGE</span>`
+                : `<span style="font-size: 0.7rem; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe;">RPTULIPAN</span>`;
+
+            tr.innerHTML = `
+                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">${yardBadge}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
+                    <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
+                </td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+    window.renderBothTable = renderBothTable;
 
     // --- ACTIONS ---
     window.saveYardContainer = async function() {
@@ -519,7 +672,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
 
     window.sendGlobalYardInvoice = async function(tableType = 'YARD') {
-        const customerFilter = tableType === 'YARD' ? (document.getElementById('yf-customer')?.value || '') : (document.getElementById('sf-customer')?.value || '');
+        let customerFilter = '';
+        if (tableType === 'YARD') customerFilter = document.getElementById('yf-customer')?.value || '';
+        else if (tableType === 'STORAGE') customerFilter = document.getElementById('sf-customer')?.value || '';
+        else if (tableType === 'BOTH') customerFilter = document.getElementById('both-customer')?.value || '';
         
         if (!customerFilter) {
             alert('Please select a Customer from the filter first.');
@@ -572,7 +728,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             email = emailRaw.trim();
         }
 
-        const btn = tableType === 'YARD' ? document.getElementById('btn-global-invoice-yard') : document.getElementById('btn-global-invoice-storage');
+        let btn;
+        if (tableType === 'YARD') btn = document.getElementById('btn-global-invoice-yard');
+        else if (tableType === 'STORAGE') btn = document.getElementById('btn-global-invoice-storage');
+        else if (tableType === 'BOTH') btn = document.getElementById('btn-global-invoice-both');
+
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         btn.disabled = true;
@@ -743,6 +903,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
         renderYardTable(); // Refresh selection
         renderStorageTable();
+        if (window.renderBothTable) window.renderBothTable();
     };
 
     window.deleteYardItem = async function(id) {
@@ -809,6 +970,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
         renderYardTable(); // Refresh selection
         renderStorageTable();
+        if (window.renderBothTable) window.renderBothTable();
     }
 
     // --- CALENDAR INTEGRATION ---
@@ -928,6 +1090,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     window.setYardDisplayMode = function(mode) {
         const col1 = document.getElementById('col-rptulipan-yard');
         const col2 = document.getElementById('col-storage-yard');
+        const colBoth = document.getElementById('col-both-yard');
         const btnBoth = document.getElementById('yard-view-both');
         const btnRPTulipan = document.getElementById('yard-view-rptulipan');
         const btnStorage = document.getElementById('yard-view-storage');
@@ -953,18 +1116,20 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         });
 
         if (mode === 'BOTH') {
-            col1.style.display = 'flex';
-            col1.style.flex = '1 1 calc(50% - 13px)';
-            col2.style.display = 'flex';
-            col2.style.flex = '1 1 calc(50% - 13px)';
+            col1.style.display = 'none';
+            col2.style.display = 'none';
+            if (colBoth) colBoth.style.display = 'flex';
+            if (window.renderBothTable) window.renderBothTable();
         } else if (mode === 'RPTULIPAN') {
             col1.style.display = 'flex';
             col1.style.flex = '1 1 100%';
             col2.style.display = 'none';
+            if (colBoth) colBoth.style.display = 'none';
         } else if (mode === 'STORAGE') {
             col1.style.display = 'none';
             col2.style.display = 'flex';
             col2.style.flex = '1 1 100%';
+            if (colBoth) colBoth.style.display = 'none';
         }
     };
 
@@ -1012,8 +1177,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     window.updateYardCustomerFilters = function() {
         const yfCustomer = document.getElementById('yf-customer');
         const sfCustomer = document.getElementById('sf-customer');
+        const bothCustomer = document.getElementById('both-customer');
         
-        if (!yfCustomer && !sfCustomer) return;
+        if (!yfCustomer && !sfCustomer && !bothCustomer) return;
         
         let dynamicCustomers = [];
         if (currentYardStock && currentYardStock.length > 0) {
@@ -1044,6 +1210,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         
         populateSelect(yfCustomer);
         populateSelect(sfCustomer);
+        populateSelect(bothCustomer);
     };
     
     window.updateLocalYardStatus = function(yardItemId, newStatus, newNotes, exitDate, newLifts, orderOut) {
@@ -1059,6 +1226,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             // Re-render both tables with the updated data
             renderYardTable();
             renderStorageTable();
+            if (window.renderBothTable) window.renderBothTable();
             
             // Optionally update the count displays immediately
             const rptCount = currentYardStock.filter(i => i.status !== 'SOLD' && !(i.notes || '').includes('[Storage Yard]')).length;

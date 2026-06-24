@@ -4386,7 +4386,7 @@
                         </div>
                         <div style="display: flex; align-items: center; gap: 15px; border-left: 2px solid #e2e8f0; padding-left: 15px; margin-left: auto;">
                             <span style="font-weight: 900; font-size: 0.95rem; color: #0f172a; letter-spacing: -0.3px;"><i class="fas fa-filter" style="color: #3b82f6; margin-right: 5px;"></i> STATUS:</span>
-                            <select id="global-yard-status" onchange="renderYardTable(); renderStorageTable();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; background: white; outline: none; cursor: pointer;">
+                            <select id="global-yard-status" onchange="renderYardTable(); renderStorageTable(); renderBothTable();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; background: white; outline: none; cursor: pointer;">
                                 <option value="ACTIVE" selected>Activos</option>
                                 <option value="INACTIVE">No Activos</option>
                                 <option value="ALL">Todos</option>
@@ -4396,7 +4396,7 @@
                     <div style="display: flex; gap: 25px; width: 100%; align-items: flex-start; flex-wrap: wrap;">
                         
                         <!-- Left Column: RPTulipan Yard -->
-                        <div id="col-rptulipan-yard" style="flex: 1 1 calc(50% - 13px); min-width: 480px; display: flex; flex-direction: column; gap: 20px;">
+                        <div id="col-rptulipan-yard" style="flex: 1 1 calc(50% - 13px); min-width: 480px; display: none; flex-direction: column; gap: 20px;">
                             <!-- Header Card -->
                             <div class="attendance-toolbar-modern" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                                 <div class="report-title">
@@ -4507,7 +4507,7 @@
                         </div>
 
                         <!-- Right Column: Storage Yard -->
-                        <div id="col-storage-yard" style="flex: 1 1 calc(50% - 13px); min-width: 480px; display: flex; flex-direction: column; gap: 20px;">
+                        <div id="col-storage-yard" style="flex: 1 1 calc(50% - 13px); min-width: 480px; display: none; flex-direction: column; gap: 20px;">
                             <!-- Header Card -->
                             <div class="attendance-toolbar-modern" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                                 <div class="report-title">
@@ -4611,6 +4611,138 @@
                                         <tr>
                                             <td colspan="9" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
                                                 No items in Storage Yard (Under Construction)
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        </div>
+
+                        <!-- Combined Column: Both Yards -->
+                        <div id="col-both-yard" style="display: flex; flex: 1 1 100%; min-width: 480px; flex-direction: column; gap: 20px;">
+                            <!-- Header Card -->
+                            <div class="attendance-toolbar-modern" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                                <div class="report-title">
+                                    <h2 style="font-size: 1.8rem; font-weight: 950; color: #0f172a; margin: 0; letter-spacing: -0.5px;">Global Yard</h2>
+                                    <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px; font-weight: 500;">Combined view of RPTulipan and Storage yards</p>
+                                </div>
+                                
+                                <div class="filter-summary-card" style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; min-width: 160px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2); display: flex; align-items: center; gap: 12px;">
+                                    <div class="filter-summary-icon" style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-layer-group"></i>
+                                    </div>
+                                    <div class="filter-summary-info">
+                                        <span class="filter-summary-label" style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">TOTAL UNITS</span>
+                                        <span class="filter-summary-value" id="both-total-count" style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filters Card -->
+                            <div class="attendance-toolbar-modern" style="padding: 20px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); margin-bottom: 0;">
+                                <div style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; align-items: flex-end;">
+                                    
+                                    <!-- Search Field -->
+                                    <div style="flex: 2; min-width: 180px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-search" style="margin-right: 5px; color: #8b5cf6;"></i> Search All
+                                        </label>
+                                        <div style="position: relative;">
+                                            <i class="fas fa-barcode" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1rem;"></i>
+                                            <input type="text" id="both-search" placeholder="Search by Container #..." oninput="renderBothTable()" 
+                                                style="width: 100%; padding: 10px 10px 10px 35px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 600; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.85rem;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Size Filter -->
+                                    <div style="flex: 1.2; min-width: 120px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-ruler-combined" style="margin-right: 5px; color: #8b5cf6;"></i> Size Filter
+                                        </label>
+                                        <div style="position: relative;">
+                                            <select id="both-size" onchange="renderBothTable()" 
+                                                style="width: 100%; padding: 10px 25px 10px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                                <option value="">All Sizes</option>
+                                                <option value="20'">20' Containers</option>
+                                                <option value="40'">40' Containers</option>
+                                                <option value="45'">45' Containers</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Customer Filter -->
+                                    <div style="flex: 1.5; min-width: 140px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-user-tag" style="margin-right: 5px; color: #8b5cf6;"></i> Customer
+                                        </label>
+                                        <div style="position: relative;">
+                                            <select id="both-customer" onchange="renderBothTable()" 
+                                                style="width: 100%; padding: 10px 25px 10px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; appearance: none; cursor: pointer; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                                <option value="">All Customers</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Date Filters -->
+                                    <div style="flex: 1.2; min-width: 130px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-calendar-alt" style="margin-right: 5px; color: #8b5cf6;"></i> Date From
+                                        </label>
+                                        <input type="date" id="both-date-from" onchange="renderBothTable()" 
+                                            style="width: 100%; padding: 10px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; outline: none; font-size: 0.85rem; height: 38px;">
+                                    </div>
+                                    <div style="flex: 1.2; min-width: 130px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="fas fa-calendar-alt" style="margin-right: 5px; color: #8b5cf6;"></i> Date To
+                                        </label>
+                                        <input type="date" id="both-date-to" onchange="renderBothTable()" 
+                                            style="width: 100%; padding: 10px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; outline: none; font-size: 0.85rem; height: 38px;">
+                                    </div>
+
+                                    <!-- Global Invoice Button -->
+                                    <button id="btn-global-invoice-both" onclick="sendGlobalYardInvoice('BOTH')" 
+                                        style="display: none; align-items: center; justify-content: center; background: #8b5cf6; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(139,92,246,0.2); font-size: 0.85rem; height: 38px;">
+                                        <i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Global Statement
+                                    </button>
+
+                                    <!-- Spacer element to align heights -->
+                                    <div style="width: 38px; height: 38px;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Table Card -->
+                            <div class="table-scroll-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
+                                <table class="modern-table" style="width: 100%; border-collapse: collapse; border: 1px solid #475569;">                                    
+                                    <thead style="background: #f1f5f9;">
+                                        <tr>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">YARD</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">N° CONT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">SIZE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TYPE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CONDITION</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DATE IN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORDER# IN</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DATE OUT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">ORDER# OUT</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">LIFTS</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">DAYS COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">LIFTS COST</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">TOTAL</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">CUSTOMER</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">PHONE</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: left; font-size: 0.8rem;">NOTES</th>
+                                            <th style="padding: 12px 10px; border: 1px solid #475569; color: #0f172a; font-weight: 900; text-align: center; font-size: 0.8rem;">ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="both-yard-body">
+                                        <tr>
+                                            <td colspan="18" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
+                                                No items to display
                                             </td>
                                         </tr>
                                     </tbody>
