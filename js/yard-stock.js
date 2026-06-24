@@ -39,7 +39,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (error) throw error;
             
             currentYardStock = data || [];
-            if (window.populateYardCustomerSelect) window.populateYardCustomerSelect();
+            if (window.populateYardCustomerSelect) await window.populateYardCustomerSelect();
             if (window.updateYardCustomerFilters) window.updateYardCustomerFilters();
             renderYardTable();
             renderStorageTable();
@@ -59,6 +59,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const sizeFilter = document.getElementById('yf-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
         const customerFilter = document.getElementById('yf-customer')?.value || '';
+        
+        const globalInvBtn = document.getElementById('btn-global-invoice-yard');
+        if (globalInvBtn) {
+            globalInvBtn.style.display = customerFilter ? 'flex' : 'none';
+        }
 
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
@@ -143,9 +148,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
+                    <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
+                </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
@@ -154,10 +163,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
-                    <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
-                </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
@@ -277,9 +282,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
+                    <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
+                </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
@@ -288,10 +297,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
-                    <span class="inv-badge ${item.condition === 'NEW' ? 'inv-badge-green' : 'inv-badge-blue'}">${item.condition || 'USED'}</span>
-                </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
@@ -419,8 +424,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         // We assume we might need an email address, but we might just use a placeholder if not present
         // If there's an email field we could use it, for now we will prompt the user for the email
-        const email = prompt("Please enter the customer's email address to send the invoice:", "");
-        if (!email) return; // Cancelled
+        const emailRaw = prompt("Please enter the customer's email address to send the invoice:", "");
+        if (!emailRaw || !emailRaw.trim()) return; 
+        const email = emailRaw.trim();
 
         const btn = document.activeElement;
         const originalText = btn.innerHTML;
@@ -459,6 +465,149 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
+    window.sendGlobalYardInvoice = async function(tableType = 'YARD') {
+        const customerFilter = tableType === 'YARD' ? (document.getElementById('yf-customer')?.value || '') : (document.getElementById('sf-customer')?.value || '');
+        
+        if (!customerFilter) {
+            alert('Please select a Customer from the filter first.');
+            return;
+        }
+
+        const filtered = currentYardStock.filter(item => {
+            const isStorage = (item.notes || '').includes('[Storage Yard]');
+            if (tableType === 'YARD' && isStorage) return false;
+            if (tableType === 'STORAGE' && !isStorage) return false;
+            if (item.customer_name !== customerFilter) return false;
+            
+            // Apply other filters if necessary, but generally we want to invoice what's currently shown
+            const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
+            if (statusFilter === 'ACTIVE' && item.status === 'SOLD') return false;
+            if (statusFilter === 'INACTIVE' && item.status !== 'SOLD') return false;
+            
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            alert('No records found for this customer to invoice.');
+            return;
+        }
+
+        const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
+        const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+        const publicKey = localStorage.getItem('ejs_public_key');
+
+        if (!serviceId || !templateId || !publicKey) {
+            alert('EmailJS is not configured. Please go to Email Settings.');
+            return;
+        }
+
+        let customerEmail = "";
+        if (window.yardCustomersList) {
+            const cust = window.yardCustomersList.find(c => c.name === customerFilter);
+            if (cust && cust.email) customerEmail = cust.email;
+        }
+
+        const emailRaw = prompt("Please enter the customer's email address to send the global invoice:", customerEmail);
+        if (!emailRaw || !emailRaw.trim()) return; 
+        const email = emailRaw.trim();
+
+        const btn = tableType === 'YARD' ? document.getElementById('btn-global-invoice-yard') : document.getElementById('btn-global-invoice-storage');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        try {
+            emailjs.init(publicKey);
+
+            let invoiceHtml = `
+            <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; margin-bottom: 20px; font-size: 11px;">
+                <thead>
+                    <tr style="background-color: #f1f5f9; color: #0f172a;">
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">N&deg; CONT</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">SIZE</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">TYPE</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">CONDITION</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE IN</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# IN</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE OUT</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# OUT</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">LIFTS</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">DAYS</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">DAYS COST</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">LIFTS COST</th>
+                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            let grandTotal = 0;
+
+            filtered.forEach(item => {
+                const entryDate = new Date(item.created_at);
+                const exitDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
+                const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+                const d2 = Date.UTC(exitDate.getFullYear(), exitDate.getMonth(), exitDate.getDate());
+                const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+                
+                const accumStorage = (item.daily_rate || 0) * days;
+                const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
+                const liftCost = ((item.lifts || 1) * (item.lift_cost || 50));
+                const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + liftCost;
+
+                grandTotal += totalCost;
+
+                invoiceHtml += `
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: ${item.exit_date ? '#64748b' : '#1e40af'};">${item.container_no || '---'}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.size || '---'}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.type || 'DRY'}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.condition || 'USED'}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${window.formatDateMMDDYYYY(item.created_at)}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.origin_release || '---'}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.order_out || '---'}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${(item.lifts || 1)}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${days}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${accumStorage.toFixed(2)}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${liftCost.toFixed(2)}</td>
+                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: #10b981;">${totalCost.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            invoiceHtml += `
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="12" style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; font-size: 1.1em;">GRAND TOTAL:</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; font-size: 1.1em; color: #10b981;">$${grandTotal.toFixed(2)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            `;
+
+            const templateParams = {
+                to_email: email,
+                customer_name: customerFilter,
+                invoice_html: invoiceHtml,
+                grand_total: grandTotal.toFixed(2)
+            };
+
+            await emailjs.send(serviceId, templateId, templateParams);
+            
+            if (window.showToast) window.showToast('Global Invoice sent successfully!', 'success');
+            else alert('Global Invoice sent successfully!');
+
+        } catch (err) {
+            console.error('EmailJS Error:', err);
+            alert("Error sending email: " + (err.text || JSON.stringify(err)));
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    };
+
     window.editYardItem = function(id) {
         const item = currentYardStock.find(i => i.id === id);
         if (!item) return;
@@ -480,9 +629,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (phoneInp) phoneInp.value = item.customer_phone || '';
         
         // Parse notes and prices
-        const parsed = parseYardNotes(item.notes);
+        const isStorage = (item.notes || '').includes('[Storage Yard]');
         if (document.getElementById('yard-dest-select')) {
-            document.getElementById('yard-dest-select').value = parsed.isStorage ? 'STORAGE' : 'RPTULIPAN';
+            document.getElementById('yard-dest-select').value = isStorage ? 'STORAGE' : 'RPTULIPAN';
         }
         document.getElementById('yard-entry-fee').value = (item.entry_fee || 0) > 0 ? (item.entry_fee || 0) : '';
         document.getElementById('yard-daily-rate').value = (item.daily_rate || 0) > 0 ? (item.daily_rate || 0) : '';
@@ -751,21 +900,31 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.populateYardCustomerSelect = function() {
+    window.populateYardCustomerSelect = async function() {
         const sel = document.getElementById('yard-customer-sel');
-        const data = window.currentCustomers;
-        if (!sel || !data) return;
+        if (!sel) return;
         const currentVal = sel.value;
-        sel.innerHTML = '<option value="" disabled selected>Select Customer...</option>';
-        data.forEach(c => {
-            const name = c.name || c[1] || ''; 
-            if (name) {
+        
+        try {
+            const { data, error } = await window.db.from('yard_customers').select('*').order('name', { ascending: true });
+            if (error) throw error;
+            
+            window.yardCustomersList = data || [];
+            
+            sel.innerHTML = '<option value="">Select or Add...</option>';
+            window.yardCustomersList.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = name; opt.textContent = name;
+                opt.value = c.name; 
+                opt.textContent = c.name;
                 sel.appendChild(opt);
-            }
-        });
-        if (currentVal) sel.value = currentVal;
+            });
+            
+            if (currentVal) sel.value = currentVal;
+            
+            if (window.updateYardCustomerFilters) window.updateYardCustomerFilters();
+        } catch (err) {
+            console.error("Error loading yard customers:", err);
+        }
     };
 
     window.updateYardCustomerFilters = function() {
@@ -773,55 +932,228 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const sfCustomer = document.getElementById('sf-customer');
         
         if (!yfCustomer && !sfCustomer) return;
-
-        // Get unique customers from ACTIVE records only
-        const activeCustomers = new Set();
-        currentYardStock.forEach(item => {
-            if (item.status !== 'SOLD' && item.customer_name) {
-                activeCustomers.add(item.customer_name);
-            }
-        });
-
-        // Convert set to array and sort alphabetically
-        const sortedCustomers = Array.from(activeCustomers).sort();
-
-        const updateSelect = (sel) => {
-            if (!sel) return;
-            const currentVal = sel.value;
-            sel.innerHTML = '<option value="">All Customers</option>';
-            sortedCustomers.forEach(customer => {
+        
+        let dynamicCustomers = [];
+        if (currentYardStock && currentYardStock.length > 0) {
+            dynamicCustomers = currentYardStock.map(item => item.customer_name).filter(n => n);
+        }
+        
+        let savedCustomers = [];
+        if (window.yardCustomersList && window.yardCustomersList.length > 0) {
+            savedCustomers = window.yardCustomersList.map(c => c.name).filter(n => n);
+        }
+        
+        const allCustomers = [...new Set([...dynamicCustomers, ...savedCustomers])].sort();
+        
+        const populateSelect = (selectEl) => {
+            if (!selectEl) return;
+            const currentVal = selectEl.value;
+            selectEl.innerHTML = '<option value="">All Customers</option>';
+            allCustomers.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = customer;
-                opt.textContent = customer;
-                sel.appendChild(opt);
+                opt.value = c;
+                opt.textContent = c;
+                selectEl.appendChild(opt);
             });
-            if (sortedCustomers.includes(currentVal)) {
-                sel.value = currentVal;
-            } else {
-                sel.value = ''; // Reset if previously selected customer is no longer active
+            if (allCustomers.includes(currentVal)) {
+                selectEl.value = currentVal;
             }
         };
-
-        updateSelect(yfCustomer);
-        updateSelect(sfCustomer);
+        
+        populateSelect(yfCustomer);
+        populateSelect(sfCustomer);
     };
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const phoneInp = document.getElementById('yard-phone');
-        if (phoneInp) {
-            phoneInp.addEventListener('input', (e) => {
-                if (!window.formatUSPhone) return;
-                const cursor = e.target.selectionStart;
-                const oldLen = e.target.value.length;
-                e.target.value = window.formatUSPhone(e.target.value);
-                const newLen = e.target.value.length;
-                if (newLen > oldLen) {
-                    e.target.setSelectionRange(cursor + (newLen - oldLen), cursor + (newLen - oldLen));
-                } else {
-                    e.target.setSelectionRange(cursor, cursor);
-                }
-            });
+    
+    window.updateLocalYardStatus = function(yardItemId, newStatus, newNotes, exitDate, newLifts) {
+        if (!currentYardStock) return;
+        const item = currentYardStock.find(i => i.id === yardItemId);
+        if (item) {
+            if (newStatus !== undefined) item.status = newStatus;
+            if (newNotes !== undefined) item.notes = newNotes;
+            if (exitDate !== undefined) item.exit_date = exitDate;
+            if (newLifts !== undefined) item.lifts = newLifts;
+            
+            // Re-render both tables with the updated data
+            renderYardTable();
+            renderStorageTable();
+            
+            // Optionally update the count displays immediately
+            const rptCount = currentYardStock.filter(i => i.status !== 'SOLD' && !(i.notes || '').includes('[Storage Yard]')).length;
+            const strCount = currentYardStock.filter(i => i.status !== 'SOLD' && (i.notes || '').includes('[Storage Yard]')).length;
+            const yTotalEl = document.getElementById('yard-total-count');
+            const sTotalEl = document.getElementById('storage-total-count');
+            if (yTotalEl) yTotalEl.textContent = rptCount;
+            if (sTotalEl) sTotalEl.textContent = strCount;
         }
-    });
+    };
+    
+    // Also attach onchange to yard-customer to auto-fill phone
+    const yardCustomerSelect = document.getElementById('yard-customer-sel');
+    if (yardCustomerSelect) {
+        yardCustomerSelect.addEventListener('change', (e) => {
+            const name = e.target.value;
+            if (window.yardCustomersList) {
+                const customer = window.yardCustomersList.find(c => c.name === name);
+                if (customer && customer.phone) {
+                    const phoneEl = document.getElementById('yard-phone');
+                    if (phoneEl) phoneEl.value = customer.phone;
+                }
+            }
+        });
+    }
 
 })();
+    window.openYardCustomerModal = function() {
+        document.getElementById('add-yard-customer-modal').style.display = 'flex';
+        renderYardCustomerManagerList();
+    };
+
+    window.closeYardCustomerModal = function() {
+        if (window.cancelEditYardCustomer) window.cancelEditYardCustomer();
+        document.getElementById('add-yard-customer-modal').style.display = 'none';
+    };
+
+    function renderYardCustomerManagerList() {
+        const container = document.getElementById('yard-customer-list-body');
+        if (!container) return;
+        container.innerHTML = '';
+        const list = window.yardCustomersList || [];
+        list.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'driver-item';
+            item.innerHTML = `
+                <div style="display: flex; flex-direction: column; flex: 1; padding-right: 10px;">
+                    <span style="font-size: 0.85rem; font-weight: bold;">${c.name}</span>
+                    <span style="font-size: 0.7rem; color: #64748b; font-weight: normal;">Phone: ${c.phone || 'N/A'} | Email: ${c.email || 'N/A'}</span>
+                    <span style="font-size: 0.7rem; color: #475569; font-weight: normal; margin-top: 2px;">${c.address || 'no address'}</span>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="startEditYardCustomer('${c.name.replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Customer">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteYardCustomer('${c.name.replace(/'/g, "\\'")}')" class="btn-del-driver" title="Delete Customer">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    let editingYardCustomerOriginalName = null;
+
+    window.startEditYardCustomer = function(name, phone, email, address) {
+        editingYardCustomerOriginalName = name;
+        
+        const inputName = document.getElementById('new-yc-name');
+        const inputPhone = document.getElementById('new-yc-phone');
+        const inputEmail = document.getElementById('new-yc-email');
+        const inputAddress = document.getElementById('new-yc-address');
+        const btnAddUpdate = document.getElementById('btn-add-update-yc');
+        const btnCancel = document.getElementById('btn-cancel-edit-yc');
+        
+        if (inputName) inputName.value = name;
+        if (inputPhone) inputPhone.value = phone;
+        if (inputEmail) inputEmail.value = email;
+        if (inputAddress) inputAddress.value = address;
+        
+        if (btnAddUpdate) {
+            btnAddUpdate.textContent = 'UPDATE';
+            btnAddUpdate.style.background = '#f59e0b';
+        }
+        if (btnCancel) {
+            btnCancel.style.display = 'inline-block';
+        }
+        
+        if (inputName) inputName.focus();
+    };
+
+    window.cancelEditYardCustomer = function() {
+        editingYardCustomerOriginalName = null;
+        
+        const inputName = document.getElementById('new-yc-name');
+        const inputPhone = document.getElementById('new-yc-phone');
+        const inputEmail = document.getElementById('new-yc-email');
+        const inputAddress = document.getElementById('new-yc-address');
+        const btnAddUpdate = document.getElementById('btn-add-update-yc');
+        const btnCancel = document.getElementById('btn-cancel-edit-yc');
+        
+        if (inputName) inputName.value = '';
+        if (inputPhone) inputPhone.value = '';
+        if (inputEmail) inputEmail.value = '';
+        if (inputAddress) inputAddress.value = '';
+        
+        if (btnAddUpdate) {
+            btnAddUpdate.textContent = 'ADD';
+            btnAddUpdate.style.background = '#3b82f6';
+        }
+        if (btnCancel) {
+            btnCancel.style.display = 'none';
+        }
+    };
+
+    window.addNewYardCustomer = async function() {
+        const inputName = document.getElementById('new-yc-name');
+        const inputPhone = document.getElementById('new-yc-phone');
+        const inputEmail = document.getElementById('new-yc-email');
+        const inputAddress = document.getElementById('new-yc-address');
+        
+        const name = inputName ? inputName.value.trim().toUpperCase() : '';
+        const phone = inputPhone ? inputPhone.value.trim() : '';
+        const email = inputEmail ? inputEmail.value.trim() : '';
+        const address = inputAddress ? inputAddress.value.trim() : '';
+        
+        if (!name) {
+            alert('Name / Company is required.');
+            return;
+        }
+
+        try {
+            if (editingYardCustomerOriginalName) {
+                const { data, error } = await window.db.from('yard_customers')
+                    .update({ name, phone, email, address })
+                    .eq('name', editingYardCustomerOriginalName)
+                    .select();
+                
+                if (error) {
+                    if (error.code === '23505') alert("Another customer with that name already exists!");
+                    else throw error;
+                    return;
+                }
+                cancelEditYardCustomer();
+            } else {
+                const { error } = await window.db.from('yard_customers')
+                    .insert([{ name, phone, email, address }]);
+                
+                if (error) {
+                    if (error.code === '23505') alert("Customer already exists!");
+                    else throw error;
+                    return;
+                }
+                if (inputName) inputName.value = '';
+                if (inputPhone) inputPhone.value = '';
+                if (inputEmail) inputEmail.value = '';
+                if (inputAddress) inputAddress.value = '';
+            }
+            
+            if (window.populateYardCustomerSelect) await window.populateYardCustomerSelect();
+            renderYardCustomerManagerList();
+        } catch (err) {
+            console.error("Failed to save yard customer:", err);
+            alert("Error saving yard customer: " + (err.message || "Unknown error"));
+        }
+    };
+
+    window.deleteYardCustomer = async function(name) {
+        if (!confirm("Are you sure you want to remove this yard customer?")) return;
+        try {
+            const { error } = await window.db.from('yard_customers').delete().eq('name', name);
+            if (error) throw error;
+            
+            if (window.populateYardCustomerSelect) await window.populateYardCustomerSelect();
+            renderYardCustomerManagerList();
+        } catch (err) {
+            console.error("Failed to delete yard customer:", err);
+            alert("Failed to delete customer.");
+        }
+    };

@@ -223,13 +223,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const wasYardDeductionCandidate = (oldSource === 'YARD' || oldSource === 'STORAGE') && oldYardId && wasFinalized;
                         
                         if (wasYardDeductionCandidate) {
-                            const { data: yardItem } = await db.from('yard_stock').select('notes').eq('id', oldYardId).single();
+                            const { data: yardItem } = await db.from('yard_stock').select('notes, lifts').eq('id', oldYardId).single();
                             if (yardItem) {
                                 let notes = yardItem.notes || '';
                                 notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
-                                await db.from('yard_stock').update({ status: 'AVAILABLE', notes }).eq('id', oldYardId);
+                                const newLifts = Math.max(1, (yardItem.lifts || 2) - 1);
+                                await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts }).eq('id', oldYardId);
+                                if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(oldYardId, 'AVAILABLE', notes, null, newLifts);
                             } else {
-                                await db.from('yard_stock').update({ status: 'AVAILABLE' }).eq('id', oldYardId);
+                                await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1 }).eq('id', oldYardId);
+                                if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(oldYardId, 'AVAILABLE', undefined, null, 1);
                             }
                         }
                         if (wasDeductionCandidate) {
@@ -275,7 +278,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if (isYardDeductionCandidate) {
                     const orderDate = document.getElementById('in-date')?.value || new Date().toISOString().split('T')[0];
-                    const { data: yardItem } = await db.from('yard_stock').select('notes').eq('id', yardItemId).single();
+                    const { data: yardItem } = await db.from('yard_stock').select('notes, lifts').eq('id', yardItemId).single();
                     if (yardItem) {
                         let notes = yardItem.notes || '';
                         notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim();
@@ -285,9 +288,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
                         const prefix = isStorage ? '[Storage Yard] ' : '';
                         const updatedNotes = `${prefix}[ExitDate: ${orderDate}] ${notes}`.trim().replace(/\s+/g, ' ');
-                        await db.from('yard_stock').update({ status: 'SOLD', notes: updatedNotes }).eq('id', yardItemId);
+                        const newLifts = (yardItem.lifts || 1) + 1;
+                        await db.from('yard_stock').update({ status: 'SOLD', notes: updatedNotes, exit_date: orderDate, lifts: newLifts }).eq('id', yardItemId);
+                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemId, 'SOLD', updatedNotes, orderDate, newLifts);
                     } else {
-                        await db.from('yard_stock').update({ status: 'SOLD' }).eq('id', yardItemId);
+                        await db.from('yard_stock').update({ status: 'SOLD', exit_date: orderDate, lifts: 2 }).eq('id', yardItemId);
+                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemId, 'SOLD', undefined, orderDate, 2);
                     }
                 }
 
@@ -1770,13 +1776,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 const isYardSourceForDel = containerSourceForDel === 'YARD' || containerSourceForDel === 'STORAGE';
                                 if (wasFinalized && isYardSourceForDel && yardItemIdForDel) {
                                     console.log(`Reverting yard item status for deleted order: ${yardItemIdForDel}`);
-                                    const { data: yardItem } = await db.from('yard_stock').select('notes').eq('id', yardItemIdForDel).single();
+                                    const { data: yardItem } = await db.from('yard_stock').select('notes, lifts').eq('id', yardItemIdForDel).single();
                                     if (yardItem) {
                                         let notes = yardItem.notes || '';
                                         notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
-                                        await db.from('yard_stock').update({ status: 'AVAILABLE', notes }).eq('id', yardItemIdForDel);
+                                        const newLifts = Math.max(1, (yardItem.lifts || 2) - 1);
+                                        await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts }).eq('id', yardItemIdForDel);
+                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', notes, null, newLifts);
                                     } else {
-                                        await db.from('yard_stock').update({ status: 'AVAILABLE' }).eq('id', yardItemIdForDel);
+                                        await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1 }).eq('id', yardItemIdForDel);
+                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', undefined, null, 1);
                                     }
                                 }
 
