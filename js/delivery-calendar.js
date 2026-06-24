@@ -228,11 +228,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 let notes = yardItem.notes || '';
                                 notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
                                 const newLifts = Math.max(1, (yardItem.lifts || 2) - 1);
-                                await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts }).eq('id', oldYardId);
-                                if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(oldYardId, 'AVAILABLE', notes, null, newLifts);
+                                await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts, order_out: null }).eq('id', oldYardId);
+                                if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(oldYardId, 'AVAILABLE', notes, null, newLifts, null);
                             } else {
-                                await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1 }).eq('id', oldYardId);
-                                if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(oldYardId, 'AVAILABLE', undefined, null, 1);
+                                await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1, order_out: null }).eq('id', oldYardId);
+                                if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(oldYardId, 'AVAILABLE', undefined, null, 1, null);
                             }
                         }
                         if (wasDeductionCandidate) {
@@ -289,11 +289,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const prefix = isStorage ? '[Storage Yard] ' : '';
                         const updatedNotes = `${prefix}[ExitDate: ${orderDate}] ${notes}`.trim().replace(/\s+/g, ' ');
                         const newLifts = (yardItem.lifts || 1) + 1;
-                        await db.from('yard_stock').update({ status: 'SOLD', notes: updatedNotes, exit_date: orderDate, lifts: newLifts }).eq('id', yardItemId);
-                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemId, 'SOLD', updatedNotes, orderDate, newLifts);
+                        const outOrderNo = document.getElementById('in-order')?.value || '---';
+                        await db.from('yard_stock').update({ status: 'SOLD', notes: updatedNotes, exit_date: orderDate, lifts: newLifts, order_out: outOrderNo }).eq('id', yardItemId);
+                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemId, 'SOLD', updatedNotes, orderDate, newLifts, outOrderNo);
                     } else {
-                        await db.from('yard_stock').update({ status: 'SOLD', exit_date: orderDate, lifts: 2 }).eq('id', yardItemId);
-                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemId, 'SOLD', undefined, orderDate, 2);
+                        const outOrderNo = document.getElementById('in-order')?.value || '---';
+                        await db.from('yard_stock').update({ status: 'SOLD', exit_date: orderDate, lifts: 2, order_out: outOrderNo }).eq('id', yardItemId);
+                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemId, 'SOLD', undefined, orderDate, 2, outOrderNo);
                     }
                 }
 
@@ -362,7 +364,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     size: selectedSize || '---',
                     type: selectedRelType,
                     condition: selectedRelCond,
-                    origin_release: selectedRelease || '---',
+                    origin_release: document.getElementById('in-order')?.value || '---',
                     notes: combinedNotes,
                     customer_name: selectedCustomer || '---',
                     customer_phone: document.getElementById('in-phone')?.value || ''
@@ -1781,11 +1783,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                         let notes = yardItem.notes || '';
                                         notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
                                         const newLifts = Math.max(1, (yardItem.lifts || 2) - 1);
-                                        await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts }).eq('id', yardItemIdForDel);
-                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', notes, null, newLifts);
+                                        await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts, order_out: null }).eq('id', yardItemIdForDel);
+                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', notes, null, newLifts, null);
                                     } else {
-                                        await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1 }).eq('id', yardItemIdForDel);
-                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', undefined, null, 1);
+                                        await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1, order_out: null }).eq('id', yardItemIdForDel);
+                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', undefined, null, 1, null);
                                     }
                                 }
 

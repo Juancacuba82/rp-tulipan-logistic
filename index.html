@@ -4336,10 +4336,13 @@
                         <div class="form-group" style="position: relative;">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;"><i class="fas fa-user" style="color: #3b82f6;"></i> CUSTOMER</label>
                             <div class="hybrid-input-wrapper" style="display: flex; gap: 8px; width: 100%;">
-                                <select id="yard-customer-sel" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; width: calc(100% - 53px) !important; flex: none !important; border-radius: 8px;">
+                                <select id="yard-customer-sel" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; width: calc(100% - 106px) !important; flex: none !important; border-radius: 8px;">
                                     <option value="" disabled selected>Select Customer...</option>
                                 </select>
-                                <input type="text" id="yard-customer" placeholder="Type Customer..." style="display:none; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; width: calc(100% - 53px) !important; flex: none !important; box-sizing: border-box; height: 45px;">
+                                <input type="text" id="yard-customer" placeholder="Type Customer..." style="display:none; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; width: calc(100% - 106px) !important; flex: none !important; box-sizing: border-box; height: 45px;">
+                                <button type="button" class="btn-toggle-input" onclick="if(window.openYardCustomerModal) window.openYardCustomerModal()" title="Manage Customers" style="height: 45px; width: 45px; border-radius: 8px; flex-shrink: 0; background: #e2e8f0; border: none; color: #3b82f6; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-user-plus"></i>
+                                </button>
                                 <button type="button" class="btn-toggle-input" onclick="if(window.toggleYardCustomerMode) window.toggleYardCustomerMode()" title="Toggle Manual/List" style="height: 45px; width: 45px; border-radius: 8px; flex-shrink: 0; background: #e2e8f0; border: none; color: #475569; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                                     <i class="fas fa-edit" id="yard-toggle-icon-customer"></i>
                                 </button>
