@@ -539,8 +539,8 @@
 
         try {
             const { jsPDF } = window.jspdf;
-            const canvas    = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData   = canvas.toDataURL('image/jpeg', 0.9);
+            const canvas    = await html2canvas(clone, { scale: 1.2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData   = canvas.toDataURL('image/jpeg', 0.7);
 
             const pdf      = new jsPDF('p', 'mm', 'a4');
             const pw       = pdf.internal.pageSize.getWidth();

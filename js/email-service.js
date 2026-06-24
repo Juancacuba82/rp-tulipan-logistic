@@ -139,20 +139,32 @@
             const photosArray = rowData[55];
             const hasPhotos = Array.isArray(photosArray) && photosArray.length > 0;
             let photosUrl = receiptUrl; // Fallback to receipt link if no photos
+            let pBlob = null;
             
             if (hasPhotos && window.getTripPhotosOnlyContent) {
                 console.log("Generating Photos PDF...");
                 const photosHtml = window.getTripPhotosOnlyContent(rowData);
-                const pBlob = await htmlToPDFBlob(photosHtml, 'p');
+                pBlob = await htmlToPDFBlob(photosHtml, 'p');
                 if (pBlob) {
                     photosUrl = await uploadPDFToSupabase(pBlob, `photos_${orderNo}_${tripId}_${ts}.pdf`);
                     console.log("Photos PDF Public URL:", photosUrl);
                 }
             }
 
+            // Convert PDFs to Base64 for EmailJS Attachments
+            const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+
+            const base64Recibo = await blobToBase64(pdfBlob);
+            const base64Fotos = pBlob ? await blobToBase64(pBlob) : ''; // Empty if no photos
+
             // 4. Send Email via EmailJS
             const serviceId = localStorage.getItem('ejs_service_id');
-            const templateId = localStorage.getItem('ejs_template_id');
+            const templateId = 'template_3pi4xzv' || localStorage.getItem('ejs_template_id');
             const publicKey = localStorage.getItem('ejs_public_key');
 
             if (!serviceId || !templateId || !publicKey) {
@@ -170,11 +182,13 @@
                     date: rowData[1],
                     receipt_url: receiptUrl,
                     photos_url: photosUrl,
-                    pdf_url: receiptUrl // Fallback in case old template variable is used
+                    pdf_url: receiptUrl, // Fallback in case old template variable is used
+                    adjunto_recibo: base64Recibo,
+                    adjunto_fotos: base64Fotos
                 };
 
                 emailjs.send(serviceId, templateId, templateParams).then(response => {
-                    if (window.showToast) window.showToast("Email sent with active links!", "success");
+                    if (window.showToast) window.showToast("Email sent with active links and attachments!", "success");
                     else alert("Email sent successfully!");
                     resolve(response);
                 }).catch(err => {
@@ -228,13 +242,13 @@
             }));
 
             const canvas = await html2canvas(container, {
-                scale: 1.8,
+                scale: 1.2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.85);
+            const imgData = canvas.toDataURL('image/jpeg', 0.7);
             const pdf     = new jsPDF(orientation, 'mm', 'a4');
             const pw      = pdf.internal.pageSize.getWidth();
             const ph      = pdf.internal.pageSize.getHeight();
@@ -364,6 +378,19 @@
 
         console.log('[3-PDF] Upload complete.', { invoiceUrl, receiptUrl, photosUrl });
 
+        // Convert PDFs to Base64 for EmailJS Attachments
+        const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+            if (!blob) return resolve('');
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        const base64Invoice = await blobToBase64(invoiceBlob);
+        const base64Recibo = await blobToBase64(receiptBlob);
+        const base64Fotos = photosBlob ? await blobToBase64(photosBlob) : '';
+
         // ── Send via EmailJS ──────────────────────────────────
         const serviceId  = localStorage.getItem('ejs_service_id');
         const templateId = localStorage.getItem('ejs_invoice_template_id') || localStorage.getItem('ejs_template_id'); // Fallback if invoice template is missing
@@ -383,7 +410,10 @@
             date:          mainRow[1],
             invoice_url:   invoiceUrl,
             receipt_url:   receiptUrl,
-            photos_url:    photosUrl
+            photos_url:    photosUrl,
+            adjunto_invoice: base64Invoice,
+            adjunto_recibo: base64Recibo,
+            adjunto_fotos: base64Fotos
         };
 
         const response = await emailjs.send(serviceId, templateId, templateParams);

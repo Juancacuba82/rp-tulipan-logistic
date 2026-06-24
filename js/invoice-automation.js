@@ -403,7 +403,8 @@
             else alert(`Invoice package sent to ${customerEmail}!`);
         } catch (e) {
             console.error('Manual send error:', e);
-            alert('Error sending invoice: ' + (e.message || e));
+            const errMsg = e.text || e.message || JSON.stringify(e);
+            alert('Error sending invoice: ' + errMsg);
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = orig; }
         }
