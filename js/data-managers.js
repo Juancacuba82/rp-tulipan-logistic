@@ -393,6 +393,10 @@
                 if (currentVal) docsCustSel.value = currentVal;
             }
 
+            if (window.populateYardCustomerSelect) {
+                window.populateYardCustomerSelect();
+            }
+
             // Auto-fill email and address when selecting a customer
             if (sideSel && !sideSel.dataset.listenerAdded) {
                 sideSel.addEventListener('change', (e) => {

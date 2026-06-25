@@ -61,6 +61,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const sizeFilter = document.getElementById('yf-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
         const customerFilter = document.getElementById('yf-customer')?.value || '';
+        const dateFrom = document.getElementById('yf-date-from')?.value || '';
+        const dateTo = document.getElementById('yf-date-to')?.value || '';
         
         const globalInvBtn = document.getElementById('btn-global-invoice-yard');
         if (globalInvBtn) {
@@ -77,13 +79,20 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
             
             let matchStatus = true;
-            if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
-            else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
+            // if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
+            // else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
             
-            return matchSearch && matchSize && matchStatus && matchCustomer;
+            let matchDate = true;
+            if (dateFrom || dateTo) {
+                const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
+                if (dateFrom && itemDate < dateFrom) matchDate = false;
+                if (dateTo && itemDate > dateTo) matchDate = false;
+            }
+            
+            return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
         });
 
-        if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
+        if (countEl) countEl.textContent = filtered.length;
 
         body.innerHTML = '';
         filtered.forEach(item => {
@@ -99,11 +108,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 if (isSelected) {
                     tr.style.backgroundColor = '#e0f2fe'; // Brighter blue for selected
                     tr.style.borderLeft = '4px solid #0284c7';
-                } else if (isExited) {
-                    tr.style.backgroundColor = '#f1f5f9'; // Inactive gray background
-                    tr.style.opacity = '0.75';
-                    tr.style.color = '#64748b';
-                    tr.style.borderLeft = '4px solid transparent';
                 } else if (isHover) {
                     tr.style.backgroundColor = '#f8fafc'; // Very light gray on hover
                     tr.style.borderLeft = '4px solid transparent';
@@ -143,12 +147,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 ? `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${(item.entry_fee || 0).toFixed(2)} | Exit Date: ${item.exit_date}`
                 : `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
 
-            const containerNoDisplay = isExited
-                ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
-                : `${item.container_no || '---'}`;
+            const containerNoDisplay = `${item.container_no || '---'}`;
 
             tr.innerHTML = `
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #1e40af;">${containerNoDisplay}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -191,6 +193,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const sizeFilter = document.getElementById('sf-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
         const customerFilter = document.getElementById('sf-customer')?.value || '';
+        const dateFrom = document.getElementById('sf-date-from')?.value || '';
+        const dateTo = document.getElementById('sf-date-to')?.value || '';
 
         const globalInvBtn = document.getElementById('btn-global-invoice-storage');
         if (globalInvBtn) {
@@ -207,13 +211,20 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
             
             let matchStatus = true;
-            if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
-            else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
+            // if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
+            // else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
 
-            return matchSearch && matchSize && matchStatus && matchCustomer;
+            let matchDate = true;
+            if (dateFrom || dateTo) {
+                const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
+                if (dateFrom && itemDate < dateFrom) matchDate = false;
+                if (dateTo && itemDate > dateTo) matchDate = false;
+            }
+
+            return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
         });
 
-        if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
+        if (countEl) countEl.textContent = filtered.length;
 
         body.innerHTML = '';
         if (filtered.length === 0) {
@@ -239,11 +250,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 if (isSelected) {
                     tr.style.backgroundColor = '#e0f2fe';
                     tr.style.borderLeft = '4px solid #0284c7';
-                } else if (isExited) {
-                    tr.style.backgroundColor = '#f1f5f9';
-                    tr.style.opacity = '0.75';
-                    tr.style.color = '#64748b';
-                    tr.style.borderLeft = '4px solid transparent';
                 } else if (isHover) {
                     tr.style.backgroundColor = '#f8fafc';
                     tr.style.borderLeft = '4px solid transparent';
@@ -279,12 +285,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 ? `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${(item.entry_fee || 0).toFixed(2)} | Exit Date: ${item.exit_date}`
                 : `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
 
-            const containerNoDisplay = isExited
-                ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
-                : `${item.container_no || '---'}`;
+            const containerNoDisplay = `${item.container_no || '---'}`;
 
             tr.innerHTML = `
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #1e40af;">${containerNoDisplay}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -342,8 +346,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
             
             let matchStatus = true;
-            if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
-            else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
+            // if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
+            // else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
 
             let matchDate = true;
             if (dateFrom || dateTo) {
@@ -355,7 +359,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
         });
 
-        if (countEl) countEl.textContent = filtered.filter(item => item.status !== 'SOLD').length;
+        if (countEl) countEl.textContent = filtered.length;
 
         body.innerHTML = '';
         if (filtered.length === 0) {
@@ -384,11 +388,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 if (isSelected) {
                     tr.style.backgroundColor = '#e0f2fe';
                     tr.style.borderLeft = '4px solid #0284c7';
-                } else if (isExited) {
-                    tr.style.backgroundColor = '#f1f5f9';
-                    tr.style.opacity = '0.75';
-                    tr.style.color = '#64748b';
-                    tr.style.borderLeft = '4px solid transparent';
                 } else if (isHover) {
                     tr.style.backgroundColor = '#f8fafc';
                     tr.style.borderLeft = '4px solid transparent';
@@ -420,9 +419,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
             const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
 
-            const containerNoDisplay = isExited
-                ? `<span style="text-decoration: line-through; color: #64748b;">${item.container_no || '---'}</span> <span style="font-size: 0.65rem; background: #cbd5e1; color: #475569; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">EXITED</span>`
-                : `${item.container_no || '---'}`;
+            const containerNoDisplay = `${item.container_no || '---'}`;
 
             const yardBadge = isStorage 
                 ? `<span style="font-size: 0.7rem; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;">STORAGE</span>`
@@ -430,7 +427,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">${yardBadge}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: ${isExited ? '#64748b' : '#1e40af'};">${containerNoDisplay}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #1e40af;">${containerNoDisplay}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.size || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.type || 'DRY'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; text-align: center;">
@@ -689,9 +686,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (item.customer_name !== customerFilter) return false;
             
             // Apply other filters if necessary, but generally we want to invoice what's currently shown
-            const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
-            if (statusFilter === 'ACTIVE' && item.status === 'SOLD') return false;
-            if (statusFilter === 'INACTIVE' && item.status !== 'SOLD') return false;
+            // const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
+            // if (statusFilter === 'ACTIVE' && item.status === 'SOLD') return false;
+            // if (statusFilter === 'INACTIVE' && item.status !== 'SOLD') return false;
             
             return true;
         });
@@ -1153,12 +1150,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const currentVal = sel.value;
         
         try {
-            const { data, error } = await window.db.from('yard_customers').select('*').order('name', { ascending: true });
-            if (error) throw error;
+            // Use global currentCustomers from data-managers.js
+            window.yardCustomersList = window.currentCustomers || [];
             
-            window.yardCustomersList = data || [];
-            
-            sel.innerHTML = '<option value="">Select or Add...</option>';
+            sel.innerHTML = '<option value="">Select Customer...</option>';
             window.yardCustomersList.forEach(c => {
                 const opt = document.createElement('option');
                 opt.value = c.name; 
@@ -1186,12 +1181,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             dynamicCustomers = currentYardStock.map(item => item.customer_name).filter(n => n);
         }
         
-        let savedCustomers = [];
-        if (window.yardCustomersList && window.yardCustomersList.length > 0) {
-            savedCustomers = window.yardCustomersList.map(c => c.name).filter(n => n);
-        }
-        
-        const allCustomers = [...new Set([...dynamicCustomers, ...savedCustomers])].sort();
+        const allCustomers = [...new Set(dynamicCustomers)].sort();
         
         const populateSelect = (selectEl) => {
             if (!selectEl) return;
@@ -1254,157 +1244,4 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
 
 })();
-    window.openYardCustomerModal = function() {
-        document.getElementById('add-yard-customer-modal').style.display = 'flex';
-        renderYardCustomerManagerList();
-    };
 
-    window.closeYardCustomerModal = function() {
-        if (window.cancelEditYardCustomer) window.cancelEditYardCustomer();
-        document.getElementById('add-yard-customer-modal').style.display = 'none';
-    };
-
-    function renderYardCustomerManagerList() {
-        const container = document.getElementById('yard-customer-list-body');
-        if (!container) return;
-        container.innerHTML = '';
-        const list = window.yardCustomersList || [];
-        list.forEach(c => {
-            const item = document.createElement('div');
-            item.className = 'driver-item';
-            item.innerHTML = `
-                <div style="display: flex; flex-direction: column; flex: 1; padding-right: 10px;">
-                    <span style="font-size: 0.85rem; font-weight: bold;">${c.name}</span>
-                    <span style="font-size: 0.7rem; color: #64748b; font-weight: normal;">Phone: ${c.phone || 'N/A'} | Email: ${c.email || 'N/A'}</span>
-                    <span style="font-size: 0.7rem; color: #475569; font-weight: normal; margin-top: 2px;">${c.address || 'no address'}</span>
-                </div>
-                <div style="display: flex; gap: 5px;">
-                    <button onclick="startEditYardCustomer('${c.name.replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Customer">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="deleteYardCustomer('${c.name.replace(/'/g, "\\'")}')" class="btn-del-driver" title="Delete Customer">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </div>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    let editingYardCustomerOriginalName = null;
-
-    window.startEditYardCustomer = function(name, phone, email, address) {
-        editingYardCustomerOriginalName = name;
-        
-        const inputName = document.getElementById('new-yc-name');
-        const inputPhone = document.getElementById('new-yc-phone');
-        const inputEmail = document.getElementById('new-yc-email');
-        const inputAddress = document.getElementById('new-yc-address');
-        const btnAddUpdate = document.getElementById('btn-add-update-yc');
-        const btnCancel = document.getElementById('btn-cancel-edit-yc');
-        
-        if (inputName) inputName.value = name;
-        if (inputPhone) inputPhone.value = phone;
-        if (inputEmail) inputEmail.value = email;
-        if (inputAddress) inputAddress.value = address;
-        
-        if (btnAddUpdate) {
-            btnAddUpdate.textContent = 'UPDATE';
-            btnAddUpdate.style.background = '#f59e0b';
-        }
-        if (btnCancel) {
-            btnCancel.style.display = 'inline-block';
-        }
-        
-        if (inputName) inputName.focus();
-    };
-
-    window.cancelEditYardCustomer = function() {
-        editingYardCustomerOriginalName = null;
-        
-        const inputName = document.getElementById('new-yc-name');
-        const inputPhone = document.getElementById('new-yc-phone');
-        const inputEmail = document.getElementById('new-yc-email');
-        const inputAddress = document.getElementById('new-yc-address');
-        const btnAddUpdate = document.getElementById('btn-add-update-yc');
-        const btnCancel = document.getElementById('btn-cancel-edit-yc');
-        
-        if (inputName) inputName.value = '';
-        if (inputPhone) inputPhone.value = '';
-        if (inputEmail) inputEmail.value = '';
-        if (inputAddress) inputAddress.value = '';
-        
-        if (btnAddUpdate) {
-            btnAddUpdate.textContent = 'ADD';
-            btnAddUpdate.style.background = '#3b82f6';
-        }
-        if (btnCancel) {
-            btnCancel.style.display = 'none';
-        }
-    };
-
-    window.addNewYardCustomer = async function() {
-        const inputName = document.getElementById('new-yc-name');
-        const inputPhone = document.getElementById('new-yc-phone');
-        const inputEmail = document.getElementById('new-yc-email');
-        const inputAddress = document.getElementById('new-yc-address');
-        
-        const name = inputName ? inputName.value.trim().toUpperCase() : '';
-        const phone = inputPhone ? inputPhone.value.trim() : '';
-        const email = inputEmail ? inputEmail.value.trim() : '';
-        const address = inputAddress ? inputAddress.value.trim() : '';
-        
-        if (!name) {
-            alert('Name / Company is required.');
-            return;
-        }
-
-        try {
-            if (editingYardCustomerOriginalName) {
-                const { data, error } = await window.db.from('yard_customers')
-                    .update({ name, phone, email, address })
-                    .eq('name', editingYardCustomerOriginalName)
-                    .select();
-                
-                if (error) {
-                    if (error.code === '23505') alert("Another customer with that name already exists!");
-                    else throw error;
-                    return;
-                }
-                cancelEditYardCustomer();
-            } else {
-                const { error } = await window.db.from('yard_customers')
-                    .insert([{ name, phone, email, address }]);
-                
-                if (error) {
-                    if (error.code === '23505') alert("Customer already exists!");
-                    else throw error;
-                    return;
-                }
-                if (inputName) inputName.value = '';
-                if (inputPhone) inputPhone.value = '';
-                if (inputEmail) inputEmail.value = '';
-                if (inputAddress) inputAddress.value = '';
-            }
-            
-            if (window.populateYardCustomerSelect) await window.populateYardCustomerSelect();
-            renderYardCustomerManagerList();
-        } catch (err) {
-            console.error("Failed to save yard customer:", err);
-            alert("Error saving yard customer: " + (err.message || "Unknown error"));
-        }
-    };
-
-    window.deleteYardCustomer = async function(name) {
-        if (!confirm("Are you sure you want to remove this yard customer?")) return;
-        try {
-            const { error } = await window.db.from('yard_customers').delete().eq('name', name);
-            if (error) throw error;
-            
-            if (window.populateYardCustomerSelect) await window.populateYardCustomerSelect();
-            renderYardCustomerManagerList();
-        } catch (err) {
-            console.error("Failed to delete yard customer:", err);
-            alert("Failed to delete customer.");
-        }
-    };

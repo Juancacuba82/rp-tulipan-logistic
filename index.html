@@ -4348,13 +4348,11 @@
                         <div class="form-group" style="position: relative;">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;"><i class="fas fa-user" style="color: #3b82f6;"></i> CUSTOMER</label>
                             <div class="hybrid-input-wrapper" style="display: flex; gap: 8px; width: 100%;">
-                                <select id="yard-customer-sel" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; width: calc(100% - 106px) !important; flex: none !important; border-radius: 8px;">
+                                <select id="yard-customer-sel" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; width: calc(100% - 53px) !important; flex: none !important; border-radius: 8px;">
                                     <option value="" disabled selected>Select Customer...</option>
                                 </select>
-                                <input type="text" id="yard-customer" placeholder="Type Customer..." style="display:none; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; width: calc(100% - 106px) !important; flex: none !important; box-sizing: border-box; height: 45px;">
-                                <button type="button" class="btn-toggle-input" onclick="if(window.openYardCustomerModal) window.openYardCustomerModal()" title="Manage Customers" style="height: 45px; width: 45px; border-radius: 8px; flex-shrink: 0; background: #e2e8f0; border: none; color: #3b82f6; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                                    <i class="fas fa-user-plus"></i>
-                                </button>
+                                <input type="text" id="yard-customer" placeholder="Type Customer..." style="display:none; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; width: calc(100% - 53px) !important; flex: none !important; box-sizing: border-box; height: 45px;">
+                                <!-- Add Customer Button Removed -->
                                 <button type="button" class="btn-toggle-input" onclick="if(window.toggleYardCustomerMode) window.toggleYardCustomerMode()" title="Toggle Manual/List" style="height: 45px; width: 45px; border-radius: 8px; flex-shrink: 0; background: #e2e8f0; border: none; color: #475569; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                                     <i class="fas fa-edit" id="yard-toggle-icon-customer"></i>
                                 </button>
@@ -4396,14 +4394,7 @@
                                 <i class="fas fa-warehouse"></i> STORAGE YARD
                             </button>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 15px; border-left: 2px solid #e2e8f0; padding-left: 15px; margin-left: auto;">
-                            <span style="font-weight: 900; font-size: 0.95rem; color: #0f172a; letter-spacing: -0.3px;"><i class="fas fa-filter" style="color: #3b82f6; margin-right: 5px;"></i> STATUS:</span>
-                            <select id="global-yard-status" onchange="renderYardTable(); renderStorageTable(); renderBothTable();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; background: white; outline: none; cursor: pointer;">
-                                <option value="ACTIVE" selected>Activos</option>
-                                <option value="INACTIVE">No Activos</option>
-                                <option value="ALL">Todos</option>
-                            </select>
-                        </div>
+                        <!-- STATUS filter removed -->
                     </div>
                     <div style="display: flex; gap: 25px; width: 100%; align-items: flex-start; flex-wrap: wrap;">
                         
@@ -4471,6 +4462,28 @@
                                                 <option value="">All Customers</option>
                                             </select>
                                             <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Date From Filter -->
+                                    <div style="flex: 1.2; min-width: 120px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="far fa-calendar-alt" style="margin-right: 5px; color: #8b5cf6;"></i> Date From
+                                        </label>
+                                        <div style="position: relative;">
+                                            <input type="date" id="yf-date-from" onchange="renderYardTable()" 
+                                                style="width: 100%; padding: 9px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Date To Filter -->
+                                    <div style="flex: 1.2; min-width: 120px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="far fa-calendar-alt" style="margin-right: 5px; color: #8b5cf6;"></i> Date To
+                                        </label>
+                                        <div style="position: relative;">
+                                            <input type="date" id="yf-date-to" onchange="renderYardTable()" 
+                                                style="width: 100%; padding: 9px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
                                         </div>
                                     </div>
 
@@ -4582,6 +4595,28 @@
                                                 <option value="">All Customers</option>
                                             </select>
                                             <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Date From Filter -->
+                                    <div style="flex: 1.2; min-width: 120px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="far fa-calendar-alt" style="margin-right: 5px; color: #8b5cf6;"></i> Date From
+                                        </label>
+                                        <div style="position: relative;">
+                                            <input type="date" id="sf-date-from" onchange="renderStorageTable()" 
+                                                style="width: 100%; padding: 9px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
+                                        </div>
+                                    </div>
+
+                                    <!-- Date To Filter -->
+                                    <div style="flex: 1.2; min-width: 120px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <i class="far fa-calendar-alt" style="margin-right: 5px; color: #8b5cf6;"></i> Date To
+                                        </label>
+                                        <div style="position: relative;">
+                                            <input type="date" id="sf-date-to" onchange="renderStorageTable()" 
+                                                style="width: 100%; padding: 9px 12px; background: #f8fafc; border: 2px solid #f1f5f9; border-radius: 8px; font-weight: 700; color: #1e293b; transition: all 0.3s ease; outline: none; font-size: 0.85rem; height: 38px;">
                                         </div>
                                     </div>
 
@@ -7098,28 +7133,7 @@
             <div style="height:60px;"></div>
         </section>
     <!-- Add New Yard Customer Modal -->
-    <div id="add-yard-customer-modal" class="simple-modal">
-        <div class="modal-content" style="border-top-color: #3b82f6;">
-            <div class="modal-header">
-                <h3>Manage Yard Customers List</h3>
-                <button onclick="closeYardCustomerModal()" class="btn-close-modal">&times;</button>
-            </div>
-            <div id="yard-customer-list-body" class="driver-list-container">
-                <!-- Customers will be listed here -->
-            </div>
-            <div class="modal-footer">
-                <div class="add-customer-input-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <input type="text" id="new-yc-name" placeholder="NAME..." style="flex: 1.5; min-width: 120px;">
-                    <input type="tel" id="new-yc-phone" placeholder="PHONE..." style="flex: 1; min-width: 100px;">
-                    <input type="text" id="new-yc-email" placeholder="EMAIL..." style="text-transform: none; flex: 1.5; min-width: 120px;">
-                    <input type="text" id="new-yc-address" placeholder="ADDRESS..." style="flex: 2; min-width: 150px;">
-                    <button id="btn-add-update-yc" onclick="addNewYardCustomer()" class="btn-add-driver-confirm" style="background: #3b82f6;">ADD</button>
-                    <button id="btn-cancel-edit-yc" onclick="cancelEditYardCustomer()" class="btn-add-driver-confirm" style="background: #64748b; display: none;">CANCEL</button>
-                </div>
-                <p style="font-size: 0.65rem; color: #64748b; margin: 0; margin-top: 5px;">* Tip: Deleting a customer only removes them from future entries.</p>
-            </div>
-        </div>
-    </div>
+    <!-- add-yard-customer-modal removed -->
 </body>
 
 </html>

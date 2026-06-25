@@ -384,12 +384,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 console.log("Saving order via RPC sync...", { tripId: finalTripId, isMoveToYard });
                 
+                // BYPASS RPC YARD LOGIC to fix duplicates and phone mapping
                 const { error: rpcErr } = await db.rpc('sync_order_with_yard', {
                     p_trip_id: finalTripId,
                     p_trip_data: dbObj,
                     p_order_no: document.getElementById('in-order')?.value || '---',
                     p_is_finalized: isFinalized,
-                    p_move_to_yard: isMoveToYard,
+                    p_move_to_yard: false, 
                     p_yard_data: yardData
                 });
 
@@ -397,10 +398,72 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // --- MASTER SAFETY UPDATE: Force save ALL fields from dbObj to guarantee DB matches UI ---
                 const { trip_id: _ignoredId, ...masterPayload } = dbObj;
-                // Add the move_to_yard flag specifically as it's passed separately in logic
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
+
+                // --- MANUALLY SYNC YARD STOCK ---
+                if (isMoveToYard) {
+                    try {
+                        let searchOrder = yardData.origin_release;
+                        let searchCont = yardData.container_no;
+                        
+                        // If it was already in yard, try to find it using the old values in case they were edited
+                        if (wasMoveToYard && editingIndex !== null) {
+                            const oldRow = window.currentTrips[editingIndex];
+                            if (oldRow) {
+                                searchOrder = (oldRow[5] || '').trim().toUpperCase() || searchOrder; // order_no
+                                searchCont = (oldRow[3] || '').trim().toUpperCase() || searchCont; // ncont
+                            }
+                        }
+
+                        const { data: existingYard } = await db.from('yard_stock')
+                            .select('id')
+                            .eq('origin_release', searchOrder)
+                            .eq('container_no', searchCont)
+                            .limit(1);
+
+                        const calendarDate = document.getElementById('in-date')?.value;
+                        const createdAtStr = calendarDate ? new Date(calendarDate + 'T12:00:00').toISOString() : new Date().toISOString();
+
+                        if (existingYard && existingYard.length > 0) {
+                            // Update existing record
+                            await db.from('yard_stock')
+                                .update({ 
+                                    container_no: yardData.container_no,
+                                    size: yardData.size,
+                                    type: yardData.type,
+                                    condition: yardData.condition,
+                                    origin_release: yardData.origin_release,
+                                    notes: yardData.notes,
+                                    customer_name: yardData.customer_name,
+                                    customer_phone: yardData.customer_phone,
+                                    created_at: createdAtStr
+                                })
+                                .eq('id', existingYard[0].id);
+                        } else {
+                            // Insert new record
+                            await db.from('yard_stock')
+                                .insert([{ 
+                                    container_no: yardData.container_no,
+                                    size: yardData.size,
+                                    type: yardData.type,
+                                    condition: yardData.condition,
+                                    origin_release: yardData.origin_release,
+                                    notes: yardData.notes,
+                                    customer_name: yardData.customer_name,
+                                    customer_phone: yardData.customer_phone,
+                                    created_at: createdAtStr,
+                                    status: 'AVAILABLE',
+                                    entry_fee: 0,
+                                    daily_rate: 0,
+                                    lifts: 1
+                                }]);
+                        }
+                    } catch(err) {
+                        console.error("Failed to sync yard stock manually", err);
+                    }
+                }
 
                 // --- REFRESH YARD UI ---
                 if (isMoveToYard && typeof window.loadYardData === 'function') await window.loadYardData(true);
