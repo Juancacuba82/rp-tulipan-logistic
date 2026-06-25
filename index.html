@@ -5913,7 +5913,7 @@
                 const valDriver = (cells[16].textContent || '').toLowerCase().trim();
                 const valCollect = (cells[19].textContent || '').toLowerCase().trim();
                 const valPhone = (cells[20].textContent || '').toLowerCase().trim();
-                const valSeller = (tr.dataset.seller || '').toLowerCase().trim();
+                const valSeller = (cells[23] ? cells[23].textContent : '').toLowerCase().trim();
 
                 const matchTransferred = !filters.transferredOnly || tr.dataset.fromCall === 'YES';
 

@@ -97,7 +97,7 @@
 
                     selectedIndices.forEach(idx => {
                         const r = filtered[idx];
-                        const grossVal = parseFloat(r[24]) || 0;
+                        const grossVal = (parseFloat(r[24]) || 0) * (parseInt(r[53]) || 1);
                         const company = (r[16] || '').trim().toUpperCase(); // CORRECT INDEX: baseValues[15] is rowData[16]
 
                         totalPaidDriverGross += grossVal;
@@ -188,7 +188,7 @@
                             value = window.formatDateMMDDYYYY(value);
                         }
                         else if (idx === 24) { 
-                            value = parseFloat(r[24]) || 0;
+                            value = (parseFloat(r[24]) || 0) * (parseInt(r[53]) || 1);
                         }
 
                         // Cash column: show value with inline edit button for admin
@@ -972,7 +972,7 @@
             }
 
             const totalPaidDriver = (window.currentFilteredRowsDriver || []).reduce((sum, r) => {
-                return sum + (parseFloat(r[24]) || 0);
+                return sum + ((parseFloat(r[24]) || 0) * (parseInt(r[53]) || 1));
             }, 0);
 
             if (!confirm(`Confirm that your trips from ${fromVal} to ${toVal} are correct?\n\nBy confirming, you are letting the admin know that you have reviewed your trips for this week.\n\nContinue?`)) return;

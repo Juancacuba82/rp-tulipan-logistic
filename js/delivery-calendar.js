@@ -473,11 +473,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
 
                     // Find the row in the DOM and refresh it
-                    const trs = document.querySelectorAll('#table-body tr');
-                    const targetTr = trs[savedIndex];
+                    const targetTr = document.querySelector(`#table-body tr[data-tripid="${finalTripId}"]`);
                     if (targetTr && typeof window.refreshSingleRowUI === 'function') {
                         window.refreshSingleRowUI(targetTr, updatedRowData);
-                        console.log("UI updated locally for row:", savedIndex);
+                        console.log("UI updated locally for row:", finalTripId);
                     } else {
                         // Fallback if anything goes wrong
                         await loadTableData(null, true);
@@ -699,16 +698,57 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     let val = rowData[dataIdx];
                     if (dataIdx === 1 || dataIdx === 15) val = fmtDate(val);
                     
-                    // Special case for Driver Checkmark
-                    if (dataIdx === 17) {
-                        const driverNameClean = (val || '').trim().toLowerCase();
-                        if (driverNameClean && driverNameClean !== '---') {
-                            // We don't have activityLogs here, so we just keep the text 
-                            // unless we want to do a full refresh. For simplicity, we just set text.
-                            cells[cellIdx].textContent = val;
-                        } else {
-                            cells[cellIdx].textContent = val;
+                    if ([13, 14, 18, 20, 22, 24].includes(dataIdx)) {
+                        let numVal = parseFloat(String(val).replace(/[$,]/g, '')) || 0;
+                        if (dataIdx === 18 || dataIdx === 24) {
+                            numVal = numVal * (parseInt(rowData[53]) || 1);
                         }
+                        const fmtMoney = `$${numVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                        cells[cellIdx].style.fontWeight = 'bold';
+                        
+                        if (dataIdx === 13) {
+                            const isClear = (stYard === 'PAID' || numVal <= 0.01);
+                            const isCash = !!rowData[46];
+                            const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                            const iconColor = isCash ? '#059669' : '#3b82f6';
+                            cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
+                            cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                            cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
+                        } else if (dataIdx === 14) {
+                            const isClear = (stRent === 'PAID' || numVal <= 0.01);
+                            cells[cellIdx].textContent = fmtMoney;
+                            cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                            cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
+                        } else if (dataIdx === 18) {
+                            const isClear = (stRate === 'PAID' || numVal <= 0.01);
+                            const isCash = !!rowData[47];
+                            const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                            const iconColor = isCash ? '#059669' : '#3b82f6';
+                            cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
+                            cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                            cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
+                        } else if (dataIdx === 20) {
+                            const isClear = (stSales === 'PAID' || numVal <= 0.01);
+                            const isCash = !!rowData[48];
+                            const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                            const iconColor = isCash ? '#059669' : '#3b82f6';
+                            cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
+                            cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                            cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
+                        } else if (dataIdx === 22) {
+                            const isCash = (stAmount === 'PAID');
+                            const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
+                            const iconColor = isCash ? '#059669' : '#3b82f6';
+                            cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
+                            cells[cellIdx].style.backgroundColor = '';
+                            cells[cellIdx].style.color = '';
+                        } else if (dataIdx === 24) {
+                            cells[cellIdx].textContent = fmtMoney;
+                            cells[cellIdx].style.backgroundColor = '';
+                            cells[cellIdx].style.color = '';
+                        }
+                    } else if (dataIdx === 17) {
+                        cells[cellIdx].textContent = val;
                     } else {
                         cells[cellIdx].textContent = val;
                     }
@@ -1489,6 +1529,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const nextDueVal = rowData[29];
                         const email = rowData[36];
 
+                        tr.dataset.tripid = rowData[0];
                         tr.dataset.styard = stYard || 'PEND';
                         tr.dataset.strent = rowData[31] || 'PEND';
                         tr.dataset.strate = stRate || 'PEND';
