@@ -606,8 +606,26 @@
             const resultData = data[0];
             const idx = window.currentRentals.findIndex(r => r.id === editingRentalId);
             if (idx !== -1) window.currentRentals[idx] = resultData;
+
+            // Ask for payment method and log to Cash Ledger
+            const methodStr = prompt(`Payment of $${totalAmount} successful!\n\nHow was this payment received?\nEnter 'C' for Cash or 'B' for Bank/Zelle`, "B");
+            let method = 'bank';
+            if (methodStr && methodStr.toUpperCase().trim().startsWith('C')) {
+                method = 'cash';
+            }
+
+            if (window.logCashTransaction) {
+                await window.logCashTransaction({
+                    tipo: 'ingreso',
+                    metodo: method,
+                    monto: totalAmount,
+                    descripcion: `Pago de Renta - ${periods} ${timeRentStr}(s)`,
+                    referencia: `Cont: ${row.container_no || 'N/A'}`,
+                    chofer: row.customer_name || ''
+                });
+            }
             
-            alert(`✅ Payment successful! New Expiration Date: ${formatDate(newFinalDateStr)}`);
+            alert(`✅ Payment logged to Cash Ledger! New Expiration Date: ${formatDate(newFinalDateStr)}`);
             
             // Reload into form to see updates
             editRental(idx);
