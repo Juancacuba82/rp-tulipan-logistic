@@ -6903,39 +6903,67 @@
                 </div>
             </div>
 
-            <div class="acct-summary-grid">
-                <div class="acct-card acct-card-cash">
+            <!-- ROW: EFECTIVO -->
+            <div id="acct-row-cash" style="display:flex; gap:15px; margin-bottom:15px;">
+                <div class="acct-card acct-card-cash" style="flex:1; text-align:center;">
+                    <i class="fas fa-arrow-down acct-card-icon" style="color: #059669;"></i>
+                    <div class="acct-card-label">Total Efectivo (Entró)</div>
+                    <div class="acct-card-value" id="acct-cash-in" style="color:#059669;">+$0.00</div>
+                </div>
+                <div class="acct-card acct-card-cash" style="flex:1; text-align:center;">
+                    <i class="fas fa-arrow-up acct-card-icon" style="color: #ef4444;"></i>
+                    <div class="acct-card-label">Total Efectivo (Salió)</div>
+                    <div class="acct-card-value" id="acct-cash-out" style="color:#ef4444;">-$0.00</div>
+                </div>
+                <div class="acct-card acct-card-cash" style="flex:1; border: 2px solid #10b981; text-align:center;">
                     <i class="fas fa-money-bill-wave acct-card-icon"></i>
-                    <div class="acct-card-label">Caja (Efectivo Fisico)</div>
+                    <div class="acct-card-label">Caja (Balance Físico)</div>
                     <div class="acct-card-value" id="acct-cash-balance">$0.00</div>
-                    <div class="acct-card-sub">
-                        <span class="acct-sub-in" id="acct-cash-in">+$0.00</span>
-                        <span class="acct-sub-out" id="acct-cash-out">-$0.00</span>
-                    </div>
                 </div>
-                <div class="acct-card acct-card-driver">
-                    <i class="fas fa-truck acct-card-icon"></i>
-                    <div class="acct-card-label">En la Calle (Choferes)</div>
-                    <div class="acct-card-value" id="acct-driver-wallet" style="color:#d97706;">$0.00</div>
-                    <div class="acct-card-sub">
-                        <span style="background:#fffbeb; color:#92400e; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700;">Efectivo en transito</span>
-                    </div>
+            </div>
+
+            <!-- ROW: BANCO -->
+            <div id="acct-row-bank" style="display:flex; gap:15px; margin-bottom:15px;">
+                <div class="acct-card acct-card-bank" style="flex:1; text-align:center;">
+                    <i class="fas fa-arrow-down acct-card-icon" style="color: #059669;"></i>
+                    <div class="acct-card-label">Total Banco (Entró)</div>
+                    <div class="acct-card-value" id="acct-bank-in" style="color:#059669;">+$0.00</div>
                 </div>
-                <div class="acct-card acct-card-bank">
+                <div class="acct-card acct-card-bank" style="flex:1; text-align:center;">
+                    <i class="fas fa-arrow-up acct-card-icon" style="color: #ef4444;"></i>
+                    <div class="acct-card-label">Total Banco (Salió)</div>
+                    <div class="acct-card-value" id="acct-bank-out" style="color:#ef4444;">-$0.00</div>
+                </div>
+                <div class="acct-card acct-card-bank" style="flex:1; border: 2px solid #3b82f6; text-align:center;">
                     <i class="fas fa-university acct-card-icon"></i>
-                    <div class="acct-card-label">Banco / Online</div>
+                    <div class="acct-card-label">Banco / Online (Balance)</div>
                     <div class="acct-card-value" id="acct-bank-balance">$0.00</div>
-                    <div class="acct-card-sub">
-                        <span class="acct-sub-in" id="acct-bank-in">+$0.00</span>
-                        <span class="acct-sub-out" id="acct-bank-out">-$0.00</span>
+                </div>
+            </div>
+
+            <!-- ROW: TOTAL & CHOFERES -->
+            <div id="acct-row-choferes" style="display:flex; gap:15px; margin-bottom:15px;">
+                <div style="flex:1;"></div> <!-- Empty left column -->
+
+                <div style="flex:1; display:flex; justify-content:center;">
+                    <div class="acct-card acct-card-driver" style="width: 70%; min-width: 200px; max-width: 300px; text-align:center; margin:0;">
+                        <i class="fas fa-truck acct-card-icon"></i>
+                        <div class="acct-card-label">En la Calle (Choferes)</div>
+                        <div class="acct-card-value" id="acct-driver-wallet" style="color:#d97706;">$0.00</div>
+                        <div class="acct-card-sub" style="justify-content:center;">
+                            <span style="background:#fffbeb; color:#92400e; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700;">Efectivo en transito</span>
+                        </div>
                     </div>
                 </div>
-                <div class="acct-card acct-card-total">
-                    <i class="fas fa-chart-pie acct-card-icon"></i>
-                    <div class="acct-card-label">Balance Total Empresa</div>
-                    <div class="acct-card-value" id="acct-total-balance">$0.00</div>
-                    <div class="acct-card-sub">
-                        <span style="background:#f5f3ff; color:#6d28d9; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700;">Todos los fondos</span>
+
+                <div style="flex:1; display:flex;">
+                    <div class="acct-card acct-card-total" id="acct-card-total-empresa" style="flex:1; text-align:center; margin:0; width: 100%; box-sizing: border-box;">
+                        <i class="fas fa-chart-pie acct-card-icon"></i>
+                        <div class="acct-card-label">Balance Total Empresa</div>
+                        <div class="acct-card-value" id="acct-total-balance">$0.00</div>
+                        <div class="acct-card-sub" style="justify-content:center;">
+                            <span style="background:#f5f3ff; color:#6d28d9; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700;">Todos los fondos</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6996,10 +7024,10 @@
                             <input type="text" id="acct-text-search" placeholder="Buscar chofer, ref, concepto..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 12px 6px 28px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:'Outfit',sans-serif; width: 220px; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
                         </div>
                         <span style="font-size:0.7rem; color:#94a3b8; font-weight:700; margin-right:4px;">FILTRAR:</span>
-                        <button class="acct-toggle-btn" id="btn-acct-all" onclick="window.filterAccountingView('all')">
+                        <button class="acct-toggle-btn acct-toggle-active" id="btn-acct-all" onclick="window.filterAccountingView('all')">
                             <i class="fas fa-layer-group"></i> Ver Todo
                         </button>
-                        <button class="acct-toggle-btn acct-toggle-active acct-cash" id="btn-acct-cash" onclick="window.filterAccountingView('cash')">
+                        <button class="acct-toggle-btn acct-cash" id="btn-acct-cash" onclick="window.filterAccountingView('cash')">
                             <i class="fas fa-money-bill-wave"></i> Solo Efectivo
                         </button>
                         <button class="acct-toggle-btn" id="btn-acct-bank" onclick="window.filterAccountingView('bank')">

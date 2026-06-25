@@ -13,7 +13,7 @@
 
     // --- ESTADO INTERNO DEL MÓDULO ---
     let allTransactions = [];
-    let currentFilter = 'cash'; // 'all' | 'cash' | 'bank'
+    let currentFilter = 'all'; // 'all' | 'cash' | 'bank'
     let isLoading = false;
 
     // Helper para extraer nombre de la entidad (chofer, cliente, etc.) de los gastos
@@ -39,21 +39,22 @@
         try {
             if (!window.db) return;
 
-            // Para transacciones manuales desde Ledger, las guardamos en la tabla `expenses`
-            // Así todo se centraliza y el historial no se pierde
+            // Transacciones manuales y rentas se guardan en su propia tabla 'cash_ledger'
             const entry = {
                 date: new Date().toISOString().split('T')[0],
-                amount: parseFloat(data.monto) || 0,
-                category: data.tipo === 'ingreso' ? 'Ledger Income' : 'Ledger Expense',
-                description: data.descripcion || '',
-                note: `[Ledger: ${data.metodo}] ${data.referencia || ''} ${data.chofer ? '[Entidad: ' + data.chofer + ']' : ''}`.trim()
+                tipo: data.tipo,       // 'ingreso' o 'egreso'
+                metodo: data.metodo,   // 'cash' o 'bank'
+                monto: parseFloat(data.monto) || 0,
+                descripcion: data.descripcion || '',
+                referencia: data.referencia || '',
+                chofer: data.chofer || ''
             };
 
-            const { error } = await window.db.from('expenses').insert([entry]);
+            const { error } = await window.db.from('cash_ledger').insert([entry]);
             if (error) {
                 console.warn('[Accounting] logCashTransaction error (non-fatal):', error.message);
             } else {
-                console.log('[Accounting] Transaction logged to expenses:', entry.description, entry.amount);
+                console.log('[Accounting] Transaction logged to cash_ledger:', entry.descripcion, entry.monto);
                 const view = document.getElementById('accounting-view');
                 if (view && view.style.display !== 'none') {
                     loadAccountingData(true);
@@ -153,12 +154,16 @@
                 .select('driver_name, cash_balance, end_date')
                 .order('end_date', { ascending: false });
 
-            const [resTrips, resExpenses, resReleases, resSettlements] = await Promise.all([pTrips, pExpenses, pReleases, pSettlements]);
+            // 5. Cargar Transacciones Manuales (Cash Ledger)
+            const pCashLedger = window.db.from('cash_ledger').select('*');
+
+            const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger] = await Promise.all([pTrips, pExpenses, pReleases, pSettlements, pCashLedger]);
 
             if (resTrips.error) console.error("Error trips:", resTrips.error);
             if (resExpenses.error) console.error("Error expenses:", resExpenses.error);
             if (resReleases.error) console.error("Error releases:", resReleases.error);
             if (resSettlements.error) console.error("Error settlements:", resSettlements.error);
+            if (resCashLedger.error) console.error("Error cash_ledger:", resCashLedger.error);
 
             // Calcular Balance Real de Choferes
             let driverWalletActual = 0;
@@ -301,6 +306,28 @@
                 }
             });
 
+            // Procesar Cash Ledger (Transacciones manuales)
+            (resCashLedger.data || []).forEach(c => {
+                const amt = parseFloat(c.monto) || 0;
+                if (amt > 0) {
+                    unified.push({
+                        id: c.id,
+                        created_at: c.date || c.created_at || '2000-01-01',
+                        tipo: c.tipo, // 'ingreso' o 'egreso'
+                        metodo: c.metodo,
+                        monto: amt,
+                        descripcion: c.descripcion || '',
+                        referencia: c.referencia || '',
+                        chofer: c.chofer || '',
+                        customer: '',
+                        n_cont: '',
+                        order_no: '',
+                        release_no: '',
+                        source_table: 'cash_ledger'
+                    });
+                }
+            });
+
             // Ordenar por fecha (más reciente primero)
             unified.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -331,6 +358,26 @@
         const activeMap = { all: 'btn-acct-all', cash: 'btn-acct-cash', bank: 'btn-acct-bank' };
         const activeBtn = document.getElementById(activeMap[mode]);
         if (activeBtn) activeBtn.classList.add('acct-toggle-active');
+
+        // Toggle visibility of rows and cards based on the selected mode
+        const rowCash = document.getElementById('acct-row-cash');
+        const rowBank = document.getElementById('acct-row-bank');
+        const cardTotal = document.getElementById('acct-card-total-empresa');
+
+        if (mode === 'all') {
+            if (rowCash) rowCash.style.display = 'flex';
+            if (rowBank) rowBank.style.display = 'flex';
+            if (cardTotal) cardTotal.style.visibility = 'visible';
+        } else if (mode === 'cash') {
+            if (rowCash) rowCash.style.display = 'flex';
+            if (rowBank) rowBank.style.display = 'none';
+            // cardTotal uses visibility so the flex space is preserved for alignment
+            if (cardTotal) cardTotal.style.visibility = 'hidden';
+        } else if (mode === 'bank') {
+            if (rowCash) rowCash.style.display = 'none';
+            if (rowBank) rowBank.style.display = 'flex';
+            if (cardTotal) cardTotal.style.visibility = 'hidden';
+        }
 
         window.renderAccountingDashboard();
     };
@@ -422,7 +469,7 @@
         if (document.getElementById('acct-filter-order')) document.getElementById('acct-filter-order').value = '';
         if (document.getElementById('acct-text-search')) document.getElementById('acct-text-search').value = '';
         
-        window.filterAccountingView('cash'); // This internally calls renderAccountingDashboard
+        window.filterAccountingView('all'); // This internally calls renderAccountingDashboard
     };
 
     function calculateTotals(transactions) {
@@ -563,7 +610,7 @@
                 : `<span style="color:#94a3b8;">—</span>`;
 
             const deleteBtn = (window.currentUserRole === 'admin')
-                ? `<button onclick="window.deleteAccountingTx('${t.id}')" 
+                ? `<button onclick="window.deleteAccountingTx('${t.id}', '${t.source_table || ''}')" 
                        style="background:#fee2e2; border:none; color:#ef4444; width:28px; height:28px; border-radius:6px; cursor:pointer; transition:all 0.2s;"
                        title="Delete">
                        <i class="fas fa-trash-alt" style="font-size:0.7rem;"></i>
@@ -640,8 +687,20 @@
     // =========================================================================
     // DELETE TRANSACTION (Admin only)
     // =========================================================================
-    window.deleteAccountingTx = async function (id) {
-        alert("Las transacciones mostradas aquí son un espejo de tus Órdenes, Gastos y Releases.\n\nPara eliminar una transacción, por favor bórrala desde su módulo original (Trips, Expenses o Releases).");
+    window.deleteAccountingTx = async function (id, source_table) {
+        if (source_table === 'cash_ledger') {
+            if (!confirm('¿Estás seguro de que quieres eliminar esta transacción manual del Cash Ledger?')) return;
+            try {
+                const { error } = await window.db.from('cash_ledger').delete().eq('id', id);
+                if (error) throw error;
+                alert('Transacción eliminada con éxito.');
+                loadAccountingData(true);
+            } catch (err) {
+                alert('Error eliminando: ' + err.message);
+            }
+        } else {
+            alert("Las transacciones mostradas aquí son un espejo de tus Órdenes, Gastos y Releases.\n\nPara eliminar una transacción, por favor bórrala desde su módulo original (Trips, Expenses o Releases).");
+        }
     };
 
     // =========================================================================
