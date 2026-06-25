@@ -4218,9 +4218,20 @@
                     <!-- MODERN RENTAL FILTERS / ACTIONS -->
                     <div class="attendance-toolbar-modern" style="margin-top: -15px; padding: 15px 25px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <div style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 0 15px; border-radius: 10px; border: 1px dashed #cbd5e1; height: 45px;">
-                                <input type="checkbox" id="rental-show-all" onchange="renderRentalsTable()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #0f172a;">
-                                <label for="rental-show-all" style="margin: 0; font-size: 0.75rem; color: #1e293b; font-weight: 800; cursor:pointer; text-transform: uppercase;">Show All (Inc. Finished)</label>
+                            <div style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 0 15px; border-radius: 10px; border: 1px dashed #cbd5e1; height: 45px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <label style="font-size: 0.75rem; font-weight: 800; color: #475569;">FROM:</label>
+                                    <input type="date" id="rental-filter-start" onchange="renderRentalsTable()" style="border: none; outline: none; font-size: 0.8rem; font-weight: 700; color: #1e293b; cursor: pointer; background: transparent;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <label style="font-size: 0.75rem; font-weight: 800; color: #475569;">TO:</label>
+                                    <input type="date" id="rental-filter-end" onchange="renderRentalsTable()" style="border: none; outline: none; font-size: 0.8rem; font-weight: 700; color: #1e293b; cursor: pointer; background: transparent;">
+                                </div>
+                                <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="rental-show-all" onchange="renderRentalsTable()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #0f172a;">
+                                    <label for="rental-show-all" style="margin: 0; font-size: 0.75rem; color: #1e293b; font-weight: 800; cursor:pointer; text-transform: uppercase;">Show All (Inc. Finished)</label>
+                                </div>
                             </div>
 
                             <button id="btn-delete-rental-global" onclick="removeSelectedRental()" class="btn-calendar" style="display: none; background: #ffffff; color: #ef4444; border: 1px solid #ef4444; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.75rem; height: 45px; align-items: center; gap: 8px; transition: all 0.2s ease;">

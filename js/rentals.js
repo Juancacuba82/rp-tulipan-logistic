@@ -254,6 +254,9 @@
         let totalAccumulated = 0;
 
         const showAll = document.getElementById('rental-show-all')?.checked;
+        const startDateFilter = document.getElementById('rental-filter-start')?.value;
+        const endDateFilter = document.getElementById('rental-filter-end')?.value;
+
         let visibleCount = 0;
 
         if (!window.currentRentals) return;
@@ -262,6 +265,9 @@
             
             // Default: Show only ACTIVE. If showAll is checked, show EVERYTHING.
             if (!showAll && statusStr !== 'ACTIVE') return;
+            
+            if (startDateFilter && row.start_date < startDateFilter) return;
+            if (endDateFilter && row.start_date > endDateFilter) return;
             
             visibleCount++;
             
