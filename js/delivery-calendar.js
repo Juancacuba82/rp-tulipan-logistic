@@ -1522,6 +1522,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.rateval = parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
+                        tr.dataset.qtyval = parseInt(rowData[53]) || 1;
 
                         // Display helper
                         const fmtDate = (ds) => window.formatDateMMDDYYYY(ds);

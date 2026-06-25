@@ -6033,7 +6033,75 @@
 
             // Update column totals
             updateCalendarTotals();
+
+            // Update cascading dynamic filters based on visible rows
+            if (window.updateDynamicFilters) updateDynamicFilters();
         }
+
+        let isUpdatingDynamicFilters = false;
+        function updateDynamicFilters() {
+            if (isUpdatingDynamicFilters) return;
+            isUpdatingDynamicFilters = true;
+
+            try {
+                const visibleRows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => tr.style.display !== 'none');
+
+                const filtersToUpdate = {
+                    'f-city': 6,
+                    'f-size': 1,
+                    'f-customer': 11,
+                    'f-company': 15,
+                    'f-driver': 16,
+                    'f-seller-cal': 23
+                };
+
+                for (let id in filtersToUpdate) {
+                    const select = document.getElementById(id);
+                    if (!select) continue;
+
+                    const colIdx = filtersToUpdate[id];
+                    const dynamicValues = new Set();
+
+                    visibleRows.forEach(tr => {
+                        if (tr.cells && tr.cells.length > colIdx) {
+                            const val = (tr.cells[colIdx].textContent || '').trim();
+                            if (val && val !== '---') {
+                                dynamicValues.add(val);
+                            }
+                        }
+                    });
+
+                    let finalValues = Array.from(dynamicValues);
+                    finalValues.sort();
+
+                    const currentVal = select.value;
+                    const firstOption = select.options[0]; 
+                    
+                    if (!firstOption) continue;
+
+                    select.innerHTML = '';
+                    select.appendChild(firstOption);
+
+                    finalValues.forEach(val => {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = val;
+                        select.appendChild(opt);
+                    });
+
+                    if (currentVal && finalValues.includes(currentVal)) {
+                        select.value = currentVal;
+                    } else {
+                        select.value = ''; 
+                    }
+                }
+            } catch (err) {
+                console.error("Error updating dynamic filters:", err);
+            } finally {
+                isUpdatingDynamicFilters = false;
+            }
+        }
+        window.updateDynamicFilters = updateDynamicFilters;
 
         let advancedFilterTimeout = null;
         function applyAdvancedFiltersDebounced() {
@@ -6056,15 +6124,15 @@
 
             let totYard = 0, totPpd = 0, totTrans = 0, totSales = 0;
             const domRows = document.querySelectorAll('#table-body tr');
-            domRows.forEach((tr, i) => {
+            domRows.forEach((tr) => {
                 if (tr.style.display === 'none') return;
-                const trip = (window.currentTrips || [])[i];
-                if (!trip) return;
 
-                totYard += parseFloat(trip[13]) || 0;
-                totPpd  += parseFloat(trip[14]) || 0;
-                totTrans += parseFloat(trip[18]) || 0;
-                totSales += (parseFloat(trip[20]) || 0) * (parseInt(trip[53]) || 1);
+                totYard  += parseFloat(tr.dataset.yardval) || 0;
+                totPpd   += parseFloat(tr.dataset.ppdval) || 0;
+                totTrans += parseFloat(tr.dataset.rateval) || 0;
+                
+                const qty = parseInt(tr.dataset.qtyval) || 1;
+                totSales += (parseFloat(tr.dataset.salesval) || 0) * qty;
             });
 
             const elYard  = document.getElementById('total-yard-rate');
