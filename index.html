@@ -2998,6 +2998,7 @@
                         <div class="card-info">
                             <label>TOTAL EXPENSES</label>
                             <h2 id="total-expenses-val">$0.00</h2>
+                            <div style="font-size: 0.85rem; color: #fca5a5; margin-top: 4px; font-weight: 500;">Includes Container Purchases</div>
                         </div>
                     </div>
                     <div class="summary-card profit" id="profit-card-status">
@@ -6129,9 +6130,9 @@
 
                 totYard  += parseFloat(tr.dataset.yardval) || 0;
                 totPpd   += parseFloat(tr.dataset.ppdval) || 0;
-                totTrans += parseFloat(tr.dataset.rateval) || 0;
                 
                 const qty = parseInt(tr.dataset.qtyval) || 1;
+                totTrans += (parseFloat(tr.dataset.rateval) || 0) * qty;
                 totSales += (parseFloat(tr.dataset.salesval) || 0) * qty;
             });
 

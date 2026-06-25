@@ -479,10 +479,11 @@
                     if (hasTrans) {
                         const transVal   = parseFloat(row[18]) || 0; // index 18: trans_pay
                         const company    = (row[16] || '').toString().toUpperCase(); // index 16: company
+                        const totalTrans = transVal * qty; // Multiply by qty
 
-                        if (company === 'RP TULIPAN')       totals.tulipan    += (transVal || 0);
-                        else if (company === 'JR SUPER CRAME') totals.jr      += (transVal || 0);
-                        else if (company === 'CONTRACTOR')  totals.contractor += (transVal || 0);
+                        if (company === 'RP TULIPAN')       totals.tulipan    += totalTrans;
+                        else if (company === 'JR SUPER CRAME') totals.jr      += totalTrans;
+                        else if (company === 'CONTRACTOR')  totals.contractor += totalTrans;
                     }
                 }
             });            // 1.5 Process Rentals Independently (Accumulated Total)
@@ -542,8 +543,8 @@
 
             // 3. Final Summaries
             const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0);
-            const totalGlobalExpenses = (totals.expenses || 0);
-            const netProfit = totalRevenue - totalGlobalExpenses - (totals.releases || 0);
+            const totalGlobalExpenses = (totals.expenses || 0) + (totals.releases || 0);
+            const netProfit = totalRevenue - totalGlobalExpenses;
 
             // 4. Update Summary Cards
             document.getElementById('total-revenue-val').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;

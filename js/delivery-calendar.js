@@ -320,7 +320,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 let pending = 0;
                 const qtyMultiplier = parseInt(document.getElementById('in-qty')?.value) || 1;
                 if (stYard === 'PEND') pending += (parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0) * qtyMultiplier;
-                if (stRate === 'PEND') pending += parseFloat(document.getElementById('in-rate')?.value || '0') || 0;
+                if (stRate === 'PEND') pending += (parseFloat(document.getElementById('in-rate')?.value || '0') || 0) * qtyMultiplier;
                 if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
                 if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount')?.value || '0') || 0;
 
@@ -1546,11 +1546,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             fmtDate(rowData[15]), // 14: Date Out (MM/DD/YYYY)
                             rowData[16],          // 15: Company
                             rowData[17],          // 16: Driver
-                            rowData[18],          // 17: Trans. Pay
+                            (parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 17: Trans. Pay
                             rowData[20],          // 18: Sales Price
                             rowData[22],          // 19: Amount
                             rowData[23],          // 20: Phone #
-                            rowData[24],          // 21: Paid Driver
+                            (parseFloat(String(rowData[24]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 21: Paid Driver
                             rowData[25],          // 22: Note
                             (() => {
                                 const emailVal = rowData[61];
