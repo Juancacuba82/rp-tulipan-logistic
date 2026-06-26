@@ -869,6 +869,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const currentVal = relSel.value;
                 relSel.innerHTML = '<option value="" disabled selected>Select Release...</option>';
 
+                const fragment = document.createDocumentFragment();
                 activeReleases.forEach(item => {
                     const displayText = `${item.relNo} - ${item.size} - ${item.city}`;
                     const opt = document.createElement('option');
@@ -881,8 +882,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     opt.dataset.type = item.type;
                     opt.dataset.cond = item.cond;
                     opt.dataset.pickup = item.pickup;
-                    relSel.appendChild(opt);
+                    fragment.appendChild(opt);
                 });
+                relSel.appendChild(fragment);
                 if (currentVal) relSel.value = currentVal;
             }
 
@@ -890,11 +892,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (relList) {
                 relList.innerHTML = '';
                 const uniqueRelNos = [...new Set(activeReleases.map(i => i.relNo))];
+                const fragmentList = document.createDocumentFragment();
                 uniqueRelNos.forEach(rel => {
                     const opt = document.createElement('option');
                     opt.value = rel;
-                    relList.appendChild(opt);
+                    fragmentList.appendChild(opt);
                 });
+                relList.appendChild(fragmentList);
             }
         };
 

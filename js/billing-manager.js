@@ -106,12 +106,14 @@
             if (!sel) return;
             const cur = sel.value;
             sel.innerHTML = `<option value="">${defaultTxt}</option>`;
+            const fragment = document.createDocumentFragment();
             [...vals].sort().forEach(v => {
                 const opt = document.createElement('option');
                 opt.value = v;
                 opt.textContent = v;
-                sel.appendChild(opt);
+                fragment.appendChild(opt);
             });
+            sel.appendChild(fragment);
             if (cur && vals.has(cur)) {
                 sel.value = cur;
             } else {

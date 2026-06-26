@@ -1160,12 +1160,14 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             window.yardCustomersList = window.currentCustomers || [];
             
             sel.innerHTML = '<option value="">Select Customer...</option>';
+            const fragment1 = document.createDocumentFragment();
             window.yardCustomersList.forEach(c => {
                 const opt = document.createElement('option');
                 opt.value = c.name; 
                 opt.textContent = c.name;
-                sel.appendChild(opt);
+                fragment1.appendChild(opt);
             });
+            sel.appendChild(fragment1);
             
             if (currentVal) sel.value = currentVal;
             
@@ -1193,12 +1195,14 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (!selectEl) return;
             const currentVal = selectEl.value;
             selectEl.innerHTML = '<option value="">All Customers</option>';
+            const fragment2 = document.createDocumentFragment();
             allCustomers.forEach(c => {
                 const opt = document.createElement('option');
                 opt.value = c;
                 opt.textContent = c;
-                selectEl.appendChild(opt);
+                fragment2.appendChild(opt);
             });
+            selectEl.appendChild(fragment2);
             if (allCustomers.includes(currentVal)) {
                 selectEl.value = currentVal;
             }

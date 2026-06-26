@@ -5905,12 +5905,14 @@
                 select.innerHTML = '';
                 select.appendChild(firstOption);
 
+                const fragment = document.createDocumentFragment();
                 finalValues.forEach(val => {
                     const opt = document.createElement('option');
                     opt.value = val;
                     opt.textContent = val;
-                    select.appendChild(opt);
+                    fragment.appendChild(opt);
                 });
+                select.appendChild(fragment);
 
                 // Restore the selected value if it still exists in the new options
                 if (currentVal) {
