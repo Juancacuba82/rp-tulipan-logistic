@@ -763,7 +763,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     
                     if ([13, 14, 18, 20, 22, 24].includes(dataIdx)) {
                         let numVal = parseFloat(String(val).replace(/[$,]/g, '')) || 0;
-                        if (dataIdx === 18 || dataIdx === 24) {
+                        if ([13, 14, 18, 20, 24].includes(dataIdx)) {
                             numVal = numVal * (parseInt(rowData[53]) || 1);
                         }
                         const fmtMoney = `$${numVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
@@ -1649,13 +1649,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             rowData[9],           // 9: Doors Direction
                             rowData[10],          // 10: Miles
                             rowData[11],          // 11: Customer
-                            rowData[13],          // 12: Yard Rate
-                            rowData[14],          // 13: Price per Day
+                            (parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 12: Yard Rate
+                            (parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 13: Price per Day
                             fmtDate(rowData[15]), // 14: Date Out (MM/DD/YYYY)
                             rowData[16],          // 15: Company
                             rowData[17],          // 16: Driver
                             (parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 17: Trans. Pay
-                            rowData[20],          // 18: Sales Price
+                            (parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 18: Sales Price
                             rowData[22],          // 19: Amount
                             rowData[23],          // 20: Phone #
                             (parseFloat(String(rowData[24]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 21: Paid Driver

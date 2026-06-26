@@ -5946,30 +5946,34 @@
                 seller: document.getElementById('f-seller-cal')?.value || ''
             };
 
-            const rows = document.querySelectorAll('#table-body tr');
-            rows.forEach((tr, rIdx) => {
-                const cells = tr.cells;
-                if (cells.length < 20) return;
+            const tripMap = new Map();
+            if (window.currentTrips) {
+                window.currentTrips.forEach(t => tripMap.set(String(t[0]), t));
+            }
 
-                // Cell indices: Date[0], Size[1], N.Cont[2], Booking#[3], Release#[4], Order[5], City[6], ...
-                const valDate = (cells[0].textContent || '').trim();
-                const valSize = (cells[1].textContent || '').toLowerCase().trim();
-                const valNcont = (cells[2].textContent || '').toLowerCase().trim();
-                const valBooking = (cells[3].textContent || '').toLowerCase().trim();
-                const valRelease = (cells[4].textContent || '').toLowerCase().trim();
-                const valOrder = (cells[5].textContent || '').toLowerCase().trim();
-                const valCity = (cells[6].textContent || '').toLowerCase().trim();
-                const valCustomer = (cells[11].textContent || '').toLowerCase().trim();
-                const valCompany = (cells[15].textContent || '').toLowerCase().trim();
-                const valDriver = (cells[16].textContent || '').toLowerCase().trim();
-                const valCollect = (cells[19].textContent || '').toLowerCase().trim();
-                const valPhone = (cells[20].textContent || '').toLowerCase().trim();
-                const valSeller = (cells[23] ? cells[23].textContent : '').toLowerCase().trim();
+            const rows = document.querySelectorAll('#table-body tr');
+            const visibleRowsData = [];
+
+            rows.forEach((tr, rIdx) => {
+                const tripId = tr.dataset.tripid;
+                const rowData = tripMap.get(String(tripId));
+                if (!rowData) return;
+
+                const valDate = (rowData[1] || '').trim();
+                const valSize = (rowData[2] || '').toLowerCase().trim();
+                const valNcont = (rowData[3] || '').toLowerCase().trim();
+                const valBooking = (rowData[65] && rowData[65] !== '---' ? rowData[65] : '').toLowerCase().trim();
+                const valRelease = (rowData[4] || '').toLowerCase().trim();
+                const valOrder = (rowData[5] || '').toLowerCase().trim();
+                const valCity = (rowData[6] || '').toLowerCase().trim();
+                const valCustomer = (rowData[11] || '').toLowerCase().trim();
+                const valCompany = (rowData[15] || '').toLowerCase().trim();
+                const valDriver = (rowData[17] || '').toLowerCase().trim();
+                const valPhone = (rowData[36] || '').toLowerCase().trim();
+                const valSeller = (rowData[61] || '').toLowerCase().trim();
 
                 const matchTransferred = !filters.transferredOnly || tr.dataset.fromCall === 'YES';
-
                 const matchCity = !filters.city || valCity === filters.city.toLowerCase().trim();
-
                 const matchSize = !filters.size || valSize.includes(filters.size.toLowerCase().trim());
                 const matchCustomer = !filters.customer || valCustomer === filters.customer.toLowerCase().trim();
                 const matchDriver = !filters.driver || valDriver === filters.driver.toLowerCase().trim();
@@ -5982,15 +5986,7 @@
                 const matchPhone = !filters.phone || valPhone.includes(filters.phone.toLowerCase().trim());
                 const matchSeller = !filters.seller || valSeller === filters.seller.toLowerCase().trim();
 
-                const toISO = (dStr) => {
-                    if (!dStr || dStr === '---') return null;
-                    if (dStr.includes('/')) {
-                        const parts = dStr.split('/');
-                        if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-                    }
-                    return dStr;
-                };
-                const isoValDate = toISO(valDate);
+                const isoValDate = valDate; // rowData[1] is already YYYY-MM-DD
                 const matchDate = (!filters.fromDate || isoValDate >= filters.fromDate) &&
                     (!filters.toDate || isoValDate <= filters.toDate);
 
@@ -6011,13 +6007,11 @@
                     const sY = tr.dataset.styard || 'PAID';
                     const sR = tr.dataset.strate || 'PAID';
                     const sS = tr.dataset.stsales || 'PAID';
-                    const sA = tr.dataset.stamount || 'PAID';
                     const sRent = tr.dataset.strent || 'PAID';
 
                     const vY = parseFloat(tr.dataset.yardval) || 0;
                     const vR = parseFloat(tr.dataset.rateval) || 0;
                     const vS = parseFloat(tr.dataset.salesval) || 0;
-                    const vA = parseFloat(tr.dataset.amountval) || 0;
                     const vP = parseFloat(tr.dataset.ppdval) || 0;
 
                     // A component is considered "clear" if its status is 'PAID' OR its value is effectively zero
@@ -6069,6 +6063,7 @@
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
                     matchNcont && matchBooking && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent) {
                     tr.style.display = '';
+                    visibleRowsData.push(rowData);
                 } else {
                     tr.style.display = 'none';
                 }
@@ -6087,39 +6082,46 @@
             updateCalendarTotals();
 
             // Update cascading dynamic filters based on visible rows
-            if (window.updateDynamicFilters) updateDynamicFilters();
+            if (window.updateDynamicFilters) updateDynamicFilters(visibleRowsData);
         }
 
         let isUpdatingDynamicFilters = false;
-        function updateDynamicFilters() {
+        function updateDynamicFilters(visibleRowsData) {
             if (isUpdatingDynamicFilters) return;
             isUpdatingDynamicFilters = true;
 
             try {
-                const visibleRows = Array.from(document.querySelectorAll('#table-body tr')).filter(tr => tr.style.display !== 'none');
+                if (!visibleRowsData) {
+                    isUpdatingDynamicFilters = false;
+                    return;
+                }
 
                 const filtersToUpdate = {
                     'f-city': 6,
-                    'f-size': 1,
+                    'f-size': 2,
                     'f-customer': 11,
                     'f-company': 15,
-                    'f-driver': 16,
-                    'f-seller-cal': 23
+                    'f-driver': 17,
+                    'f-seller-cal': 61
                 };
 
                 for (let id in filtersToUpdate) {
                     const select = document.getElementById(id);
                     if (!select) continue;
 
-                    const colIdx = filtersToUpdate[id];
                     const dynamicValues = new Set();
+                    visibleRowsData.forEach(rowData => {
+                        let val = '';
+                        if (id === 'f-city') val = rowData[6];
+                        else if (id === 'f-size') val = rowData[2];
+                        else if (id === 'f-customer') val = rowData[11];
+                        else if (id === 'f-company') val = rowData[15];
+                        else if (id === 'f-driver') val = rowData[17];
+                        else if (id === 'f-seller-cal') val = rowData[61];
 
-                    visibleRows.forEach(tr => {
-                        if (tr.cells && tr.cells.length > colIdx) {
-                            const val = (tr.cells[colIdx].textContent || '').trim();
-                            if (val && val !== '---') {
-                                dynamicValues.add(val);
-                            }
+                        val = (val || '').trim();
+                        if (val && val !== '---') {
+                            dynamicValues.add(val);
                         }
                     });
 
@@ -6134,12 +6136,14 @@
                     select.innerHTML = '';
                     select.appendChild(firstOption);
 
+                    const fragment = document.createDocumentFragment();
                     finalValues.forEach(val => {
                         const opt = document.createElement('option');
                         opt.value = val;
                         opt.textContent = val;
-                        select.appendChild(opt);
+                        fragment.appendChild(opt);
                     });
+                    select.appendChild(fragment);
 
                     if (currentVal && finalValues.includes(currentVal)) {
                         select.value = currentVal;
