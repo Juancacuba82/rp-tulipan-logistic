@@ -191,6 +191,7 @@
 
         let visibleCount = 0;
         let totalOwedAmount = 0;
+        const fragment = document.createDocumentFragment();
 
         filtered.forEach((row) => {
             const orderNo = (row[5] || '---').toString().toUpperCase();
@@ -301,9 +302,11 @@
                     </div>
                 </td>
             `;
-            body.appendChild(tr);
+            fragment.appendChild(tr);
             visibleCount++;
         });
+        
+        body.appendChild(fragment);
 
         if (visibleCount === 0) {
             body.innerHTML = '<tr><td colspan="13" style="padding:50px;text-align:center;color:#94a3b8;font-style:italic;">No pending invoices found for the selected filters.</td></tr>';

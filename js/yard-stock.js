@@ -95,6 +95,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (countEl) countEl.textContent = filtered.length;
 
         body.innerHTML = '';
+        const fragment = document.createDocumentFragment();
         filtered.forEach(item => {
             const isSelected = (editingYardId === item.id);
             const tr = document.createElement('tr');
@@ -179,8 +180,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     </div>
                 </td>
             `;
-            body.appendChild(tr);
+            fragment.appendChild(tr);
         });
+        body.appendChild(fragment);
     }
     window.renderYardTable = renderYardTable;
 
@@ -238,6 +240,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             return;
         }
 
+        const fragment = document.createDocumentFragment();
         filtered.forEach(item => {
             const isSelected = (editingYardId === item.id);
             const tr = document.createElement('tr');
@@ -317,8 +320,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     </div>
                 </td>
             `;
-            body.appendChild(tr);
+            fragment.appendChild(tr);
         });
+        body.appendChild(fragment);
     }
     window.renderStorageTable = renderStorageTable;
 
@@ -373,6 +377,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             return;
         }
 
+        const fragment = document.createDocumentFragment();
         filtered.forEach(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
             const isSelected = (editingYardId === item.id);
@@ -456,8 +461,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     </div>
                 </td>
             `;
-            body.appendChild(tr);
+            fragment.appendChild(tr);
         });
+        body.appendChild(fragment);
     }
     window.renderBothTable = renderBothTable;
 

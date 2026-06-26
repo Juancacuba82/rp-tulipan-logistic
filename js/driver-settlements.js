@@ -161,6 +161,7 @@
                 currentFilteredRows = filtered;
                 window.currentFilteredRowsDriver = filtered; // Expose for driver confirmation total
                 const isAdminView = (window.currentUserRole === 'admin');
+                const fragment = document.createDocumentFragment();
                 filtered.forEach((r, idx) => {
                     const tr = document.createElement('tr');
                     tr.style.cursor = 'pointer';
@@ -216,8 +217,9 @@
                         tr.appendChild(td);
                     });
 
-                    body.appendChild(tr);
+                    fragment.appendChild(tr);
                 });
+                body.appendChild(fragment);
                 // Clean up footer for now as requested
                 const footerLabel = document.getElementById('dl-footer-label');
                 const totalDisplay = document.getElementById('dl-total-paid');

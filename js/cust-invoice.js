@@ -67,6 +67,7 @@ window.renderCustInvoiceTable = function () {
     window.custInvoiceRows = filtered;
     body.innerHTML = '';
 
+    const fragment = document.createDocumentFragment();
     filtered.forEach((row, index) => {
         const orderNo = row[5] || '---';
         const nCont = row[3] || '---';
@@ -137,8 +138,9 @@ window.renderCustInvoiceTable = function () {
         `;
 
         // Color handled by invoice status above
-        body.appendChild(tr);
+        fragment.appendChild(tr);
     });
+    body.appendChild(fragment);
 
     if (filtered.length === 0) {
         body.innerHTML = '<tr><td colspan="12" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No pending customer invoices found for the selected filters.</td></tr>';

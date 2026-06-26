@@ -76,6 +76,7 @@
             const currentMonthStr = new Date().toISOString().substring(0, 7); // "YYYY-MM"
 
             body.innerHTML = '';
+            const fragment = document.createDocumentFragment();
             filtered.forEach((rowData) => {
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
@@ -182,8 +183,9 @@
                     actionsTd.textContent = '---';
                 }
                 tr.appendChild(actionsTd);
-                body.appendChild(tr);
+                fragment.appendChild(tr);
             });
+            body.appendChild(fragment);
 
             calculateExpenseTotal();
 
