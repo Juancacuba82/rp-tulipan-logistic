@@ -793,4 +793,76 @@
         }
     };
 
+    // ── MARK ALL FILTERED AS PAID ─────────────────────────────
+    window.markAllFilteredAsPaid = async function(btn) {
+        // Find all pending rows in window.billingRows
+        const pendingRows = (window.billingRows || []).filter(row => rowHasPendingPayment(row));
+        
+        if (pendingRows.length === 0) {
+            alert('No hay órdenes pendientes en la vista filtrada actual.');
+            return;
+        }
+
+        const confirmPay = confirm(`¿Estás seguro de marcar las ${pendingRows.length} órdenes filtradas como totalmente PAGADAS?`);
+        if (!confirmPay) return;
+
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+
+        try {
+            let updatedCount = 0;
+            for (const row of pendingRows) {
+                const tripId = row[0];
+                const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+                if (!tripId || !isUUID(tripId)) {
+                    console.warn("Invalid ID skipped:", tripId);
+                    continue;
+                }
+
+                const updateData = {
+                    st_rate: 'PAID',
+                    st_sales: 'PAID',
+                    st_yard: 'PAID',
+                    st_tax: 'PAID',
+                    paid: true,
+                    invoice_sent: 'YES'
+                };
+
+                await window.updateTrip(tripId, updateData);
+
+                // Update local state
+                row[32] = 'PAID'; 
+                row[33] = 'PAID'; 
+                row[30] = 'PAID'; 
+                row[52] = 'PAID'; 
+                row[57] = 'YES'; 
+
+                if (window.allTripsUnfiltered) {
+                    const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                    if (ufRow) {
+                        ufRow[32] = 'PAID';
+                        ufRow[33] = 'PAID';
+                        ufRow[30] = 'PAID';
+                        ufRow[52] = 'PAID';
+                        ufRow[57] = 'YES';
+                    }
+                }
+                updatedCount++;
+            }
+
+            if (window.showToast) window.showToast(`${updatedCount} órdenes marcadas como pagadas`, 'success');
+            else alert(`${updatedCount} órdenes marcadas como pagadas exitosamente`);
+            
+            // Re-render billing table
+            window.renderBillingTable();
+        } catch (err) {
+            console.error('Error marking bulk as paid:', err);
+            alert('Hubo un error al marcar algunas órdenes como pagadas.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    };
+
 })();
