@@ -554,12 +554,14 @@
             const otherVal = document.getElementById('exp-other-desc').value;
             const amount = parseFloat(document.getElementById('exp-amount').value) || 0;
             const note = document.getElementById('exp-note').value || '---';
-            const paymentMethod = document.querySelector('input[name="exp-payment-method"]:checked')?.value || 'cash';
+            const paymentMethodInput = document.querySelector('input[name="exp-payment-method"]:checked');
+            const paymentMethod = paymentMethodInput ? paymentMethodInput.value : null;
 
             const btn = document.getElementById('btn-save-expense');
 
             if (!date || date === '---') return alert("Please select a date.");
             if (!cat) return alert("Please select a category.");
+            if (!paymentMethod) return alert("Please select a PAYMENT METHOD (CASH or BANK / ONLINE).");
 
             let desc = otherVal || cat;
             const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note, null, paymentMethod];
@@ -601,8 +603,13 @@
 
         // Visual toggle for payment method
         window.selectExpensePaymentMethod = function(method) {
-            document.getElementById('exp-pm-cash').checked = (method === 'cash');
-            document.getElementById('exp-pm-bank').checked = (method === 'bank');
+            if (method) {
+                document.getElementById('exp-pm-cash').checked = (method === 'cash');
+                document.getElementById('exp-pm-bank').checked = (method === 'bank');
+            } else {
+                document.getElementById('exp-pm-cash').checked = false;
+                document.getElementById('exp-pm-bank').checked = false;
+            }
 
             const cashLabel = document.getElementById('exp-pm-cash-label');
             const bankLabel = document.getElementById('exp-pm-bank-label');
@@ -614,10 +621,17 @@
                 bankLabel.style.background = 'white';
                 bankLabel.style.borderColor = '#cbd5e1';
                 bankLabel.style.color = '#64748b';
-            } else {
+            } else if (method === 'bank') {
                 bankLabel.style.background = '#3b82f6';
                 bankLabel.style.borderColor = '#3b82f6';
                 bankLabel.style.color = 'white';
+                cashLabel.style.background = 'white';
+                cashLabel.style.borderColor = '#cbd5e1';
+                cashLabel.style.color = '#64748b';
+            } else {
+                bankLabel.style.background = 'white';
+                bankLabel.style.borderColor = '#cbd5e1';
+                bankLabel.style.color = '#64748b';
                 cashLabel.style.background = 'white';
                 cashLabel.style.borderColor = '#cbd5e1';
                 cashLabel.style.color = '#64748b';
@@ -635,8 +649,8 @@
             document.getElementById('exp-amount').value = '0';
             document.getElementById('exp-note').value = '';
             
-            // Reset payment method to default (cash)
-            if (window.selectExpensePaymentMethod) window.selectExpensePaymentMethod('cash');
+            // Reset payment method to unselected
+            if (window.selectExpensePaymentMethod) window.selectExpensePaymentMethod(null);
 
             const btn = document.getElementById('btn-save-expense');
             if (btn) {
