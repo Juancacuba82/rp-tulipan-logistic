@@ -471,14 +471,6 @@
         const canSeeBilling = data.showBilling;
         let billingSectionHtml = (total > 0 && canSeeBilling) ? `<div class="receipt-section-title">Billing Summary</div><table class="receipt-table"><tbody>${billingRows}</tbody><tfoot><tr class="receipt-total-row"><td>TOTAL DUE</td><td style="text-align:right;">$${total.toFixed(2)}</td></tr></tfoot></table>` : '';
 
-        const photos = trip[55] || [];
-        let photosHtml = '';
-        if (photos.length > 0 && !options.excludePhotos) {
-            let imgList = '';
-            photos.forEach(url => { imgList += `<img src="${url}" style="width: 31%; height: 180px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">`; });
-            photosHtml = `<div class="receipt-section-title" style="margin-top: 35px;">Evidence</div><div style="display: flex; gap: 3%; flex-wrap: wrap; margin-top: 15px;">${imgList}</div>`;
-        }
-
         return `
             <div style="padding: 40px; font-family: 'Outfit', sans-serif;">
                 <div class="receipt-header">
@@ -498,7 +490,6 @@
                 ${inspectionSectionHtml}
                 ${billingSectionHtml}
                 <div style="margin-top:25px; border-left: 4px solid #b91c1c; padding-left:10px; background:#f8fafc;">${data.notes}</div>
-                ${photosHtml}
                 <div style="display:flex; justify-content:space-between; margin-top:60px;">
                     <div style="width:45%; border-top:1px solid #000; text-align:center; position:relative;">
                         ${data.signature_driver ? `<img src="${data.signature_driver}" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); max-height:60px;">` : ''}
