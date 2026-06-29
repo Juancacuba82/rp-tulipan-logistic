@@ -255,7 +255,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (editingIndex !== null) {
                     const oldRow = window.currentTrips[editingIndex];
                     const clean = (v) => (v || '').toString().split('(')[0].trim().toUpperCase();
-                    if (clean(oldRow[4]) === clean(selectedRelease) && clean(oldRow[2]) === clean(selectedSize) && (wasFinalized === isFinalized) && (wasDeductionCandidate === isDeductionCandidate)) {
+                    const oldQty = parseInt(oldRow[53]) || 1;
+                    if (clean(oldRow[4]) === clean(selectedRelease) && clean(oldRow[2]) === clean(selectedSize) && (wasFinalized === isFinalized) && (wasDeductionCandidate === isDeductionCandidate) && (oldQty === newQtyVal)) {
                         revertOld = false; deductNew = false;
                     }
                 }
@@ -263,11 +264,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 let pendingStockUpdates = [];
                 if (deductNew || revertOld) {
                     if (revertOld && oldRelData) {
-                        const oldRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === oldRelData.release && (r[16] || '').trim().toUpperCase() === oldRelData.size);
+                        let oldRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === oldRelData.release && (r[16] || '').trim().toUpperCase() === oldRelData.size);
+                        // Fallback: if container_size not set in DB, match by release number only
+                        if (oldRows.length === 0) oldRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === oldRelData.release);
                         if (oldRows.length > 0) pendingStockUpdates.push({ targetReleaseId: oldRows[0][15], stockChange: oldRelData.qty });
                     }
                     if (deductNew) {
                         let matchingRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized && (r[16] || '').trim().toUpperCase() === selectedSizeNormalized);
+                        // Fallback: if container_size not set in DB (stored as '---'), match by release number only
+                        if (matchingRows.length === 0) matchingRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
                         if (matchingRows.length > 0) {
                             let totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[14]) || 0), 0);
                             if (totalStockFound < newQtyVal) throw new Error("Stock insuficiente en el Release seleccionado.");
@@ -472,10 +477,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // --- STOCK UPDATE (RELEASES) ---
                 for (const [releaseId, change] of Object.entries(pendingStockUpdates.reduce((acc, u) => { acc[u.targetReleaseId] = (acc[u.targetReleaseId] || 0) + u.stockChange; return acc; }, {}))) {
-                    const releaseRow = releasesSource.find(r => r[15] === releaseId);
+                    const releaseRow = releasesSource.find(r => String(r[15]) === String(releaseId));
                     if (releaseRow) {
                         const newStock = Math.max(0, (parseInt(releaseRow[14]) || 0) + change);
-                        await db.from('releases').update({ total_stock: newStock }).eq('id', releaseId);
+                        await db.from('releases').update({ total_stock: newStock }).eq('id', releaseRow[15]);
                         releaseRow[14] = newStock;
                     }
                 }
