@@ -34,7 +34,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         try {
             const { data, error } = await window.db
                 .from('yard_stock')
-                .select('id, created_at, container_no, size, type, condition, origin_release, notes, status, customer_name, customer_phone')
+                .select('*')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -141,12 +141,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = (item.daily_rate || 0) * days;
-            const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
-            const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
+            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
 
             const tooltipTitle = item.exit_date 
-                ? `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${(item.entry_fee || 0).toFixed(2)} | Exit Date: ${item.exit_date}`
-                : `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
+                ? `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
+                : `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
 
             const containerNoDisplay = `${item.container_no || '---'}`;
 
@@ -281,12 +280,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = (item.daily_rate || 0) * days;
-            const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
-            const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
+            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
 
             const tooltipTitle = item.exit_date 
-                ? `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: $${(item.entry_fee || 0).toFixed(2)} | Exit Date: ${item.exit_date}`
-                : `Entry: $${(item.entry_fee || 0).toFixed(2)} | Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet ($0.00)`;
+                ? `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
+                : `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
 
             const containerNoDisplay = `${item.container_no || '---'}`;
 
@@ -421,8 +419,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = (item.daily_rate || 0) * days;
-            const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
-            const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
+            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
 
             const containerNoDisplay = `${item.container_no || '---'}`;
 
@@ -483,7 +480,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const customer = (customerSel && customerSel.style.display !== 'none') ? customerSel.value : (document.getElementById('yard-customer')?.value || '');
         const phone = document.getElementById('yard-phone')?.value || '';
 
-        const entryFee = parseFloat(document.getElementById('yard-entry-fee').value) || 0;
         const dailyRate = parseFloat(document.getElementById('yard-daily-rate').value) || 0;
         const exitDate = document.getElementById('yard-exit-date').value || '';
         const orderOut = document.getElementById('yard-order-out')?.value.trim() || '';
@@ -508,7 +504,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             status: status,
             customer_name: customer,
             customer_phone: phone,
-            entry_fee: entryFee,
+            entry_fee: 0,
             daily_rate: dailyRate,
             exit_date: exitDate || null,
             order_out: orderOut || null,
@@ -555,8 +551,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
         const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
         const accumStorage = (item.daily_rate || 0) * days;
-        const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
-        const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + ((item.lifts || 1) * (item.lift_cost || 50));
+        const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
 
         const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
         const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
@@ -777,9 +772,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
                 
                 const accumStorage = (item.daily_rate || 0) * days;
-                const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
                 const liftCost = ((item.lifts || 1) * (item.lift_cost || 50));
-                const totalCost = (item.entry_fee || 0) + accumStorage + exitFee + liftCost;
+                const totalCost = accumStorage + liftCost;
 
                 grandTotal += totalCost;
                 sumDaysCost += accumStorage;
@@ -878,7 +872,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (document.getElementById('yard-dest-select')) {
             document.getElementById('yard-dest-select').value = isStorage ? 'STORAGE' : 'RPTULIPAN';
         }
-        document.getElementById('yard-entry-fee').value = (item.entry_fee || 0) > 0 ? (item.entry_fee || 0) : '';
         document.getElementById('yard-daily-rate').value = (item.daily_rate || 0) > 0 ? (item.daily_rate || 0) : '';
         document.getElementById('yard-exit-date').value = item.exit_date || '';
         
@@ -932,7 +925,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const nte = document.getElementById('yard-note');
         const dtf = document.getElementById('yard-entry-date');
         const dest = document.getElementById('yard-dest-select');
-        const eFee = document.getElementById('yard-entry-fee');
         const dRate = document.getElementById('yard-daily-rate');
         const xDate = document.getElementById('yard-exit-date');
         const orderOut = document.getElementById('yard-order-out');
@@ -943,7 +935,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (org) org.value = '';
         if (nte) nte.value = '';
         if (dest) dest.value = 'RPTULIPAN';
-        if (eFee) eFee.value = '';
         if (dRate) dRate.value = '';
         if (xDate) xDate.value = '';
         if (orderOut) orderOut.value = '';
