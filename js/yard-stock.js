@@ -1035,9 +1035,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (source === 'RELEASE') {
             releaseGroup.style.display = 'block';
             yardGroup.style.display = 'none';
+            const deductGroup = document.getElementById('deduct-stock-group');
+            if (deductGroup) deductGroup.style.display = 'block';
         } else {
             releaseGroup.style.display = 'none';
             yardGroup.style.display = 'block';
+            const deductGroup = document.getElementById('deduct-stock-group');
+            if (deductGroup) deductGroup.style.display = 'none';
             
             // Load and update selectors based on source (YARD or STORAGE)
             loadYardData().then(() => {

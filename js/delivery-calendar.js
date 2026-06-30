@@ -193,12 +193,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const selectedSizeNormalized = (selectedSize || '').trim().toUpperCase();
                 const releaseExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
 
-                const yardEl = document.getElementById('in-yard');
-                const yardVal = yardEl ? yardEl.value : (document.getElementById('in-flag1')?.checked ? 'YES' : 'NO');
-                const yardOnly = yardVal === 'YES' && (parseFloat(document.getElementById('in-sales')?.value || '0') === 0);
-
-                const bookingNumberForDeduction = (document.getElementById('in-booking')?.value || '').trim();
-                const isDeductionCandidate = !isYardSource && (selectedRelease && selectedRelease !== '---' && !yardOnly && releaseExists) && (!bookingNumberForDeduction);
+                // --- MANUAL DEDUCT TOGGLE (replaces all old automatic rules) ---
+                const manualDeductStock = document.getElementById('in-deduct-stock')?.checked ?? true;
+                const isDeductionCandidate = !isYardSource && (selectedRelease && selectedRelease !== '---' && releaseExists) && manualDeductStock;
                 const isYardDeductionCandidate = isYardSource && yardItemId && isFinalized;
 
                 let wasFinalized = false;
@@ -216,10 +213,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const oldYardId = oldRow[59];
                         const oldRel = (oldRow[4] || '').trim().toUpperCase();
                         const oldRelExists = releasesSource.some(r => (r[0] || '').trim().toUpperCase() === oldRel);
-                        const oldBookingStr = (oldRow[65] || '').trim();
-                        const oldBookingNumber = oldBookingStr === '---' ? '' : oldBookingStr;
-                        
-                        wasDeductionCandidate = (oldSource === 'RELEASE') && (oldRel && oldRel !== '---' && oldRelExists) && (!oldBookingNumber);
+                        // Determine wasDeductionCandidate:
+                        // For new orders (index 74 saved), use that value directly.
+                        // For old orders (index 74 is null), fall back to the old booking-number rule.
+                        const savedDeductStock = oldRow[74];
+                        if (savedDeductStock !== null && savedDeductStock !== undefined) {
+                            wasDeductionCandidate = (oldSource === 'RELEASE') && (oldRel && oldRel !== '---' && oldRelExists) && (savedDeductStock === true || savedDeductStock === 'true');
+                        } else {
+                            const oldBookingStr = (oldRow[65] || '').trim();
+                            const oldBookingNumber = oldBookingStr === '---' ? '' : oldBookingStr;
+                            wasDeductionCandidate = (oldSource === 'RELEASE') && (oldRel && oldRel !== '---' && oldRelExists) && (!oldBookingNumber);
+                        }
                         const wasYardDeductionCandidate = (oldSource === 'YARD' || oldSource === 'STORAGE') && oldYardId && wasFinalized;
                         
                         if (wasYardDeductionCandidate) {
@@ -356,7 +360,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     parseFloat(document.getElementById('in-sales-cash-amt')?.value) || 0, // 70: sales_cash_amt
                     parseFloat(document.getElementById('in-sales-bank-amt')?.value) || 0, // 71: sales_bank_amt
                     parseFloat(document.getElementById('in-amount-cash-amt')?.value) || 0, // 72: amount_cash_amt
-                    parseFloat(document.getElementById('in-amount-bank-amt')?.value) || 0 // 73: amount_bank_amt
+                    parseFloat(document.getElementById('in-amount-bank-amt')?.value) || 0, // 73: amount_bank_amt
+                    document.getElementById('in-deduct-stock')?.checked ?? true              // 74: deduct_stock
                 ];
 
                 const dbObj = mapArrayToTrip(rowData);
@@ -644,6 +649,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (el) el.checked = false;
             });
 
+            // Reset deduct-stock to YES by default for new orders
+            const deductChkReset = document.getElementById('in-deduct-stock');
+            if (deductChkReset) deductChkReset.checked = true;
+            if (window.updateDeductButtons) window.updateDeductButtons();
+
             if (typeof window.setContainerSource === 'function') {
                 window.setContainerSource('RELEASE');
             }
@@ -825,6 +835,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         };
 
         window.addRow = addRow;
+
+        window.updateDeductButtons = function() {
+            const chk = document.getElementById('in-deduct-stock');
+            const btnYes = document.getElementById('btn-deduct-yes');
+            const btnNo = document.getElementById('btn-deduct-no');
+            if (!chk || !btnYes || !btnNo) return;
+            if (chk.checked) {
+                btnYes.style.background = '#dc2626'; btnYes.style.color = 'white';
+                btnNo.style.background = 'transparent'; btnNo.style.color = '#64748b';
+            } else {
+                btnYes.style.background = 'transparent'; btnYes.style.color = '#64748b';
+                btnNo.style.background = '#1e293b'; btnNo.style.color = 'white';
+            }
+        };
 
         window.updateReleaseDatalist = function () {
             const relSel = document.getElementById('in-release-sel');
@@ -1400,6 +1424,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (window.toggleSplit) window.toggleSplit(s.type);
             });
 
+            // Deduct Stock Toggle (Index 74)
+            const deductStockChk = document.getElementById('in-deduct-stock');
+            if (deductStockChk) {
+                const savedDeduct = rowData[74];
+                if (savedDeduct !== null && savedDeduct !== undefined) {
+                    deductStockChk.checked = (savedDeduct === true || savedDeduct === 'true');
+                } else {
+                    // Old order: infer from booking rule for backward compat
+                    const bkn = (rowData[65] || '').trim();
+                    deductStockChk.checked = !(bkn && bkn !== '---');
+                }
+                if (window.updateDeductButtons) window.updateDeductButtons();
+            }
+
             // Truck / Trailer (Indices 44, 45 ignored for Trips UI)
 
             // Refresh UI States
@@ -1845,7 +1883,22 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 const cond = rowData[45];
                                 const qtyVal = parseInt(rowData[53]) || 1;
 
-                                if (wasFinalized && relNo && relNo !== '---' && (mode === 'SALE' || mode === 'RENT')) {
+                                // Determine if stock was deducted when this order was saved
+                                const savedDeductForDel = rowData[74];
+                                let wasDeductedFromRelease;
+                                if (savedDeductForDel !== null && savedDeductForDel !== undefined) {
+                                    // New orders: use the saved toggle value directly
+                                    wasDeductedFromRelease = (savedDeductForDel === true || savedDeductForDel === 'true');
+                                } else {
+                                    // Backward compat: no DB column yet — restore if no booking number present
+                                    // (any finalized RELEASE order without a booking was deducted)
+                                    const bookingStrDel = (rowData[65] || '').trim();
+                                    const bookingNumDel = bookingStrDel === '---' ? '' : bookingStrDel;
+                                    wasDeductedFromRelease = !bookingNumDel;
+                                }
+                                const isReleaseSourceForDel = (rowData[58] || 'RELEASE') === 'RELEASE';
+
+                                if (wasFinalized && relNo && relNo !== '---' && wasDeductedFromRelease && isReleaseSourceForDel) {
                                     console.log(`Reverting stock for deleted trip: ${relNo}, ${size}, Qty: ${qtyVal}`);
                                     
                                     // Ensure releases are loaded
@@ -1853,13 +1906,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                         if (window.loadReleasesData) await window.loadReleasesData();
                                     }
 
+                                    // Robust matching: trim and uppercase
+                                    const relNoNorm = String(relNo || '').trim().toUpperCase();
+                                    const sizeNorm = String(size || '').trim().toUpperCase();
+                                    const typeNorm = String(type || '').trim().toUpperCase();
+                                    const condNorm = String(cond || '').trim().toUpperCase();
+
                                     // Find exact match
                                     const match = window.currentReleases.find(r => 
-                                        r[0] === relNo && 
-                                        String(r[16] || '').trim() === String(size || '').trim() &&
-                                        r[2] === type &&
-                                        r[3] === cond
-                                    ) || window.currentReleases.find(r => r[0] === relNo); // Fallback to just Rel No
+                                        String(r[0] || '').trim().toUpperCase() === relNoNorm && 
+                                        String(r[16] || '').trim().toUpperCase() === sizeNorm &&
+                                        String(r[2] || '').trim().toUpperCase() === typeNorm &&
+                                        String(r[3] || '').trim().toUpperCase() === condNorm
+                                    ) || window.currentReleases.find(r => String(r[0] || '').trim().toUpperCase() === relNoNorm); // Fallback to just Rel No
 
                                     if (match) {
                                         const releaseUuid = match[15];

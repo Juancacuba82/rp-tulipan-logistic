@@ -1133,6 +1133,26 @@
                             </div>
                         </div>
 
+                        <!-- DEDUCT RELEASE STOCK TOGGLE -->
+                        <div class="form-group" id="deduct-stock-group" style="margin-top: 6px; margin-bottom: 12px; display: block;">
+                            <label class="sidebar-label-btn" style="font-weight: 800; display: flex; align-items: center; gap: 5px; margin-bottom: 4px;">
+                                <i class="fas fa-bolt"></i> Deduct Stock?
+                            </label>
+                            <div style="display: flex; gap: 5px; background: #f1f5f9; padding: 4px; border-radius: 10px;">
+                                <button type="button" id="btn-deduct-yes"
+                                    onclick="document.getElementById('in-deduct-stock').checked=true; window.updateDeductButtons && window.updateDeductButtons();"
+                                    style="flex: 1; border: none; padding: 8px 4px; border-radius: 8px; font-weight: 900; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: #dc2626; color: white; white-space: nowrap;">
+                                    <i class="fas fa-minus-circle"></i> YES – DEDUCT
+                                </button>
+                                <button type="button" id="btn-deduct-no"
+                                    onclick="document.getElementById('in-deduct-stock').checked=false; window.updateDeductButtons && window.updateDeductButtons();"
+                                    style="flex: 1; border: none; padding: 8px 4px; border-radius: 8px; font-weight: 900; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b; white-space: nowrap;">
+                                    <i class="fas fa-ban"></i> NO
+                                </button>
+                            </div>
+                            <input type="checkbox" id="in-deduct-stock" style="display:none;" checked>
+                        </div>
+
                         <!-- NEW: YARD STOCK SELECTION (Hidden by default) -->
                         <div class="form-group" id="yard-group-container" style="display: none;">
                             <label class="sidebar-label-btn">Select from Yard</label>

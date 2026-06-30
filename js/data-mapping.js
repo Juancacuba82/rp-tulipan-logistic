@@ -133,7 +133,8 @@
                 t.sales_cash_amt || 0,          // 70  NEW — Split amount cash for sales
                 t.sales_bank_amt || 0,          // 71  NEW — Split amount bank for sales
                 t.amount_cash_amt || 0,         // 72  NEW — Split amount cash for amount
-                t.amount_bank_amt || 0          // 73  NEW — Split amount bank for amount
+                t.amount_bank_amt || 0,         // 73  NEW — Split amount bank for amount
+                t.deduct_stock !== null && t.deduct_stock !== undefined ? t.deduct_stock : null // 74 — Manual deduct stock toggle (null = use backward compat logic)
             ];
         }
 
@@ -210,7 +211,8 @@
                 sales_cash_amt: parseFloat(row[70]) || 0,
                 sales_bank_amt: parseFloat(row[71]) || 0,
                 amount_cash_amt: parseFloat(row[72]) || 0,
-                amount_bank_amt: parseFloat(row[73]) || 0
+                amount_bank_amt: parseFloat(row[73]) || 0,
+                deduct_stock: row[74] !== null && row[74] !== undefined ? (row[74] === true || row[74] === 'true') : null
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB
