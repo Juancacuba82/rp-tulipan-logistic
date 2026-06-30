@@ -5769,6 +5769,24 @@
             if (rentalGroup) rentalGroup.style.display = (mode === 'RENT') ? 'block' : 'none';
         }
 
+        function autoToggleDeductStock() {
+            const chkYard = document.getElementById('in-flag1')?.checked || false;
+            const chkTransport = document.getElementById('in-flag2')?.checked || false;
+            const chkSales = document.getElementById('in-flag3')?.checked || false;
+            const chkToYard = document.getElementById('in-move-to-yard')?.checked || false;
+            const deductChk = document.getElementById('in-deduct-stock');
+
+            if (!deductChk) return;
+
+            if (chkSales || chkToYard) {
+                deductChk.checked = true;
+            } else if (chkTransport || chkYard) {
+                deductChk.checked = false;
+            }
+            
+            if (window.updateDeductButtons) window.updateDeductButtons();
+        }
+
         function toggleYardRate() {
             const chkYard = document.getElementById('in-flag1');
             const yardHidden = document.getElementById('in-yard');
@@ -5789,6 +5807,7 @@
                     document.getElementById('in-yardrate').value = '';
                 }
             }
+            autoToggleDeductStock();
         }
 
         function toggleTransport() {
@@ -5825,6 +5844,7 @@
                 const paidDriver = document.getElementById('in-paiddriver');
                 if (paidDriver) paidDriver.value = 0;
             }
+            autoToggleDeductStock();
         }
         window.toggleTransport = toggleTransport;
 
@@ -5844,6 +5864,7 @@
                     if (sales) sales.value = 0;
                 }
             }
+            autoToggleDeductStock();
         }
         window.toggleSalesPrice = toggleSalesPrice;
 
@@ -5853,6 +5874,7 @@
             if (destSel) {
                 destSel.style.display = isChecked ? 'inline-block' : 'none';
             }
+            autoToggleDeductStock();
         }
         window.toggleToYardDestSelect = toggleToYardDestSelect;
 

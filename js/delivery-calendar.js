@@ -279,6 +279,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         if (matchingRows.length === 0) matchingRows = releasesSource.filter(r => (r[0] || '').trim().toUpperCase() === selectedReleaseNormalized);
                         if (matchingRows.length > 0) {
                             let totalStockFound = matchingRows.reduce((sum, r) => sum + (parseInt(r[14]) || 0), 0);
+                            
+                            // FIX: Calculate "Effective Stock" by adding back any containers we are returning to this exact same release in this transaction
+                            const priorRevert = pendingStockUpdates.find(u => u.targetReleaseId === matchingRows[0][15]);
+                            if (priorRevert) {
+                                totalStockFound += priorRevert.stockChange;
+                            }
+
                             if (totalStockFound < newQtyVal) throw new Error("Stock insuficiente en el Release seleccionado.");
                             pendingStockUpdates.push({ targetReleaseId: matchingRows[0][15], stockChange: -newQtyVal });
                         }
