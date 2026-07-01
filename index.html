@@ -4355,7 +4355,19 @@
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-calendar-check" style="color: #ef4444;"></i> EXIT DATE</label>
-                            <input type="date" id="yard-exit-date" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                            <input type="date" id="yard-exit-date" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;" onchange="if(window.toggleYardPaymentMethod) window.toggleYardPaymentMethod()">
+                        </div>
+                        <div class="form-group" id="yard-pay-method-group" style="display: none;">
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-money-check-alt" style="color: #10b981;"></i> PAYMENT METHOD</label>
+                            <select id="yard-pay-method" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;" onchange="if(window.toggleYardSplitMethod) window.toggleYardSplitMethod()">
+                                <option value="BANK" selected>BANK</option>
+                                <option value="CASH">CASH</option>
+                                <option value="SPLIT">SPLIT</option>
+                            </select>
+                            <div id="yard-split-amounts" style="display: none; gap: 8px; margin-top: 8px;">
+                                <input type="number" id="yard-cash-amt" placeholder="Cash $" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 50%;">
+                                <input type="number" id="yard-bank-amt" placeholder="Bank $" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 50%;">
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-truck-loading" style="color: #3b82f6;"></i> LIFTS</label>

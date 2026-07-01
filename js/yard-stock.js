@@ -464,6 +464,29 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
     window.renderBothTable = renderBothTable;
 
+    window.toggleYardPaymentMethod = function() {
+        const exitDate = document.getElementById('yard-exit-date').value;
+        const group = document.getElementById('yard-pay-method-group');
+        if (exitDate) {
+            group.style.display = 'block';
+        } else {
+            group.style.display = 'none';
+        }
+        window.toggleYardSplitMethod();
+    };
+
+    window.toggleYardSplitMethod = function() {
+        const method = document.getElementById('yard-pay-method').value;
+        const splitGroup = document.getElementById('yard-split-amounts');
+        if (method === 'SPLIT') {
+            splitGroup.style.display = 'flex';
+        } else {
+            splitGroup.style.display = 'none';
+            document.getElementById('yard-cash-amt').value = '';
+            document.getElementById('yard-bank-amt').value = '';
+        }
+    };
+
     // --- ACTIONS ---
     window.saveYardContainer = async function() {
         const containerNo = document.getElementById('yard-container-no').value.trim();
@@ -518,15 +541,57 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
 
         try {
+            let savedRecord = null;
             if (editingYardId) {
                 const { data, error } = await window.db.from('yard_stock').update(yardObj).eq('id', editingYardId).select();
                 if (error) throw error;
                 const idx = currentYardStock.findIndex(item => item.id === editingYardId);
                 if (idx !== -1) currentYardStock[idx] = data[0];
+                savedRecord = data[0];
             } else {
                 const { data, error } = await window.db.from('yard_stock').insert([yardObj]).select();
                 if (error) throw error;
                 currentYardStock.unshift(data[0]);
+                savedRecord = data[0];
+            }
+
+            // --- CASH LEDGER SYNC ---
+            if (savedRecord) {
+                if (exitDate) {
+                    const payMethod = document.getElementById('yard-pay-method').value || 'BANK';
+                    const d1 = Date.UTC(new Date(savedRecord.created_at || new Date()).getFullYear(), new Date(savedRecord.created_at || new Date()).getMonth(), new Date(savedRecord.created_at || new Date()).getDate());
+                    const d2 = Date.UTC(new Date(exitDate + 'T12:00:00').getFullYear(), new Date(exitDate + 'T12:00:00').getMonth(), new Date(exitDate + 'T12:00:00').getDate());
+                    const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+                    const accumStorage = (savedRecord.daily_rate || 0) * days;
+                    const totalCost = accumStorage + ((savedRecord.lifts || 1) * (savedRecord.lift_cost || 0));
+                    
+                    if (totalCost > 0) {
+                        let cashAmt = 0;
+                        let bankAmt = 0;
+                        if (payMethod === 'CASH') cashAmt = totalCost;
+                        else if (payMethod === 'BANK') bankAmt = totalCost;
+                        else if (payMethod === 'SPLIT') {
+                            cashAmt = parseFloat(document.getElementById('yard-cash-amt').value) || 0;
+                            bankAmt = parseFloat(document.getElementById('yard-bank-amt').value) || 0;
+                        }
+
+                        const descBase = `Yard Storage - Cont: ${savedRecord.container_no}`;
+                        const customerName = savedRecord.customer_name || '';
+
+                        await window.db.from('cash_ledger').delete().like('id', `${savedRecord.id}-y%`);
+
+                        const newEntries = [];
+                        if (cashAmt > 0) {
+                            newEntries.push({ id: `${savedRecord.id}-yc`, created_at: exitDate + 'T12:00:00', tipo: 'ingreso', metodo: 'cash', monto: cashAmt, descripcion: descBase, referencia: savedRecord.order_out || '', chofer: '', customer: customerName, n_cont: savedRecord.container_no });
+                        }
+                        if (bankAmt > 0) {
+                            newEntries.push({ id: `${savedRecord.id}-yb`, created_at: exitDate + 'T12:00:00', tipo: 'ingreso', metodo: 'bank', monto: bankAmt, descripcion: descBase, referencia: savedRecord.order_out || '', chofer: '', customer: customerName, n_cont: savedRecord.container_no });
+                        }
+                        if (newEntries.length > 0) await window.db.from('cash_ledger').insert(newEntries);
+                    }
+                } else {
+                    await window.db.from('cash_ledger').delete().like('id', `${savedRecord.id}-y%`);
+                }
             }
 
             alert("Container saved to yard stock!");
@@ -881,6 +946,34 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         
         document.getElementById('yard-note').value = (item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '';
 
+        // Fetch Cash Ledger info if it has an exit_date
+        if (item.exit_date) {
+            window.db.from('cash_ledger').select('metodo, monto').like('id', `${item.id}-y%`).then(({data}) => {
+                const payMethodEl = document.getElementById('yard-pay-method');
+                const cashAmtEl = document.getElementById('yard-cash-amt');
+                const bankAmtEl = document.getElementById('yard-bank-amt');
+                
+                if (data && data.length > 0) {
+                    if (data.length === 1) {
+                        payMethodEl.value = data[0].metodo === 'cash' ? 'CASH' : 'BANK';
+                    } else if (data.length > 1) {
+                        payMethodEl.value = 'SPLIT';
+                        data.forEach(d => {
+                            if (d.metodo === 'cash') cashAmtEl.value = d.monto;
+                            if (d.metodo === 'bank') bankAmtEl.value = d.monto;
+                        });
+                    }
+                } else {
+                    payMethodEl.value = 'BANK';
+                }
+                if(window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
+            });
+        } else {
+            document.getElementById('yard-pay-method').value = 'BANK';
+            if(window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
+        }
+
+        document.getElementById('modal-title-yard').textContent = 'Edit Yard Container';
         // Populate the entry date field
         if (item.created_at) {
             const d = new Date(item.created_at);
@@ -940,6 +1033,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (orderOut) orderOut.value = '';
         if (lifts) lifts.value = '1';
         if (liftCost) liftCost.value = '0.00';
+        
+        document.getElementById('yard-pay-method').value = 'BANK';
+        document.getElementById('yard-cash-amt').value = '';
+        document.getElementById('yard-bank-amt').value = '';
+        if(window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
         
         const selC = document.getElementById('yard-customer-sel');
         const inpC = document.getElementById('yard-customer');

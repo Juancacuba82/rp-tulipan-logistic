@@ -512,22 +512,48 @@
                 try {
                     const { data: yardStockData, error: yErr } = await window.db
                         .from('yard_stock')
-                        .select('created_at, notes, status');
+                        .select('*');
                     
                     if (!yErr && yardStockData) {
+                        let dFromUTC = dateFrom ? Date.UTC(parseInt(dateFrom.split('-')[0]), parseInt(dateFrom.split('-')[1]) - 1, parseInt(dateFrom.split('-')[2])) : null;
+                        let dToUTC = dateTo ? Date.UTC(parseInt(dateTo.split('-')[0]), parseInt(dateTo.split('-')[1]) - 1, parseInt(dateTo.split('-')[2])) : null;
+
                         yardStockData.forEach(item => {
-                            const entryDateStr = item.created_at ? item.created_at.substring(0, 10) : '';
-                            if ((!dateFrom || entryDateStr >= dateFrom) && (!dateTo || entryDateStr <= dateTo)) {
-                                const parsed = parseYardNotes(item.notes);
-                                const entryDate = new Date(item.created_at || new Date());
-                                const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
-                                const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-                                const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-                                const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-                                const accumStorage = (item.daily_rate || 0) * days;
-                                const exitFee = item.exit_date ? (item.entry_fee || 0) : 0;
-                                const totalCost = (item.entry_fee || 0) + accumStorage + exitFee;
-                                
+                            const parsed = parseYardNotes(item.notes);
+                            const entryDate = new Date(item.created_at || new Date());
+                            const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
+                            
+                            const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+                            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+                            
+                            // Intersection for Storage Days
+                            let overlapStart = d1;
+                            let overlapEnd = d2;
+                            
+                            if (dFromUTC && overlapStart < dFromUTC) overlapStart = dFromUTC;
+                            if (dToUTC && overlapEnd > dToUTC) overlapEnd = dToUTC;
+                            
+                            let overlapDays = 0;
+                            if (overlapStart <= overlapEnd) {
+                                overlapDays = Math.max(0, Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)));
+                            }
+                            
+                            const accumStorage = (item.daily_rate || 0) * overlapDays;
+                            
+                            // For One-Time Fees (entry_fee, lift_cost), we check if the entry date falls within the filter
+                            let oneTimeFees = 0;
+                            let isInFilter = true;
+                            if (dFromUTC && d1 < dFromUTC) isInFilter = false;
+                            if (dToUTC && d1 > dToUTC) isInFilter = false;
+                            
+                            if (isInFilter) {
+                                oneTimeFees += (item.entry_fee || 0);
+                                oneTimeFees += ((item.lifts || 1) * (item.lift_cost || 0));
+                            }
+                            
+                            const totalCost = accumStorage + oneTimeFees;
+                            
+                            if (totalCost > 0) {
                                 if (parsed.isStorage) {
                                     storageYardTotal += totalCost;
                                 } else {
