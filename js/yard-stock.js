@@ -141,7 +141,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = (item.daily_rate || 0) * days;
-            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
+            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 0));
 
             const tooltipTitle = item.exit_date 
                 ? `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
@@ -163,7 +163,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 0)).toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
@@ -280,7 +280,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = (item.daily_rate || 0) * days;
-            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
+            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 0));
 
             const tooltipTitle = item.exit_date 
                 ? `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
@@ -302,7 +302,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 0)).toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
@@ -419,7 +419,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
             const accumStorage = (item.daily_rate || 0) * days;
-            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
+            const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 0));
 
             const containerNoDisplay = `${item.container_no || '---'}`;
 
@@ -442,7 +442,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 0)).toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
@@ -484,7 +484,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const exitDate = document.getElementById('yard-exit-date').value || '';
         const orderOut = document.getElementById('yard-order-out')?.value.trim() || '';
         const lifts = parseFloat(document.getElementById('yard-lifts')?.value) || 0;
-        const liftCost = parseFloat(document.getElementById('yard-lift-cost')?.value) || 50.00;
+        const liftCost = parseFloat(document.getElementById('yard-lift-cost')?.value) || 0.00;
 
         if (!containerNo) return alert("Please enter a Container Number.");
 
@@ -551,7 +551,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
         const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
         const accumStorage = (item.daily_rate || 0) * days;
-        const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 50));
+        const totalCost = accumStorage + ((item.lifts || 1) * (item.lift_cost || 0));
 
         const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
         const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
@@ -592,7 +592,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 days: days,
                 days_cost: accumStorage.toFixed(2),
                 lifts: item.lifts || 1,
-                lifts_cost: ((item.lifts || 1) * (item.lift_cost || 50)).toFixed(2),
+                lifts_cost: ((item.lifts || 1) * (item.lift_cost || 0)).toFixed(2),
                 total_cost: totalCost.toFixed(2)
             };
 
@@ -772,7 +772,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
                 
                 const accumStorage = (item.daily_rate || 0) * days;
-                const liftCost = ((item.lifts || 1) * (item.lift_cost || 50));
+                const liftCost = ((item.lifts || 1) * (item.lift_cost || 0));
                 const totalCost = accumStorage + liftCost;
 
                 grandTotal += totalCost;
@@ -877,7 +877,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         
         if (document.getElementById('yard-order-out')) document.getElementById('yard-order-out').value = item.order_out || '';
         if (document.getElementById('yard-lifts')) document.getElementById('yard-lifts').value = (item.lifts || 1) !== undefined ? (item.lifts || 1) : 1;
-        if (document.getElementById('yard-lift-cost')) document.getElementById('yard-lift-cost').value = (item.lift_cost || 50) !== undefined ? (item.lift_cost || 50) : 50.00;
+        if (document.getElementById('yard-lift-cost')) document.getElementById('yard-lift-cost').value = (item.lift_cost !== undefined) ? item.lift_cost : 0.00;
         
         document.getElementById('yard-note').value = (item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '';
 
@@ -939,7 +939,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (xDate) xDate.value = '';
         if (orderOut) orderOut.value = '';
         if (lifts) lifts.value = '1';
-        if (liftCost) liftCost.value = '50.00';
+        if (liftCost) liftCost.value = '0.00';
         
         const selC = document.getElementById('yard-customer-sel');
         const inpC = document.getElementById('yard-customer');
