@@ -111,14 +111,14 @@
      * @param {Array} rowData - Trip data array
      * @param {Blob} existingBlob - Optional existing blob
      */
-    window.sendReceiptEmail = async function (rowData, existingBlob = null) {
+    window.sendReceiptEmail = async function (rowData, existingBlob = null, companyOverride = null) {
         let pdfBlob = existingBlob;
         
         try {
             // 1. Generate Receipt PDF (no photos)
             if (!pdfBlob) {
                 if (window.getTripReceiptContent) {
-                    const html = window.getTripReceiptContent(rowData, { excludePhotos: true });
+                    const html = window.getTripReceiptContent(rowData, { excludePhotos: true, companyOverride });
                     pdfBlob = await htmlToPDFBlob(html, 'p');
                 } else {
                     pdfBlob = await window.generatePDFFromData(rowData, { isEmailVersion: true, scale: 1.5, quality: 0.8, excludePhotos: true });
@@ -143,7 +143,7 @@
             
             if (hasPhotos && window.getTripPhotosOnlyContent) {
                 console.log("Generating Photos PDF...");
-                const photosHtml = window.getTripPhotosOnlyContent(rowData);
+                const photosHtml = window.getTripPhotosOnlyContent(rowData, { companyOverride });
                 pBlob = await htmlToPDFBlob(photosHtml, 'p');
                 if (pBlob) {
                     photosUrl = await uploadPDFToSupabase(pBlob, `photos_${orderNo}_${tripId}_${ts}.pdf`);

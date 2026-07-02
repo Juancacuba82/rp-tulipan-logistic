@@ -557,6 +557,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // Check if email send was requested before form is reset
                 const shouldSendEmail = document.getElementById('in-sendemail')?.checked;
+                const companyOverride = document.getElementById('in-receipt-company')?.value || 'RP TULIPAN';
                 // Copy rowData and set the correct trip_id (index 0)
                 const emailRowData = [...rowData];
                 emailRowData[0] = finalTripId;
@@ -576,7 +577,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         if (window.showToast) window.showToast("Generating PDF & sending email...", "info");
                         
                         // Invoke generate and send sequence asynchronously
-                        window.sendReceiptEmail(emailRowData).then(() => {
+                        window.sendReceiptEmail(emailRowData, null, companyOverride).then(() => {
                             console.log("Receipt email sent successfully for order:", emailRowData[5]);
                         }).catch(err => {
                             console.error("Failed to send receipt email from calendar:", err);
@@ -695,7 +696,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-size-sel', 'in-rel-type', 'in-rel-condition', 'in-city', 
                 'in-pickup-sel', 'in-customer-sel', 'in-doors', 'in-company', 
                 'in-driver', 'in-paytype', 'in-release-sel', 'in-status-toggle',
-                'in-invoice-sent'
+                'in-invoice-sent', 'in-receipt-company'
             ];
             selectsToReset.forEach(id => {
                 const el = document.getElementById(id);
