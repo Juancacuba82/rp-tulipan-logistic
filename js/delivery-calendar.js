@@ -543,6 +543,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (isMoveToYard && typeof window.loadYardData === 'function') await window.loadYardData(true);
 
                 editingIndex = null; editingTripDbId = null; window.selectedTripIds = [];
+                if (window.toggleDeleteSelectedBtn) window.toggleDeleteSelectedBtn();
 
                 // --- STOCK UPDATE (RELEASES) ---
                 for (const [releaseId, change] of Object.entries(pendingStockUpdates.reduce((acc, u) => { acc[u.targetReleaseId] = (acc[u.targetReleaseId] || 0) + u.stockChange; return acc; }, {}))) {
@@ -763,6 +764,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             // 6. Restore Button UI and Clear Selection
             window.selectedTripIds = []; // DESELECT any selected orders
+            if (window.toggleDeleteSelectedBtn) window.toggleDeleteSelectedBtn();
             
             // Clear CSS classes from the DOM to remove highlighting
             document.querySelectorAll('#table-body tr').forEach(row => {
@@ -1938,115 +1940,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 return;
                             }
                             if (!confirm('¿Seguro que quieres borrar este viaje? Esta acción no se puede deshacer.')) return;
-                            try {
-                                // --- STOCK REVERSION LOGIC ---
-                                const wasFinalized = (rowData[41] === 'PAID' || rowData[41] === 'COMPLETE');
-                                const mode = rowData[26];
-                                const relNo = rowData[4];
-                                const size = rowData[2];
-                                const type = rowData[44];
-                                const cond = rowData[45];
-                                const qtyVal = parseInt(rowData[53]) || 1;
-
-                                // Determine if stock was deducted when this order was saved
-                                const savedDeductForDel = rowData[74];
-                                let wasDeductedFromRelease;
-                                if (savedDeductForDel !== null && savedDeductForDel !== undefined) {
-                                    // New orders: use the saved toggle value directly
-                                    wasDeductedFromRelease = (savedDeductForDel === true || savedDeductForDel === 'true');
-                                } else {
-                                    // Backward compat: no DB column yet — restore if no booking number present
-                                    // (any finalized RELEASE order without a booking was deducted)
-                                    const bookingStrDel = (rowData[65] || '').trim();
-                                    const bookingNumDel = bookingStrDel === '---' ? '' : bookingStrDel;
-                                    wasDeductedFromRelease = !bookingNumDel;
-                                }
-                                const isReleaseSourceForDel = (rowData[58] || 'RELEASE') === 'RELEASE';
-
-                                if (wasFinalized && relNo && relNo !== '---' && wasDeductedFromRelease && isReleaseSourceForDel) {
-                                    console.log(`Reverting stock for deleted trip: ${relNo}, ${size}, Qty: ${qtyVal}`);
-                                    
-                                    // Ensure releases are loaded
-                                    if (!window.currentReleases || window.currentReleases.length === 0) {
-                                        if (window.loadReleasesData) await window.loadReleasesData();
-                                    }
-
-                                    // Robust matching: trim and uppercase
-                                    const relNoNorm = String(relNo || '').trim().toUpperCase();
-                                    const sizeNorm = String(size || '').trim().toUpperCase();
-                                    const typeNorm = String(type || '').trim().toUpperCase();
-                                    const condNorm = String(cond || '').trim().toUpperCase();
-
-                                    // Find exact match
-                                    const match = window.currentReleases.find(r => 
-                                        String(r[0] || '').trim().toUpperCase() === relNoNorm && 
-                                        String(r[16] || '').trim().toUpperCase() === sizeNorm &&
-                                        String(r[2] || '').trim().toUpperCase() === typeNorm &&
-                                        String(r[3] || '').trim().toUpperCase() === condNorm
-                                    ) || window.currentReleases.find(r => String(r[0] || '').trim().toUpperCase() === relNoNorm); // Fallback to just Rel No
-
-                                    if (match) {
-                                        const releaseUuid = match[15];
-                                        const currentStock = parseInt(match[14]) || 0;
-                                        const newStock = currentStock + qtyVal;
-                                        
-                                        console.log(`Adjusting stock for release ${relNo}: ${currentStock} -> ${newStock}`);
-                                        await db.from('releases')
-                                            .update({ total_stock: newStock })
-                                            .eq('id', releaseUuid);
-                                            
-                                        // OPT: Update local cache directly
-                                        match[14] = newStock;
-                                            
-                                        if (window.loadReleasesData) await window.loadReleasesData(false);
-                                    }
-                                }
-
-                                // --- YARD STOCK CLEANUP ---
-                                const orderNoForDel = rowData[5] || '---';
-                                const wasToYardForDel = !!rowData[62];
-                                if (wasFinalized && wasToYardForDel) {
-                                    console.log(`Cleaning Yard Stock for deleted order: ${orderNoForDel}`);
-                                    await db.from('yard_stock').delete().ilike('notes', `%Order: ${orderNoForDel}%`);
-                                }
-
-                                // Revert sourced yard item back to AVAILABLE on deletion
-                                const containerSourceForDel = rowData[58] || 'RELEASE';
-                                const yardItemIdForDel = rowData[59];
-                                const isYardSourceForDel = containerSourceForDel === 'YARD' || containerSourceForDel === 'STORAGE';
-                                if (wasFinalized && isYardSourceForDel && yardItemIdForDel) {
-                                    console.log(`Reverting yard item status for deleted order: ${yardItemIdForDel}`);
-                                    const { data: yardItem } = await db.from('yard_stock').select('notes, lifts').eq('id', yardItemIdForDel).single();
-                                    if (yardItem) {
-                                        let notes = yardItem.notes || '';
-                                        notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
-                                        const newLifts = Math.max(1, (yardItem.lifts || 2) - 1);
-                                        await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts, order_out: null }).eq('id', yardItemIdForDel);
-                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', notes, null, newLifts, null);
-                                    } else {
-                                        await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1, order_out: null }).eq('id', yardItemIdForDel);
-                                        if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', undefined, null, 1, null);
-                                    }
-                                }
-
-                                if (typeof window.loadYardData === 'function') await window.loadYardData(true);
-
-                                await deleteTrip(rowData[0]); // This is trip_id
-
-                                // Remove from local cache
-                                if (window.currentTrips) {
-                                    window.currentTrips = window.currentTrips.filter(t => t[0] !== rowData[0]);
-                                }
-                                if (window.allTripsUnfiltered) {
-                                    window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => t[0] !== rowData[0]);
-                                }
-
-                                alert("Viaje eliminado");
-                                await loadTableData(window.currentTrips);
-                            } catch (err) {
-                                console.error("Error during deletion/reversion:", err);
-                                alert("Error al borrar: " + err.message);
-                            }
+                            await window.performOrderDeletion(rowData, false);
                         };
                         actionTd.appendChild(delBtn);
                         tr.appendChild(actionTd);
@@ -2055,20 +1949,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.onclick = (e) => {
                             const tripId = rowData[0];
                             const isAlreadySelected = window.selectedTripIds.includes(tripId);
-                            const isOnlySelected = window.selectedTripIds.length === 1 && isAlreadySelected;
-
-                            if (e.ctrlKey) {
-                                if (isAlreadySelected) {
-                                    window.selectedTripIds = window.selectedTripIds.filter(id => id !== tripId);
-                                } else {
-                                    window.selectedTripIds.push(tripId);
-                                }
+                            
+                            if (isAlreadySelected) {
+                                window.selectedTripIds = [];
                             } else {
-                                if (isOnlySelected) {
-                                    window.selectedTripIds = [];
-                                } else {
-                                    window.selectedTripIds = [tripId];
-                                }
+                                window.selectedTripIds = [tripId];
                             }
 
                             if (window.selectedTripIds.length > 0) {
@@ -2097,6 +1982,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             } else {
                                 window._lastEditingTr = null;
                             }
+                            if (window.toggleDeleteSelectedBtn) window.toggleDeleteSelectedBtn();
                         };
                         
                         // Check if this row is the editing row
@@ -2744,4 +2630,158 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// --- MASS DELETE ORDERS ---
+window.toggleDeleteSelectedBtn = function() {
+    const btn = document.getElementById('btn-delete-selected');
+    if (btn) {
+        if (window.selectedTripIds && window.selectedTripIds.length > 0) {
+            btn.style.display = 'flex';
+        } else {
+            btn.style.display = 'none';
+        }
+    }
+};
+
+window.performOrderDeletion = async function(rowData, skipAlertAndReload = false) {
+    // --- STOCK REVERSION LOGIC ---
+    const wasFinalized = (rowData[41] === 'PAID' || rowData[41] === 'COMPLETE');
+    const mode = rowData[26];
+    const relNo = rowData[4];
+    const size = rowData[2];
+    const type = rowData[44];
+    const cond = rowData[45];
+    const qtyVal = parseInt(rowData[53]) || 1;
+
+    // Determine if stock was deducted when this order was saved
+    const savedDeductForDel = rowData[74];
+    let wasDeductedFromRelease;
+    if (savedDeductForDel !== null && savedDeductForDel !== undefined) {
+        // New orders: use the saved toggle value directly
+        wasDeductedFromRelease = (savedDeductForDel === true || savedDeductForDel === 'true');
+    } else {
+        // Backward compat: no DB column yet — restore if no booking number present
+        // (any finalized RELEASE order without a booking was deducted)
+        const bookingStrDel = (rowData[65] || '').trim();
+        const bookingNumDel = bookingStrDel === '---' ? '' : bookingStrDel;
+        wasDeductedFromRelease = !bookingNumDel;
+    }
+    const isReleaseSourceForDel = (rowData[58] || 'RELEASE') === 'RELEASE';
+
+    if (wasFinalized && relNo && relNo !== '---' && wasDeductedFromRelease && isReleaseSourceForDel) {
+        console.log(`Reverting stock for deleted trip: ${relNo}, ${size}, Qty: ${qtyVal}`);
+        
+        // Ensure releases are loaded
+        if (!window.currentReleases || window.currentReleases.length === 0) {
+            if (window.loadReleasesData) await window.loadReleasesData();
+        }
+
+        // Robust matching: trim and uppercase
+        const relNoNorm = String(relNo || '').trim().toUpperCase();
+        const sizeNorm = String(size || '').trim().toUpperCase();
+        const typeNorm = String(type || '').trim().toUpperCase();
+        const condNorm = String(cond || '').trim().toUpperCase();
+
+        // Find exact match
+        const match = window.currentReleases.find(r => 
+            String(r[0] || '').trim().toUpperCase() === relNoNorm && 
+            String(r[16] || '').trim().toUpperCase() === sizeNorm &&
+            String(r[2] || '').trim().toUpperCase() === typeNorm &&
+            String(r[3] || '').trim().toUpperCase() === condNorm
+        ) || window.currentReleases.find(r => String(r[0] || '').trim().toUpperCase() === relNoNorm); // Fallback to just Rel No
+
+        if (match) {
+            const releaseUuid = match[15];
+            const currentStock = parseInt(match[14]) || 0;
+            const newStock = currentStock + qtyVal;
+            
+            console.log(`Adjusting stock for release ${relNo}: ${currentStock} -> ${newStock}`);
+            await db.from('releases')
+                .update({ total_stock: newStock })
+                .eq('id', releaseUuid);
+                
+            // OPT: Update local cache directly
+            match[14] = newStock;
+                
+            if (window.loadReleasesData) await window.loadReleasesData(false);
+        }
+    }
+
+    // --- YARD STOCK CLEANUP ---
+    const orderNoForDel = rowData[5] || '---';
+    const wasToYardForDel = !!rowData[62];
+    if (wasFinalized && wasToYardForDel) {
+        console.log(`Cleaning Yard Stock for deleted order: ${orderNoForDel}`);
+        await db.from('yard_stock').delete().ilike('notes', `%Order: ${orderNoForDel}%`);
+    }
+
+    // Revert sourced yard item back to AVAILABLE on deletion
+    const containerSourceForDel = rowData[58] || 'RELEASE';
+    const yardItemIdForDel = rowData[59];
+    const isYardSourceForDel = containerSourceForDel === 'YARD' || containerSourceForDel === 'STORAGE';
+    if (wasFinalized && isYardSourceForDel && yardItemIdForDel) {
+        console.log(`Reverting yard item status for deleted order: ${yardItemIdForDel}`);
+        const { data: yardItem } = await db.from('yard_stock').select('notes, lifts').eq('id', yardItemIdForDel).single();
+        if (yardItem) {
+            let notes = yardItem.notes || '';
+            notes = notes.replace(/\[ExitDate:\s*[\d\-]+\]/g, '').trim().replace(/\s+/g, ' ');
+            const newLifts = Math.max(1, (yardItem.lifts || 2) - 1);
+            await db.from('yard_stock').update({ status: 'AVAILABLE', notes: notes, exit_date: null, lifts: newLifts, order_out: null }).eq('id', yardItemIdForDel);
+            if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', notes, null, newLifts, null);
+        } else {
+            await db.from('yard_stock').update({ status: 'AVAILABLE', exit_date: null, lifts: 1, order_out: null }).eq('id', yardItemIdForDel);
+            if (typeof window.updateLocalYardStatus === 'function') window.updateLocalYardStatus(yardItemIdForDel, 'AVAILABLE', undefined, null, 1, null);
+        }
+    }
+
+    if (typeof window.loadYardData === 'function') await window.loadYardData(true);
+
+    await deleteTrip(rowData[0]); // This is trip_id
+
+    // Remove from local cache
+    if (window.currentTrips) {
+        window.currentTrips = window.currentTrips.filter(t => t[0] !== rowData[0]);
+    }
+    if (window.allTripsUnfiltered) {
+        window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => t[0] !== rowData[0]);
+    }
+
+    if (!skipAlertAndReload) {
+        alert("Viaje eliminado");
+        await loadTableData(window.currentTrips);
+    }
+};
+
+window.deleteSelectedOrders = async function() {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role === 'student') {
+        alert("Students cannot delete orders.");
+        return;
+    }
+    
+    if (!window.selectedTripIds || window.selectedTripIds.length === 0) return;
+    
+    if (!confirm(`¿Seguro que quieres borrar ${window.selectedTripIds.length} viaje(s)? Esta acción no se puede deshacer.`)) return;
+    
+    let deletedCount = 0;
+    try {
+        for (const tripId of window.selectedTripIds) {
+            const rowData = window.currentTrips.find(t => t[0] === tripId);
+            if (rowData) {
+                await window.performOrderDeletion(rowData, true);
+                deletedCount++;
+            }
+        }
+        
+        window.selectedTripIds = [];
+        if (window.toggleDeleteSelectedBtn) window.toggleDeleteSelectedBtn();
+        if (window.resetForm) window.resetForm(); // clear form too if it was editing
+        
+        alert(`${deletedCount} viaje(s) eliminado(s)`);
+        await loadTableData(window.currentTrips);
+    } catch (err) {
+        console.error("Error during batch deletion:", err);
+        alert("Error al borrar: " + err.message);
+    }
+};
 
