@@ -186,6 +186,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const isYardSource = containerSource === 'YARD' || containerSource === 'STORAGE';
 
                 const isMoveToYard = document.getElementById('in-move-to-yard')?.checked || false;
+                const isMoveToRentals = document.getElementById('in-move-to-rentals')?.checked || false;
 
                 // --- STOCK LOGIC PREPARATION ---
                 const releasesSource = window.currentReleases || [];
@@ -482,6 +483,62 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 }
 
+                // --- MANUALLY SYNC RENTALS ---
+                if (isMoveToRentals) {
+                    try {
+                        let searchOrder = yardData.origin_release;
+                        let searchCont = yardData.container_no;
+                        
+                        const { data: existingRental } = await db.from('rentals')
+                            .select('id')
+                            .eq('release_no', searchOrder)
+                            .eq('container_no', searchCont)
+                            .limit(1);
+
+                        const calendarDate = document.getElementById('in-date')?.value || new Date().toISOString().split('T')[0];
+                        
+                        const sDate = new Date(calendarDate);
+                        sDate.setMonth(sDate.getMonth() + 1);
+                        const finalDateStr = sDate.toISOString().split('T')[0];
+
+                        const rentalPayload = {
+                            container_no: yardData.container_no,
+                            size: yardData.size,
+                            release_no: yardData.origin_release,
+                            customer_name: yardData.customer_name,
+                            phone: yardData.customer_phone,
+                            delivery_place: document.getElementById('in-delivery')?.value || '---',
+                            start_date: calendarDate,
+                            final_date: finalDateStr,
+                            time_rent: 'monthly',
+                            base_price: 0,
+                            daily_rate: 0,
+                            status: 'ACTIVE',
+                            payment_status: 'PENDING',
+                            notes: yardData.notes
+                        };
+
+                        if (existingRental && existingRental.length > 0) {
+                            const { data: updatedData } = await db.from('rentals').update(rentalPayload).eq('id', existingRental[0].id).select();
+                            if (updatedData && updatedData.length > 0 && window.currentRentals) {
+                                const idx = window.currentRentals.findIndex(r => r.id === updatedData[0].id);
+                                if (idx !== -1) window.currentRentals[idx] = updatedData[0];
+                            }
+                        } else {
+                            const { data: insertedData } = await db.from('rentals').insert([rentalPayload]).select();
+                            if (insertedData && insertedData.length > 0 && window.currentRentals) {
+                                window.currentRentals.unshift(insertedData[0]);
+                            }
+                        }
+
+                        if (typeof window.renderRentalsTable === 'function') {
+                            window.renderRentalsTable();
+                        }
+                    } catch(err) {
+                        console.error('Error syncing with Rentals:', err);
+                    }
+                }
+
                 // --- REFRESH YARD UI ---
                 if (isMoveToYard && typeof window.loadYardData === 'function') await window.loadYardData(true);
 
@@ -649,7 +706,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-flag1', 'in-flag2', 'in-flag3', 'in-yardpaid', 'in-rentpaid',
                 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-yard-cash',
                 'in-rate-cash', 'in-sales-cash', 'in-showtax', 'in-hideamounts', 'in-taxpaid',
-                'in-sendemail', 'in-move-to-yard'
+                'in-sendemail', 'in-move-to-yard', 'in-move-to-rentals'
             ];
             checks.forEach(id => {
                 const el = document.getElementById(id);
@@ -1475,6 +1532,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (document.getElementById('in-flag2')) document.getElementById('in-flag2').checked = isTransChecked;
             if (document.getElementById('in-flag3')) document.getElementById('in-flag3').checked = isSalesChecked;
             if (document.getElementById('in-move-to-yard')) document.getElementById('in-move-to-yard').checked = isToYardChecked;
+            if (document.getElementById('in-move-to-rentals')) document.getElementById('in-move-to-rentals').checked = false;
 
             if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
             const destSel = document.getElementById('in-to-yard-dest');

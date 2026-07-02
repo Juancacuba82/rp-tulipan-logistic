@@ -613,25 +613,35 @@
             const idx = window.currentRentals.findIndex(r => r.id === editingRentalId);
             if (idx !== -1) window.currentRentals[idx] = resultData;
 
-            // Ask for payment method and log to Cash Ledger
-            const methodStr = prompt(`Payment of $${totalAmount} successful!\n\nHow was this payment received?\nEnter 'C' for Cash or 'B' for Bank/Zelle`, "B");
-            let method = 'bank';
-            if (methodStr && methodStr.toUpperCase().trim().startsWith('C')) {
-                method = 'cash';
-            }
-
-            if (window.logCashTransaction) {
-                await window.logCashTransaction({
-                    tipo: 'ingreso',
-                    metodo: method,
-                    monto: totalAmount,
-                    descripcion: `Pago de Renta - ${periods} ${timeRentStr}(s)`,
-                    referencia: `Cont: ${row.container_no || 'N/A'}`,
-                    chofer: row.customer_name || ''
-                });
-            }
+            // Ask for split payment methods and log to Cash Ledger
+            alert(`✅ Rental successfully extended to ${formatDate(newFinalDateStr)}!\nNow, let's register the payment for Cash Ledger.`);
+            const paymentSplit = await showSplitPaymentModal(totalAmount);
             
-            alert(`✅ Payment logged to Cash Ledger! New Expiration Date: ${formatDate(newFinalDateStr)}`);
+            if (paymentSplit && window.logCashTransaction) {
+                if (paymentSplit.cashAmt > 0) {
+                    await window.logCashTransaction({
+                        tipo: 'ingreso',
+                        metodo: 'cash',
+                        monto: paymentSplit.cashAmt,
+                        descripcion: `Pago de Renta - ${periods} ${timeRentStr}(s) [Cash]`,
+                        referencia: `Cont: ${row.container_no || 'N/A'}`,
+                        chofer: row.customer_name || ''
+                    });
+                }
+                if (paymentSplit.bankAmt > 0) {
+                    await window.logCashTransaction({
+                        tipo: 'ingreso',
+                        metodo: 'bank',
+                        monto: paymentSplit.bankAmt,
+                        descripcion: `Pago de Renta - ${periods} ${timeRentStr}(s) [Bank]`,
+                        referencia: `Cont: ${row.container_no || 'N/A'}`,
+                        chofer: row.customer_name || ''
+                    });
+                }
+                alert(`✅ Payment(s) logged to Cash Ledger!`);
+            } else if (!paymentSplit) {
+                alert(`ℹ️ Payment entry skipped. (Expiration date was still updated)`);
+            }
             
             // Reload into form to see updates
             editRental(idx);
@@ -641,6 +651,83 @@
             alert("Error registering payment: " + err.message);
         }
     };
+
+    function showSplitPaymentModal(totalAmount) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0'; overlay.style.left = '0';
+            overlay.style.width = '100vw'; overlay.style.height = '100vh';
+            overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '999999';
+
+            const modal = document.createElement('div');
+            modal.style.backgroundColor = 'white';
+            modal.style.padding = '25px';
+            modal.style.borderRadius = '12px';
+            modal.style.width = '350px';
+            modal.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.2)';
+            modal.style.borderTop = '5px solid #10b981';
+            modal.style.fontFamily = 'Montserrat, sans-serif';
+
+            modal.innerHTML = `
+                <h3 style="margin-top:0; color:#1e293b; font-size:18px;">Payment Split</h3>
+                <p style="font-size:14px; color:#475569; margin-bottom:15px;">Total to pay: <strong style="color:#0f172a;">$${totalAmount.toFixed(2)}</strong></p>
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; font-size:12px; font-weight:bold; color:#64748b; margin-bottom:4px;">Cash Amount ($)</label>
+                    <input type="number" id="split-cash" value="${totalAmount.toFixed(2)}" step="0.01" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-size:12px; font-weight:bold; color:#64748b; margin-bottom:4px;">Bank/Zelle Amount ($)</label>
+                    <input type="number" id="split-bank" value="0.00" step="0.01" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button id="split-cancel" style="padding:8px 16px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Cancel</button>
+                    <button id="split-confirm" style="padding:8px 16px; background:#10b981; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Confirm Payment</button>
+                </div>
+            `;
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            const cashInput = modal.querySelector('#split-cash');
+            const bankInput = modal.querySelector('#split-bank');
+
+            cashInput.addEventListener('input', () => {
+                let c = parseFloat(cashInput.value) || 0;
+                if (c > totalAmount) { c = totalAmount; cashInput.value = c.toFixed(2); }
+                if (c < 0) { c = 0; cashInput.value = c.toFixed(2); }
+                bankInput.value = (totalAmount - c).toFixed(2);
+            });
+
+            bankInput.addEventListener('input', () => {
+                let b = parseFloat(bankInput.value) || 0;
+                if (b > totalAmount) { b = totalAmount; bankInput.value = b.toFixed(2); }
+                if (b < 0) { b = 0; bankInput.value = b.toFixed(2); }
+                cashInput.value = (totalAmount - b).toFixed(2);
+            });
+
+            modal.querySelector('#split-cancel').addEventListener('click', () => {
+                document.body.removeChild(overlay);
+                resolve(null);
+            });
+
+            modal.querySelector('#split-confirm').addEventListener('click', () => {
+                const finalCash = parseFloat(cashInput.value) || 0;
+                const finalBank = parseFloat(bankInput.value) || 0;
+                if (Math.abs(finalCash + finalBank - totalAmount) > 0.05) {
+                    alert('The amounts do not sum up to the total.');
+                    return;
+                }
+                document.body.removeChild(overlay);
+                resolve({ cashAmt: finalCash, bankAmt: finalBank });
+            });
+        });
+    }
+
 
     window.renderRentalsTable = renderRentalsTable;
     window.loadRentalsData = loadRentalsData;

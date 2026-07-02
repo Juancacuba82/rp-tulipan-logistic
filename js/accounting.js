@@ -50,14 +50,14 @@
                 chofer: data.chofer || ''
             };
 
-            const { error } = await window.db.from('cash_ledger').insert([entry]);
+            const { data, error } = await window.db.from('cash_ledger').insert([entry]).select();
             if (error) {
                 console.warn('[Accounting] logCashTransaction error (non-fatal):', error.message);
-            } else {
+            } else if (data && data.length > 0) {
                 console.log('[Accounting] Transaction logged to cash_ledger:', entry.descripcion, entry.monto);
-                const view = document.getElementById('accounting-view');
-                if (view && view.style.display !== 'none') {
-                    loadAccountingData(true);
+                allTransactions.unshift(data[0]); // Agregar a la memoria local sin recargar DB
+                if (typeof renderAccountingTable === 'function') {
+                    renderAccountingTable();
                 }
             }
         } catch (err) {

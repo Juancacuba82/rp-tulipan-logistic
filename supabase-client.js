@@ -313,8 +313,11 @@ async function updateRentalsBatch(ids, updateData) {
 
 async function deleteRental(id) {
     if (!checkStudentPermission('rentals', 'delete')) return;
-    const { error } = await db.from('rentals').delete().eq('id', id);
+    const { error, data } = await db.from('rentals').delete().eq('id', id).select();
     if (error) { console.error('Error deleting rental:', error); throw error; }
+    if (!data || data.length === 0) {
+        throw new Error("El registro no se pudo eliminar en la base de datos (0 filas afectadas). Esto puede deberse a un problema de permisos en Supabase o a que el registro ya no existe.");
+    }
 }
 
 // MIGRATION TOOL: Help move data from LocalStorage to Supabase
