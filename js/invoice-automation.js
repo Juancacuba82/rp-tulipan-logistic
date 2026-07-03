@@ -258,7 +258,7 @@
             try {
                 await sendInvoiceForRow(row, 'auto-reminder');
                 console.log(`[AutoInvoice] ✅ Reminder sent for order ${row[5]} (${daysSince} days since last)`);
-                await new Promise(r => setTimeout(r, 1500));
+                await new Promise(r => setTimeout(r, 180000)); // 3 minute delay between sends to prevent UI freezing
             } catch (err) {
                 console.warn(`[AutoInvoice] ⚠️ Could not send reminder for order ${row[5]}:`, err);
             }
@@ -536,6 +536,7 @@
         //     console.warn('[AutoInvoice] autoSendNewCompleteInvoices error:', err);
         // }
 
+        // --- AUTOMATIC REMINDERS: SLOW DRIP MODE ---
         try {
             await window.checkAndSendInvoiceReminders();
         } catch (err) {

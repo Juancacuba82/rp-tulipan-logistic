@@ -4370,19 +4370,7 @@
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-calendar-check" style="color: #ef4444;"></i> EXIT DATE</label>
-                            <input type="date" id="yard-exit-date" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;" onchange="if(window.toggleYardPaymentMethod) window.toggleYardPaymentMethod()">
-                        </div>
-                        <div class="form-group" id="yard-pay-method-group" style="display: none;">
-                            <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-money-check-alt" style="color: #10b981;"></i> PAYMENT METHOD</label>
-                            <select id="yard-pay-method" class="form-select" style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;" onchange="if(window.toggleYardSplitMethod) window.toggleYardSplitMethod()">
-                                <option value="BANK" selected>BANK</option>
-                                <option value="CASH">CASH</option>
-                                <option value="SPLIT">SPLIT</option>
-                            </select>
-                            <div id="yard-split-amounts" style="display: none; gap: 8px; margin-top: 8px;">
-                                <input type="number" id="yard-cash-amt" placeholder="Cash $" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 50%;">
-                                <input type="number" id="yard-bank-amt" placeholder="Bank $" min="0" step="0.01" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 50%;">
-                            </div>
+                            <input type="date" id="yard-exit-date" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;"><i class="fas fa-truck-loading" style="color: #3b82f6;"></i> LIFTS</label>
@@ -4539,6 +4527,12 @@
                                         style="display: none; align-items: center; justify-content: center; background: #3b82f6; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(59,130,246,0.2); font-size: 0.85rem; height: 38px;">
                                         <i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Statement
                                     </button>
+                                    
+                                    <!-- Monthly Billing Button -->
+                                    <button id="btn-monthly-closing-yard" onclick="openMonthlyClosingModal('YARD')" 
+                                        style="display: flex; align-items: center; justify-content: center; background: #f59e0b; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(245,158,11,0.2); font-size: 0.85rem; height: 38px;">
+                                        <i class="fas fa-calendar-check" style="margin-right: 8px;"></i> Cierre Mensual
+                                    </button>
 
                                     <!-- Refresh Button -->
                                     <button onclick="loadYardData(true)" class="btn-refresh-modern" 
@@ -4673,6 +4667,12 @@
                                         <i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Statement
                                     </button>
 
+                                    <!-- Monthly Billing Button -->
+                                    <button id="btn-monthly-closing-storage" onclick="openMonthlyClosingModal('STORAGE')" 
+                                        style="display: flex; align-items: center; justify-content: center; background: #f59e0b; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(245,158,11,0.2); font-size: 0.85rem; height: 38px;">
+                                        <i class="fas fa-calendar-check" style="margin-right: 8px;"></i> Cierre Mensual
+                                    </button>
+
                                     <!-- Spacer element to align heights -->
                                     <div style="width: 38px; height: 38px;"></div>
                                 </div>
@@ -4801,6 +4801,12 @@
                                     <button id="btn-global-invoice-both" onclick="sendGlobalYardInvoice('BOTH')" 
                                         style="display: none; align-items: center; justify-content: center; background: #8b5cf6; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(139,92,246,0.2); font-size: 0.85rem; height: 38px;">
                                         <i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Global Statement
+                                    </button>
+                                    
+                                    <!-- Monthly Billing Button -->
+                                    <button id="btn-monthly-closing-both" onclick="openMonthlyClosingModal('BOTH')" 
+                                        style="display: flex; align-items: center; justify-content: center; background: #f59e0b; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(245,158,11,0.2); font-size: 0.85rem; height: 38px;">
+                                        <i class="fas fa-calendar-check" style="margin-right: 8px;"></i> Cierre Mensual
                                     </button>
 
                                     <!-- Spacer element to align heights -->
@@ -5552,6 +5558,12 @@
                 s.classList.add('hidden');
                 s.style.setProperty('display', 'none', 'important');
             });
+            
+            // Close yard modals if switching views
+            const yardModal = document.getElementById('yard-monthly-closing-modal');
+            if (yardModal) yardModal.style.display = 'none';
+            const historyModal = document.getElementById('yard-billing-history-modal');
+            if (historyModal) historyModal.style.display = 'none';
 
             // 3. Resolve target ID
             const targetId = finalView.endsWith('-view') ? finalView : finalView + '-view';
@@ -7209,6 +7221,103 @@
         </section>
     <!-- Add New Yard Customer Modal -->
     <!-- add-yard-customer-modal removed -->
+
+    <!-- Yard Monthly Closing Modal -->
+    <div id="yard-monthly-closing-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; width: 95%;">
+            <span class="close" onclick="document.getElementById('yard-monthly-closing-modal').style.display='none'">&times;</span>
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                <i class="fas fa-calendar-check" style="font-size: 1.8rem; color: #f59e0b; margin-right: 15px;"></i>
+                <h2 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 1.5rem;">Cierre Mensual de Yard Stock</h2>
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Cliente (Obligatorio)</label>
+                    <select id="monthly-closing-customer" onchange="previewMonthlyClosing()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-weight: 600;">
+                        <option value="">Selecciona Cliente...</option>
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Fecha de Cierre (Fin de mes)</label>
+                    <input type="date" id="monthly-closing-date" onchange="previewMonthlyClosing()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-weight: 600;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Método de Pago</label>
+                    <select id="monthly-closing-payment-method" onchange="toggleMonthlyClosingSplit()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-weight: 600;">
+                        <option value="bank">Banco (Zelle/Transfer)</option>
+                        <option value="cash">Efectivo (Cash)</option>
+                        <option value="split">Split (Dividido)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="monthly-closing-split-fields" style="display: none; gap: 15px; margin-bottom: 20px; background: #fffbeb; padding: 15px; border-radius: 12px; border: 1px solid #fde68a;">
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #b45309; margin-bottom: 5px;">Monto Cash ($)</label>
+                    <input type="number" id="monthly-closing-split-cash" placeholder="0.00" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #fcd34d; outline: none; font-weight: 600;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #b45309; margin-bottom: 5px;">Monto Bank ($)</label>
+                    <input type="number" id="monthly-closing-split-bank" placeholder="0.00" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #fcd34d; outline: none; font-weight: 600;">
+                </div>
+            </div>
+
+            <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 20px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Contenedor</th>
+                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Periodo a Cobrar</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #cbd5e1;">Días</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #cbd5e1;">Lifts</th>
+                            <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Subtotal ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthly-closing-preview-body">
+                        <tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Selecciona un cliente y fecha para previsualizar.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                <div style="font-size: 1.2rem; font-weight: 900; color: #0f172a;">Total a Facturar: $<span id="monthly-closing-total">0.00</span></div>
+                <button id="btn-process-monthly-closing" onclick="processMonthlyClosing()" disabled style="background: #10b981; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: all 0.3s ease;">
+                    <i class="fas fa-check-circle" style="margin-right: 8px;"></i> Procesar y Facturar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yard Billing History Modal -->
+    <div id="yard-billing-history-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px; width: 95%;">
+            <span class="close" onclick="document.getElementById('yard-billing-history-modal').style.display='none'">&times;</span>
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                <i class="fas fa-receipt" style="font-size: 1.8rem; color: #3b82f6; margin-right: 15px;"></i>
+                <h2 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 1.5rem;">Historial de Cobros</h2>
+            </div>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                <p style="margin: 0; font-weight: 700; color: #475569;">Contenedor: <span id="history-container-no" style="color: #0f172a; font-size: 1.1rem;">---</span></p>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead style="background: #f1f5f9; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Periodo</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #cbd5e1;">Días</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #cbd5e1;">Lifts</th>
+                            <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Monto ($)</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #cbd5e1;">Fecha Emisión</th>
+                        </tr>
+                    </thead>
+                    <tbody id="billing-history-body">
+                        <tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Cargando historial...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
