@@ -2,15 +2,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
 (function () {
     let currentYardStock = [];
+    window.getYardStockData = () => currentYardStock;
     let editingYardId = null;
 
-    
+
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.showView === 'function') {
             const originalShowView = window.showView;
-            window.showView = function(viewId) {
+            window.showView = function (viewId) {
                 originalShowView(viewId);
                 if (viewId === 'yard') {
                     loadYardData(false);
@@ -22,7 +23,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     // --- DATA LOADING ---
     async function loadYardData(force = false) {
         if (!window.db) return;
-        
+
         if (!force && currentYardStock && currentYardStock.length > 0) {
             renderYardTable();
             renderStorageTable();
@@ -30,7 +31,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
             return;
         }
-        
+
         try {
             const { data, error } = await window.db
                 .from('yard_stock')
@@ -38,7 +39,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            
+
             currentYardStock = data || [];
             if (window.populateYardCustomerSelect) await window.populateYardCustomerSelect();
             if (window.updateYardCustomerFilters) window.updateYardCustomerFilters();
@@ -52,6 +53,80 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
     window.loadYardData = loadYardData;
 
+    window.calculateDynamicYardCosts = function(item, dateFrom, dateTo) {
+        const entryDate = new Date(item.created_at || new Date());
+        const billingStartDate = item.last_billed_date ? new Date(item.last_billed_date) : entryDate;
+        const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
+        
+        let calcStart = billingStartDate;
+        let calcEnd = endDate;
+
+        if (dateFrom || dateTo) {
+            if (dateFrom) {
+                const fFromDate = new Date(dateFrom + 'T12:00:00');
+                if (calcStart < fFromDate) calcStart = fFromDate;
+            }
+            if (dateTo) {
+                const fToDate = new Date(dateTo + 'T23:59:59');
+                if (calcEnd > fToDate) calcEnd = fToDate;
+            }
+        }
+
+        const d1 = Date.UTC(calcStart.getFullYear(), calcStart.getMonth(), calcStart.getDate());
+        const d2 = Date.UTC(calcEnd.getFullYear(), calcEnd.getMonth(), calcEnd.getDate());
+        let days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+        if (isNaN(days)) days = 0;
+        
+        const accumStorage = (parseFloat(item.daily_rate) || 0) * days;
+        
+        let billedLiftsDisplay = 0;
+        let liftCost = 0;
+        
+        if (dateFrom || dateTo) {
+            let periodLifts = 0;
+            const eStr = item.created_at ? item.created_at.split('T')[0] : '';
+            const xStr = item.exit_date ? item.exit_date.split('T')[0] : '';
+            
+            if (eStr && (!dateFrom || eStr >= dateFrom) && (!dateTo || eStr <= dateTo)) periodLifts++;
+            if (xStr && (!dateFrom || xStr >= dateFrom) && (!dateTo || xStr <= dateTo)) periodLifts++;
+            
+            periodLifts = Math.min(periodLifts, (parseInt(item.lifts) || 1));
+            billedLiftsDisplay = periodLifts;
+            liftCost = periodLifts * (parseFloat(item.lift_cost) || 0);
+        } else {
+            const billedLifts = parseInt(item.billed_lifts) || 0;
+            const totalLifts = parseInt(item.lifts) || 1;
+            const unbilledLifts = Math.max(0, totalLifts - billedLifts);
+            billedLiftsDisplay = unbilledLifts;
+            liftCost = unbilledLifts * (parseFloat(item.lift_cost) || 0);
+        }
+        
+        const totalCost = accumStorage + liftCost;
+
+        return {
+            days,
+            accumStorage,
+            lifts: billedLiftsDisplay,
+            liftCost,
+            totalCost
+        };
+    };
+
+    window.checkYardDateMatch = function(item, dateFrom, dateTo) {
+        if (!dateFrom && !dateTo) return true;
+        
+        const eStr = item.created_at ? item.created_at.split('T')[0] : '';
+        const xStr = item.exit_date ? item.exit_date.split('T')[0] : '2099-12-31';
+        
+        const fFrom = dateFrom || '2000-01-01';
+        const fTo = dateTo || '2099-12-31';
+        
+        if (eStr <= fTo && xStr >= fFrom) {
+            return true;
+        }
+        return false;
+    };
+
     function renderYardTable() {
         const body = document.getElementById('yard-body');
         const countEl = document.getElementById('yard-total-count');
@@ -63,7 +138,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const customerFilter = document.getElementById('yf-customer')?.value || '';
         const dateFrom = document.getElementById('yf-date-from')?.value || '';
         const dateTo = document.getElementById('yf-date-to')?.value || '';
-        
+
         const globalInvBtn = document.getElementById('btn-global-invoice-yard');
         if (globalInvBtn) {
             globalInvBtn.style.display = customerFilter ? 'flex' : 'none';
@@ -72,23 +147,18 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
             if (isStorage) return false; // Left table is only RPTulipan Yard
-            
-            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
-                               (item.origin_release || '').toLowerCase().includes(searchTerm);
+
+            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) ||
+                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
-            
+
             let matchStatus = true;
             // if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
             // else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
-            
-            let matchDate = true;
-            if (dateFrom || dateTo) {
-                const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
-                if (dateFrom && itemDate < dateFrom) matchDate = false;
-                if (dateTo && itemDate > dateTo) matchDate = false;
-            }
-            
+
+            let matchDate = window.checkYardDateMatch(item, dateFrom, dateTo);
+
             return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
         });
 
@@ -127,7 +197,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             tr.onclick = (e) => {
                 // Ignore if clicking action buttons
                 if (e.target.closest('.btn-manage-inline')) return;
-                
+
                 if (editingYardId === item.id) {
                     resetYardForm();
                 } else {
@@ -135,23 +205,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 }
             };
 
-            const entryDate = new Date(item.created_at || new Date());
-            const billingStartDate = item.last_billed_date ? new Date(item.last_billed_date) : entryDate;
-            const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
-            const d1 = Date.UTC(billingStartDate.getFullYear(), billingStartDate.getMonth(), billingStartDate.getDate());
-            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-            const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-            const accumStorage = (item.daily_rate || 0) * days;
-            
-            const billedLifts = item.billed_lifts || 0;
-            const totalLifts = item.lifts || 1;
-            const unbilledLifts = Math.max(0, totalLifts - billedLifts);
-            
-            const totalCost = accumStorage + (unbilledLifts * (item.lift_cost || 0));
+            const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
 
-            const tooltipTitle = item.exit_date 
-                ? `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
-                : `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
+            const tooltipTitle = item.exit_date
+                ? `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
+                : `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
 
             const containerNoDisplay = `${item.container_no || '---'}`;
 
@@ -166,11 +224,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 0)).toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.days}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.accumStorage.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.liftCost.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${costs.totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
@@ -214,22 +272,17 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const filtered = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
             if (!isStorage) return false; // Right table is only Storage Yard
-            
-            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
-                               (item.origin_release || '').toLowerCase().includes(searchTerm);
+
+            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) ||
+                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
-            
+
             let matchStatus = true;
             // if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
             // else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
 
-            let matchDate = true;
-            if (dateFrom || dateTo) {
-                const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
-                if (dateFrom && itemDate < dateFrom) matchDate = false;
-                if (dateTo && itemDate > dateTo) matchDate = false;
-            }
+            let matchDate = window.checkYardDateMatch(item, dateFrom, dateTo);
 
             return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
         });
@@ -283,23 +336,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 }
             };
 
-            const entryDate = new Date(item.created_at || new Date());
-            const billingStartDate = item.last_billed_date ? new Date(item.last_billed_date) : entryDate;
-            const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
-            const d1 = Date.UTC(billingStartDate.getFullYear(), billingStartDate.getMonth(), billingStartDate.getDate());
-            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-            const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-            const accumStorage = (item.daily_rate || 0) * days;
-            
-            const billedLifts = item.billed_lifts || 0;
-            const totalLifts = item.lifts || 1;
-            const unbilledLifts = Math.max(0, totalLifts - billedLifts);
-            
-            const totalCost = accumStorage + (unbilledLifts * (item.lift_cost || 0));
+            const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
 
-            const tooltipTitle = item.exit_date 
-                ? `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
-                : `Daily: $${(item.daily_rate || 0).toFixed(2)}/day ($${accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
+            const tooltipTitle = item.exit_date
+                ? `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
+                : `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
 
             const containerNoDisplay = `${item.container_no || '---'}`;
 
@@ -314,11 +355,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 0)).toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.days}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.accumStorage.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.liftCost.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${costs.totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
@@ -360,21 +401,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
 
         const filtered = currentYardStock.filter(item => {
-            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) || 
-                               (item.origin_release || '').toLowerCase().includes(searchTerm);
+            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) ||
+                (item.origin_release || '').toLowerCase().includes(searchTerm);
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
-            
+
             let matchStatus = true;
             // if (statusFilter === 'ACTIVE') matchStatus = item.status !== 'SOLD';
             // else if (statusFilter === 'INACTIVE') matchStatus = item.status === 'SOLD';
 
-            let matchDate = true;
-            if (dateFrom || dateTo) {
-                const itemDate = item.created_at ? item.created_at.split('T')[0] : '';
-                if (dateFrom && itemDate < dateFrom) matchDate = false;
-                if (dateTo && itemDate > dateTo) matchDate = false;
-            }
+            let matchDate = window.checkYardDateMatch(item, dateFrom, dateTo);
 
             return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
         });
@@ -404,7 +440,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
             const isExited = item.status === 'SOLD';
             const baseBgColor = isStorage ? '#f0fdf4' : '#eff6ff'; // Light green for storage, light blue for rptulipan
-            
+
             const applyStyle = (isHover) => {
                 if (isSelected) {
                     tr.style.backgroundColor = '#e0f2fe';
@@ -431,23 +467,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 }
             };
 
-            const entryDate = new Date(item.created_at || new Date());
-            const billingStartDate = item.last_billed_date ? new Date(item.last_billed_date) : entryDate;
-            const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
-            const d1 = Date.UTC(billingStartDate.getFullYear(), billingStartDate.getMonth(), billingStartDate.getDate());
-            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-            const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-            const accumStorage = (item.daily_rate || 0) * days;
-            
-            const billedLifts = item.billed_lifts || 0;
-            const totalLifts = item.lifts || 1;
-            const unbilledLifts = Math.max(0, totalLifts - billedLifts);
-            
-            const totalCost = accumStorage + (unbilledLifts * (item.lift_cost || 0));
+            const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
 
             const containerNoDisplay = `${item.container_no || '---'}`;
 
-            const yardBadge = isStorage 
+            const yardBadge = isStorage
                 ? `<span style="font-size: 0.7rem; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;">STORAGE</span>`
                 : `<span style="font-size: 0.7rem; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe;">RPTULIPAN</span>`;
 
@@ -463,11 +487,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${(item.lifts || 1)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${days}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${accumStorage.toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${((item.lifts || 1) * (item.lift_cost || 0)).toFixed(2)}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${totalCost.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.days}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.accumStorage.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.liftCost.toFixed(2)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 900; color: #10b981;">${costs.totalCost.toFixed(2)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${item.customer_name || '---'}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${window.formatUSPhone ? window.formatUSPhone(item.customer_phone || '') : (item.customer_phone || '---')}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.75rem; color: #475569; max-width: 250px;">${(item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '---'}</td>
@@ -491,7 +515,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
     window.renderBothTable = renderBothTable;
 
-    window.toggleYardPaymentMethod = function() {
+    window.toggleYardPaymentMethod = function () {
         const exitDate = document.getElementById('yard-exit-date').value;
         const group = document.getElementById('yard-pay-method-group');
         if (exitDate) {
@@ -502,7 +526,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         window.toggleYardSplitMethod();
     };
 
-    window.toggleYardSplitMethod = function() {
+    window.toggleYardSplitMethod = function () {
         const method = document.getElementById('yard-pay-method').value;
         const splitGroup = document.getElementById('yard-split-amounts');
         if (method === 'SPLIT') {
@@ -515,7 +539,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     };
 
     // --- ACTIONS ---
-    window.saveYardContainer = async function() {
+    window.saveYardContainer = async function () {
         const containerNo = document.getElementById('yard-container-no').value.trim();
         const size = document.getElementById('yard-size').value;
         const type = document.getElementById('yard-type').value;
@@ -596,7 +620,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.sendYardInvoice = async function(id) {
+    window.sendYardInvoice = async function (id) {
         const item = currentYardStock.find(i => i.id === id);
         if (!item) return;
 
@@ -625,7 +649,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         // We assume we might need an email address, but we might just use a placeholder if not present
         // If there's an email field we could use it, for now we will prompt the user for the email
         const emailRaw = prompt("Please enter the customer's email address to send the invoice:", "");
-        if (!emailRaw || !emailRaw.trim()) return; 
+        if (!emailRaw || !emailRaw.trim()) return;
         const email = emailRaw.trim();
 
         const btn = document.activeElement;
@@ -652,7 +676,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             };
 
             await emailjs.send(serviceId, templateId, templateParams);
-            
+
             if (window.showToast) window.showToast('Invoice sent successfully!', 'success');
             else alert('Invoice sent successfully!');
 
@@ -665,11 +689,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    async function generateYardInvoiceBase64(htmlContent, customerName) {
+    window.generateYardInvoiceBase64 = async function (htmlContent, customerName) {
         const { jsPDF } = window.jspdf;
         const container = document.createElement('div');
         container.style.cssText = 'position:fixed;left:-9999px;top:0;width:280mm;background:white;padding:20px;';
-        
+
         container.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:15px;margin-bottom:20px;font-family:Arial,sans-serif;">
                 <div>
@@ -724,12 +748,25 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     }
 
-    window.sendGlobalYardInvoice = async function(tableType = 'YARD') {
+    window.sendGlobalYardInvoice = async function (tableType = 'YARD') {
         let customerFilter = '';
-        if (tableType === 'YARD') customerFilter = document.getElementById('yf-customer')?.value || '';
-        else if (tableType === 'STORAGE') customerFilter = document.getElementById('sf-customer')?.value || '';
-        else if (tableType === 'BOTH') customerFilter = document.getElementById('both-customer')?.value || '';
+        let dateFrom = '';
+        let dateTo = '';
         
+        if (tableType === 'YARD') {
+            customerFilter = document.getElementById('yf-customer')?.value || '';
+            dateFrom = document.getElementById('yf-date-from')?.value || '';
+            dateTo = document.getElementById('yf-date-to')?.value || '';
+        } else if (tableType === 'STORAGE') {
+            customerFilter = document.getElementById('sf-customer')?.value || '';
+            dateFrom = document.getElementById('sf-date-from')?.value || '';
+            dateTo = document.getElementById('sf-date-to')?.value || '';
+        } else if (tableType === 'BOTH') {
+            customerFilter = document.getElementById('both-customer')?.value || '';
+            dateFrom = document.getElementById('both-date-from')?.value || '';
+            dateTo = document.getElementById('both-date-to')?.value || '';
+        }
+
         if (!customerFilter) {
             alert('Please select a Customer from the filter first.');
             return;
@@ -740,12 +777,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (tableType === 'YARD' && isStorage) return false;
             if (tableType === 'STORAGE' && !isStorage) return false;
             if (item.customer_name !== customerFilter) return false;
-            
-            // Apply other filters if necessary, but generally we want to invoice what's currently shown
-            // const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
-            // if (statusFilter === 'ACTIVE' && item.status === 'SOLD') return false;
-            // if (statusFilter === 'INACTIVE' && item.status !== 'SOLD') return false;
-            
+
+            let matchDate = window.checkYardDateMatch(item, dateFrom, dateTo);
+            if (!matchDate) return false;
+
             return true;
         });
 
@@ -777,7 +812,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             }
         } else {
             const emailRaw = prompt("No email saved for this customer. Please enter an email address manually:", "");
-            if (!emailRaw || !emailRaw.trim()) return; 
+            if (!emailRaw || !emailRaw.trim()) return;
             email = emailRaw.trim();
         }
 
@@ -793,92 +828,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         try {
             emailjs.init(publicKey);
 
-            let invoiceHtml = `
-            <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; margin-bottom: 20px; font-size: 11px;">
-                <thead>
-                    <tr style="background-color: #f1f5f9; color: #0f172a;">
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">N&deg; CONT</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">SIZE</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">TYPE</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">CONDITION</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE IN</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# IN</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE OUT</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# OUT</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">LIFTS</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">DAYS</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">DAYS COST</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">LIFTS COST</th>
-                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-            `;
+            const { html: invoiceHtml, total: grandTotal } = window.generateYardInvoiceHTML(filtered, dateFrom, dateTo);
 
-            let grandTotal = 0;
-            let sumDaysCost = 0;
-            let sumLiftsCost = 0;
 
-            filtered.forEach(item => {
-                const entryDate = new Date(item.created_at);
-                const exitDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
-                const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-                const d2 = Date.UTC(exitDate.getFullYear(), exitDate.getMonth(), exitDate.getDate());
-                const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-                
-                const accumStorage = (item.daily_rate || 0) * days;
-                const liftCost = ((item.lifts || 1) * (item.lift_cost || 0));
-                const totalCost = accumStorage + liftCost;
-
-                grandTotal += totalCost;
-                sumDaysCost += accumStorage;
-                sumLiftsCost += liftCost;
-
-                invoiceHtml += `
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: ${item.exit_date ? '#64748b' : '#1e40af'};">${item.container_no || '---'}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.size || '---'}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.type || 'DRY'}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.condition || 'USED'}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${window.formatDateMMDDYYYY(item.created_at)}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.origin_release || '---'}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.order_out || '---'}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${(item.lifts || 1)}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${days}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${accumStorage.toFixed(2)}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${liftCost.toFixed(2)}</td>
-                        <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: #10b981;">${totalCost.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-
-            invoiceHtml += `
-                </tbody>
-            </table>
-
-            <table style="width: 250px; margin-left: auto; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px;">
-                <tr>
-                    <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3; color: #000;">DAYS COST</td>
-                    <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; color: #000;">$${sumDaysCost.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3; color: #000;">LIFTS COST</td>
-                    <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; color: #000;">$${sumLiftsCost.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3; color: #000;">TOTAL</td>
-                    <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; color: #000;">$${grandTotal.toFixed(2)}</td>
-                </tr>
-            </table>
-
-            <div style="margin-top: 20px; text-align: right; font-family: Arial, sans-serif; font-size: 14px; color: #000;">
-                <span style="font-weight: bold; background-color: #fcece3; padding: 6px 10px; border: 1px solid #cbd5e1; display: inline-block;">TOTAL INVOICE</span>
-                <span style="font-weight: bold; font-size: 16px; margin-left: 10px;">$${grandTotal.toFixed(2)}</span>
-            </div>
-            `;
-
-            const b64Pdf = await generateYardInvoiceBase64(invoiceHtml, customerFilter);
+            const b64Pdf = await window.generateYardInvoiceBase64(invoiceHtml, customerFilter);
 
             const templateParams = {
                 to_email: email,
@@ -889,7 +842,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             };
 
             await emailjs.send(serviceId, templateId, templateParams);
-            
+
             if (window.showToast) window.showToast('Global Invoice sent successfully!', 'success');
             else alert('Global Invoice sent successfully!');
 
@@ -902,7 +855,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.editYardItem = function(id) {
+    window.editYardItem = function (id) {
         const item = currentYardStock.find(i => i.id === id);
         if (!item) return;
 
@@ -912,7 +865,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         document.getElementById('yard-type').value = item.type || 'DRY';
         document.getElementById('yard-condition').value = item.condition || 'USED';
         document.getElementById('yard-origin').value = item.origin_release || '';
-        
+
         const selC = document.getElementById('yard-customer-sel');
         const inpC = document.getElementById('yard-customer');
         if (selC && inpC) {
@@ -921,7 +874,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
         const phoneInp = document.getElementById('yard-phone');
         if (phoneInp) phoneInp.value = item.customer_phone || '';
-        
+
         // Parse notes and prices
         const isStorage = (item.notes || '').includes('[Storage Yard]');
         if (document.getElementById('yard-dest-select')) {
@@ -929,20 +882,20 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
         document.getElementById('yard-daily-rate').value = (item.daily_rate || 0) > 0 ? (item.daily_rate || 0) : '';
         document.getElementById('yard-exit-date').value = item.exit_date || '';
-        
+
         if (document.getElementById('yard-order-out')) document.getElementById('yard-order-out').value = item.order_out || '';
         if (document.getElementById('yard-lifts')) document.getElementById('yard-lifts').value = (item.lifts || 1) !== undefined ? (item.lifts || 1) : 1;
         if (document.getElementById('yard-lift-cost')) document.getElementById('yard-lift-cost').value = (item.lift_cost !== undefined) ? item.lift_cost : 0.00;
-        
+
         document.getElementById('yard-note').value = (item.notes ? item.notes.replace(/^YARD_ITEM/, '').replace(/^STORAGE_ITEM/, '').trim() : '') || '';
 
         // Fetch Cash Ledger info if it has an exit_date
         if (item.exit_date) {
-            window.db.from('cash_ledger').select('metodo, monto').like('id', `${item.id}-y%`).then(({data}) => {
+            window.db.from('cash_ledger').select('metodo, monto').like('id', `${item.id}-y%`).then(({ data }) => {
                 const payMethodEl = document.getElementById('yard-pay-method');
                 const cashAmtEl = document.getElementById('yard-cash-amt');
                 const bankAmtEl = document.getElementById('yard-bank-amt');
-                
+
                 if (data && data.length > 0) {
                     if (data.length === 1) {
                         payMethodEl.value = data[0].metodo === 'cash' ? 'CASH' : 'BANK';
@@ -956,11 +909,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 } else {
                     payMethodEl.value = 'BANK';
                 }
-                if(window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
+                if (window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
             });
         } else {
             document.getElementById('yard-pay-method').value = 'BANK';
-            if(window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
+            if (window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
         }
 
         document.getElementById('modal-title-yard').textContent = 'Edit Yard Container';
@@ -985,15 +938,15 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (window.renderBothTable) window.renderBothTable();
     };
 
-    window.deleteYardItem = async function(id) {
+    window.deleteYardItem = async function (id) {
         if (!confirm("Are you sure you want to remove this container from the yard?")) return;
         try {
             const { error } = await window.db.from('yard_stock').delete().eq('id', id);
             if (error) throw error;
-            
+
             // Local-first removal
             currentYardStock = currentYardStock.filter(item => item.id !== id);
-            
+
             if (editingYardId === id) resetYardForm();
             loadYardData(false);
         } catch (err) {
@@ -1013,7 +966,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const orderOut = document.getElementById('yard-order-out');
         const lifts = document.getElementById('yard-lifts');
         const liftCost = document.getElementById('yard-lift-cost');
-        
+
         if (cno) cno.value = '';
         if (org) org.value = '';
         if (nte) nte.value = '';
@@ -1023,7 +976,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (orderOut) orderOut.value = '';
         if (lifts) lifts.value = '1';
         if (liftCost) liftCost.value = '0.00';
-        
+
         const selC = document.getElementById('yard-customer-sel');
         const inpC = document.getElementById('yard-customer');
         if (selC && inpC) {
@@ -1039,7 +992,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const dd = String(today.getDate()).padStart(2, '0');
             dtf.value = `${yyyy}-${mm}-${dd}`;
         }
-        
+
         const btn = document.getElementById('btn-save-yard');
         if (btn) {
             btn.textContent = "SAVE TO YARD";
@@ -1061,10 +1014,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
 
         const currentVal = sel.value;
-        sel.innerHTML = filterType === 'STORAGE' 
+        sel.innerHTML = filterType === 'STORAGE'
             ? '<option value="" disabled selected>Select Container in Storage...</option>'
             : '<option value="" disabled selected>Select Container in Yard...</option>';
-        
+
         currentYardStock.filter(i => {
             const isStorage = (i.notes || '').includes('[Storage Yard]');
             const matchYard = filterType === 'STORAGE' ? isStorage : !isStorage;
@@ -1083,12 +1036,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
     window.updateYardSelectors = updateYardSelectors;
 
-    window.isYardItemInStorage = function(itemId) {
+    window.isYardItemInStorage = function (itemId) {
         const item = currentYardStock.find(i => i.id === itemId);
         return item ? (item.notes || '').includes('[Storage Yard]') : false;
     };
 
-    window.setContainerSource = function(source) {
+    window.setContainerSource = function (source) {
         document.getElementById('in-container-source').value = source;
         const releaseGroup = document.getElementById('release-group-container');
         const yardGroup = document.getElementById('yard-group-container');
@@ -1125,11 +1078,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             yardGroup.style.display = 'block';
             const deductGroup = document.getElementById('deduct-stock-group');
             if (deductGroup) deductGroup.style.display = 'none';
-            
+
             // Load and update selectors based on source (YARD or STORAGE)
             loadYardData().then(() => {
                 updateYardSelectors(source);
-                
+
                 const yardItemId = document.getElementById('in-yard-item-id')?.value;
                 if (yardItemId) {
                     const sel = document.getElementById('in-yard-stock-sel');
@@ -1139,7 +1092,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.autoPopulateFromYard = function(sel) {
+    window.autoPopulateFromYard = function (sel) {
         const opt = sel.options[sel.selectedIndex];
         if (!opt || !opt.value) return;
 
@@ -1158,17 +1111,17 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (inSize) inSize.value = size;
         if (inType) inType.value = type;
         if (inCond) inCond.value = cond;
-        
+
         // Store the yard item ID for later deduction logic
         const inYardId = document.getElementById('in-yard-item-id');
         if (inYardId) inYardId.value = opt.value;
-        
+
         // Use the container number from the selection text (first part)
         const contNo = opt.textContent.split(' - ')[0];
         if (inNCont) inNCont.value = contNo;
     };
 
-    window.setYardDisplayMode = function(mode) {
+    window.setYardDisplayMode = function (mode) {
         const col1 = document.getElementById('col-rptulipan-yard');
         const col2 = document.getElementById('col-storage-yard');
         const colBoth = document.getElementById('col-both-yard');
@@ -1214,7 +1167,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.toggleYardCustomerMode = function() {
+    window.toggleYardCustomerMode = function () {
         const sel = document.getElementById('yard-customer-sel');
         const inp = document.getElementById('yard-customer');
         const icon = document.getElementById('yard-toggle-icon-customer');
@@ -1228,47 +1181,47 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.populateYardCustomerSelect = async function() {
+    window.populateYardCustomerSelect = async function () {
         const sel = document.getElementById('yard-customer-sel');
         if (!sel) return;
         const currentVal = sel.value;
-        
+
         try {
             // Use global currentCustomers from data-managers.js
             window.yardCustomersList = window.currentCustomers || [];
-            
+
             sel.innerHTML = '<option value="">Select Customer...</option>';
             const fragment1 = document.createDocumentFragment();
             window.yardCustomersList.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = c.name; 
+                opt.value = c.name;
                 opt.textContent = c.name;
                 fragment1.appendChild(opt);
             });
             sel.appendChild(fragment1);
-            
+
             if (currentVal) sel.value = currentVal;
-            
+
             if (window.updateYardCustomerFilters) window.updateYardCustomerFilters();
         } catch (err) {
             console.error("Error loading yard customers:", err);
         }
     };
 
-    window.updateYardCustomerFilters = function() {
+    window.updateYardCustomerFilters = function () {
         const yfCustomer = document.getElementById('yf-customer');
         const sfCustomer = document.getElementById('sf-customer');
         const bothCustomer = document.getElementById('both-customer');
-        
+
         if (!yfCustomer && !sfCustomer && !bothCustomer) return;
-        
+
         let dynamicCustomers = [];
         if (currentYardStock && currentYardStock.length > 0) {
             dynamicCustomers = currentYardStock.map(item => item.customer_name).filter(n => n);
         }
-        
+
         const allCustomers = [...new Set(dynamicCustomers)].sort();
-        
+
         const populateSelect = (selectEl) => {
             if (!selectEl) return;
             const currentVal = selectEl.value;
@@ -1285,13 +1238,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 selectEl.value = currentVal;
             }
         };
-        
+
         populateSelect(yfCustomer);
         populateSelect(sfCustomer);
         populateSelect(bothCustomer);
     };
-    
-    window.updateLocalYardStatus = function(yardItemId, newStatus, newNotes, exitDate, newLifts, orderOut) {
+
+    window.updateLocalYardStatus = function (yardItemId, newStatus, newNotes, exitDate, newLifts, orderOut) {
         if (!currentYardStock) return;
         const item = currentYardStock.find(i => i.id === yardItemId);
         if (item) {
@@ -1300,12 +1253,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (exitDate !== undefined) item.exit_date = exitDate;
             if (newLifts !== undefined) item.lifts = newLifts;
             if (orderOut !== undefined) item.order_out = orderOut;
-            
+
             // Re-render both tables with the updated data
             renderYardTable();
             renderStorageTable();
             if (window.renderBothTable) window.renderBothTable();
-            
+
             // Optionally update the count displays immediately
             const rptCount = currentYardStock.filter(i => i.status !== 'SOLD' && !(i.notes || '').includes('[Storage Yard]')).length;
             const strCount = currentYardStock.filter(i => i.status !== 'SOLD' && (i.notes || '').includes('[Storage Yard]')).length;
@@ -1315,7 +1268,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (sTotalEl) sTotalEl.textContent = strCount;
         }
     };
-    
+
     // Also attach onchange to yard-customer to auto-fill phone
     const yardCustomerSelect = document.getElementById('yard-customer-sel');
     if (yardCustomerSelect) {
@@ -1331,14 +1284,14 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         });
     }
 
-    window.showBillingHistory = async function(yardId) {
+    window.showBillingHistory = async function (yardId) {
         const item = currentYardStock.find(i => i.id === yardId);
         if (!item) return;
 
         document.getElementById('history-container-no').textContent = item.container_no;
         const tbody = document.getElementById('billing-history-body');
         tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center;">Cargando...</td></tr>';
-        
+
         const modal = document.getElementById('yard-billing-history-modal');
         modal.style.display = 'block';
         setTimeout(() => {
@@ -1378,22 +1331,22 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     };
 
     let pendingBillingData = [];
-    
-    window.toggleMonthlyClosingSplit = function() {
+
+    window.toggleMonthlyClosingSplit = function () {
         const method = document.getElementById('monthly-closing-payment-method').value;
         document.getElementById('monthly-closing-split-fields').style.display = (method === 'split') ? 'flex' : 'none';
     };
-    
-    window.openMonthlyClosingModal = function(yardType) {
+
+    window.openMonthlyClosingModal = function (yardType) {
         let dynamicCustomers = currentYardStock.filter(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
             if (yardType === 'YARD' && isStorage) return false;
             if (yardType === 'STORAGE' && !isStorage) return false;
             return true;
         }).map(item => item.customer_name).filter(n => n);
-        
+
         const allCustomers = [...new Set(dynamicCustomers)].sort();
-        
+
         const sel = document.getElementById('monthly-closing-customer');
         sel.innerHTML = '<option value="">Selecciona Cliente...</option>';
         allCustomers.forEach(c => {
@@ -1402,23 +1355,23 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             opt.textContent = c;
             sel.appendChild(opt);
         });
-        
+
         document.getElementById('monthly-closing-date').value = '';
         document.getElementById('monthly-closing-preview-body').innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Selecciona un cliente y fecha para previsualizar.</td></tr>';
         document.getElementById('monthly-closing-total').textContent = '0.00';
         document.getElementById('btn-process-monthly-closing').disabled = true;
-        
+
         const modal = document.getElementById('yard-monthly-closing-modal');
         modal.style.display = 'block';
         modal.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    window.previewMonthlyClosing = function() {
+    window.previewMonthlyClosing = function () {
         const customer = document.getElementById('monthly-closing-customer').value;
         const closingDateStr = document.getElementById('monthly-closing-date').value;
         const tbody = document.getElementById('monthly-closing-preview-body');
         const btn = document.getElementById('btn-process-monthly-closing');
-        
+
         if (!customer || !closingDateStr) {
             tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Selecciona un cliente y fecha para previsualizar.</td></tr>';
             document.getElementById('monthly-closing-total').textContent = '0.00';
@@ -1429,21 +1382,21 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const closingDate = new Date(closingDateStr + 'T23:59:59');
         pendingBillingData = [];
         let grandTotal = 0;
-        
+
         const filtered = currentYardStock.filter(i => i.customer_name === customer);
-        
+
         filtered.forEach(item => {
             const entryDate = new Date(item.created_at);
             const startDate = item.last_billed_date ? new Date(item.last_billed_date) : entryDate;
-            
+
             if (item.exit_date) {
                 const exitD = new Date(item.exit_date + 'T12:00:00');
                 if (exitD <= startDate) return; // already fully billed
             }
-            
+
             let endDate = closingDate;
             let isFinalBill = false;
-            
+
             if (item.exit_date) {
                 const exitD = new Date(item.exit_date + 'T12:00:00');
                 if (exitD <= closingDate) {
@@ -1451,29 +1404,29 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     isFinalBill = true;
                 }
             }
-            
+
             if (startDate >= endDate) return; // Nothing to bill in this period
-            
+
             const d1 = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
             const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-            
+
             if (days === 0 && !isFinalBill && item.last_billed_date) return;
-            
+
             let liftsToBill = 0;
             const billedLifts = item.billed_lifts || 0;
             const totalLifts = item.lifts || 1;
-            
+
             if (!item.last_billed_date) {
                 liftsToBill = 1;
             } else if (isFinalBill) {
                 liftsToBill = Math.max(0, totalLifts - billedLifts);
             }
-            
+
             const accumStorage = (item.daily_rate || 0) * days;
             const liftCost = liftsToBill * (item.lift_cost || 0);
             const total = accumStorage + liftCost;
-            
+
             if (total > 0) {
                 grandTotal += total;
                 pendingBillingData.push({
@@ -1488,7 +1441,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 });
             }
         });
-        
+
         if (pendingBillingData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">No hay cobros pendientes para este cliente en esta fecha.</td></tr>';
             document.getElementById('monthly-closing-total').textContent = '0.00';
@@ -1508,22 +1461,22 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             `;
             tbody.appendChild(tr);
         });
-        
+
         document.getElementById('monthly-closing-total').textContent = grandTotal.toFixed(2);
         btn.disabled = false;
     };
 
-    window.processMonthlyClosing = async function() {
+    window.processMonthlyClosing = async function () {
         if (pendingBillingData.length === 0) return;
-        
+
         const btn = document.getElementById('btn-process-monthly-closing');
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
         btn.disabled = true;
-        
+
         try {
             const customer = document.getElementById('monthly-closing-customer').value;
             const paymentMethod = document.getElementById('monthly-closing-payment-method').value;
-            
+
             let email = "";
             if (window.yardCustomersList) {
                 const cust = window.yardCustomersList.find(c => c.name === customer);
@@ -1533,7 +1486,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 const emailRaw = prompt(`No se encontró correo guardado para ${customer}. Ingrese el correo para enviar la factura (o deje en blanco para no enviarla):`, "");
                 if (emailRaw && emailRaw.trim()) email = emailRaw.trim();
             }
-            
+
             let b64Pdf = null;
             let grandTotal = 0;
             if (email) {
@@ -1558,16 +1511,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     </thead>
                     <tbody>
                 `;
-                
+
                 let totalDaysCost = 0;
                 let totalLiftsCost = 0;
-                
+
                 for (let data of pendingBillingData) {
                     const item = data.item;
                     grandTotal += data.amount;
                     totalDaysCost += (data.accumStorage || 0);
                     totalLiftsCost += (data.liftCost || 0);
-                    
+
                     invoiceHtml += `
                         <tr>
                             <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: ${item.exit_date ? '#64748b' : '#1e40af'};">${item.container_no || '---'}</td>
@@ -1586,7 +1539,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         </tr>
                     `;
                 }
-                
+
                 invoiceHtml += `
                     </tbody>
                 </table>
@@ -1611,22 +1564,22 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     <span style="font-weight: bold; font-size: 16px; margin-left: 10px;">$${grandTotal.toFixed(2)}</span>
                 </div>
                 `;
-                
-                if (typeof generateYardInvoiceBase64 === 'function') {
-                    b64Pdf = await generateYardInvoiceBase64(invoiceHtml, customer);
+
+                if (typeof window.generateYardInvoiceBase64 === 'function') {
+                    b64Pdf = await window.generateYardInvoiceBase64(invoiceHtml, customer);
                 }
             }
-            
+
             let cashSplit = 0;
             let bankSplit = 0;
             if (paymentMethod === 'split') {
                 cashSplit = parseFloat(document.getElementById('monthly-closing-split-cash').value) || 0;
                 bankSplit = parseFloat(document.getElementById('monthly-closing-split-bank').value) || 0;
             }
-            
+
             const billingRecords = [];
             const cashLedgerEntries = [];
-            
+
             for (let data of pendingBillingData) {
                 billingRecords.push({
                     yard_id: data.item.id,
@@ -1636,10 +1589,10 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     lifts_billed: data.lifts,
                     amount: data.amount
                 });
-                
+
                 const isStorage = (data.item.notes || '').includes('[Storage Yard]');
                 const yardLabel = isStorage ? '[Storage Yard]' : '[RP Tulipan Yard]';
-                
+
                 // If it's not a split payment, record each container individually
                 if (paymentMethod !== 'split') {
                     cashLedgerEntries.push({
@@ -1652,25 +1605,25 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         chofer: ''
                     });
                 }
-                
+
                 const newBilledLifts = (data.item.billed_lifts || 0) + data.lifts;
-                const newBilledDate = data.endStr + 'T12:00:00.000Z'; 
-                
+                const newBilledDate = data.endStr + 'T12:00:00.000Z';
+
                 await window.db.from('yard_stock')
                     .update({
                         last_billed_date: newBilledDate,
                         billed_lifts: newBilledLifts
                     })
                     .eq('id', data.item.id);
-                    
+
                 data.item.last_billed_date = newBilledDate;
                 data.item.billed_lifts = newBilledLifts;
             }
-            
+
             // If it IS a split payment, create aggregated entries for the batch
             if (paymentMethod === 'split') {
                 const containerNumbers = pendingBillingData.map(d => d.item.container_no).join(', ');
-                
+
                 let hasStorage = false;
                 let hasRPT = false;
                 for (let d of pendingBillingData) {
@@ -1678,7 +1631,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     else hasRPT = true;
                 }
                 let yardLabel = (hasStorage && hasRPT) ? '[Global Yard]' : (hasStorage ? '[Storage Yard]' : '[RP Tulipan Yard]');
-                
+
                 if (cashSplit > 0) {
                     cashLedgerEntries.push({
                         date: new Date().toISOString().split('T')[0],
@@ -1702,21 +1655,21 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     });
                 }
             }
-            
+
             if (billingRecords.length > 0) {
                 const { error } = await window.db.from('yard_billing').insert(billingRecords);
                 if (error) throw error;
             }
-            
+
             if (cashLedgerEntries.length > 0) {
                 const { error: ledgerError } = await window.db.from('cash_ledger').insert(cashLedgerEntries);
                 if (ledgerError) throw ledgerError;
-                
+
                 if (window.loadAccountingData) {
                     window.loadAccountingData();
                 }
             }
-            
+
             if (email && b64Pdf) {
                 const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
                 const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
@@ -1727,7 +1680,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     grand_total: grandTotal.toFixed(2),
                     pdf_attachment: b64Pdf
                 };
-                
+
                 const publicKey = localStorage.getItem('ejs_public_key');
                 if (publicKey) {
                     emailjs.init(publicKey);
@@ -1736,14 +1689,14 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     console.warn("EmailJS public key not found in local storage.");
                 }
             }
-            
+
             alert(email ? '¡Cierre procesado y Factura enviada por correo!' : '¡Cierre mensual procesado correctamente!');
             document.getElementById('yard-monthly-closing-modal').style.display = 'none';
-            
+
             renderYardTable();
             renderStorageTable();
             if (window.renderBothTable) window.renderBothTable();
-            
+
         } catch (err) {
             console.error("Error processing monthly closing:", err);
             alert("Hubo un error procesando el cierre. Revisa la consola.");
@@ -1753,6 +1706,146 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
+
+
+
+
+    // --- HELPER FUNCTIONS FOR BILLING & INVOICE INTEGRATION ---
+    window.generateYardInvoiceHTML = function (items, dateFrom, dateTo) {
+        let invoiceHtml = `
+    <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; margin-bottom: 20px; font-size: 11px;">
+        <thead>
+            <tr style="background-color: #f1f5f9; color: #0f172a;">
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">N&deg; CONT</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">SIZE</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">TYPE</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">CONDITION</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE IN</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# IN</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE OUT</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# OUT</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">LIFTS</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">DAYS</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">DAYS COST</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">LIFTS COST</th>
+                <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">TOTAL</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+        let grandTotal = 0;
+        let sumDaysCost = 0;
+        let sumLiftsCost = 0;
+
+        items.forEach(item => {
+            const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
+
+            grandTotal += costs.totalCost;
+            sumDaysCost += costs.accumStorage;
+            sumLiftsCost += costs.liftCost;
+
+            invoiceHtml += `
+            <tr>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: ${item.exit_date ? '#64748b' : '#1e40af'};">${item.container_no || '---'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.size || '---'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.type || 'DRY'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.condition || 'USED'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${window.formatDateMMDDYYYY(item.created_at)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.origin_release || '---'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.order_out || '---'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${costs.lifts}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${costs.days}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${costs.accumStorage.toFixed(2)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${costs.liftCost.toFixed(2)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: #10b981;">${costs.totalCost.toFixed(2)}</td>
+            </tr>
+        `;
+        });
+
+        invoiceHtml += `
+        </tbody>
+    </table>
+
+    <table style="width: 250px; margin-left: auto; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px;">
+        <tr>
+            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3; color: #000;">DAYS COST</td>
+            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; color: #000;">$${sumDaysCost.toFixed(2)}</td>
+        </tr>
+        <tr>
+            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3; color: #000;">LIFTS COST</td>
+            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; color: #000;">$${sumLiftsCost.toFixed(2)}</td>
+        </tr>
+        <tr>
+            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3; color: #000;">TOTAL</td>
+            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; color: #000;">$${grandTotal.toFixed(2)}</td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 20px; text-align: right; font-family: Arial, sans-serif; font-size: 14px; color: #000;">
+        <span style="font-weight: bold; background-color: #fcece3; padding: 6px 10px; border: 1px solid #cbd5e1; display: inline-block;">TOTAL INVOICE</span>
+        <span style="font-weight: bold; font-size: 16px; margin-left: 10px;">$${grandTotal.toFixed(2)}</span>
+    </div>
+    `;
+        return { html: invoiceHtml, total: grandTotal };
+    };
+
+    window.downloadSpecificYardInvoicePDF = async function (items, customerName) {
+        const { html } = window.generateYardInvoiceHTML(items);
+        const b64Pdf = await window.generateYardInvoiceBase64(html, customerName);
+        const a = document.createElement('a');
+        a.href = b64Pdf;
+        a.download = `Yard_Invoice_${customerName}.pdf`;
+        a.click();
+    };
+
+    window.sendSpecificYardInvoiceEmail = async function (items, customerName, email) {
+        const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
+        const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+        const publicKey = localStorage.getItem('ejs_public_key');
+
+        emailjs.init(publicKey);
+        const { html, total } = window.generateYardInvoiceHTML(items);
+        const b64Pdf = await window.generateYardInvoiceBase64(html, customerName);
+
+        const templateParams = {
+            to_email: email,
+            customer_name: customerName,
+            invoice_html: "",
+            grand_total: total.toFixed(2),
+            pdf_attachment: b64Pdf
+        };
+        await emailjs.send(serviceId, templateId, templateParams);
+
+        // Attempt to persist status to Supabase (Requires invoice_sent column in yard_stock table)
+        try {
+            for (const item of items) {
+                await window.db.from('yard_stock').update({ invoice_sent: 'YES' }).eq('id', item.id);
+                item.invoice_sent = 'YES';
+            }
+        } catch (e) {
+            console.warn("Could not save invoice_sent status to database. Please ensure 'invoice_sent' column exists in yard_stock table.", e);
+        }
+    };
+
+    window.markYardItemAsPaid = async function (yardItemId) {
+        if (!window.db) throw new Error("Database not initialized");
+        const item = (window.getYardStockData() || []).find(i => i.id === yardItemId);
+        if (!item) throw new Error("Yard item not found locally");
+        const now = new Date().toISOString().split('T')[0];
+        const { error } = await window.db.from('yard_stock')
+            .update({
+                last_billed_date: now,
+                billed_lifts: item.lifts || 1,
+                invoice_sent: null // Reset invoice sent status for the next billing cycle
+            })
+            .eq('id', yardItemId);
+        if (error) throw error;
+        item.last_billed_date = now;
+        item.billed_lifts = item.lifts || 1;
+        item.invoice_sent = null;
+    };
+
 })();
 // Trigger GitHub Pages deploy
-

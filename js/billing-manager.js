@@ -8,6 +8,84 @@
     // ── GLOBAL STATE ──────────────────────────────────────────
     window.billingRows = [];              // Current filtered rows in table
     window.currentBillingOrderRows = []; // Rows for the open order in the modal
+    window.combinedBillingTrips = [];    // Cached combined trips
+
+    window.buildCombinedBillingTrips = function() {
+        const trips = window.currentTrips ? [...window.currentTrips] : [];
+        const yardData = typeof window.getYardStockData === 'function' ? window.getYardStockData() : [];
+        
+        yardData.forEach(item => {
+            try {
+                let entryDate = new Date(item.created_at || new Date());
+                if (isNaN(entryDate.getTime())) entryDate = new Date();
+                
+                // Handle cases where last_billed_date might be an empty string if manually cleared in Supabase
+                const lastBilledStr = (item.last_billed_date || '').trim();
+                let billingStartDate = lastBilledStr && lastBilledStr !== 'null' ? new Date(lastBilledStr) : entryDate;
+                if (isNaN(billingStartDate.getTime())) billingStartDate = entryDate;
+                
+                const exitDateStr = (item.exit_date || '').trim();
+                let endDate = (exitDateStr && exitDateStr !== 'null') ? new Date(exitDateStr + 'T12:00:00') : new Date();
+                if (isNaN(endDate.getTime())) endDate = new Date();
+                
+                const d1 = Date.UTC(billingStartDate.getFullYear(), billingStartDate.getMonth(), billingStartDate.getDate());
+                const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+                let days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+                if (isNaN(days)) days = 0;
+                
+                const accumStorage = (parseFloat(item.daily_rate) || 0) * days;
+                
+                const billedLifts = parseInt(item.billed_lifts) || 0;
+                const totalLifts = parseInt(item.lifts) || 1;
+                const unbilledLifts = Math.max(0, totalLifts - billedLifts);
+                const liftCost = (unbilledLifts * (parseFloat(item.lift_cost) || 0));
+                
+                const totalCost = accumStorage + liftCost;
+                
+                const row = new Array(70).fill('');
+                row[0] = item.id;
+                row[1] = (item.created_at || '').split('T')[0];
+                row[3] = item.container_no;
+                row[4] = '---';
+                row[5] = item.container_no;
+                row[6] = '---';
+                row[8] = 'YARD STORAGE';
+                row[11] = item.customer_name;
+                row[17] = '---';
+                row[18] = 0;
+                row[20] = 0;
+                row[13] = totalCost;
+                row[30] = '';
+                row[41] = 'COMPLETE';
+                row[42] = 'NO';
+                row[43] = 'NO';
+                row[49] = false;
+                row[57] = item.invoice_sent === 'YES' ? 'YES' : 'NO';
+                row[65] = '---';
+                
+                row.isYardRecord = true;
+                row.yardItem = item;
+                
+                trips.push(row);
+            } catch (err) {
+                console.error("Error processing yard record for billing:", item, err);
+            }
+        });
+        
+        // Sort trips so Yard items aren't always buried at the bottom
+        const todayStr = new Date().toISOString().split('T')[0];
+        trips.sort((a, b) => {
+            const dateA = a[1] || '';
+            const dateB = b[1] || '';
+            const isTodayA = (dateA === todayStr);
+            const isTodayB = (dateB === todayStr);
+            if (isTodayA && !isTodayB) return -1;
+            if (!isTodayA && isTodayB) return 1;
+            return dateB.localeCompare(dateA);
+        });
+        
+        return trips;
+    };
 
     // ── HELPERS ───────────────────────────────────────────────
 
@@ -37,6 +115,8 @@
 
     // ── POPULATE FILTERS ──────────────────────────────────────
     window.populateBillingFilters = function () {
+        window.combinedBillingTrips = window.buildCombinedBillingTrips();
+        
         const cities     = new Set();
         const places     = new Set();
         const customers  = new Set();
@@ -55,7 +135,7 @@
         const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
         const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
 
-        (window.currentTrips || []).forEach(row => {
+        (window.combinedBillingTrips || []).forEach(row => {
             const status = (row[41] || '').toUpperCase();
             if (!(status === 'COMPLETE' || status === 'DELIVERED' || status === 'PAID')) return;
 
@@ -148,7 +228,7 @@
         const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
         const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
 
-        const filtered = (window.currentTrips || []).filter(row => {
+        const filtered = (window.combinedBillingTrips || []).filter(row => {
             const status = (row[41] || '').toUpperCase();
             if (!(status === 'COMPLETE' || status === 'DELIVERED' || status === 'PAID')) return false;
             
@@ -270,7 +350,7 @@
             tr.onmouseleave = () => tr.style.background = rowBg;
 
             // We need the global index from currentTrips to easily identify this exact row
-            const globalIdx = (window.currentTrips || []).indexOf(row);
+            const globalIdx = (window.combinedBillingTrips || []).indexOf(row);
 
             tr.innerHTML = `
                 <td style="${cs}">${displayDate}</td>
@@ -339,7 +419,7 @@
 
     // ── OPEN DETAIL MODAL ─────────────────────────────────────
     window.openBillingDetail = function (globalIdx) {
-        const trips = window.currentTrips || [];
+        const trips = window.combinedBillingTrips || [];
         const row = trips[globalIdx];
 
         if (!row) {
@@ -502,17 +582,25 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
 
         try {
-            const blob = await generateMasterInvoiceBlob();
-            if (blob) {
-                const url  = URL.createObjectURL(blob);
-                const a    = document.createElement('a');
-                const ord  = document.getElementById('bm-order-display')?.textContent || 'ORDER';
-                a.href     = url;
-                a.download = `Invoice_${ord}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+            const isYard = window.currentBillingOrderRows && window.currentBillingOrderRows[0] && window.currentBillingOrderRows[0].isYardRecord;
+            
+            if (isYard) {
+                const yardItems = window.currentBillingOrderRows.map(r => r.yardItem);
+                const customerName = yardItems[0].customer_name || 'Customer';
+                await window.downloadSpecificYardInvoicePDF(yardItems, customerName);
+            } else {
+                const blob = await generateMasterInvoiceBlob();
+                if (blob) {
+                    const url  = URL.createObjectURL(blob);
+                    const a    = document.createElement('a');
+                    const ord  = document.getElementById('bm-order-display')?.textContent || 'ORDER';
+                    a.href     = url;
+                    a.download = `Invoice_${ord}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }
             }
         } catch (e) {
             console.error(e);
@@ -719,7 +807,11 @@
         if (!window.currentTrips || window.currentTrips.length === 0) {
             if (window.loadTableData) await window.loadTableData();
         }
+        if (window.loadYardData) {
+            await window.loadYardData(false);
+        }
         window.renderBillingTable();
+        
         // Run the invoice automation engine (banner + auto-send + reminders)
         if (window.runInvoiceAutomation) {
             setTimeout(() => window.runInvoiceAutomation(), 800);
@@ -734,7 +826,7 @@
 
     // ── MARK AS PAID DIRECTLY ─────────────────────────────────
     window.markBillingRowAsPaid = async function(globalIdx, btn) {
-        const trips = window.currentTrips || [];
+        const trips = window.combinedBillingTrips || [];
         const row = trips[globalIdx];
         if (!row) return;
 
@@ -753,37 +845,44 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
         try {
-            const updateData = {
-                st_rate: 'PAID',
-                st_sales: 'PAID',
-                st_yard: 'PAID',
-                st_tax: 'PAID',
-                paid: true,
-                invoice_sent: 'YES'
-            };
+            if (row.isYardRecord) {
+                await window.markYardItemAsPaid(tripId);
+                row[41] = 'PAID'; // Status -> PAID
+                row[57] = 'YES'; // invoice_sent -> YES
+                row[30] = 'PAID'; // <--- Added to prevent showing as pending
+            } else {
+                const updateData = {
+                    st_rate: 'PAID',
+                    st_sales: 'PAID',
+                    st_yard: 'PAID',
+                    st_tax: 'PAID',
+                    paid: true,
+                    invoice_sent: 'YES'
+                };
 
-            await window.updateTrip(tripId, updateData);
+                await window.updateTrip(tripId, updateData);
 
-            // Update local state
-            row[32] = 'PAID'; // st_rate
-            row[33] = 'PAID'; // st_sales
-            row[30] = 'PAID'; // st_yard
-            // NOTE: row[34] (st_amount) is NOT updated here — it belongs to the calendar
-            // "amount" field and indicates if that amount was collected in cash, not billing status.
-            row[52] = 'PAID'; // st_tax
-            row[57] = 'YES'; // invoice_sent
+                // Update local state
+                row[32] = 'PAID'; // st_rate
+                row[33] = 'PAID'; // st_sales
+                row[30] = 'PAID'; // st_yard
+                // NOTE: row[34] (st_amount) is NOT updated here - it belongs to the calendar
+                // "amount" field and indicates if that amount was collected in cash, not billing status.
+                row[52] = 'PAID'; // st_tax
+                row[57] = 'YES'; // invoice_sent
 
-            if (window.allTripsUnfiltered) {
-                const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                if (ufRow) {
-                    ufRow[32] = 'PAID';
-                    ufRow[33] = 'PAID';
-                    ufRow[30] = 'PAID';
-                    // NOTE: ufRow[34] (st_amount) is intentionally NOT updated here.
-                    ufRow[52] = 'PAID';
-                    ufRow[57] = 'YES';
+                if (window.allTripsUnfiltered) {
+                    const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                    if (ufRow) {
+                        ufRow[32] = 'PAID';
+                        ufRow[33] = 'PAID';
+                        ufRow[30] = 'PAID';
+                        // NOTE: ufRow[34] (st_amount) is intentionally NOT updated here.
+                        ufRow[52] = 'PAID';
+                        ufRow[57] = 'YES';
+                    }
                 }
-            }
+            } // <-- close else block!
 
             if (window.showToast) window.showToast('Marcado como pagado exitosamente', 'success');
             else alert('Marcado como pagado exitosamente');
@@ -825,35 +924,42 @@
                     continue;
                 }
 
-                const updateData = {
-                    st_rate: 'PAID',
-                    st_sales: 'PAID',
-                    st_yard: 'PAID',
-                    st_tax: 'PAID',
-                    paid: true,
-                    invoice_sent: 'YES'
-                };
+                if (row.isYardRecord) {
+                    await window.markYardItemAsPaid(tripId);
+                    row[41] = 'PAID'; // Status -> PAID
+                    row[57] = 'YES'; // invoice_sent -> YES
+                    row[30] = 'PAID'; // <--- Added to prevent showing as pending
+                } else {
+                    const updateData = {
+                        st_rate: 'PAID',
+                        st_sales: 'PAID',
+                        st_yard: 'PAID',
+                        st_tax: 'PAID',
+                        paid: true,
+                        invoice_sent: 'YES'
+                    };
 
-                await window.updateTrip(tripId, updateData);
+                    await window.updateTrip(tripId, updateData);
 
-                // Update local state
-                row[32] = 'PAID'; 
-                row[33] = 'PAID'; 
-                row[30] = 'PAID'; 
-                row[52] = 'PAID'; 
-                row[57] = 'YES'; 
+                    // Update local state
+                    row[32] = 'PAID'; 
+                    row[33] = 'PAID'; 
+                    row[30] = 'PAID'; 
+                    row[52] = 'PAID'; 
+                    row[57] = 'YES'; 
 
-                if (window.allTripsUnfiltered) {
-                    const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                    if (ufRow) {
-                        ufRow[32] = 'PAID';
-                        ufRow[33] = 'PAID';
-                        ufRow[30] = 'PAID';
-                        ufRow[52] = 'PAID';
-                        ufRow[57] = 'YES';
+                    if (window.allTripsUnfiltered) {
+                        const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                        if (ufRow) {
+                            ufRow[32] = 'PAID';
+                            ufRow[33] = 'PAID';
+                            ufRow[30] = 'PAID';
+                            ufRow[52] = 'PAID';
+                            ufRow[57] = 'YES'; 
+                        }
                     }
+                    updatedCount++;
                 }
-                updatedCount++;
             }
 
             if (window.showToast) window.showToast(`${updatedCount} órdenes marcadas como pagadas`, 'success');
@@ -870,4 +976,13 @@
         }
     };
 
+    // Force default payment filter to 'pending' on load to prevent browser cache issues
+    document.addEventListener('DOMContentLoaded', () => {
+        const paymentFilter = document.getElementById('bc-f-payment');
+        if (paymentFilter) {
+            paymentFilter.value = 'pending';
+        }
+    });
+
 })();
+

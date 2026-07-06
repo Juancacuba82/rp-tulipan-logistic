@@ -35,7 +35,7 @@
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1700" defer></script>
     <script src="./js/tasks.js?v=10" defer></script>
-    <script src="./js/billing-manager.js?v=101" defer></script>
+    <script src="./js/billing-manager.js?v=106" defer></script>
     <script src="./js/invoice-automation.js?v=1" defer></script>
     <script src="./js/attendance.js?v=1" defer></script>
     <script src="./js/accounting.js?v=100" defer></script>
@@ -3534,7 +3534,7 @@
                                 <label><i class="fas fa-money-bill-wave"></i> PAYMENT STATUS</label>
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-filter"></i>
-                                    <select id="bc-f-payment" class="form-select" onchange="renderBillingTable()" style="width:120px;font-weight:700;">
+                                    <select id="bc-f-payment" class="form-select" autocomplete="off" onchange="renderBillingTable()" style="width:120px;font-weight:700;">
                                         <option value="all">All</option>
                                         <option value="pending" selected>Pending</option>
                                         <option value="paid">Paid</option>
@@ -6634,7 +6634,7 @@
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=11"></script>
     <script src="./js/rentals.js?v=100"></script>
-    <script src="./js/yard-stock.js?v=111"></script>
+    <script src="./js/yard-stock.js?v=112"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>

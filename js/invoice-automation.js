@@ -361,6 +361,33 @@
         const btn = event?.currentTarget;
         const row = rows[0];
 
+        //  YARD STOCK BIFURCATION
+        if (row.isYardRecord) {
+            const customerEmail = document.getElementById('bd-email')?.value || '';
+            if (!customerEmail || !customerEmail.includes('@')) {
+                alert('Please enter a valid email address in the detail window.');
+                return;
+            }
+            if (!confirm(`Send Yard Stock invoice to ${customerEmail}?`)) return;
+            
+            const orig = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
+            
+            try {
+                const yardItems = rows.map(r => r.yardItem);
+                const customerName = yardItems[0].customer_name || 'Customer';
+                await window.sendSpecificYardInvoiceEmail(yardItems, customerName, customerEmail);
+                if (window.showToast) window.showToast('Yard invoice sent successfully!', 'success');
+                else alert('Yard invoice sent successfully!');
+            } catch(e) {
+                console.error(e);
+                alert('Error sending Yard invoice: ' + (e.message || 'Check console.'));
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+            }
+            return;
+        }
+
         // ── 1. Run the Guardian ──────────────────────────────
         const validation = window.validateInvoiceReadiness(row);
         if (!validation.ok) {
