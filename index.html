@@ -7224,8 +7224,8 @@
 
     <!-- Yard Monthly Closing Modal -->
     <div id="yard-monthly-closing-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 900px; width: 95%;">
-            <span class="close" onclick="document.getElementById('yard-monthly-closing-modal').style.display='none'">&times;</span>
+        <div class="modal-content" style="max-width: 900px; width: 95%; position: relative;">
+            <span class="close" onclick="document.getElementById('yard-monthly-closing-modal').style.display='none'" style="color: #ef4444; font-size: 2.5rem; opacity: 1; position: absolute; top: 15px; right: 20px; line-height: 1;">&times;</span>
             <div style="display: flex; align-items: center; margin-bottom: 20px;">
                 <i class="fas fa-calendar-check" style="font-size: 1.8rem; color: #f59e0b; margin-right: 15px;"></i>
                 <h2 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 1.5rem;">Cierre Mensual de Yard Stock</h2>
@@ -7282,7 +7282,7 @@
             
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
                 <div style="font-size: 1.2rem; font-weight: 900; color: #0f172a;">Total a Facturar: $<span id="monthly-closing-total">0.00</span></div>
-                <button id="btn-process-monthly-closing" onclick="processMonthlyClosing()" disabled style="background: #10b981; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: all 0.3s ease;">
+                <button id="btn-process-monthly-closing" onclick="processMonthlyClosing()" disabled style="display: none; background: #10b981; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: all 0.3s ease;">
                     <i class="fas fa-check-circle" style="margin-right: 8px;"></i> Procesar y Facturar
                 </button>
             </div>

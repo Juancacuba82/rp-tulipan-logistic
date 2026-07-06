@@ -212,6 +212,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 : `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
 
             const containerNoDisplay = `${item.container_no || '---'}`;
+            let displayExitDate = item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---';
+            let displayOrderOut = item.order_out || '---';
+
+            if (dateTo && item.exit_date) {
+                const eDate = item.exit_date.split('T')[0];
+                if (eDate > dateTo) {
+                    displayExitDate = '---';
+                    displayOrderOut = '---';
+                }
+            }
 
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #1e40af;">${containerNoDisplay}</td>
@@ -222,8 +232,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${displayExitDate}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${displayOrderOut}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.days}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.accumStorage.toFixed(2)}</td>
@@ -343,6 +353,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 : `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit: Not Exited yet`;
 
             const containerNoDisplay = `${item.container_no || '---'}`;
+            let displayExitDate = item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---';
+            let displayOrderOut = item.order_out || '---';
+
+            if (dateTo && item.exit_date) {
+                const eDate = item.exit_date.split('T')[0];
+                if (eDate > dateTo) {
+                    displayExitDate = '---';
+                    displayOrderOut = '---';
+                }
+            }
 
             tr.innerHTML = `
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #1e40af;">${containerNoDisplay}</td>
@@ -353,8 +373,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${displayExitDate}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${displayOrderOut}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.days}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.accumStorage.toFixed(2)}</td>
@@ -470,6 +490,16 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
 
             const containerNoDisplay = `${item.container_no || '---'}`;
+            let displayExitDate = item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---';
+            let displayOrderOut = item.order_out || '---';
+
+            if (dateTo && item.exit_date) {
+                const eDate = item.exit_date.split('T')[0];
+                if (eDate > dateTo) {
+                    displayExitDate = '---';
+                    displayOrderOut = '---';
+                }
+            }
 
             const yardBadge = isStorage
                 ? `<span style="font-size: 0.7rem; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;">STORAGE</span>`
@@ -485,8 +515,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
-                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.order_out || '---'}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569;">${displayExitDate}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${displayOrderOut}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.days}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700;">${costs.accumStorage.toFixed(2)}</td>
@@ -804,18 +834,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (cust && cust.email) email = cust.email;
         }
 
-        if (email) {
-            if (!confirm(`Email found: ${email}\n\nDo you want to send the Statement to this address?`)) {
-                const emailRaw = prompt("Please enter a different email address:", email);
-                if (!emailRaw || !emailRaw.trim()) return;
-                email = emailRaw.trim();
-            }
-        } else {
-            const emailRaw = prompt("No email saved for this customer. Please enter an email address manually:", "");
-            if (!emailRaw || !emailRaw.trim()) return;
-            email = emailRaw.trim();
-        }
-
         let btn;
         if (tableType === 'YARD') btn = document.getElementById('btn-global-invoice-yard');
         else if (tableType === 'STORAGE') btn = document.getElementById('btn-global-invoice-storage');
@@ -826,28 +844,116 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         btn.disabled = true;
 
         try {
-            emailjs.init(publicKey);
+            let activeItemIds = filtered.map(i => i.id);
 
-            const { html: invoiceHtml, total: grandTotal } = window.generateYardInvoiceHTML(filtered, dateFrom, dateTo);
-
-
-            const b64Pdf = await window.generateYardInvoiceBase64(invoiceHtml, customerFilter);
-
-            const templateParams = {
-                to_email: email,
-                customer_name: customerFilter,
-                invoice_html: "", // No enviar la tabla en el cuerpo del correo
-                grand_total: grandTotal.toFixed(2),
-                pdf_attachment: b64Pdf
+            window.togglePreviewItem = function(id, isChecked) {
+                if(isChecked) {
+                    if(!activeItemIds.includes(id)) activeItemIds.push(id);
+                } else {
+                    activeItemIds = activeItemIds.filter(iId => iId !== id);
+                }
+                const { html: newInteractiveHtml } = window.generateYardInvoiceHTML(filtered, dateFrom, dateTo, true, activeItemIds);
+                const container = document.getElementById('preview-invoice-html-container');
+                if(container) container.innerHTML = newInteractiveHtml;
             };
 
-            await emailjs.send(serviceId, templateId, templateParams);
+            const { html: interactiveHtml } = window.generateYardInvoiceHTML(filtered, dateFrom, dateTo, true, activeItemIds);
 
-            if (window.showToast) window.showToast('Global Invoice sent successfully!', 'success');
-            else alert('Global Invoice sent successfully!');
+            let modal = document.getElementById('preview-global-invoice-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'preview-global-invoice-modal';
+                modal.className = 'simple-modal'; 
+                modal.style.zIndex = '10005';
+                document.body.appendChild(modal);
+            }
+
+            const previewContent = `
+                <div class="modal-content" style="width: 900px; max-width: 95vw; display: flex; flex-direction: column; max-height: 90vh;">
+                    <div class="modal-header">
+                        <h3>Statement Preview - ${customerFilter}</h3>
+                        <button class="btn-close-modal" onclick="document.getElementById('preview-global-invoice-modal').style.display='none'">&times;</button>
+                    </div>
+                    <div style="flex: 1; overflow-y: auto; background: #fff; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:15px;margin-bottom:20px;font-family:Arial,sans-serif;">
+                            <div>
+                                <h1 style="font-size:1.8rem;margin:0;font-weight:900;color:#1e293b;">STATEMENT OF ACCOUNT</h1>
+                                <p style="margin:5px 0;color:#64748b;font-weight:bold;">RP TULIPAN LOGISTIC</p>
+                            </div>
+                            <div style="text-align:right;">
+                                <p style="margin:0;font-weight:bold;color:#1e293b;">CUSTOMER: ${customerFilter}</p>
+                                <p style="margin:0;color:#64748b;">DATE: ${window.formatDateMMDDYYYY(new Date().toISOString())}</p>
+                            </div>
+                        </div>
+                        <div id="preview-invoice-html-container">
+                            ${interactiveHtml}
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="flex-direction: row; justify-content: flex-end; margin-top: 20px; border-top: none;">
+                        <button onclick="document.getElementById('preview-global-invoice-modal').style.display='none'" style="padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: bold;">CANCEL</button>
+                        <button id="btn-confirm-send-global" style="padding: 10px 20px; border-radius: 8px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;"><i class="fas fa-paper-plane"></i> SEND INVOICE</button>
+                    </div>
+                </div>
+            `;
+            modal.innerHTML = previewContent;
+            modal.style.display = 'flex';
+            
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+            document.getElementById('btn-confirm-send-global').onclick = async function() {
+                const itemsToInvoice = filtered.filter(i => activeItemIds.includes(i.id));
+                if (itemsToInvoice.length === 0) {
+                    alert("Please select at least one container to invoice.");
+                    return;
+                }
+
+                const { html: finalHtml, total: finalGrandTotal } = window.generateYardInvoiceHTML(itemsToInvoice, dateFrom, dateTo, false, null);
+
+                let finalEmail = email;
+                if (finalEmail) {
+                    if (!confirm(`Email found: ${finalEmail}\n\nDo you want to send the Statement to this address?`)) {
+                        const emailRaw = prompt("Please enter a different email address:", finalEmail);
+                        if (!emailRaw || !emailRaw.trim()) return;
+                        finalEmail = emailRaw.trim();
+                    }
+                } else {
+                    const emailRaw = prompt("No email saved for this customer. Please enter an email address manually:", "");
+                    if (!emailRaw || !emailRaw.trim()) return;
+                    finalEmail = emailRaw.trim();
+                }
+
+                const sendBtn = this;
+                const sendOriginalText = sendBtn.innerHTML;
+                sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SENDING...';
+                sendBtn.disabled = true;
+
+                try {
+                    emailjs.init(publicKey);
+                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customerFilter);
+                    const templateParams = {
+                        to_email: finalEmail,
+                        customer_name: customerFilter,
+                        invoice_html: "", 
+                        grand_total: finalGrandTotal.toFixed(2),
+                        pdf_attachment: b64Pdf
+                    };
+
+                    await emailjs.send(serviceId, templateId, templateParams);
+                    if (window.showToast) window.showToast('Global Invoice sent successfully!', 'success');
+                    else alert('Global Invoice sent successfully!');
+                    modal.style.display = 'none';
+                } catch (sendErr) {
+                    console.error('EmailJS Error:', sendErr);
+                    alert("Error sending email: " + (sendErr.text || JSON.stringify(sendErr)));
+                } finally {
+                    sendBtn.innerHTML = sendOriginalText;
+                    sendBtn.disabled = false;
+                }
+            };
 
         } catch (err) {
-            console.error('EmailJS Error:', err);
+            console.error('Generation Error:', err);
             alert("Error sending email: " + (err.text || JSON.stringify(err)));
         } finally {
             btn.innerHTML = originalText;
@@ -1711,11 +1817,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
 
     // --- HELPER FUNCTIONS FOR BILLING & INVOICE INTEGRATION ---
-    window.generateYardInvoiceHTML = function (items, dateFrom, dateTo) {
+    window.generateYardInvoiceHTML = function (items, dateFrom, dateTo, interactive = false, activeItemIds = null) {
         let invoiceHtml = `
     <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; margin-bottom: 20px; font-size: 11px;">
         <thead>
             <tr style="background-color: #f1f5f9; color: #0f172a;">
+                ${interactive ? `<th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">INC</th>` : ''}
                 <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">N&deg; CONT</th>
                 <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">SIZE</th>
                 <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">TYPE</th>
@@ -1739,22 +1846,39 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         let sumLiftsCost = 0;
 
         items.forEach(item => {
+            const isActive = activeItemIds ? activeItemIds.includes(item.id) : true;
             const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
 
-            grandTotal += costs.totalCost;
-            sumDaysCost += costs.accumStorage;
-            sumLiftsCost += costs.liftCost;
+            if (isActive) {
+                grandTotal += costs.totalCost;
+                sumDaysCost += costs.accumStorage;
+                sumLiftsCost += costs.liftCost;
+            }
+
+            let displayExitDate = item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---';
+            let displayOrderOut = item.order_out || '---';
+
+            if (dateTo && item.exit_date) {
+                const eDate = item.exit_date.split('T')[0];
+                if (eDate > dateTo) {
+                    displayExitDate = '---';
+                    displayOrderOut = '---';
+                }
+            }
+
+            const rowStyle = isActive ? '' : 'opacity: 0.4; text-decoration: line-through; background: #f8fafc;';
 
             invoiceHtml += `
-            <tr>
+            <tr style="${rowStyle}">
+                ${interactive ? `<td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;"><input type="checkbox" ${isActive ? 'checked' : ''} onchange="window.togglePreviewItem('${item.id}', this.checked)" style="cursor:pointer; width:16px; height:16px;"></td>` : ''}
                 <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: ${item.exit_date ? '#64748b' : '#1e40af'};">${item.container_no || '---'}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.size || '---'}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.type || 'DRY'}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.condition || 'USED'}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.origin_release || '---'}</td>
-                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---'}</td>
-                <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.order_out || '---'}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${displayExitDate}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1;">${displayOrderOut}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${costs.lifts}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${costs.days}</td>
                 <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${costs.accumStorage.toFixed(2)}</td>
