@@ -475,8 +475,8 @@
             <div style="padding: 40px; font-family: 'Outfit', sans-serif;">
                 <div class="receipt-header">
                     <div>
-                        <h1 style="color:${options.companyOverride === 'JR SUPER CRANE' ? '#1e40af' : '#b91c1c'}; margin:0;">${options.companyOverride === 'JR SUPER CRANE' ? 'JR SUPER CRANE' : 'RP TULIPAN'}</h1>
-                        <p style="font-weight:900; margin:0;">${options.companyOverride === 'JR SUPER CRANE' ? '' : 'TRANSPORT, INC.'}</p>
+                        <h1 style="color:${options.companyOverride === 'JR SUPER CRAME INC' ? '#1e40af' : '#b91c1c'}; margin:0;">${options.companyOverride === 'JR SUPER CRAME INC' ? 'JR SUPER CRAME INC' : 'RP TULIPAN'}</h1>
+                        <p style="font-weight:900; margin:0;">${options.companyOverride === 'JR SUPER CRAME INC' ? '' : 'TRANSPORT, INC.'}</p>
                     </div>
                     <div style="text-align:right;">
                         <h2 style="margin:0;">RECEIPT</h2>
@@ -493,7 +493,7 @@
                 <div style="display:flex; justify-content:space-between; margin-top:60px;">
                     <div style="width:45%; border-top:1px solid #000; text-align:center; position:relative;">
                         ${data.signature_driver ? `<img src="${data.signature_driver}" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); max-height:60px;">` : ''}
-                        ${options.companyOverride === 'JR SUPER CRANE' ? 'JR SUPER CRANE' : 'RP TULIPAN'}
+                        ${options.companyOverride === 'JR SUPER CRAME INC' ? 'JR SUPER CRAME INC' : 'RP TULIPAN'}
                     </div>
                     <div style="width:45%; border-top:1px solid #000; text-align:center; position:relative;">
                         ${data.signature ? `<img src="${data.signature}" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); max-height:60px;">` : ''}
@@ -509,7 +509,7 @@
         const photos  = trip[55] || [];
         const orderNo = (trip[5] && trip[5] !== '---') ? trip[5] : '';
         const dateStr = window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(trip[1]) : (trip[1] || '');
-        const companyName = options.companyOverride === 'JR SUPER CRANE' ? 'JR SUPER CRANE' : 'RP TULIPAN TRANSPORT, INC.';
+        const companyName = options.companyOverride === 'JR SUPER CRAME INC' ? 'JR SUPER CRAME INC' : 'RP TULIPAN TRANSPORT, INC.';
 
         if (photos.length === 0) {
             return `
@@ -534,8 +534,8 @@
             <div style="padding:30px;font-family:'Outfit',sans-serif;">
                 <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e293b;padding-bottom:15px;margin-bottom:25px;">
                     <div>
-                        <h1 style="color:${options.companyOverride === 'JR SUPER CRANE' ? '#1e40af' : '#b91c1c'};margin:0;font-size:1.8rem;font-weight:900;">${options.companyOverride === 'JR SUPER CRANE' ? 'JR SUPER CRANE' : 'RP TULIPAN'}</h1>
-                        <p style="font-weight:900;margin:0;">${options.companyOverride === 'JR SUPER CRANE' ? '' : 'TRANSPORT, INC.'}</p>
+                        <h1 style="color:${options.companyOverride === 'JR SUPER CRAME INC' ? '#1e40af' : '#b91c1c'};margin:0;font-size:1.8rem;font-weight:900;">${options.companyOverride === 'JR SUPER CRAME INC' ? 'JR SUPER CRAME INC' : 'RP TULIPAN'}</h1>
+                        <p style="font-weight:900;margin:0;">${options.companyOverride === 'JR SUPER CRAME INC' ? '' : 'TRANSPORT, INC.'}</p>
                     </div>
                     <div style="text-align:right;">
                         <h2 style="margin:0;color:#1e293b;">DELIVERY EVIDENCE</h2>

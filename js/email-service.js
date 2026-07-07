@@ -330,6 +330,10 @@
         const tripId  = mainRow[0] || 'manual';
         const ts      = Date.now();
 
+        // Read the selected billing company from the UI selector
+        const selectedCompany = (document.getElementById('bm-company-selector')?.value || 'RP TULIPAN TRANSPORT INC');
+        const companyOverrideOpts = { companyOverride: selectedCompany };
+
         // ── 1. Master Invoice PDF ─────────────────────────────
         console.log('[3-PDF] Generating Master Invoice PDF...');
         const invoiceBlob = await window.generateMasterInvoiceBlob();
@@ -344,7 +348,7 @@
                 if (i > 0) {
                     combinedReceiptHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
                 }
-                combinedReceiptHtml += window.getTripReceiptContent(rows[i], { excludePhotos: true });
+                combinedReceiptHtml += window.getTripReceiptContent(rows[i], { excludePhotos: true, ...companyOverrideOpts });
             }
             receiptBlob = await htmlToPDFBlob(combinedReceiptHtml, 'p');
         } else {
@@ -362,7 +366,7 @@
                 if (i > 0) {
                     combinedPhotosHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
                 }
-                combinedPhotosHtml += window.getTripPhotosOnlyContent(rows[i]);
+                combinedPhotosHtml += window.getTripPhotosOnlyContent(rows[i], companyOverrideOpts);
             }
             photosBlob = await htmlToPDFBlob(combinedPhotosHtml, 'p');
         }
