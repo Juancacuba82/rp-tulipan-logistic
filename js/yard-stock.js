@@ -1953,21 +1953,22 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.markYardItemAsPaid = async function (yardItemId) {
+    window.markYardItemAsPaid = async function (yardItemId, periodEndDate, totalBilledLiftsAfterThis) {
         if (!window.db) throw new Error("Database not initialized");
         const item = (window.getYardStockData() || []).find(i => i.id === yardItemId);
         if (!item) throw new Error("Yard item not found locally");
-        const now = new Date().toISOString().split('T')[0];
+        const newBilledDate = periodEndDate || new Date().toISOString().split('T')[0];
+        const newBilledLifts = totalBilledLiftsAfterThis !== undefined ? totalBilledLiftsAfterThis : (item.lifts || 1);
         const { error } = await window.db.from('yard_stock')
             .update({
-                last_billed_date: now,
-                billed_lifts: item.lifts || 1,
+                last_billed_date: newBilledDate,
+                billed_lifts: newBilledLifts,
                 invoice_sent: null // Reset invoice sent status for the next billing cycle
             })
             .eq('id', yardItemId);
         if (error) throw error;
-        item.last_billed_date = now;
-        item.billed_lifts = item.lifts || 1;
+        item.last_billed_date = newBilledDate;
+        item.billed_lifts = newBilledLifts;
         item.invoice_sent = null;
     };
 

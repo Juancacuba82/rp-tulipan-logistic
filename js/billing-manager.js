@@ -25,48 +25,98 @@
                 if (isNaN(billingStartDate.getTime())) billingStartDate = entryDate;
                 
                 const exitDateStr = (item.exit_date || '').trim();
-                let endDate = (exitDateStr && exitDateStr !== 'null') ? new Date(exitDateStr + 'T12:00:00') : new Date();
-                if (isNaN(endDate.getTime())) endDate = new Date();
+                let absoluteEndDate = (exitDateStr && exitDateStr !== 'null') ? new Date(exitDateStr + 'T12:00:00') : new Date();
+                if (isNaN(absoluteEndDate.getTime())) absoluteEndDate = new Date();
                 
-                const d1 = Date.UTC(billingStartDate.getFullYear(), billingStartDate.getMonth(), billingStartDate.getDate());
-                const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-                let days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-                if (isNaN(days)) days = 0;
+                let currentStart = new Date(billingStartDate);
+                currentStart.setHours(12,0,0,0);
+                absoluteEndDate.setHours(12,0,0,0);
                 
-                const accumStorage = (parseFloat(item.daily_rate) || 0) * days;
-                
-                const billedLifts = parseInt(item.billed_lifts) || 0;
-                const totalLifts = parseInt(item.lifts) || 1;
-                const unbilledLifts = Math.max(0, totalLifts - billedLifts);
-                const liftCost = (unbilledLifts * (parseFloat(item.lift_cost) || 0));
-                
-                const totalCost = accumStorage + liftCost;
-                
-                const row = new Array(70).fill('');
-                row[0] = item.id;
-                row[1] = (item.created_at || '').split('T')[0];
-                row[3] = item.container_no;
-                row[4] = '---';
-                row[5] = item.container_no;
-                row[6] = '---';
-                row[8] = 'YARD STORAGE';
-                row[11] = item.customer_name;
-                row[17] = '---';
-                row[18] = 0;
-                row[20] = 0;
-                row[13] = totalCost;
-                row[30] = '';
-                row[41] = 'COMPLETE';
-                row[42] = 'NO';
-                row[43] = 'NO';
-                row[49] = false;
-                row[57] = item.invoice_sent === 'YES' ? 'YES' : 'NO';
-                row[65] = '---';
-                
-                row.isYardRecord = true;
-                row.yardItem = item;
-                
-                trips.push(row);
+                let billedLifts = parseInt(item.billed_lifts) || 0;
+                let totalLifts = parseInt(item.lifts) || 1;
+                let unbilledLifts = Math.max(0, totalLifts - billedLifts);
+                let firstIteration = true;
+
+                while (currentStart < absoluteEndDate || (firstIteration && unbilledLifts > 0)) {
+                    let year = currentStart.getFullYear();
+                    let month = currentStart.getMonth();
+                    
+                    // Period ends on the 1st of the next month
+                    let nextMonthStart = new Date(year, month + 1, 1, 12, 0, 0, 0);
+                    let periodEnd = (nextMonthStart < absoluteEndDate) ? nextMonthStart : absoluteEndDate;
+                    
+                    let d1 = Date.UTC(currentStart.getFullYear(), currentStart.getMonth(), currentStart.getDate());
+                    let d2 = Date.UTC(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
+                    let days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
+                    
+                    let liftsToChargeThisPeriod = 0;
+                    const isFirstEverMonth = (billedLifts === 0 && firstIteration); 
+                    const isLastMonth = (periodEnd.getTime() >= absoluteEndDate.getTime() && item.exit_date);
+                    
+                    if (isFirstEverMonth && isLastMonth) {
+                        liftsToChargeThisPeriod = unbilledLifts;
+                    } else if (isFirstEverMonth && unbilledLifts > 0) {
+                        liftsToChargeThisPeriod = 1;
+                    } else if (isLastMonth && unbilledLifts > 0) {
+                        liftsToChargeThisPeriod = unbilledLifts;
+                    }
+                    
+                    billedLifts += liftsToChargeThisPeriod;
+                    unbilledLifts -= liftsToChargeThisPeriod;
+
+                    if (days > 0 || liftsToChargeThisPeriod > 0) {
+                        const accumStorage = (parseFloat(item.daily_rate) || 0) * days;
+                        const liftCost = liftsToChargeThisPeriod * (parseFloat(item.lift_cost) || 0);
+                        const totalCost = accumStorage + liftCost;
+                        
+                        const row = new Array(70).fill('');
+                        row[0] = item.id;
+                        
+                        let displayEnd = new Date(periodEnd);
+                        if (periodEnd.getTime() === nextMonthStart.getTime() && days > 0) {
+                            displayEnd = new Date(year, month + 1, 0, 12, 0, 0, 0);
+                        }
+                        
+                        row[1] = displayEnd.toISOString().split('T')[0];
+                        row[3] = item.container_no;
+                        row[4] = '---';
+                        row[5] = item.container_no;
+                        row[6] = '---';
+                        
+                        let formatDt = (d) => {
+                            if (!d) return '';
+                            const p = d.toISOString().split('T')[0].split('-');
+                            return `${p[1]}/${p[2]}/${p[0]}`;
+                        };
+                        const startStr = formatDt(currentStart);
+                        const endStr = formatDt(displayEnd);
+                        
+                        row[8] = `YARD STORAGE\n(${startStr} - ${endStr})`;
+                        row[11] = item.customer_name;
+                        row[17] = '---';
+                        row[18] = 0;
+                        row[20] = 0;
+                        row[13] = totalCost;
+                        row[30] = '';
+                        row[41] = 'COMPLETE';
+                        row[42] = 'NO';
+                        row[43] = 'NO';
+                        row[49] = false;
+                        row[57] = item.invoice_sent === 'YES' ? 'YES' : 'NO';
+                        row[65] = '---';
+                        
+                        row.isYardRecord = true;
+                        row.yardItem = item;
+                        row.periodEndDate = periodEnd.toISOString().split('T')[0]; 
+                        row.totalBilledLiftsAfterThis = billedLifts;
+                        
+                        trips.push(row);
+                    }
+                    
+                    firstIteration = false;
+                    currentStart = periodEnd;
+                    if (currentStart.getTime() >= absoluteEndDate.getTime()) break;
+                }
             } catch (err) {
                 console.error("Error processing yard record for billing:", item, err);
             }
@@ -846,7 +896,7 @@
 
         try {
             if (row.isYardRecord) {
-                await window.markYardItemAsPaid(tripId);
+                await window.markYardItemAsPaid(tripId, row.periodEndDate, row.totalBilledLiftsAfterThis);
                 row[41] = 'PAID'; // Status -> PAID
                 row[57] = 'YES'; // invoice_sent -> YES
                 row[30] = 'PAID'; // <--- Added to prevent showing as pending
@@ -925,7 +975,7 @@
                 }
 
                 if (row.isYardRecord) {
-                    await window.markYardItemAsPaid(tripId);
+                    await window.markYardItemAsPaid(tripId, row.periodEndDate, row.totalBilledLiftsAfterThis);
                     row[41] = 'PAID'; // Status -> PAID
                     row[57] = 'YES'; // invoice_sent -> YES
                     row[30] = 'PAID'; // <--- Added to prevent showing as pending
