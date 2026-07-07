@@ -889,14 +889,53 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                             ${interactiveHtml}
                         </div>
                     </div>
-                    <div class="modal-footer" style="flex-direction: row; justify-content: flex-end; margin-top: 20px; border-top: none;">
-                        <button onclick="document.getElementById('preview-global-invoice-modal').style.display='none'" style="padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: bold;">CANCEL</button>
-                        <button id="btn-confirm-send-global" style="padding: 10px 20px; border-radius: 8px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;"><i class="fas fa-paper-plane"></i> SEND INVOICE</button>
+                    <div class="modal-footer" style="flex-direction: column; align-items: stretch; margin-top: 20px; border-top: none;">
+                        <div style="background:#f8fafc; padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:15px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div>
+                                    <strong style="color:#1e293b; font-size:1.1rem; display:block;">Método de Pago</strong>
+                                    <span style="font-size:0.85rem; color:#64748b;">Selecciona cómo te pagaron o te pagarán.</span>
+                                </div>
+                                <select id="ys-pay-method" style="padding:10px; border-radius:6px; border:1px solid #cbd5e1; font-weight:bold; font-size:0.95rem;">
+                                    <option value="cash">💵 Cash</option>
+                                    <option value="bank">🏦 Bank</option>
+                                    <option value="split">✂️ Split</option>
+                                </select>
+                            </div>
+                            
+                            <div id="ys-split-fields" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:15px; align-items:center; gap:15px;">
+                                <div style="flex:1;">
+                                    <label style="font-size:0.8rem; font-weight:bold; color:#166534;">💵 Monto CASH</label>
+                                    <input id="ys-split-cash" type="number" step="0.01" value="0" style="width:100%; padding:8px; border:1px solid #86efac; border-radius:4px;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size:0.8rem; font-weight:bold; color:#166534;">🏦 Monto BANK</label>
+                                    <input id="ys-split-bank" type="number" step="0.01" value="0" style="width:100%; padding:8px; border:1px solid #86efac; border-radius:4px;">
+                                </div>
+                            </div>
+
+                            <div style="display:flex; align-items:center; gap:10px; border-top:1px solid #e2e8f0; padding-top:15px;">
+                                <input type="checkbox" id="ys-is-paid" style="width:20px; height:20px; cursor:pointer;">
+                                <label for="ys-is-paid" style="font-size:1rem; font-weight:bold; color:#10b981; cursor:pointer;">✅ Invoice YA PAGADO</label>
+                                <span style="font-size:0.8rem; color:#64748b; margin-left:10px;">(Si lo marcas, el dinero ingresará al Cash Ledger ahora mismo)</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; justify-content:flex-end; gap:10px;">
+                            <button onclick="document.getElementById('preview-global-invoice-modal').style.display='none'" style="padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: bold;">CANCEL</button>
+                            <button id="btn-confirm-send-global" style="padding: 10px 20px; border-radius: 8px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px;"><i class="fas fa-paper-plane"></i> SEND INVOICE & SAVE</button>
+                        </div>
                     </div>
                 </div>
             `;
             modal.innerHTML = previewContent;
             modal.style.display = 'flex';
+            
+            const pMethodSel = document.getElementById('ys-pay-method');
+            const pSplitFlds = document.getElementById('ys-split-fields');
+            pMethodSel.onchange = function() {
+                pSplitFlds.style.display = this.value === 'split' ? 'flex' : 'none';
+            };
             
             btn.innerHTML = originalText;
             btn.disabled = false;
@@ -940,8 +979,146 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     };
 
                     await emailjs.send(serviceId, templateId, templateParams);
-                    if (window.showToast) window.showToast('Global Invoice sent successfully!', 'success');
-                    else alert('Global Invoice sent successfully!');
+
+                    // ── CREATE STATIC BILLING RECORD IN TRIPS TABLE ──────────
+                    const invoiceDate = dateTo ? dateTo : new Date().toISOString().split('T')[0];
+                    const invDateObj = new Date(invoiceDate + 'T12:00:00');
+                    const yyyymm = `${invDateObj.getFullYear()}${String(invDateObj.getMonth() + 1).padStart(2, '0')}`;
+                    const orderNo = `YRD-${yyyymm}`;
+
+                    const containerNos = itemsToInvoice.map(i => i.container_no || '').filter(Boolean).join(', ');
+
+                    let periodLabel = 'YARD STORAGE';
+                    if (dateFrom && dateTo) {
+                        const fmt = (s) => { const p = s.split('-'); return `${p[1]}/${p[2]}/${p[0]}`; };
+                        periodLabel = `YARD STORAGE\n(${fmt(dateFrom)} - ${fmt(dateTo)})`;
+                    }
+
+                    // ── CAPTURE PAYMENT INTENT ──
+                    const pMethod = document.getElementById('ys-pay-method').value;
+                    const cVal = parseFloat(document.getElementById('ys-split-cash').value) || 0;
+                    const bVal = parseFloat(document.getElementById('ys-split-bank').value) || 0;
+                    const isPaidNow = document.getElementById('ys-is-paid').checked;
+
+                    // Snapshot items so the PDF can be rebuilt from Billing + Store payment intent
+                    const invoiceSnapshot = JSON.stringify({
+                        items: itemsToInvoice.map(i => ({
+                            id: i.id,
+                            container_no: i.container_no,
+                            size: i.size,
+                            type: i.type,
+                            condition: i.condition,
+                            created_at: i.created_at,
+                            exit_date: i.exit_date,
+                            origin_release: i.origin_release,
+                            order_out: i.order_out,
+                            daily_rate: i.daily_rate,
+                            lift_cost: i.lift_cost,
+                            lifts: i.lifts,
+                            last_billed_date: i.last_billed_date,
+                            billed_lifts: i.billed_lifts,
+                            customer_name: i.customer_name
+                        })),
+                        dateFrom: dateFrom,
+                        dateTo: dateTo,
+                        total: finalGrandTotal,
+                        paymentMethod: pMethod,
+                        cashSplit: cVal,
+                        bankSplit: bVal
+                    });
+
+                    const tripObj = {
+                        trip_id: crypto.randomUUID(),
+                        date: invoiceDate,
+                        order_no: orderNo,
+                        customer: customerFilter,
+                        delivery_place: periodLabel,
+                        n_cont: containerNos,
+                        yard_rate: finalGrandTotal,
+                        yard_services: invoiceSnapshot,
+                        service_mode: 'YARD INVOICE',
+                        status: 'COMPLETE',
+                        st_yard: isPaidNow ? 'PAID' : 'PEND',
+                        st_rate: 'PAID',
+                        st_sales: 'PAID',
+                        st_amount: 'PAID',
+                        has_trans: 'NO',
+                        has_sales: 'NO',
+                        invoice_sent: 'YES'
+                    };
+                    if (isPaidNow) tripObj.paid = true;
+
+                    // ── LOG TO CASH LEDGER IF PAID NOW ──
+                    if (isPaidNow && window.logCashTransaction) {
+                        const desc = `Pago Factura Yard - ${orderNo}`;
+                        if (pMethod === 'cash' || pMethod === 'bank') {
+                            await window.logCashTransaction({ tipo: 'ingreso', metodo: pMethod, monto: finalGrandTotal, descripcion: desc, referencia: orderNo, chofer: customerFilter });
+                        } else if (pMethod === 'split') {
+                            if (cVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: cVal, descripcion: `${desc} (Split Cash)`, referencia: orderNo, chofer: customerFilter });
+                            if (bVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: bVal, descripcion: `${desc} (Split Bank)`, referencia: orderNo, chofer: customerFilter });
+                        }
+                    }
+
+                    if (window.db) {
+                        const { error: tripErr } = await window.db.from('trips').insert([tripObj]);
+                        if (tripErr) {
+                            console.error('Error creating billing record:', tripErr);
+                        } else {
+                            // Update last_billed_date on each invoiced yard item
+                            const newBilledDate = dateTo || new Date().toISOString().split('T')[0];
+                            for (const item of itemsToInvoice) {
+                                const newBilledLifts = parseInt(item.lifts) || 1;
+                                await window.db.from('yard_stock').update({
+                                    last_billed_date: newBilledDate,
+                                    billed_lifts: newBilledLifts,
+                                    invoice_sent: 'YES'
+                                }).eq('id', item.id);
+                                item.last_billed_date = newBilledDate;
+                                item.billed_lifts = newBilledLifts;
+                                item.invoice_sent = 'YES';
+                            }
+
+                            // ── INSTANT LOCAL UPDATE: push to currentTrips so Billing updates without refresh
+                            if (window.currentTrips) {
+                                // Build a minimal mapped row for immediate display in Billing
+                                const newRow = new Array(74).fill('');
+                                newRow[0]  = tripObj.trip_id;
+                                newRow[1]  = tripObj.date;
+                                newRow[3]  = tripObj.n_cont;
+                                newRow[4]  = '---';
+                                newRow[5]  = tripObj.order_no;
+                                newRow[6]  = '---';
+                                newRow[8]  = tripObj.delivery_place;
+                                newRow[11] = tripObj.customer;
+                                newRow[12] = tripObj.yard_services;
+                                newRow[13] = tripObj.yard_rate;
+                                newRow[17] = '---';
+                                newRow[18] = 0;
+                                newRow[20] = 0;
+                                newRow[30] = tripObj.st_yard;  // st_yard (PAID or PEND)
+                                newRow[32] = 'PAID';
+                                newRow[33] = 'PAID';
+                                newRow[41] = 'COMPLETE';
+                                newRow[42] = 'NO';
+                                newRow[43] = 'NO';
+                                newRow[49] = false;
+                                newRow[57] = 'YES';
+                                newRow[65] = '---';
+                                // NOTE: currentTrips and allTripsUnfiltered point to the SAME array,
+                                // so we only push once to avoid duplicates.
+                                window.currentTrips.push(newRow);
+                            }
+                            // Re-render Billing table immediately
+                            if (typeof window.renderBillingTable === 'function') {
+                                window.renderBillingTable();
+                            }
+                            // ── END INSTANT LOCAL UPDATE ──────────────────────────
+                        }
+                    }
+                    // ── END STATIC BILLING RECORD ─────────────────────────────
+
+                    if (window.showToast) window.showToast('Invoice sent and recorded in Billing!', 'success');
+                    else alert('Invoice sent and recorded in Billing!');
                     modal.style.display = 'none';
                 } catch (sendErr) {
                     console.error('EmailJS Error:', sendErr);

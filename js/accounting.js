@@ -50,12 +50,12 @@
                 chofer: data.chofer || ''
             };
 
-            const { data, error } = await window.db.from('cash_ledger').insert([entry]).select();
+            const { data: insertedData, error } = await window.db.from('cash_ledger').insert([entry]).select();
             if (error) {
                 console.warn('[Accounting] logCashTransaction error (non-fatal):', error.message);
-            } else if (data && data.length > 0) {
+            } else if (insertedData && insertedData.length > 0) {
                 console.log('[Accounting] Transaction logged to cash_ledger:', entry.descripcion, entry.monto);
-                allTransactions.unshift(data[0]); // Agregar a la memoria local sin recargar DB
+                allTransactions.unshift(insertedData[0]); // Agregar a la memoria local sin recargar DB
                 if (typeof renderAccountingTable === 'function') {
                     renderAccountingTable();
                 }

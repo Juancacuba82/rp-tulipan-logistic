@@ -11,118 +11,11 @@
     window.combinedBillingTrips = [];    // Cached combined trips
 
     window.buildCombinedBillingTrips = function() {
+        // Static model: Yard invoices are regular trips with service_mode = 'YARD INVOICE'
+        // They are created when the user sends an invoice from Yard Stock.
+        // No dynamic calculation here — Billing just reads trips as-is.
         const trips = window.currentTrips ? [...window.currentTrips] : [];
-        const yardData = typeof window.getYardStockData === 'function' ? window.getYardStockData() : [];
         
-        yardData.forEach(item => {
-            try {
-                let entryDate = new Date(item.created_at || new Date());
-                if (isNaN(entryDate.getTime())) entryDate = new Date();
-                
-                // Handle cases where last_billed_date might be an empty string if manually cleared in Supabase
-                const lastBilledStr = (item.last_billed_date || '').trim();
-                let billingStartDate = lastBilledStr && lastBilledStr !== 'null' ? new Date(lastBilledStr) : entryDate;
-                if (isNaN(billingStartDate.getTime())) billingStartDate = entryDate;
-                
-                const exitDateStr = (item.exit_date || '').trim();
-                let absoluteEndDate = (exitDateStr && exitDateStr !== 'null') ? new Date(exitDateStr + 'T12:00:00') : new Date();
-                if (isNaN(absoluteEndDate.getTime())) absoluteEndDate = new Date();
-                
-                let currentStart = new Date(billingStartDate);
-                currentStart.setHours(12,0,0,0);
-                absoluteEndDate.setHours(12,0,0,0);
-                
-                let billedLifts = parseInt(item.billed_lifts) || 0;
-                let totalLifts = parseInt(item.lifts) || 1;
-                let unbilledLifts = Math.max(0, totalLifts - billedLifts);
-                let firstIteration = true;
-
-                while (currentStart < absoluteEndDate || (firstIteration && unbilledLifts > 0)) {
-                    let year = currentStart.getFullYear();
-                    let month = currentStart.getMonth();
-                    
-                    // Period ends on the 1st of the next month
-                    let nextMonthStart = new Date(year, month + 1, 1, 12, 0, 0, 0);
-                    let periodEnd = (nextMonthStart < absoluteEndDate) ? nextMonthStart : absoluteEndDate;
-                    
-                    let d1 = Date.UTC(currentStart.getFullYear(), currentStart.getMonth(), currentStart.getDate());
-                    let d2 = Date.UTC(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
-                    let days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-                    
-                    let liftsToChargeThisPeriod = 0;
-                    const isFirstEverMonth = (billedLifts === 0 && firstIteration); 
-                    const isLastMonth = (periodEnd.getTime() >= absoluteEndDate.getTime() && item.exit_date);
-                    
-                    if (isFirstEverMonth && isLastMonth) {
-                        liftsToChargeThisPeriod = unbilledLifts;
-                    } else if (isFirstEverMonth && unbilledLifts > 0) {
-                        liftsToChargeThisPeriod = 1;
-                    } else if (isLastMonth && unbilledLifts > 0) {
-                        liftsToChargeThisPeriod = unbilledLifts;
-                    }
-                    
-                    billedLifts += liftsToChargeThisPeriod;
-                    unbilledLifts -= liftsToChargeThisPeriod;
-
-                    if (days > 0 || liftsToChargeThisPeriod > 0) {
-                        const accumStorage = (parseFloat(item.daily_rate) || 0) * days;
-                        const liftCost = liftsToChargeThisPeriod * (parseFloat(item.lift_cost) || 0);
-                        const totalCost = accumStorage + liftCost;
-                        
-                        const row = new Array(70).fill('');
-                        row[0] = item.id;
-                        
-                        let displayEnd = new Date(periodEnd);
-                        if (periodEnd.getTime() === nextMonthStart.getTime() && days > 0) {
-                            displayEnd = new Date(year, month + 1, 0, 12, 0, 0, 0);
-                        }
-                        
-                        row[1] = displayEnd.toISOString().split('T')[0];
-                        row[3] = item.container_no;
-                        row[4] = '---';
-                        row[5] = item.container_no;
-                        row[6] = '---';
-                        
-                        let formatDt = (d) => {
-                            if (!d) return '';
-                            const p = d.toISOString().split('T')[0].split('-');
-                            return `${p[1]}/${p[2]}/${p[0]}`;
-                        };
-                        const startStr = formatDt(currentStart);
-                        const endStr = formatDt(displayEnd);
-                        
-                        row[8] = `YARD STORAGE\n(${startStr} - ${endStr})`;
-                        row[11] = item.customer_name;
-                        row[17] = '---';
-                        row[18] = 0;
-                        row[20] = 0;
-                        row[13] = totalCost;
-                        row[30] = '';
-                        row[41] = 'COMPLETE';
-                        row[42] = 'NO';
-                        row[43] = 'NO';
-                        row[49] = false;
-                        row[57] = item.invoice_sent === 'YES' ? 'YES' : 'NO';
-                        row[65] = '---';
-                        
-                        row.isYardRecord = true;
-                        row.yardItem = item;
-                        row.periodEndDate = periodEnd.toISOString().split('T')[0]; 
-                        row.totalBilledLiftsAfterThis = billedLifts;
-                        
-                        trips.push(row);
-                    }
-                    
-                    firstIteration = false;
-                    currentStart = periodEnd;
-                    if (currentStart.getTime() >= absoluteEndDate.getTime()) break;
-                }
-            } catch (err) {
-                console.error("Error processing yard record for billing:", item, err);
-            }
-        });
-        
-        // Sort trips so Yard items aren't always buried at the bottom
         const todayStr = new Date().toISOString().split('T')[0];
         trips.sort((a, b) => {
             const dateA = a[1] || '';
@@ -560,29 +453,69 @@
         body.innerHTML = '';
         let subtotal   = 0;
 
-        rows.forEach(row => {
-            const hasTrans        = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-            const hasSales        = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-            const yardDesc        = row[12] && row[12] !== '---' ? row[12] : '';
-            const yardRate        = parseFloat(row[13]) || 0;
-            const qty             = parseInt(row[53]) || 1;
+        // Check if this is a YARD INVOICE static trip (yard_services = JSON snapshot)
+        let isYardInvoice = false;
+        let yardSnap = null;
+        try {
+            const maybeSnap = mainRow[12];
+            if (maybeSnap && typeof maybeSnap === 'string' && maybeSnap.startsWith('{')) {
+                yardSnap = JSON.parse(maybeSnap);
+                if (yardSnap && yardSnap.items) isYardInvoice = true;
+            }
+        } catch(e) {}
 
-            if (hasTrans) {
-                const price = parseFloat(row[18]) || 0;
-                addDetailRow(body, 'TRANSPORT SERVICE', qty, price);
-                subtotal += qty * price;
+        if (isYardInvoice && yardSnap) {
+            // For YARD INVOICE rows, show the full yard invoice HTML inline
+            subtotal = parseFloat(yardSnap.total) || (parseFloat(mainRow[13]) || 0);
+            const servicesTable = body.closest('table');
+            if (servicesTable) {
+                const container = servicesTable.parentElement;
+                servicesTable.style.display = 'none';
+                let yardContainer = container.querySelector('#bm-yard-invoice-detail');
+                if (!yardContainer) {
+                    yardContainer = document.createElement('div');
+                    yardContainer.id = 'bm-yard-invoice-detail';
+                    container.insertBefore(yardContainer, servicesTable);
+                }
+                if (window.generateYardInvoiceHTML) {
+                    const { html } = window.generateYardInvoiceHTML(yardSnap.items, yardSnap.dateFrom, yardSnap.dateTo, false, null);
+                    yardContainer.innerHTML = html;
+                    subtotal = parseFloat(mainRow[13]) || 0;
+                } else {
+                    yardContainer.innerHTML = `<p style="padding:20px;color:#475569;">YARD STORAGE — Total: ${fmtMoney(subtotal)}</p>`;
+                }
             }
-            if (hasSales) {
-                const price = parseFloat(row[20]) || 0;
-                addDetailRow(body, 'CONTAINER SALES', qty, price);
-                subtotal += qty * price;
-            }
-            if (yardRate > 0) {
-                const desc = yardDesc ? `YARD SERVICE: ${yardDesc}` : 'YARD SERVICE';
-                addDetailRow(body, desc, qty, yardRate);
-                subtotal += qty * yardRate;
-            }
-        });
+        } else {
+            // Hide yard detail container if it exists
+            const existingYardDetail = document.getElementById('bm-yard-invoice-detail');
+            if (existingYardDetail) existingYardDetail.innerHTML = '';
+            const servicesTable = body.closest('table');
+            if (servicesTable) servicesTable.style.display = '';
+
+            rows.forEach(row => {
+                const hasTrans        = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+                const hasSales        = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
+                const yardDesc        = row[12] && row[12] !== '---' ? row[12] : '';
+                const yardRate        = parseFloat(row[13]) || 0;
+                const qty             = parseInt(row[53]) || 1;
+
+                if (hasTrans) {
+                    const price = parseFloat(row[18]) || 0;
+                    addDetailRow(body, 'TRANSPORT SERVICE', qty, price);
+                    subtotal += qty * price;
+                }
+                if (hasSales) {
+                    const price = parseFloat(row[20]) || 0;
+                    addDetailRow(body, 'CONTAINER SALES', qty, price);
+                    subtotal += qty * price;
+                }
+                if (yardRate > 0) {
+                    const desc = yardDesc && !yardDesc.startsWith('{') ? `YARD SERVICE: ${yardDesc}` : 'YARD SERVICE';
+                    addDetailRow(body, desc, qty, yardRate);
+                    subtotal += qty * yardRate;
+                }
+            });
+        }
 
         // Tax
         const takeTax   = mainRow[49] === true || mainRow[49] === 'true';
@@ -632,12 +565,21 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
 
         try {
-            const isYard = window.currentBillingOrderRows && window.currentBillingOrderRows[0] && window.currentBillingOrderRows[0].isYardRecord;
+            const firstRow = window.currentBillingOrderRows && window.currentBillingOrderRows[0];
+            // Check if this is a YARD INVOICE static trip
+            const serviceMode = firstRow ? (firstRow[12] || '') : '';
+            let isYardInvoice = false;
+            try { const snap = JSON.parse(serviceMode); if (snap && snap.items) isYardInvoice = true; } catch(e) {}
             
-            if (isYard) {
-                const yardItems = window.currentBillingOrderRows.map(r => r.yardItem);
-                const customerName = yardItems[0].customer_name || 'Customer';
-                await window.downloadSpecificYardInvoicePDF(yardItems, customerName);
+            if (isYardInvoice) {
+                const snap = JSON.parse(firstRow[12]);
+                const customerName = firstRow[11] || 'Customer';
+                const { html } = window.generateYardInvoiceHTML(snap.items, snap.dateFrom, snap.dateTo, false, null);
+                const b64Pdf = await window.generateYardInvoiceBase64(html, customerName);
+                const a = document.createElement('a');
+                a.href = b64Pdf;
+                a.download = `Yard_Invoice_${customerName}_${firstRow[5]}.pdf`;
+                a.click();
             } else {
                 const blob = await generateMasterInvoiceBlob();
                 if (blob) {
@@ -857,9 +799,7 @@
         if (!window.currentTrips || window.currentTrips.length === 0) {
             if (window.loadTableData) await window.loadTableData();
         }
-        if (window.loadYardData) {
-            await window.loadYardData(false);
-        }
+        // Yard Stock data no longer needed — yard invoices are static trips in the trips table.
         window.renderBillingTable();
         
         // Run the invoice automation engine (banner + auto-send + reminders)
@@ -895,44 +835,67 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
         try {
-            if (row.isYardRecord) {
-                await window.markYardItemAsPaid(tripId, row.periodEndDate, row.totalBilledLiftsAfterThis);
-                row[41] = 'PAID'; // Status -> PAID
-                row[57] = 'YES'; // invoice_sent -> YES
-                row[30] = 'PAID'; // <--- Added to prevent showing as pending
-            } else {
-                const updateData = {
-                    st_rate: 'PAID',
-                    st_sales: 'PAID',
-                    st_yard: 'PAID',
-                    st_tax: 'PAID',
-                    paid: true,
-                    invoice_sent: 'YES'
-                };
-
-                await window.updateTrip(tripId, updateData);
-
-                // Update local state
-                row[32] = 'PAID'; // st_rate
-                row[33] = 'PAID'; // st_sales
-                row[30] = 'PAID'; // st_yard
-                // NOTE: row[34] (st_amount) is NOT updated here - it belongs to the calendar
-                // "amount" field and indicates if that amount was collected in cash, not billing status.
-                row[52] = 'PAID'; // st_tax
-                row[57] = 'YES'; // invoice_sent
-
-                if (window.allTripsUnfiltered) {
-                    const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                    if (ufRow) {
-                        ufRow[32] = 'PAID';
-                        ufRow[33] = 'PAID';
-                        ufRow[30] = 'PAID';
-                        // NOTE: ufRow[34] (st_amount) is intentionally NOT updated here.
-                        ufRow[52] = 'PAID';
-                        ufRow[57] = 'YES';
-                    }
+            // ── AUTOMATIC CASH LEDGER FOR YARD INVOICES ──
+            // If this is a Yard Invoice that was saved as Pending but has a payment intent
+            let yardSnap = null;
+            try {
+                if (row[12] && typeof row[12] === 'string' && row[12].startsWith('{')) {
+                    yardSnap = JSON.parse(row[12]);
                 }
-            } // <-- close else block!
+            } catch(e) {}
+            
+            if (yardSnap && yardSnap.paymentMethod && yardSnap.paymentMethod !== 'pending' && window.logCashTransaction) {
+                const pMethod = yardSnap.paymentMethod;
+                const cVal = yardSnap.cashSplit || 0;
+                const bVal = yardSnap.bankSplit || 0;
+                const desc = `Pago Factura Yard - ${row[5] || '---'}`;
+                const cust = row[11] || '';
+                const tot  = parseFloat(row[13]) || 0;
+
+                alert(`Debug: Logging to Cash Ledger -> Method: ${pMethod}, Amount: ${tot}`);
+
+                if (pMethod === 'cash' || pMethod === 'bank') {
+                    await window.logCashTransaction({ tipo: 'ingreso', metodo: pMethod, monto: tot, descripcion: desc, referencia: row[5], chofer: cust });
+                } else if (pMethod === 'split') {
+                    if (cVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: cVal, descripcion: `${desc} (Split Cash)`, referencia: row[5], chofer: cust });
+                    if (bVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: bVal, descripcion: `${desc} (Split Bank)`, referencia: row[5], chofer: cust });
+                }
+            } else if (yardSnap && !yardSnap.paymentMethod) {
+                alert('Debug: yardSnap found but NO paymentMethod present. Was this invoice created before the update?');
+            } else if (!yardSnap) {
+                alert('Debug: Not a yard invoice or no valid JSON found in row[12].');
+            }
+            // ── END AUTOMATIC CASH LEDGER ──
+
+            // All rows now use the standard trip update path (including YARD INVOICE static rows)
+            const updateData = {
+                st_rate: 'PAID',
+                st_sales: 'PAID',
+                st_yard: 'PAID',
+                st_tax: 'PAID',
+                paid: true,
+                invoice_sent: 'YES'
+            };
+
+            await window.updateTrip(tripId, updateData);
+
+            // Update local state
+            row[32] = 'PAID'; // st_rate
+            row[33] = 'PAID'; // st_sales
+            row[30] = 'PAID'; // st_yard
+            row[52] = 'PAID'; // st_tax
+            row[57] = 'YES';  // invoice_sent
+
+            if (window.allTripsUnfiltered) {
+                const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                if (ufRow) {
+                    ufRow[32] = 'PAID';
+                    ufRow[33] = 'PAID';
+                    ufRow[30] = 'PAID';
+                    ufRow[52] = 'PAID';
+                    ufRow[57] = 'YES';
+                }
+            }
 
             if (window.showToast) window.showToast('Marcado como pagado exitosamente', 'success');
             else alert('Marcado como pagado exitosamente');
@@ -969,17 +932,12 @@
             for (const row of pendingRows) {
                 const tripId = row[0];
                 const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-                if (!tripId || !isUUID(tripId)) {
+                if (!tripId || (!row.isYardAggregate && !isUUID(tripId))) {
                     console.warn("Invalid ID skipped:", tripId);
                     continue;
                 }
 
-                if (row.isYardRecord) {
-                    await window.markYardItemAsPaid(tripId, row.periodEndDate, row.totalBilledLiftsAfterThis);
-                    row[41] = 'PAID'; // Status -> PAID
-                    row[57] = 'YES'; // invoice_sent -> YES
-                    row[30] = 'PAID'; // <--- Added to prevent showing as pending
-                } else {
+                {
                     const updateData = {
                         st_rate: 'PAID',
                         st_sales: 'PAID',

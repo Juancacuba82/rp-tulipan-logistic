@@ -374,9 +374,30 @@
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
             
             try {
-                const yardItems = rows.map(r => r.yardItem);
-                const customerName = yardItems[0].customer_name || 'Customer';
-                await window.sendSpecificYardInvoiceEmail(yardItems, customerName, customerEmail);
+                if (row.isYardAggregate) {
+                    const agg = row.yardAggregateData;
+                    const d1 = agg.periodStart.toISOString().split('T')[0];
+                    const d2 = agg.periodEnd.toISOString().split('T')[0];
+                    const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
+                    const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+                    const publicKey = localStorage.getItem('ejs_public_key');
+                    emailjs.init(publicKey);
+                    const { html, total } = window.generateYardInvoiceHTML(agg.items, d1, d2, false, null);
+                    const b64Pdf = await window.generateYardInvoiceBase64(html, agg.customer_name);
+                    const templateParams = {
+                        to_email: customerEmail,
+                        customer_name: agg.customer_name,
+                        invoice_html: "",
+                        grand_total: total.toFixed(2),
+                        attachment_b64: b64Pdf.split(',')[1]
+                    };
+                    await emailjs.send(serviceId, templateId, templateParams);
+                } else {
+                    const yardItems = rows.map(r => r.yardItem);
+                    const customerName = yardItems[0].customer_name || 'Customer';
+                    await window.sendSpecificYardInvoiceEmail(yardItems, customerName, customerEmail);
+                }
+                
                 if (window.showToast) window.showToast('Yard invoice sent successfully!', 'success');
                 else alert('Yard invoice sent successfully!');
             } catch(e) {
