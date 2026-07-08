@@ -99,8 +99,37 @@
                 const note = row[25] || '---';
 
                 // Get purchase price from release
-                const relNo = (row[4] || '').toString().trim();
+                let relNo = (row[4] || '').toString().trim();
                 const tripSize = (row[2] || '').toString();
+
+                // --- FIX: Yard-sourced sales — trace back to find the actual Release number.
+                // When a container is sold from Yard Stock, row[4] may contain an order number
+                // (e.g. "ORD-RQ59") because that's what yard_stock.origin_release stores.
+                // We trace: sale trip → yard item → origin order → original trip → release number.
+                if (!relMap.has(relNo)) {
+                    const containerSource = (row[58] || 'RELEASE').toString();
+                    const yardItemId    = (row[59] || '').toString();
+                    if ((containerSource === 'YARD' || containerSource === 'STORAGE') && yardItemId) {
+                        const yardItems = window.getYardStockData ? window.getYardStockData() : [];
+                        const yardItem  = yardItems.find(y => String(y.id) === String(yardItemId));
+                        if (yardItem && yardItem.origin_release) {
+                            const originOrderNo = yardItem.origin_release; // This is an ORDER number
+                            // Search ALL trips (not just filtered) for that order to get its release
+                            const allT = window.allTripsUnfiltered || window.currentTrips || [];
+                            const originalTrip = allT.find(t =>
+                                Array.isArray(t) &&
+                                (t[5] || '').toString().trim() === originOrderNo.toString().trim()
+                            );
+                            if (originalTrip) {
+                                const foundRelNo = (originalTrip[4] || '').toString().trim();
+                                if (foundRelNo && relMap.has(foundRelNo)) {
+                                    relNo = foundRelNo; // Use the real release number
+                                }
+                            }
+                        }
+                    }
+                }
+
                 const releaseData = relMap.get(relNo);
 
                 let unitCost = 0;

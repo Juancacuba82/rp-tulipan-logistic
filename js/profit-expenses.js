@@ -379,7 +379,8 @@
                     row[4]  = t.release_no || '---';
                     row[2]  = t.size || '---';
                     row[49] = t.take_tax || false;
-                    row[50] = t.tax_percent || 0;
+                    row[58] = t.container_source || 'RELEASE';
+                    row[59] = t.yard_item_id || '';
                     return row;
                 });
             } else {
@@ -437,8 +438,33 @@
 
                     // A. Sales Component — Gross Revenue = sales_price * qty
                     if (hasSales && salesPrice > 0) {
-                        const relNo      = (row[4] || '').toString().trim();
+                        let relNo      = (row[4] || '').toString().trim();
                         const tripSize   = (row[2] || '').toString();
+
+                        // --- Traceback logic for Yard-sourced sales ---
+                        if (!relMap.has(relNo)) {
+                            const containerSource = (row[58] || 'RELEASE').toString();
+                            const yardItemId    = (row[59] || '').toString();
+                            if ((containerSource === 'YARD' || containerSource === 'STORAGE') && yardItemId) {
+                                const yardItems = window.getYardStockData ? window.getYardStockData() : [];
+                                const yardItem  = yardItems.find(y => String(y.id) === String(yardItemId));
+                                if (yardItem && yardItem.origin_release) {
+                                    const originOrderNo = yardItem.origin_release;
+                                    const allT = window.allTripsUnfiltered || window.currentTrips || [];
+                                    const originalTrip = allT.find(t =>
+                                        Array.isArray(t) &&
+                                        (t[5] || '').toString().trim() === originOrderNo.toString().trim()
+                                    );
+                                    if (originalTrip) {
+                                        const foundRelNo = (originalTrip[4] || '').toString().trim();
+                                        if (foundRelNo && relMap.has(foundRelNo)) {
+                                            relNo = foundRelNo;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         const releaseData = relMap.get(relNo);
 
                         let unitCost = 0;

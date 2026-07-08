@@ -399,6 +399,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (!isUUID(finalTripId)) {
                     throw new Error(`La ID de esta orden (${finalTripId}) no es compatible con el nuevo sistema UUID. Por favor, ejecuta el script de migración SQL en Supabase o contacta a soporte.`);
                 }
+                
+                // CRITICAL FIX: Ensure dbObj has the correct trip_id so the local cache preserves it
+                dbObj.trip_id = finalTripId;
 
                 console.log("Saving order via RPC sync...", { tripId: finalTripId, isMoveToYard });
                 
@@ -421,7 +424,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
 
                 // --- MANUALLY SYNC YARD STOCK ---
-                if (isMoveToYard) {
+                // Only create/update the yard record if the order is finalized (Complete)
+                if (isMoveToYard && isFinalized) {
                     try {
                         let searchOrder = yardData.origin_release;
                         let searchCont = yardData.container_no;
@@ -480,6 +484,28 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
                     } catch(err) {
                         console.error("Failed to sync yard stock manually", err);
+                    }
+                } else if (isMoveToYard && !isFinalized) {
+                    // If they change an existing Complete order back to Pending, remove it from Yard
+                    try {
+                        let searchOrder = yardData.origin_release;
+                        let searchCont = yardData.container_no;
+                        
+                        if (wasMoveToYard && editingIndex !== null) {
+                            const oldRow = window.currentTrips[editingIndex];
+                            if (oldRow) {
+                                searchOrder = (oldRow[5] || '').trim().toUpperCase() || searchOrder;
+                                searchCont = (oldRow[3] || '').trim().toUpperCase() || searchCont;
+                            }
+                        }
+
+                        const yardDelQuery = searchCont && searchCont !== '---'
+                            ? db.from('yard_stock').delete().eq('origin_release', searchOrder).eq('container_no', searchCont)
+                            : db.from('yard_stock').delete().eq('origin_release', searchOrder);
+                            
+                        await yardDelQuery;
+                    } catch(err) {
+                        console.error("Failed to remove yard stock on status change to pending", err);
                     }
                 }
 
@@ -2709,12 +2735,24 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
     }
 
     // --- YARD STOCK CLEANUP ---
-    const orderNoForDel = rowData[5] || '---';
-    const wasToYardForDel = !!rowData[62];
-    if (wasFinalized && wasToYardForDel) {
-        console.log(`Cleaning Yard Stock for deleted order: ${orderNoForDel}`);
-        await db.from('yard_stock').delete().ilike('notes', `%Order: ${orderNoForDel}%`);
+    // When deleting a COMPLETE "Move to Yard" order, auto-delete the yard entry too.
+    // origin_release in yard_stock stores the ORDER NUMBER of the trip that moved the container.
+    const orderNoForDel    = rowData[5] || '---';
+    const containerNoForDel = (rowData[3] || '').trim().toUpperCase();
+    const wasToYardForDel   = !!rowData[62];
+    if (wasFinalized && wasToYardForDel && orderNoForDel !== '---') {
+        console.log(`Auto-deleting Yard entry for COMPLETE order: ${orderNoForDel} / ${containerNoForDel}`);
+        // Use origin_release + container_no — more reliable than the old notes-pattern search
+        const yardDelQuery = containerNoForDel
+            ? db.from('yard_stock').delete()
+                .eq('origin_release', orderNoForDel)
+                .eq('container_no', containerNoForDel)
+            : db.from('yard_stock').delete()
+                .eq('origin_release', orderNoForDel);
+        const { error: yardDelErr } = await yardDelQuery;
+        if (yardDelErr) console.error('Error auto-deleting yard entry:', yardDelErr);
     }
+
 
     // Revert sourced yard item back to AVAILABLE on deletion
     const containerSourceForDel = rowData[58] || 'RELEASE';

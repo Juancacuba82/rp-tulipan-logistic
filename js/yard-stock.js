@@ -1312,6 +1312,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             opt.dataset.size = item.size;
             opt.dataset.type = item.type;
             opt.dataset.cond = item.condition;
+            opt.dataset.originRelease = item.origin_release || '';
             sel.appendChild(opt);
         });
 
@@ -1382,6 +1383,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const size = opt.dataset.size;
         const type = opt.dataset.type;
         const cond = opt.dataset.cond;
+        const originRelease = opt.dataset.originRelease || '';
 
         // Populate Calendar Fields
         const inSize = document.getElementById('in-size');
@@ -1402,6 +1404,46 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         // Use the container number from the selection text (first part)
         const contNo = opt.textContent.split(' - ')[0];
         if (inNCont) inNCont.value = contNo;
+
+        // --- FIX: Carry the original Release number from Yard so Form Inventor
+        //     can look up the purchase price correctly.
+        //     yard_stock.origin_release stores the ORDER NUMBER of the trip that sent the
+        //     container to Yard — not the Release number. We trace back through trips to
+        //     find the actual Release number so Form Inventor can look up the purchase price.
+        if (originRelease) {
+            let releaseNo = '';
+
+            // origin_release = ORDER number (e.g. "ORD-RQ59")
+            // Find the original trip with that order number to get the Release number
+            const allTrips = window.allTripsUnfiltered || window.currentTrips || [];
+            const originalTrip = allTrips.find(t =>
+                Array.isArray(t) &&
+                (t[5] || '').toString().trim() === originRelease.toString().trim()
+            );
+            if (originalTrip) {
+                releaseNo = (originalTrip[4] || '').toString().trim(); // row[4] = release_no
+            }
+
+            // Fallback: if the lookup didn't work (trip not loaded), use originRelease directly
+            // (it might already be a release number if the yard item was added manually)
+            if (!releaseNo) releaseNo = originRelease;
+
+            if (releaseNo) {
+                const inRelSel = document.getElementById('in-release-sel');
+                const inRelMan = document.getElementById('in-release');
+                if (inRelSel) {
+                    const exists = Array.from(inRelSel.options).some(o => o.value === releaseNo);
+                    if (!exists) {
+                        const tempOpt = document.createElement('option');
+                        tempOpt.value = releaseNo;
+                        tempOpt.textContent = releaseNo;
+                        inRelSel.appendChild(tempOpt);
+                    }
+                    inRelSel.value = releaseNo;
+                }
+                if (inRelMan) inRelMan.value = releaseNo;
+            }
+        }
     };
 
     window.setYardDisplayMode = function (mode) {
