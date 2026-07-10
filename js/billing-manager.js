@@ -314,13 +314,11 @@
                 <td style="${cs} font-size:0.7rem; color:#475569;">${lastSentText}</td>
                 <td style="${cs}">
                     <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-                        <button onclick="openBillingDetail(${globalIdx})"
-                            style="background:#1e293b;color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.72rem;font-weight:800;display:flex;align-items:center;gap:5px;white-space:nowrap;">
-                            <i class="fas fa-file-invoice-dollar"></i> VIEW & SEND
+                        <button onclick="openBillingDetail(${globalIdx})" class="glossy-dark-btn-sm">
+                            <i class="fas fa-file-invoice-dollar"></i> VIEW SEND
                         </button>
                         ${isOrderPendingPayment ? `
-                        <button onclick="markBillingRowAsPaid(${globalIdx}, this)"
-                            style="background:#10b981;color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.72rem;font-weight:800;display:flex;align-items:center;gap:5px;white-space:nowrap;" title="Mark as Paid">
+                        <button onclick="markBillingRowAsPaid(${globalIdx}, this)" class="glossy-green-btn-sm" title="Mark as Paid">
                             <i class="fas fa-check-double"></i> PAID
                         </button>
                         ` : ''}
@@ -688,68 +686,52 @@
         const customerSel  = document.getElementById('bc-f-customer');
         const customerName = customerSel ? customerSel.value || 'All Customers' : 'All Customers';
 
-        const reportContainer = document.createElement('div');
-        reportContainer.style.cssText = 'padding:40px;background:white;width:1200px;position:fixed;left:-9999px;top:0;font-family:Arial,sans-serif;';
-        document.body.appendChild(reportContainer);
-
-        reportContainer.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e293b;padding-bottom:20px;margin-bottom:30px;">
-                <div>
-                    <h1 style="margin:0;color:#1e293b;font-size:2.2rem;font-weight:900;">ACCOUNT STATEMENT</h1>
-                    <h3 style="margin:5px 0;color:#475569;text-transform:uppercase;">CUSTOMER: ${customerName}</h3>
-                </div>
-                <div style="text-align:right;">
-                    <p style="margin:0;color:#64748b;font-weight:bold;">Date: ${new Date().toLocaleDateString()}</p>
-                    <p style="margin:5px 0;font-weight:900;color:#1e40af;font-size:1.1rem;">RP TULIPAN TRANSPORT INC</p>
-                </div>
-            </div>
-        `;
+        const totalDueDisplay = document.getElementById('billing-total-due-display');
+        const totalPending = totalDueDisplay ? parseFloat(totalDueDisplay.textContent.replace(/[^0-9.-]+/g,"")) : 0;
 
         const tableClone = table.cloneNode(true);
-        tableClone.style.cssText = 'width:100%;border-collapse:collapse;font-size:0.85rem;';
-
-        const headerRow = tableClone.querySelector('thead tr');
-        if (headerRow) {
-            const ths = headerRow.querySelectorAll('th');
-            for (let i = ths.length - 1; i >= 12; i--) {
+        tableClone.querySelectorAll('thead tr').forEach(tr => {
+            const ths = tr.querySelectorAll('th');
+            for (let i = ths.length - 1; i >= 13; i--) {
                 if (ths[i]) ths[i].remove();
             }
-        }
-
+        });
         tableClone.querySelectorAll('tbody tr').forEach(tr => {
             const tds = tr.querySelectorAll('td');
-            for (let i = tds.length - 1; i >= 12; i--) {
+            for (let i = tds.length - 1; i >= 13; i--) {
                 if (tds[i]) tds[i].remove();
             }
-            tr.querySelectorAll('td').forEach(td => {
-                td.style.borderBottom = '1px solid #e2e8f0';
-                td.style.padding      = '10px';
-            });
         });
 
-        reportContainer.appendChild(tableClone);
-
-        let totalPending = 0;
-        window.billingRows.forEach(row => {
-            const hasTrans  = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-            const hasSales  = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-            const qty       = parseInt(row[53]) || 1;
-            if (hasTrans && row[32] === 'PEND') totalPending += (parseFloat(row[18]) || 0);
-            if (hasSales && row[33] === 'PEND') totalPending += (parseFloat(row[20]) || 0) * qty;
-        });
-
-        const footer = document.createElement('div');
-        footer.style.cssText = 'margin-top:40px;text-align:right;border-top:3px solid #1e293b;padding-top:20px;';
-        footer.innerHTML = `
-            <h2 style="margin:0;color:#1e293b;font-size:1.8rem;font-weight:900;">TOTAL BALANCE DUE: <span style="color:#dc2626;">${fmtMoney(totalPending)}</span></h2>
-            <p style="margin-top:15px;font-size:0.9rem;color:#475569;font-style:italic;font-weight:bold;">Please process payment at your earliest convenience. Thank you for your business!</p>
-        `;
-        reportContainer.appendChild(footer);
-
+        const hiddenContainer = document.createElement('div');
+        hiddenContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:white;padding:40px;';
+        document.body.appendChild(hiddenContainer);
+        
         try {
-            const canvas = await html2canvas(reportContainer, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-
             if (format === 'IMAGE') {
+                hiddenContainer.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e293b;padding-bottom:20px;margin-bottom:30px;">
+                        <div>
+                            <h1 style="margin:0;color:#1e293b;font-size:2.2rem;font-weight:900;">ACCOUNT STATEMENT</h1>
+                            <h3 style="margin:5px 0;color:#475569;text-transform:uppercase;">CUSTOMER: ${customerName}</h3>
+                        </div>
+                        <div style="text-align:right;">
+                            <p style="margin:0;color:#64748b;font-weight:bold;">Date: ${new Date().toLocaleDateString()}</p>
+                            <p style="margin:5px 0;font-weight:900;color:#1e40af;font-size:1.1rem;">RP TULIPAN TRANSPORT INC</p>
+                        </div>
+                    </div>
+                `;
+                hiddenContainer.appendChild(tableClone);
+
+                const footer = document.createElement('div');
+                footer.style.cssText = 'margin-top:40px;text-align:right;border-top:3px solid #1e293b;padding-top:20px;';
+                footer.innerHTML = `
+                    <h2 style="margin:0;color:#1e293b;font-size:1.8rem;font-weight:900;">TOTAL BALANCE DUE: <span style="color:#dc2626;">${fmtMoney(totalPending)}</span></h2>
+                    <p style="margin-top:15px;font-size:0.9rem;color:#475569;font-style:italic;font-weight:bold;">Please process payment at your earliest convenience. Thank you for your business!</p>
+                `;
+                hiddenContainer.appendChild(footer);
+
+                const canvas = await html2canvas(hiddenContainer, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
                 const url = canvas.toDataURL('image/png');
                 const a   = document.createElement('a');
                 a.href     = url;
@@ -759,37 +741,67 @@
                 document.body.removeChild(a);
 
             } else if (format === 'PDF') {
+                // Must append to DOM for jspdf-autotable to read computed styles
+                hiddenContainer.appendChild(tableClone);
+                
                 const { jsPDF } = window.jspdf;
-                const imgData   = canvas.toDataURL('image/jpeg', 0.95);
-                const pdf       = new jsPDF('l', 'mm', 'a4');
-                const pw = pdf.internal.pageSize.getWidth();
-                const ph = pdf.internal.pageSize.getHeight();
-                const m  = 10;
-                const iw = pw - m * 2;
-                const ih = (canvas.height * iw) / canvas.width;
-                const up = ph - m * 2;
-
-                if (ih <= up) {
-                    pdf.addImage(imgData, 'JPEG', m, m, iw, ih);
-                } else {
-                    const pages = Math.ceil(ih / up);
-                    for (let pg = 0; pg < pages; pg++) {
-                        if (pg > 0) pdf.addPage();
-                        const yo = m - pg * up;
-                        pdf.addImage(imgData, 'JPEG', m, yo, iw, ih);
-                        pdf.setFillColor(255, 255, 255);
-                        if (pg > 0) pdf.rect(0, 0, pw, m, 'F');
-                        const ov = yo + ih - ph + m;
-                        if (ov > 0) pdf.rect(0, ph - m, pw, m + 1, 'F');
-                    }
+                const pdf = new jsPDF('l', 'mm', 'a4');
+                
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(22);
+                pdf.setTextColor(30, 41, 59);
+                pdf.text("ACCOUNT STATEMENT", 14, 20);
+                
+                pdf.setFontSize(12);
+                pdf.setTextColor(71, 85, 105);
+                pdf.text(`CUSTOMER: ${customerName}`.toUpperCase(), 14, 28);
+                
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(10);
+                pdf.setTextColor(100, 116, 139);
+                pdf.text(`Date: ${new Date().toLocaleDateString()}`, 283, 20, { align: 'right' });
+                
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(14);
+                pdf.setTextColor(220, 38, 38);
+                pdf.text("RP TULIPAN TRANSPORT INC", 283, 26, { align: 'right' });
+                
+                pdf.autoTable({
+                    html: tableClone,
+                    startY: 35,
+                    theme: 'grid',
+                    styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.3 },
+                    headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.3 },
+                    alternateRowStyles: { fillColor: [248, 250, 252] },
+                });
+                
+                let finalY = (pdf.lastAutoTable && pdf.lastAutoTable.finalY) ? pdf.lastAutoTable.finalY + 15 : 45;
+                if (finalY > pdf.internal.pageSize.getHeight() - 25) {
+                    pdf.addPage();
+                    finalY = 20;
                 }
+                
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(16);
+                pdf.setTextColor(30, 41, 59);
+                pdf.text(`TOTAL BALANCE DUE: `, 240, finalY, { align: 'right' });
+                pdf.setTextColor(220, 38, 38);
+                pdf.text(`${fmtMoney(totalPending)}`, 283, finalY, { align: 'right' });
+                
+                pdf.setFont("helvetica", "italic");
+                pdf.setFontSize(9);
+                pdf.setTextColor(71, 85, 105);
+                pdf.text("Please process payment at your earliest convenience. Thank you for your business!", 283, finalY + 8, { align: 'right' });
+                
                 pdf.save(`Statement_${customerName.replace(/\s+/g, '_')}.pdf`);
             }
         } catch (err) {
             console.error('Error generating statement:', err);
-            alert('Error generating statement.');
+            alert('Error generating statement: ' + err.message);
         } finally {
-            document.body.removeChild(reportContainer);
+            if (document.body.contains(hiddenContainer)) {
+                document.body.removeChild(hiddenContainer);
+            }
             if (btn) { btn.disabled = false; btn.innerHTML = originalContent; }
         }
     };

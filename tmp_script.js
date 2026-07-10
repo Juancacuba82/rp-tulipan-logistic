@@ -32,7 +32,7 @@
 
 
         function calculateFinalPay(company, grossPay) {
-            if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+            if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                 return grossPay * 0.3;
             }
             return grossPay;
@@ -1094,7 +1094,7 @@
                     if (finalNetVal <= 0) {
                         const comp = r[15] || ''; // Index 15 is Company
                         const grossPaid = parseFloat(r[23]) || 0; // Index 23 is Gross Driver Pay
-                        finalNetVal = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? grossPaid * 0.3 : grossPaid;
+                        finalNetVal = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRANE') ? grossPaid * 0.3 : grossPaid;
                     }
                     totalGrossFiltered += finalNetVal;
                 });
@@ -1140,7 +1140,7 @@
                         if (netVal <= 0) {
                             const comp = r[15] || '';
                             const grossPaid = parseFloat(r[23]) || 0;
-                            netVal = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? grossPaid * 0.3 : grossPaid;
+                            netVal = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRANE') ? grossPaid * 0.3 : grossPaid;
                         }
                         totalPaidDriver += netVal;
                         
@@ -1212,7 +1212,7 @@
                             if (finalNet <= 0) {
                                 const comp = r[15] || ''; // rowData index 15: Company
                                 const gross = parseFloat(r[23]) || 0; // rowData index 23: Paid Driver Gross
-                                finalNet = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRAME') ? gross * 0.3 : gross;
+                                finalNet = (comp === 'RP TULIPAN' || comp === 'JR SUPER CRANE') ? gross * 0.3 : gross;
                             }
                             value = finalNet;
                         }
@@ -1246,7 +1246,7 @@
             const company = elComp.value;
             const gross = parseFloat(elGross.value) || 0;
             
-            if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+            if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                 info.textContent = `Monto neto para chofer: $${(gross * 0.3).toFixed(2)} (30% aplicado)`;
             } else {
                 info.textContent = `Monto neto para chofer: $${gross.toFixed(2)} (100% aplicado)`;
@@ -2285,7 +2285,7 @@
                 const paidBase = parseFloat(elPaidBase.value) || 0;
 
                 let result = 0;
-                if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+                if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                     result = paidBase * (commPercent / 100);
                 } else {
                     result = paidBase;

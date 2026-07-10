@@ -412,7 +412,7 @@
                 yard: 0,         // Yard / Storage income
                 rentals: 0,      // PAID rentals income
                 tulipan: 0,      // RP Tulipan transport revenue
-                jr: 0,           // JR Super Crame transport revenue
+                jr: 0,           // JR Super Crane transport revenue
                 contractor: 0,   // Contractor transport revenue
                 storageTulipan: 0, // Storage RPTulipan total
                 storageYard: 0,    // Storage Yard total
@@ -510,7 +510,7 @@
                         const totalTrans = transVal * qty; // Multiply by qty
 
                         if (company === 'RP TULIPAN')       totals.tulipan    += totalTrans;
-                        else if (company === 'JR SUPER CRAME') totals.jr      += totalTrans;
+                        else if (company === 'JR SUPER CRANE') totals.jr      += totalTrans;
                         else if (company === 'CONTRACTOR')  totals.contractor += totalTrans;
                     }
                 }

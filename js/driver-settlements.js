@@ -103,7 +103,7 @@
                         totalPaidDriverGross += grossVal;
 
                         // Apply 30% logic based on Company
-                        if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+                        if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                             totalAdjustedCommission += grossVal * 0.3;
                         } else {
                             totalAdjustedCommission += grossVal; // Contractors get 100%
@@ -291,7 +291,7 @@
             const company = elComp.value;
             const gross = parseFloat(elGross.value) || 0;
 
-            if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+            if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                 info.textContent = `Monto neto para chofer: $${(gross * 0.3).toFixed(2)} (30% aplicado)`;
             } else {
                 info.textContent = `Monto neto para chofer: $${gross.toFixed(2)} (100% aplicado)`;

@@ -132,7 +132,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const countEl = document.getElementById('yard-total-count');
         if (!body) return;
 
-        const searchTerm = document.getElementById('yf-search')?.value.toLowerCase() || '';
+        const stateFilter = document.getElementById('yf-state')?.value || 'ALL';
         const sizeFilter = document.getElementById('yf-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
         const customerFilter = document.getElementById('yf-customer')?.value || '';
@@ -148,8 +148,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const isStorage = (item.notes || '').includes('[Storage Yard]');
             if (isStorage) return false; // Left table is only RPTulipan Yard
 
-            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) ||
-                (item.origin_release || '').toLowerCase().includes(searchTerm);
+            let matchState = true;
+            if (stateFilter === 'ACTIVE') {
+                matchState = !item.exit_date;
+            } else if (stateFilter === 'INACTIVE') {
+                matchState = !!item.exit_date;
+            }
+
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
 
@@ -159,7 +164,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
             let matchDate = window.checkYardDateMatch(item, dateFrom, dateTo);
 
-            return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
+            return matchState && matchSize && matchStatus && matchCustomer && matchDate;
         });
 
         if (countEl) countEl.textContent = filtered.length;
@@ -267,7 +272,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const countEl = document.getElementById('storage-total-count');
         if (!body) return;
 
-        const searchTerm = document.getElementById('sf-search')?.value.toLowerCase() || '';
+        const stateFilter = document.getElementById('sf-state')?.value || 'ALL';
         const sizeFilter = document.getElementById('sf-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
         const customerFilter = document.getElementById('sf-customer')?.value || '';
@@ -283,8 +288,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const isStorage = (item.notes || '').includes('[Storage Yard]');
             if (!isStorage) return false; // Right table is only Storage Yard
 
-            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) ||
-                (item.origin_release || '').toLowerCase().includes(searchTerm);
+            let matchState = true;
+            if (stateFilter === 'ACTIVE') {
+                matchState = !item.exit_date;
+            } else if (stateFilter === 'INACTIVE') {
+                matchState = !!item.exit_date;
+            }
+
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
 
@@ -294,7 +304,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
             let matchDate = window.checkYardDateMatch(item, dateFrom, dateTo);
 
-            return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
+            return matchState && matchSize && matchStatus && matchCustomer && matchDate;
         });
 
         if (countEl) countEl.textContent = filtered.length;
@@ -408,7 +418,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         const countEl = document.getElementById('both-total-count');
         if (!body) return;
 
-        const searchTerm = document.getElementById('both-search')?.value.toLowerCase() || '';
+        const stateFilter = document.getElementById('both-state')?.value || 'ALL';
         const sizeFilter = document.getElementById('both-size')?.value || '';
         const statusFilter = document.getElementById('global-yard-status')?.value || 'ACTIVE';
         const customerFilter = document.getElementById('both-customer')?.value || '';
@@ -421,8 +431,13 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
 
         const filtered = currentYardStock.filter(item => {
-            const matchSearch = (item.container_no || '').toLowerCase().includes(searchTerm) ||
-                (item.origin_release || '').toLowerCase().includes(searchTerm);
+            let matchState = true;
+            if (stateFilter === 'ACTIVE') {
+                matchState = !item.exit_date;
+            } else if (stateFilter === 'INACTIVE') {
+                matchState = !!item.exit_date;
+            }
+
             const matchSize = sizeFilter ? (item.size || '').includes(sizeFilter) : true;
             const matchCustomer = customerFilter ? (item.customer_name === customerFilter) : true;
 
@@ -432,7 +447,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
             let matchDate = window.checkYardDateMatch(item, dateFrom, dateTo);
 
-            return matchSearch && matchSize && matchStatus && matchCustomer && matchDate;
+            return matchState && matchSize && matchStatus && matchCustomer && matchDate;
         });
 
         if (countEl) countEl.textContent = filtered.length;

@@ -226,7 +226,7 @@
             const exclusiveDrivers = ["MILAY MIRANDA", "LUIS GARRIDO", "JORGE A RAMIREZ", "GREGORY CUTINO", "ROBERT CORTEZ"];
             
             let filteredDrivers = currentDrivers;
-            if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+            if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                 filteredDrivers = currentDrivers.filter(d => exclusiveDrivers.includes(d.name.toUpperCase()) || d.name.toUpperCase() === "ROLY PEREZ");
             } else if (company === 'CONTRACTOR') {
                 filteredDrivers = currentDrivers.filter(d => !exclusiveDrivers.includes(d.name.toUpperCase()));
@@ -1026,7 +1026,7 @@
 
                 // Seed if empty
                 if (data.length === 0) {
-                    const seed = ["RP TULIPAN", "JR SUPER CRAME", "CONTRACTOR", "ONLY SALES"];
+                    const seed = ["RP TULIPAN", "JR SUPER CRANE", "CONTRACTOR", "ONLY SALES"];
                     const seedObjs = seed.map(n => ({ name: n }));
                     await db.from('companies').insert(seedObjs);
                     return loadCompaniesData();
@@ -1396,7 +1396,7 @@
 
 
         function calculateFinalPay(company, grossPay) {
-            if (company === 'RP TULIPAN' || company === 'JR SUPER CRAME') {
+            if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                 return grossPay * 0.3;
             }
             return grossPay;
