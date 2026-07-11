@@ -6153,13 +6153,13 @@
             if (!window.currentTrips || window.currentTrips.length === 0) return;
             const rows = window.currentTrips;
 
-            // Indices in rowData (from mapTripToArray): 6:City, 2:Size, 11:Customer, 16:Driver, 15:Company
+            // Indices in rowData (from mapTripToArray): 6:City, 2:Size, 11:Customer, 17:Driver, 16:Company
             const filters = {
                 'f-city': 6,
                 'f-size': 2,
                 'f-customer': 11,
-                'f-driver': 16,
-                'f-company': 15
+                'f-driver': 17,
+                'f-company': 16
             };
 
             for (let id in filters) {
@@ -6186,7 +6186,7 @@
                 } else if (id === 'f-driver') {
                     finalValues = [...new Set([...currentDrivers.map(d => d.name), ...dynamicValues])];
                 } else if (id === 'f-company') {
-                    const dynamicCompanies = currentCompanies.map(c => c.name);
+                    const dynamicCompanies = (typeof currentCompanies !== 'undefined' ? currentCompanies : []).map(c => c.name);
                     finalValues = [...new Set([...dynamicCompanies, ...dynamicValues])];
                 } else {
                     finalValues = dynamicValues;
@@ -6264,7 +6264,7 @@
                 const valOrder = (rowData[5] || '').toLowerCase().trim();
                 const valCity = (rowData[6] || '').toLowerCase().trim();
                 const valCustomer = (rowData[11] || '').toLowerCase().trim();
-                const valCompany = (rowData[15] || '').toLowerCase().trim();
+                const valCompany = (rowData[16] || '').toLowerCase().trim();
                 const valDriver = (rowData[17] || '').toLowerCase().trim();
                 const valPhone = (rowData[36] || '').toLowerCase().trim();
                 const valSeller = (rowData[61] || '').toLowerCase().trim();
@@ -6397,7 +6397,7 @@
                     'f-city': 6,
                     'f-size': 2,
                     'f-customer': 11,
-                    'f-company': 15,
+                    'f-company': 16,
                     'f-driver': 17,
                     'f-seller-cal': 61
                 };
@@ -6412,7 +6412,7 @@
                         if (id === 'f-city') val = rowData[6];
                         else if (id === 'f-size') val = rowData[2];
                         else if (id === 'f-customer') val = rowData[11];
-                        else if (id === 'f-company') val = rowData[15];
+                        else if (id === 'f-company') val = rowData[16];
                         else if (id === 'f-driver') val = rowData[17];
                         else if (id === 'f-seller-cal') val = rowData[61];
 

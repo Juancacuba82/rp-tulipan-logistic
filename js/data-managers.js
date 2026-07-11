@@ -1033,6 +1033,7 @@
                 }
 
                 currentCompanies = data;
+                window.currentCompanies = data;
                 refreshCompanySelects();
             } catch (err) {
                 console.error("Error loading companies:", err);
