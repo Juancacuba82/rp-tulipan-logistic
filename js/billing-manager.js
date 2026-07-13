@@ -770,7 +770,7 @@
                     html: tableClone,
                     startY: 35,
                     theme: 'grid',
-                    styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.3 },
+                    styles: { fontSize: 7, cellPadding: 2, textColor: [0, 0, 0], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.3 },
                     headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.3 },
                     alternateRowStyles: { fillColor: [248, 250, 252] },
                 });
