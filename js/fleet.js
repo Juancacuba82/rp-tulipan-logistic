@@ -267,6 +267,10 @@
                 const matchUnit = (unitFilter === 'ALL' || u.num === unitFilter);
                 const matchAlert = !showAlertsOnly || !!u.note;
                 return matchUnit && matchAlert;
+            }).sort((a, b) => {
+                const numA = parseInt((String(a.num).match(/\d+/) || ['0'])[0], 10);
+                const numB = parseInt((String(b.num).match(/\d+/) || ['0'])[0], 10);
+                return numA - numB;
             });
 
             if (filtered.length === 0) {
