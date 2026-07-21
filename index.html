@@ -1789,7 +1789,7 @@
                                     <label><i class="fas fa-phone"></i> PHONE #</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-mobile-alt"></i>
-                                        <input type="text" id="f-phone" class="form-input" placeholder="Search..." oninput="applyAdvancedFiltersDebounced()" style="width: 100%;">
+                                        <input type="text" id="f-phone" class="form-input" placeholder="Search..." oninput="if(window.formatUSPhone) this.value = window.formatUSPhone(this.value); applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
@@ -1799,6 +1799,13 @@
                                         <select id="f-city" class="form-select" onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Cities</option>
                                         </select>
+                                    </div>
+                                </div>
+                                <div class="attendance-input-group">
+                                    <label><i class="fas fa-map-pin"></i> ZIP CODE</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-map-pin"></i>
+                                        <input type="text" id="f-zip" class="form-input" placeholder="Search..." oninput="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                     </div>
                                 </div>
 
@@ -6240,7 +6247,8 @@
                 invoiceSent: document.getElementById('f-invoice-sent')?.value || '',
                 transferredOnly: document.getElementById('f-transferred')?.checked || false,
                 pastDueOnly: document.getElementById('f-past-due')?.checked || false,
-                seller: document.getElementById('f-seller-cal')?.value || ''
+                seller: document.getElementById('f-seller-cal')?.value || '',
+                zipcode: document.getElementById('f-zip')?.value.toLowerCase() || ''
             };
 
             const tripMap = new Map();
@@ -6266,7 +6274,7 @@
                 const valCustomer = (rowData[11] || '').toLowerCase().trim();
                 const valCompany = (rowData[16] || '').toLowerCase().trim();
                 const valDriver = (rowData[17] || '').toLowerCase().trim();
-                const valPhone = (rowData[36] || '').toLowerCase().trim();
+                const valPhone = (rowData[23] || '').toLowerCase().trim();
                 const valSeller = (rowData[61] || '').toLowerCase().trim();
 
                 const matchTransferred = !filters.transferredOnly || tr.dataset.fromCall === 'YES';
@@ -6280,8 +6288,14 @@
                 const matchBooking = !filters.booking || valBooking.includes(filters.booking.toLowerCase().trim());
                 const matchOrder = !filters.order || valOrder.includes(filters.order.toLowerCase().trim());
                 const matchRelease = !filters.release || valRelease.includes(filters.release.toLowerCase().trim());
-                const matchPhone = !filters.phone || valPhone.includes(filters.phone.toLowerCase().trim());
+                const cleanValPhone = valPhone.replace(/\D/g, '');
+                const cleanFilterPhone = filters.phone.replace(/\D/g, '');
+                const matchPhone = !cleanFilterPhone || cleanValPhone.includes(cleanFilterPhone);
                 const matchSeller = !filters.seller || valSeller === filters.seller.toLowerCase().trim();
+
+                const valPickup = (rowData[7] || '').toLowerCase().trim();
+                const valDelivery = (rowData[8] || '').toLowerCase().trim();
+                const matchZip = !filters.zipcode || valPickup.includes(filters.zipcode) || valDelivery.includes(filters.zipcode);
 
                 const isoValDate = valDate; // rowData[1] is already YYYY-MM-DD
                 const matchDate = (!filters.fromDate || isoValDate >= filters.fromDate) &&
@@ -6358,7 +6372,7 @@
                 }
 
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
-                    matchNcont && matchBooking && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent) {
+                    matchNcont && matchBooking && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent && matchZip) {
                     tr.style.display = '';
                     visibleRowsData.push(rowData);
                 } else {
