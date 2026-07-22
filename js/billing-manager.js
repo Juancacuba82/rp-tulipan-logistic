@@ -932,8 +932,49 @@
             return;
         }
 
-        const confirmPay = confirm(`¿Estás seguro de marcar las ${pendingRows.length} órdenes filtradas como totalmente PAGADAS?`);
+        // --- Calculate Total Pending Amount ---
+        let totalBulkAmount = 0;
+        for (const row of pendingRows) {
+            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
+            const yardRate = parseFloat(row[13]) || 0;
+            const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
+            
+            const qty = parseFloat(row[21]) || 1;
+            
+            let totalTrans = 0, totalSales = 0, totalYard = 0;
+            if (hasTrans) totalTrans = parseFloat(row[18]) || 0;
+            if (hasSales) totalSales = (parseFloat(row[20]) || 0) * qty;
+            if (yardRate > 0) totalYard = yardRate;
+            
+            let rowSubtotalOwed = 0;
+            if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
+            if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
+            if (yardRate > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
+            
+            let rowTaxOwed = 0;
+            if (takeTax && row[52] !== 'PAID') {
+                const taxPct = parseFloat(row[50]) || 0;
+                rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
+            }
+            
+            totalBulkAmount += (rowSubtotalOwed + rowTaxOwed);
+        }
+
+        const confirmPay = confirm(`¿Estás seguro de marcar las ${pendingRows.length} órdenes filtradas como totalmente PAGADAS?\nTotal a procesar: $${totalBulkAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
         if (!confirmPay) return;
+
+        let paymentSplit = null;
+        if (totalBulkAmount > 0 && typeof window.showSplitPaymentModal === 'function') {
+            paymentSplit = await window.showSplitPaymentModal(totalBulkAmount);
+            if (!paymentSplit) {
+                alert('Operación cancelada por el usuario.');
+                return; // User cancelled modal
+            }
+        } else if (totalBulkAmount > 0) {
+            // fallback if modal is not available globally
+            paymentSplit = { cashAmt: totalBulkAmount, bankAmt: 0 };
+        }
 
         const origHtml = btn.innerHTML;
         btn.disabled = true;
@@ -979,6 +1020,22 @@
                         }
                     }
                     updatedCount++;
+                }
+            }
+            
+            if (paymentSplit && window.logCashTransaction) {
+                const desc = `Pago Masivo Billing - ${pendingRows.length} ordenes`;
+                const cust = pendingRows.length > 0 ? (pendingRows[0][11] || 'Varios') : '';
+                
+                // Get all order numbers to save in the reference for searching
+                const orderNumbers = pendingRows.map(r => r[5] || 'S/N').join(', ');
+                const refText = orderNumbers.length > 100 ? orderNumbers.substring(0, 97) + '...' : orderNumbers;
+                
+                if (paymentSplit.cashAmt > 0) {
+                    await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: `${desc} [Cash]`, referencia: refText, chofer: cust });
+                }
+                if (paymentSplit.bankAmt > 0) {
+                    await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: `${desc} [Bank]`, referencia: refText, chofer: cust });
                 }
             }
 

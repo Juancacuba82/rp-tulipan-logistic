@@ -4481,14 +4481,26 @@
                                 </div>
                                 <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-users" style="color: #475569; font-size: 0.8rem;"></i>
+                                    <select id="rental-filter-customer" onchange="renderRentalsTable()" style="border: none; outline: none; font-size: 0.8rem; font-weight: 700; color: #1e293b; background: transparent; width: 140px; cursor: pointer;">
+                                        <option value="">All Customers</option>
+                                    </select>
+                                </div>
+                                <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
                                     <input type="checkbox" id="rental-show-all" onchange="renderRentalsTable()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #0f172a;">
                                     <label for="rental-show-all" style="margin: 0; font-size: 0.75rem; color: #1e293b; font-weight: 800; cursor:pointer; text-transform: uppercase;">Show All (Inc. Finished)</label>
                                 </div>
                             </div>
 
-                            <button id="btn-delete-rental-global" onclick="removeSelectedRental()" class="btn-calendar" style="display: none; background: #ffffff; color: #ef4444; border: 1px solid #ef4444; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.75rem; height: 45px; align-items: center; gap: 8px; transition: all 0.2s ease;">
-                                <i class="fas fa-trash-alt"></i> DELETE RECORD
-                            </button>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="btn-bulk-pay" onclick="registerBulkRentalPayment()" class="btn-calendar" style="display: none; background: #10b981; color: white; border: none; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.75rem; height: 45px; align-items: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);">
+                                    <i class="fas fa-money-bill-wave"></i> BULK PAY
+                                </button>
+                                <button id="btn-delete-rental-global" onclick="removeSelectedRental()" class="btn-calendar" style="display: none; background: #ffffff; color: #ef4444; border: 1px solid #ef4444; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.75rem; height: 45px; align-items: center; gap: 8px; transition: all 0.2s ease;">
+                                    <i class="fas fa-trash-alt"></i> DELETE RECORD
+                                </button>
+                            </div>
                         </div>
                     </div>
 

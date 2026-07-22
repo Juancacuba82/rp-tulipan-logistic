@@ -69,6 +69,28 @@
     function populateAllRentalSelects() {
         populateRentalCustomerSelect();
         populateRentalReleaseSelect();
+        populateRentalFilterCustomerSelect();
+    }
+
+    function populateRentalFilterCustomerSelect() {
+        const sel = document.getElementById('rental-filter-customer');
+        if (!sel || !window.currentRentals) return;
+        
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">All Customers</option>';
+        
+        const uniqueCustomers = [...new Set(window.currentRentals.map(r => (r.customer_name || '').trim()).filter(Boolean))].sort();
+        
+        uniqueCustomers.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            sel.appendChild(opt);
+        });
+        
+        if (currentVal && uniqueCustomers.includes(currentVal)) {
+            sel.value = currentVal;
+        }
     }
 
     function populateRentalCustomerSelect() {
@@ -256,6 +278,7 @@
         const showAll = document.getElementById('rental-show-all')?.checked;
         const startDateFilter = document.getElementById('rental-filter-start')?.value;
         const endDateFilter = document.getElementById('rental-filter-end')?.value;
+        const customerFilter = (document.getElementById('rental-filter-customer')?.value || '').trim().toLowerCase();
 
         let visibleCount = 0;
 
@@ -268,6 +291,11 @@
             
             if (startDateFilter && row.start_date < startDateFilter) return;
             if (endDateFilter && row.start_date > endDateFilter) return;
+            
+            if (customerFilter) {
+                const cName = (row.customer_name || '').trim().toLowerCase();
+                if (cName !== customerFilter) return;
+            }
             
             visibleCount++;
             
@@ -321,6 +349,13 @@
         // Update Summary Card Counter with filtered count
         const countEl = document.getElementById('rental-count-display');
         if (countEl) countEl.textContent = visibleCount;
+
+        // Show/Hide bulk pay button
+        const bulkBtn = document.getElementById('btn-bulk-pay');
+        if (bulkBtn) {
+            const hasVisibleActive = visibleCount > 0 && customerFilter !== '';
+            bulkBtn.style.display = hasVisibleActive ? 'flex' : 'none';
+        }
 
         // Show/Hide global delete button
         const delBtn = document.getElementById('btn-delete-rental-global');
@@ -727,6 +762,149 @@
             });
         });
     }
+
+
+    window.registerBulkRentalPayment = async function() {
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role === 'student') {
+            alert("Students cannot register payments.");
+            return;
+        }
+
+        const customerFilter = (document.getElementById('rental-filter-customer')?.value || '').trim().toLowerCase();
+        if (!customerFilter) {
+            alert("Please select a specific customer from the filter to make a bulk payment.");
+            return;
+        }
+
+        const startDateFilter = document.getElementById('rental-filter-start')?.value;
+        const endDateFilter = document.getElementById('rental-filter-end')?.value;
+
+        const targetRentals = window.currentRentals.filter(row => {
+            if ((row.status || '').trim().toUpperCase() !== 'ACTIVE') return false;
+            if (startDateFilter && row.start_date < startDateFilter) return false;
+            if (endDateFilter && row.start_date > endDateFilter) return false;
+            const cName = (row.customer_name || '').trim().toLowerCase();
+            if (cName !== customerFilter) return false;
+            return true;
+        });
+
+        if (targetRentals.length === 0) {
+            alert("No active rentals found for this customer with the current filters.");
+            return;
+        }
+
+        const periodsStr = prompt(`Bulk Payment for ${targetRentals.length} container(s):\n\nHow many periods is the customer paying for all of them?`, "1");
+        if (periodsStr === null) return;
+        
+        const periods = parseInt(periodsStr, 10);
+        if (isNaN(periods) || periods <= 0) {
+            alert("Invalid number of periods entered.");
+            return;
+        }
+
+        let totalAmount = 0;
+        const updates = [];
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayMs = new Date(todayStr).getTime();
+
+        for (let row of targetRentals) {
+            const basePrice = parseFloat(row.base_price) || 0;
+            totalAmount += (basePrice * periods);
+
+            const sDate = row.final_date ? new Date(row.final_date) : new Date(row.start_date || new Date());
+            
+            if (row.time_rent === 'monthly') {
+                sDate.setMonth(sDate.getMonth() + periods);
+            } else if (row.time_rent === 'weekly') {
+                sDate.setDate(sDate.getDate() + (7 * periods));
+            } else if (row.time_rent === 'diary') {
+                sDate.setDate(sDate.getDate() + (1 * periods));
+            }
+            
+            const newFinalDateStr = sDate.toISOString().split('T')[0];
+            const newFinalDateMs = new Date(newFinalDateStr).getTime();
+            
+            const isPaidUp = newFinalDateMs > todayMs;
+            const newPaymentStatus = isPaidUp ? 'PAID' : 'PENDING';
+
+            updates.push({
+                id: row.id,
+                final_date: newFinalDateStr,
+                payment_status: newPaymentStatus,
+                container_no: row.container_no
+            });
+        }
+
+        const customerDisplay = document.getElementById('rental-filter-customer').value;
+        const confirmMsg = `Register bulk payment of $${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2})} for ${targetRentals.length} container(s)?\n\n` + 
+                           `This will extend the expiration date by ${periods} period(s) for all selected containers.`;
+                           
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            const sc = window.db || (typeof db !== 'undefined' ? db : (typeof supabase !== 'undefined' ? supabase : null));
+            const updatePromises = updates.map(u => 
+                sc.from('rentals').update({
+                    final_date: u.final_date,
+                    payment_status: u.payment_status
+                }).eq('id', u.id).select()
+            );
+
+            const results = await Promise.all(updatePromises);
+            
+            for (const result of results) {
+                if (result.error) {
+                    console.error("Error updating a record in bulk:", result.error);
+                } else if (result.data && result.data[0]) {
+                    const idx = window.currentRentals.findIndex(r => r.id === result.data[0].id);
+                    if (idx !== -1) window.currentRentals[idx] = result.data[0];
+                }
+            }
+
+            alert(`✅ Bulk Payment successful! Now, let's register the payment for Cash Ledger.`);
+            const paymentSplit = await showSplitPaymentModal(totalAmount);
+            
+            if (paymentSplit && window.logCashTransaction) {
+                const containersList = updates.map(u => u.container_no).join(', ');
+                const refTrunc = containersList.length > 40 ? containersList.substring(0, 37) + '...' : containersList;
+
+                if (paymentSplit.cashAmt > 0) {
+                    await window.logCashTransaction({
+                        tipo: 'ingreso',
+                        metodo: 'cash',
+                        monto: paymentSplit.cashAmt,
+                        descripcion: `Pago Masivo Rentas - ${periods} periodo(s) [Cash]`,
+                        referencia: `Cont: ${refTrunc}`,
+                        chofer: customerDisplay
+                    });
+                }
+                if (paymentSplit.bankAmt > 0) {
+                    await window.logCashTransaction({
+                        tipo: 'ingreso',
+                        metodo: 'bank',
+                        monto: paymentSplit.bankAmt,
+                        descripcion: `Pago Masivo Rentas - ${periods} periodo(s) [Bank]`,
+                        referencia: `Cont: ${refTrunc}`,
+                        chofer: customerDisplay
+                    });
+                }
+                alert(`✅ Bulk Payment logged to Cash Ledger!`);
+            } else if (!paymentSplit) {
+                alert(`ℹ️ Payment entry skipped. (Expiration dates were still updated)`);
+            }
+            
+            renderRentalsTable();
+            if (editingRentalId) {
+                const idx = window.currentRentals.findIndex(r => r.id === editingRentalId);
+                if (idx !== -1) editRental(idx);
+            }
+            
+        } catch (err) {
+            console.error('Error registering bulk payment:', err);
+            alert("Error registering bulk payment: " + err.message);
+        }
+    };
 
 
     window.renderRentalsTable = renderRentalsTable;
