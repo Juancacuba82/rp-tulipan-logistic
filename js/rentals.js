@@ -842,6 +842,13 @@
                            
         if (!confirm(confirmMsg)) return;
 
+        // Ask for payment method BEFORE updating the database
+        const paymentSplit = await showSplitPaymentModal(totalAmount);
+        if (!paymentSplit) {
+            alert('Operación cancelada. No se han modificado las fechas ni registrado el pago.');
+            return; // Abort completely if they cancel
+        }
+
         try {
             const sc = window.db || (typeof db !== 'undefined' ? db : (typeof supabase !== 'undefined' ? supabase : null));
             const updatePromises = updates.map(u => 
@@ -862,10 +869,9 @@
                 }
             }
 
-            alert(`✅ Bulk Payment successful! Now, let's register the payment for Cash Ledger.`);
-            const paymentSplit = await showSplitPaymentModal(totalAmount);
+            alert(`✅ Bulk Payment successful!`);
             
-            if (paymentSplit && window.logCashTransaction) {
+            if (window.logCashTransaction) {
                 const containersList = updates.map(u => u.container_no).join(', ');
                 const refTrunc = containersList.length > 40 ? containersList.substring(0, 37) + '...' : containersList;
 
@@ -889,9 +895,6 @@
                         chofer: customerDisplay
                     });
                 }
-                alert(`✅ Bulk Payment logged to Cash Ledger!`);
-            } else if (!paymentSplit) {
-                alert(`ℹ️ Payment entry skipped. (Expiration dates were still updated)`);
             }
             
             renderRentalsTable();
