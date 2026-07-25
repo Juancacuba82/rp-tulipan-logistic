@@ -1646,19 +1646,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 } else {
                     if (dateFrom || dateTo) {
-                        if (window.allTripsUnfiltered && window.allTripsUnfiltered.length > 0) {
-                            // Filter locally using the complete cached list
-                            data = window.allTripsUnfiltered.filter(trip => {
-                                const tDate = trip[1]; // Date is at index 1
-                                if (!tDate) return false;
-                                if (dateFrom && tDate < dateFrom) return false;
-                                if (dateTo && tDate > dateTo) return false;
-                                return true;
-                            });
-                            isAlreadyMapped = true;
-                        } else {
-                            data = await getAllTrips(dateFrom, dateTo);
-                        }
+                        data = await getAllTrips(dateFrom, dateTo);
                     } else {
                         data = await getTrips();
                     }
@@ -1687,13 +1675,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 
                 let renderedTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
 
+                // Update currentTrips unconditionally so applyAdvancedFilters can read the rows
+                window.currentTrips = renderedTrips;
+
                 // Cache complete list on unfiltered query (initial load)
                 if (!dateFrom && !dateTo && !preloadedData) {
-                    window.currentTrips = renderedTrips;
                     window.allTripsUnfiltered = renderedTrips;
-                } else if (!window.currentTrips || window.currentTrips.length === 0) {
-                    // Fallback if somehow global cache is missing
-                    window.currentTrips = renderedTrips;
+                } else if (!window.allTripsUnfiltered || window.allTripsUnfiltered.length === 0) {
                     window.allTripsUnfiltered = renderedTrips;
                 }
 
@@ -1705,6 +1693,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 
                 // --- TOP SCROLLBAR SYNC ---
                 setTimeout(syncTopScroll, 100); 
+
+                // --- DUPLICATE CONTAINER DETECTION ---
+                const containerCounts = {};
+                renderedTrips.forEach(rt => {
+                    const cNum = (rt[3] || '').toString().trim().toUpperCase();
+                    if (cNum && cNum !== '---' && cNum !== 'TBA') {
+                        containerCounts[cNum] = (containerCounts[cNum] || 0) + 1;
+                    }
+                });
 
                 // PERF FIX: Use DocumentFragment to batch all DOM insertions into a single reflow
                 // instead of one reflow per row (200 rows = 1 reflow vs 200 reflows).
@@ -1851,6 +1848,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 }
                             } else {
                                 td.textContent = text;
+                            }
+
+                            // --- DUPLICATE CONTAINER WARNING UI ---
+                            if (i === 2) { // Index 2 is N. Cont
+                                const cNum = (text || '').toString().trim().toUpperCase();
+                                if (cNum && cNum !== '---' && cNum !== 'TBA' && containerCounts[cNum] > 1) {
+                                    td.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #ea580c; margin-right: 6px;"></i><span style="font-weight: bold;">${text}</span>`;
+                                    td.style.backgroundColor = '#ffedd5'; // Light Orange/Amber
+                                    td.style.color = '#9a3412';
+                                    td.title = 'ATENCIÓN: Este número de contenedor está repetido en la vista actual.';
+                                }
                             }
 
                             // Highlight Employee (Seller) column specifically (now index 23)

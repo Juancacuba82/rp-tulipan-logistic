@@ -1,9 +1,39 @@
         // FORM INVENTOR — Detailed container sales breakdown
-        // Shows only COMPLETE (status='PAID') orders that have Sales enabled (has_sales='YES')
+        window.inventoryDataCache = null;
 
-        window.renderInventorTable = function () {
+        window.renderInventorTable = async function () {
+            console.log("=== INVENTORY RENDER TRACE START ===");
+            console.log("window.inventoryDataCache exists:", !!window.inventoryDataCache);
+            console.log("window.profitDataCache exists:", !!window.profitDataCache);
+
             const body = document.getElementById('inventor-body');
             if (!body) return;
+
+            // --- Fetch full history for accurate Inventory calculations ---
+            if (!window.inventoryDataCache) {
+                console.log("getAllTripsForProfit type:", typeof window.getAllTripsForProfit);
+                console.log("mapTripToArray type:", typeof window.mapTripToArray);
+
+                if (window.profitDataCache && typeof window.mapTripToArray === 'function') {
+                    console.log("Using profitDataCache. length:", window.profitDataCache.length);
+                    window.inventoryDataCache = window.profitDataCache.map(window.mapTripToArray);
+                } else if (typeof window.getAllTripsForProfit === 'function' && typeof window.mapTripToArray === 'function') {
+                    console.log("Fetching full history from getAllTripsForProfit...");
+                    body.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; font-weight:bold; color:#1e40af;"><i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> Buscando historial completo de ventas...</td></tr>';
+                    const rawData = await window.getAllTripsForProfit();
+                    window.profitDataCache = rawData;
+                    window.inventoryDataCache = rawData.map(window.mapTripToArray);
+                    console.log("Fetched rawData length:", rawData.length);
+                } else {
+                    console.log("Fallback: using currentTrips");
+                    window.inventoryDataCache = window.allTripsUnfiltered || window.currentTrips || [];
+                }
+            }
+
+            const logisticsData = window.inventoryDataCache;
+            console.log("logisticsData length for Inventory:", logisticsData ? logisticsData.length : 0);
+            
+            if (window.populateInventorDropdowns) window.populateInventorDropdowns();
 
             const dateFrom = document.getElementById('inv-date-from')?.value || '';
             const dateTo = document.getElementById('inv-date-to')?.value || '';
@@ -18,8 +48,6 @@
             const fSeller = (document.getElementById('inv-f-seller')?.value || '').trim();
             const fRelease = (document.getElementById('inv-f-release')?.value || '').trim();
             const fCity = (document.getElementById('inv-f-city')?.value || '').trim();
-
-            const logisticsData = window.allTripsUnfiltered || window.currentTrips || [];
 
             // Build Release Lookup Map for Purchase Prices
             const relMap = new Map();
@@ -42,8 +70,10 @@
             // Filter: COMPLETE orders with Sales
             const filtered = logisticsData.filter(row => {
                 const orderStatus = (row[41] || '').toString().toUpperCase();
-                // Show COMPLETE, PAID or DELIVERED orders
-                if (orderStatus !== 'COMPLETE' && orderStatus !== 'PAID' && orderStatus !== 'DELIVERED') return false;
+                // Show COMPLETE, PAID, DELIVERED orders
+                // (User requested to see all delivered containers regardless of payment status)
+                const allowedStatuses = ['COMPLETE', 'PAID', 'DELIVERED'];
+                if (!allowedStatuses.includes(orderStatus)) return false;
 
                 const hasSales = (row[43] === 'YES');
                 if (!hasSales) return false;
@@ -80,6 +110,8 @@
                 return true;
             });
 
+            console.log("Filtered length for Inventory:", filtered.length);
+
             // Totals
             let totalSales = 0;
             let totalCost = 0;
@@ -115,7 +147,7 @@
                         if (yardItem && yardItem.origin_release) {
                             const originOrderNo = yardItem.origin_release; // This is an ORDER number
                             // Search ALL trips (not just filtered) for that order to get its release
-                            const allT = window.allTripsUnfiltered || window.currentTrips || [];
+                            const allT = window.inventoryDataCache || [];
                             const originalTrip = allT.find(t =>
                                 Array.isArray(t) &&
                                 (t[5] || '').toString().trim() === originOrderNo.toString().trim()
@@ -344,12 +376,10 @@
             renderInventorTable();
         };
 
-        // Override renderInventorTable to also populate dropdowns on first call
+        // Override renderInventorTable
         const _origRender = window.renderInventorTable;
-        window.renderInventorTable = function () {
-            // Populate dropdowns before rendering (preserves current selection)
-            if (window.populateInventorDropdowns) window.populateInventorDropdowns();
-            _origRender();
+        window.renderInventorTable = async function () {
+            await _origRender();
         };
 
         window.showInventoryDetails = function(row, unitCost, seller) {

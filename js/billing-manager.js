@@ -9,11 +9,64 @@
     window.billingRows = [];              // Current filtered rows in table
     window.currentBillingOrderRows = []; // Rows for the open order in the modal
     window.combinedBillingTrips = [];    // Cached combined trips
+    window.billingDataLoaded = false;    // Flag to prevent redundant fetches
+
+    window.initBillingCenter = async function() {
+        if (window.billingDataLoaded && window.combinedBillingTrips.length > 0) {
+            // Already loaded, just render from memory
+            if (typeof window.renderBillingTable === 'function') {
+                window.renderBillingTable();
+            }
+            return;
+        }
+
+        console.log("Initializing Billing Center with dedicated fetch...");
+        const body = document.getElementById('billing-table-body');
+        if (body) {
+            body.innerHTML = '<tr><td colspan="15" style="text-align:center; padding:20px; font-weight:bold; color:#1e40af;"><i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> Buscando órdenes pendientes...</td></tr>';
+        }
+
+        if (typeof window.getPendingBillingTrips === 'function') {
+            const data = await window.getPendingBillingTrips();
+            if (data && data.length > 0 && typeof window.mapTripToArray === 'function') {
+                const trips = data.map(window.mapTripToArray);
+                const todayStr = new Date().toISOString().split('T')[0];
+                trips.sort((a, b) => {
+                    const dateA = a[1] || '';
+                    const dateB = b[1] || '';
+                    const isTodayA = (dateA === todayStr);
+                    const isTodayB = (dateB === todayStr);
+                    if (isTodayA && !isTodayB) return -1;
+                    if (!isTodayA && isTodayB) return 1;
+                    return dateB.localeCompare(dateA);
+                });
+                window.combinedBillingTrips = trips;
+            } else {
+                if (!window.currentTrips || window.currentTrips.length === 0) {
+                    if (window.loadTableData) await window.loadTableData();
+                }
+                window.combinedBillingTrips = window.buildCombinedBillingTrips();
+            }
+        } else {
+            if (!window.currentTrips || window.currentTrips.length === 0) {
+                if (window.loadTableData) await window.loadTableData();
+            }
+            window.combinedBillingTrips = window.buildCombinedBillingTrips();
+        }
+        
+        window.billingDataLoaded = true;
+        if (typeof window.renderBillingTable === 'function') {
+            window.renderBillingTable();
+        }
+        
+        // Run the invoice automation engine (banner + auto-send + reminders)
+        if (typeof window.runInvoiceAutomation === 'function') {
+            setTimeout(() => window.runInvoiceAutomation(), 800);
+        }
+    };
 
     window.buildCombinedBillingTrips = function() {
-        // Static model: Yard invoices are regular trips with service_mode = 'YARD INVOICE'
-        // They are created when the user sends an invoice from Yard Stock.
-        // No dynamic calculation here — Billing just reads trips as-is.
+        // Fallback for cases where initBillingCenter is not yet active
         const trips = window.currentTrips ? [...window.currentTrips] : [];
         
         const todayStr = new Date().toISOString().split('T')[0];
@@ -58,7 +111,8 @@
 
     // ── POPULATE FILTERS ──────────────────────────────────────
     window.populateBillingFilters = function () {
-        window.combinedBillingTrips = window.buildCombinedBillingTrips();
+        // We no longer overwrite window.combinedBillingTrips here!
+        // It is populated once independently by initBillingCenter.
         
         const cities     = new Set();
         const places     = new Set();
@@ -806,19 +860,6 @@
         }
     };
 
-    // ── INIT: called when billing center view is shown ────────
-    window.initBillingCenter = async function () {
-        if (!window.currentTrips || window.currentTrips.length === 0) {
-            if (window.loadTableData) await window.loadTableData();
-        }
-        // Yard Stock data no longer needed — yard invoices are static trips in the trips table.
-        window.renderBillingTable();
-        
-        // Run the invoice automation engine (banner + auto-send + reminders)
-        if (window.runInvoiceAutomation) {
-            setTimeout(() => window.runInvoiceAutomation(), 800);
-        }
-    };
 
     // Expose renderBillingDetailModal globally so the automation engine
     // can silently populate the invoice preview before generating PDFs

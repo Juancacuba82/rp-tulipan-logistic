@@ -67,7 +67,8 @@ async function getTrips() {
         let query = db
             .from('trips')
             .select('*')
-            .order('date', { ascending: false });
+            .order('date', { ascending: false })
+            .limit(300); // LÍMITE AÑADIDO PARA EVITAR ERROR 500 (TIMEOUT)
 
         // PERFORMANCE: Apply driver-specific filtering at the DB level.
         // This prevents the driver's phone from downloading the full trips table.
@@ -146,6 +147,24 @@ async function getAllTripsForProfit(dateFrom, dateTo) {
         return data || [];
     } catch (err) {
         console.error('Error fetching profit data:', err);
+        return [];
+    }
+}
+
+async function getPendingBillingTrips() {
+    try {
+        let query = db
+            .from('trips')
+            .select('*')
+            .order('date', { ascending: false })
+            .limit(2000); // Límite amplio para asegurar que traiga todas las deudas recientes sin timeout
+
+        const { data, error } = await query;
+        if (error) throw error;
+        console.log('[BILLING] Consultando datos de cobro independientes:', data.length);
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching billing trips:', err);
         return [];
     }
 }
@@ -479,6 +498,7 @@ async function getTripDetails(tripId) {
 // Global Exports
 window.getTripDetails = getTripDetails;
 window.getTrips = getTrips;
+window.getPendingBillingTrips = getPendingBillingTrips;
 window.getActivityLogs = getActivityLogs;
 window.addTrip = addTrip;
 window.updateTrip = updateTrip;
@@ -498,3 +518,5 @@ window.getFleet = getFleet;
 window.saveFleet = saveFleet;
 window.migrateDataToSupabase = migrateDataToSupabase;
 window.uploadReceipt = uploadReceipt;
+window.getAllTripsForProfit = getAllTripsForProfit;
+window.getAllTrips = getAllTrips;

@@ -45,7 +45,7 @@
                 return res;
             }
         };
-
+        window.mapTripToArray = mapTripToArray;
         function mapTripToArray(t) {
             const normPaid = (val) => (val === true || val === 1 || val === 'PAID' || val === 'true') ? 'PAID' : 'PEND';
 

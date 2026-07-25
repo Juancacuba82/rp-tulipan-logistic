@@ -22,8 +22,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
-    <script src="./supabase-client.js?v=10"></script>
-    <script src="./js/data-mapping.js?v=10"></script>
+    <script src="./supabase-client.js?v=11"></script>
+    <script src="./js/data-mapping.js?v=11"></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1700" defer></script>
     <script src="./js/delivery-calendar.js?v=1702" defer></script>
@@ -6343,7 +6343,11 @@
                     const clearS = (sS === 'PAID' || vS <= 0.01);
                     const clearRent = (sRent === 'PAID' || vP <= 0.01);
 
-                    const isFullyPaid = (clearY && clearR && clearS && clearRent);
+                    const takeTax = (rowData[49] === true || rowData[49] === 'true' || rowData[49] === 'YES' || rowData[49] === 'on' || rowData[49] === 1);
+                    const sTax = rowData[52] || 'PEND';
+                    const clearTax = (!takeTax || sTax === 'PAID');
+
+                    const isFullyPaid = (clearY && clearR && clearS && clearRent && clearTax);
 
                     if (filters.payStatus === 'PENDING') {
                         matchPayStatus = !isFullyPaid;
@@ -6875,7 +6879,7 @@
     </div>
 
     <script src="./js/fleet.js?v=10"></script>
-    <script src="./js/form-inventor.js?v=10"></script>
+    <script src="./js/form-inventor.js?v=16"></script>
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=11"></script>
     <script src="./js/rentals.js?v=100"></script>
