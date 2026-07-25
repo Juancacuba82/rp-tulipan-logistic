@@ -7381,8 +7381,12 @@
                         <input type="text" id="acct-form-ref" placeholder="Ej: ORD-001, REL-22...">
                     </div>
                     <div class="acct-form-group">
-                        <label>Entidad / Contacto (opcional)</label>
-                        <input type="text" id="acct-form-chofer" placeholder="Nombre de la persona o empresa...">
+                        <label>Cliente (opcional)</label>
+                        <input type="text" id="acct-form-cliente" placeholder="Nombre del cliente...">
+                    </div>
+                    <div class="acct-form-group">
+                        <label>Chofer (opcional)</label>
+                        <input type="text" id="acct-form-chofer" placeholder="Nombre del chofer...">
                     </div>
                 </div>
                 <button class="btn-acct-save" id="btn-acct-save-tx" onclick="window.saveManualTransaction()">
@@ -7397,10 +7401,7 @@
                         <span style="font-weight:900; color:#1e293b; font-size:0.9rem; text-transform:uppercase;">Historial de Transacciones</span>
                     </div>
                     <div class="acct-toggle-group">
-                        <div style="position:relative; margin-right:15px;">
-                            <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:0.8rem;"></i>
-                            <input type="text" id="acct-text-search" placeholder="Buscar chofer, ref, concepto..." onkeyup="window.renderAccountingDashboard()" style="padding:6px 12px 6px 28px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:'Outfit',sans-serif; width: 220px; outline:none; transition:all 0.2s;" onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                        </div>
+
                         <span style="font-size:0.7rem; color:#94a3b8; font-weight:700; margin-right:4px;">FILTRAR:</span>
                         <button class="acct-toggle-btn acct-toggle-active" id="btn-acct-all" onclick="window.filterAccountingView('all')">
                             <i class="fas fa-layer-group"></i> Ver Todo
@@ -7445,7 +7446,8 @@
                                 <th style="text-align:center;">Tipo</th>
                                 <th>Metodo</th>
                                 <th>Descripcion / Referencia</th>
-                                <th style="text-align:center;">Entidad</th>
+                                <th style="text-align:center;">Cliente</th>
+                                <th style="text-align:center;">Chofer</th>
                                 <th style="text-align:right;">Monto</th>
                                 <th style="text-align:right;">Balance</th>
                                 <th style="text-align:center;">Accion</th>
@@ -7453,7 +7455,7 @@
                         </thead>
                         <tbody id="acct-table-body">
                             <tr>
-                                <td colspan="8" style="text-align:center; padding:40px; color:#94a3b8; font-style:italic;">
+                                <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-style:italic;">
                                     <i class="fas fa-coins" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
                                     Haz clic en REFRESH para cargar los datos.
                                 </td>

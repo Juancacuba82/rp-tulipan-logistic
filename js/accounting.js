@@ -47,7 +47,8 @@
                 monto: parseFloat(data.monto) || 0,
                 descripcion: data.descripcion || '',
                 referencia: data.referencia || '',
-                chofer: data.chofer || ''
+                chofer: data.chofer || '',
+                cliente: data.cliente || ''
             };
 
             const { data: insertedData, error } = await window.db.from('cash_ledger').insert([entry]).select();
@@ -139,7 +140,7 @@
 
             // 1. Cargar Ingresos (Trips)
             const pTrips = window.db.from('trips')
-                .select('trip_id, date, amount, driver, order_no, release_no, status, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt');
+                .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt');
 
             // 2. Cargar Egresos (Expenses)
             const pExpenses = window.db.from('expenses').select('*');
@@ -187,8 +188,24 @@
             // Procesar Trips (Ingresos)
             (resTrips.data || []).forEach(t => {
                 const status = (t.status || '').toString().toUpperCase();
-                // Solo procesamos ingresos si la orden está completada/pagada
-                if (status !== 'COMPLETE' && status !== 'PAID' && status !== 'DELIVERED') return;
+                // Filtro inteligente:
+                // Incluir si:
+                //   A) paid = true (Billing o pago directo confirmado), O
+                //   B) tiene montos de pago explícitos registrados (el dinero ya entró físicamente)
+                // Excluir siempre si status = PENDING (aún no se hizo nada)
+                if (status === 'PENDING') return;
+
+                const isPaid = t.paid === true || t.st_rate === 'PAID' || t.st_sales === 'PAID' || t.st_yard === 'PAID' || t.st_amount === 'PAID' || t.st_tax === 'PAID';
+                const hasExplicitAmounts =
+                    (parseFloat(t.trans_cash_amt) || 0) > 0 ||
+                    (parseFloat(t.trans_bank_amt) || 0) > 0 ||
+                    (parseFloat(t.sales_cash_amt) || 0) > 0 ||
+                    (parseFloat(t.sales_bank_amt) || 0) > 0 ||
+                    (parseFloat(t.yard_cash_amt)  || 0) > 0 ||
+                    (parseFloat(t.yard_bank_amt)  || 0) > 0;
+
+                // Si no está pagado Y no tiene montos explícitos → cliente aún debe → skip
+                if (!isPaid && !hasExplicitAmounts) return;
 
                 const qty = parseInt(t.qty) || 1;
                 const orderRef = `Orden: ${t.order_no || t.release_no || 'N/A'}`;
@@ -319,7 +336,7 @@
                         descripcion: c.descripcion || '',
                         referencia: c.referencia || '',
                         chofer: c.chofer || '',
-                        customer: '',
+                        customer: c.cliente || '',
                         n_cont: '',
                         order_no: '',
                         release_no: '',
@@ -400,19 +417,6 @@
     function getFilteredTransactions() {
         let list = allTransactions;
         
-        // 1. Text Search Filter (General)
-        const searchInput = document.getElementById('acct-text-search');
-        if (searchInput && searchInput.value.trim() !== '') {
-            const term = searchInput.value.trim().toLowerCase();
-            list = list.filter(t => {
-                const desc = (t.descripcion || '').toLowerCase();
-                const ref = (t.referencia || '').toLowerCase();
-                const chofer = (t.chofer || '').toLowerCase();
-                const cust = (t.customer || '').toLowerCase();
-                const nCont = (t.n_cont || '').toLowerCase();
-                return desc.includes(term) || ref.includes(term) || chofer.includes(term) || cust.includes(term) || nCont.includes(term);
-            });
-        }
 
         // 2. Button Filter (Method)
         if (currentFilter !== 'all') {
@@ -582,31 +586,41 @@
 
             const balColor = balance >= 0 ? '#10b981' : '#ef4444';
             
-            let entidadText = '—';
-            let entidadIcon = '';
-            let entidadStyle = 'color:#94a3b8;';
+            let clienteText = '—';
+            let clienteIcon = '';
+            let clienteStyle = 'color:#94a3b8;';
 
-            if (t.chofer) {
-                entidadText = t.chofer;
-                entidadIcon = '<i class="fas fa-truck" style="margin-right:4px;"></i>';
-                entidadStyle = 'background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
-            } else if (t.customer) { // Customer or Seller depending on context
-                entidadText = t.customer;
+            if (t.customer) { // Customer or Seller depending on context
+                clienteText = t.customer;
                 if (t.descripcion && t.descripcion.toLowerCase().includes('release')) {
-                    entidadIcon = '<i class="fas fa-building" style="margin-right:4px;"></i>';
-                    entidadStyle = 'background:#f8fafc; color:#475569; border: 1px solid #e2e8f0; padding:1px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+                    clienteIcon = '<i class="fas fa-building" style="margin-right:4px;"></i>';
+                    clienteStyle = 'background:#f8fafc; color:#475569; border: 1px solid #e2e8f0; padding:1px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
                 } else {
-                    entidadIcon = '<i class="fas fa-user" style="margin-right:4px;"></i>';
-                    entidadStyle = 'background:#f0fdf4; color:#166534; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+                    clienteIcon = '<i class="fas fa-user" style="margin-right:4px;"></i>';
+                    clienteStyle = 'background:#f0fdf4; color:#166534; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
                 }
             } else if (t.category && t.category !== 'Ledger Income' && t.category !== 'Ledger Expense') {
-                entidadText = t.category;
-                entidadIcon = '<i class="fas fa-tags" style="margin-right:4px;"></i>';
-                entidadStyle = 'background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+                clienteText = t.category;
+                clienteIcon = '<i class="fas fa-tags" style="margin-right:4px;"></i>';
+                clienteStyle = 'background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
             }
 
-            const entidadCell = entidadText !== '—'
-                ? `<span style="${entidadStyle}">${entidadIcon}${entidadText}</span>`
+            const clienteCell = clienteText !== '—'
+                ? `<span style="${clienteStyle}">${clienteIcon}${clienteText}</span>`
+                : `<span style="color:#94a3b8;">—</span>`;
+
+            let choferText = '—';
+            let choferIcon = '';
+            let choferStyle = 'color:#94a3b8;';
+
+            if (t.chofer) {
+                choferText = t.chofer;
+                choferIcon = '<i class="fas fa-truck" style="margin-right:4px;"></i>';
+                choferStyle = 'background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center;';
+            }
+
+            const choferCell = choferText !== '—'
+                ? `<span style="${choferStyle}">${choferIcon}${choferText}</span>`
                 : `<span style="color:#94a3b8;">—</span>`;
 
             const deleteBtn = (window.currentUserRole === 'admin')
@@ -634,7 +648,8 @@
                     <div style="font-weight:600; color:#1e293b; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${t.descripcion || ''}">${t.descripcion || '—'}</div>
                     ${t.referencia ? `<div style="color:#64748b; font-size:0.7rem;">${t.referencia}</div>` : ''}
                 </td>
-                <td style="text-align:center;">${entidadCell}</td>
+                <td style="text-align:center;">${clienteCell}</td>
+                <td style="text-align:center;">${choferCell}</td>
                 <td style="text-align:right; white-space:nowrap;">
                     <span style="font-weight:900; font-size:1rem; color:${tipoColor};">
                         ${isIncome ? '+' : '-'}$${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -662,6 +677,7 @@
         const monto      = parseFloat(document.getElementById('acct-form-monto')?.value) || 0;
         const descripcion = document.getElementById('acct-form-desc')?.value?.trim();
         const referencia  = document.getElementById('acct-form-ref')?.value?.trim();
+        const cliente     = document.getElementById('acct-form-cliente')?.value?.trim();
         const chofer      = document.getElementById('acct-form-chofer')?.value?.trim();
 
         if (!monto || monto <= 0) return alert('Por favor ingresa un monto válido mayor que $0.');
@@ -670,12 +686,12 @@
         const btn = document.getElementById('btn-acct-save-tx');
         if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
 
-        await window.logCashTransaction({ tipo, metodo, monto, descripcion, referencia, chofer });
+        await window.logCashTransaction({ tipo, metodo, monto, descripcion, referencia, cliente, chofer });
 
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> SAVE TRANSACTION'; }
 
         // Reset form
-        ['acct-form-monto', 'acct-form-desc', 'acct-form-ref', 'acct-form-chofer'].forEach(id => {
+        ['acct-form-monto', 'acct-form-desc', 'acct-form-ref', 'acct-form-cliente', 'acct-form-chofer'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
