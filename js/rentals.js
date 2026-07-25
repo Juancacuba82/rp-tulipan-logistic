@@ -70,6 +70,7 @@
         populateRentalCustomerSelect();
         populateRentalReleaseSelect();
         populateRentalFilterCustomerSelect();
+        populateRentalFilterSizeSelect();
     }
 
     function populateRentalFilterCustomerSelect() {
@@ -90,6 +91,31 @@
         
         if (currentVal && uniqueCustomers.includes(currentVal)) {
             sel.value = currentVal;
+        } else {
+            sel.value = '';
+        }
+    }
+
+    function populateRentalFilterSizeSelect() {
+        const sel = document.getElementById('rental-filter-size');
+        if (!sel || !window.currentRentals) return;
+        
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">All Sizes</option>';
+        
+        const uniqueSizes = [...new Set(window.currentRentals.map(r => (r.size || '').trim()).filter(Boolean))].sort();
+        
+        uniqueSizes.forEach(size => {
+            const opt = document.createElement('option');
+            opt.value = size;
+            opt.textContent = size;
+            sel.appendChild(opt);
+        });
+        
+        if (currentVal && uniqueSizes.includes(currentVal)) {
+            sel.value = currentVal;
+        } else {
+            sel.value = '';
         }
     }
 
@@ -279,10 +305,21 @@
         const startDateFilter = document.getElementById('rental-filter-start')?.value;
         const endDateFilter = document.getElementById('rental-filter-end')?.value;
         const customerFilter = (document.getElementById('rental-filter-customer')?.value || '').trim().toLowerCase();
+        const sizeFilter = (document.getElementById('rental-filter-size')?.value || '').trim().toLowerCase();
 
         let visibleCount = 0;
 
         if (!window.currentRentals) return;
+
+        // --- DUPLICATE CONTAINER DETECTION ---
+        const containerCounts = {};
+        window.currentRentals.forEach(r => {
+            const cNum = (r.container_no || '').toString().trim().toUpperCase();
+            if (cNum && cNum !== '---' && cNum !== 'TBA') {
+                containerCounts[cNum] = (containerCounts[cNum] || 0) + 1;
+            }
+        });
+
         window.currentRentals.forEach((row, idx) => {
             const statusStr = (row.status || '').trim().toUpperCase();
             
@@ -297,6 +334,11 @@
                 if (cName !== customerFilter) return;
             }
             
+            if (sizeFilter) {
+                const rSize = (row.size || '').trim().toLowerCase();
+                if (rSize !== sizeFilter) return;
+            }
+            
             visibleCount++;
             
             const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
@@ -305,6 +347,9 @@
             // Highlight row in red if expired (ACTIVE and date reached/passed)
             const isExpired = row.status === 'ACTIVE' && row.final_date && new Date(row.final_date) <= new Date().setHours(0,0,0,0);
             
+            const cNum = (row.container_no || '').toString().trim().toUpperCase();
+            const isDuplicate = (cNum && cNum !== '---' && cNum !== 'TBA' && containerCounts[cNum] > 1);
+
             const tr = document.createElement('tr');
             tr.style.cursor = 'pointer';
             if (isExpired) {
@@ -324,7 +369,9 @@
                 </td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.release_no || '---'}</td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.size || '---'}</td>
-                <td style="font-weight: 900; color: #000000;">${row.container_no || '---'}</td>
+                <td style="font-weight: 900; color: ${isDuplicate ? '#9a3412' : '#000000'}; background-color: ${isDuplicate ? '#ffedd5' : 'transparent'};" ${isDuplicate ? 'title="ATENCIÓN: Este número de contenedor está repetido en el sistema."' : ''}>
+                    ${isDuplicate ? '<i class="fas fa-exclamation-triangle" style="color: #ea580c; margin-right: 6px;"></i>' : ''}${row.container_no || '---'}
+                </td>
                 <td style="font-weight: 700; color: #000000;">${row.delivery_place || '---'}</td>
                 <td style="font-weight: 700; color: #000000;">${row.customer_name || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">${window.formatUSPhone(row.phone) || '---'}</td>

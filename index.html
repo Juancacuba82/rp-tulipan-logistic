@@ -4488,6 +4488,13 @@
                                 </div>
                                 <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-expand-arrows-alt" style="color: #475569; font-size: 0.8rem;"></i>
+                                    <select id="rental-filter-size" onchange="renderRentalsTable()" style="border: none; outline: none; font-size: 0.8rem; font-weight: 700; color: #1e293b; background: transparent; width: 110px; cursor: pointer;">
+                                        <option value="">All Sizes</option>
+                                    </select>
+                                </div>
+                                <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
                                     <input type="checkbox" id="rental-show-all" onchange="renderRentalsTable()" style="width: 20px; height: 20px; cursor: pointer; accent-color: #0f172a;">
                                     <label for="rental-show-all" style="margin: 0; font-size: 0.75rem; color: #1e293b; font-weight: 800; cursor:pointer; text-transform: uppercase;">Show All (Inc. Finished)</label>
                                 </div>
@@ -6318,7 +6325,7 @@
                 const tripStatus = tr.dataset.status || 'PENDING_PAYMENT';
                 if (filters.status) {
                     if (filters.status === 'COMPLETE') {
-                        matchStatus = (tripStatus === 'COMPLETE');
+                        matchStatus = (tripStatus === 'COMPLETE' || tripStatus === 'DELIVERED' || tripStatus === 'PAID');
                     } else if (filters.status === 'PENDING_PAYMENT') {
                         matchStatus = (tripStatus === 'PENDING_PAYMENT');
                     }
