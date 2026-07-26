@@ -295,6 +295,13 @@
             
             if (chkYard) {
                 const isChecked = chkYard.checked;
+                if (isChecked) {
+                    const deductChk = document.getElementById('in-deduct-stock');
+                    if (deductChk) {
+                        deductChk.checked = true;
+                        if (window.updateDeductButtons) window.updateDeductButtons();
+                    }
+                }
                 if (yr) yr.style.display = isChecked ? 'flex' : 'none';
                 if (doGroup) doGroup.style.display = isChecked ? 'flex' : 'none';
                 
@@ -539,7 +546,11 @@
             const rowData = fields.map(id => {
                 if (id === 'in-yard') {
                     const chk = document.getElementById('in-flag1');
-                    return (chk && chk.checked) ? 'YES' : 'NO';
+                    const hiddenYard = document.getElementById('in-yard');
+                    if (chk && chk.checked) {
+                        return (hiddenYard && hiddenYard.value !== '' && hiddenYard.value !== 'NO') ? hiddenYard.value : 'YES';
+                    }
+                    return 'NO';
                 }
                 const el = document.getElementById(id);
                 return (el && el.value !== '') ? el.value : '---';

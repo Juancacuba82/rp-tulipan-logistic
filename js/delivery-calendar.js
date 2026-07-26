@@ -385,7 +385,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     origin_release: document.getElementById('in-order')?.value || '---',
                     notes: combinedNotes,
                     customer_name: selectedCustomer || '---',
-                    customer_phone: document.getElementById('in-phone')?.value || ''
+                    customer_phone: document.getElementById('in-phone')?.value || '',
+                    daily_rate: parseFloat(document.getElementById('in-priceperday')?.value) || 0,
+                    exit_date: document.getElementById('in-dateout')?.value || null
                 };
 
                 // Capture the editing state BEFORE it gets cleared
@@ -460,6 +462,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     notes: yardData.notes,
                                     customer_name: yardData.customer_name,
                                     customer_phone: yardData.customer_phone,
+                                    daily_rate: yardData.daily_rate,
+                                    exit_date: yardData.exit_date,
                                     created_at: createdAtStr
                                 })
                                 .eq('id', existingYard[0].id);
@@ -475,6 +479,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     notes: yardData.notes,
                                     customer_name: yardData.customer_name,
                                     customer_phone: yardData.customer_phone,
+                                    daily_rate: yardData.daily_rate,
+                                    exit_date: yardData.exit_date,
                                     created_at: createdAtStr,
                                     status: 'AVAILABLE',
                                     entry_fee: 0,
@@ -516,7 +522,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         let searchCont = yardData.container_no;
                         
                         const { data: existingRental } = await db.from('rentals')
-                            .select('id')
+                            .select('id, base_price')
                             .eq('release_no', searchOrder)
                             .eq('container_no', searchCont)
                             .limit(1);
@@ -526,6 +532,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const sDate = new Date(calendarDate);
                         sDate.setMonth(sDate.getMonth() + 1);
                         const finalDateStr = sDate.toISOString().split('T')[0];
+                        
+                        // Determine base price
+                        let finalBasePrice = 0;
+                        if (existingRental && existingRental.length > 0) {
+                            finalBasePrice = existingRental[0].base_price || 0;
+                        } else {
+                            const rentInput = prompt(`This order includes RENT.\nPlease enter the Monthly Rent price for container ${searchCont}:`, "150.00");
+                            if (rentInput !== null) {
+                                finalBasePrice = parseFloat(rentInput) || 0;
+                            }
+                        }
 
                         const rentalPayload = {
                             container_no: yardData.container_no,
@@ -537,7 +554,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             start_date: calendarDate,
                             final_date: finalDateStr,
                             time_rent: 'monthly',
-                            base_price: 0,
+                            base_price: finalBasePrice,
                             daily_rate: 0,
                             status: 'ACTIVE',
                             payment_status: 'PENDING',
@@ -1545,12 +1562,31 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (driverInput && expectedDriver && expectedDriver !== '---') {
                 driverInput.value = expectedDriver;
             }
-
             setTripArchiveButton({ label: 'Update order', isUpdate: true, disabled: false, opacity: 1, title: 'Save changes to this trip' });
             if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
 
+            // Populate Yard Services Dynamic List
+            const listContainer = document.getElementById('yard-services-list');
+            if (listContainer) {
+                listContainer.innerHTML = '';
+                try {
+                    const yardVal = rowData[12];
+                    if (yardVal && typeof yardVal === 'string' && yardVal.startsWith('[')) {
+                        const services = JSON.parse(yardVal);
+                        if (Array.isArray(services) && services.length > 0) {
+                            services.forEach(s => {
+                                if (window.addYardServiceRow) window.addYardServiceRow(s.desc, s.price);
+                            });
+                        }
+                    }
+                } catch(e) {
+                    console.error("Error parsing yard services", e);
+                }
+            }
+            window.loadTripToEdit = loadTripToEdit;
+
             // --- FINAL FLAG RESTORATION (Moved to end for robustness) ---
-            const isYardChecked = (rowData[12] === 'YES');
+            const isYardChecked = (rowData[12] === 'YES' || (typeof rowData[12] === 'string' && rowData[12].startsWith('[')));
             const isTransChecked = (rowData[42] === 'YES');
             const isSalesChecked = (rowData[43] === 'YES');
             const isToYardChecked = !!rowData[62];
@@ -1740,10 +1776,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.seller = rowData[61] || '';
                         tr.dataset.invoiceSent = rowData[57] || 'NO';
                         // Service type flags for filtering
-                        tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
+                        tr.dataset.flagYard = (rowData[12] === 'YES' || (typeof rowData[12] === 'string' && rowData[12].startsWith('['))) ? 'YES' : 'NO';
                         tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagToYard = !!rowData[62] ? 'YES' : 'NO';
+                        tr.dataset.flagRent = !!rowData[63] ? 'YES' : 'NO';
                         tr.dataset.fromCall = (rowData[58] === 'FORM_CALL') ? 'YES' : 'NO';
 
                         // Priority Highlight for Today
@@ -1764,6 +1801,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.rateval = parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
+                        tr.dataset.rentval = parseFloat(String(rowData[27]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.qtyval = parseInt(rowData[53]) || 1;
 
                         // Display helper
@@ -1784,13 +1822,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             rowData[10],          // 10: Miles
                             rowData[11],          // 11: Customer
                             (parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 12: Yard Rate
-                            (parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 13: Price per Day
-                            fmtDate(rowData[15]), // 14: Date Out (MM/DD/YYYY)
-                            rowData[16],          // 15: Company
-                            rowData[17],          // 16: Driver
-                            (parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 17: Trans. Pay
-                            (parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 18: Sales Price
-                            rowData[22],          // 19: Amount
+                            (parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 13: Transport (Showing Driver Pay)
+                            (parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 14: Sales Price
+                            (parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 15: Storage (Price per Day)
+                            parseFloat(String(rowData[27]).replace(/[$,]/g, '')) || 0, // 16: Rent (Monthly Rate)
+                            fmtDate(rowData[15]), // 17: Date Out (MM/DD/YYYY)
+                            rowData[16],          // 18: Company
+                            rowData[17],          // 19: Driver
                             rowData[23],          // 20: Phone #
                             (parseFloat(String(rowData[24]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 21: Paid Driver
                             rowData[25],          // 22: Note
@@ -1806,9 +1844,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                         displayData.forEach((text, i) => {
                             const td = document.createElement('td');
+                            
+                            // Truncate long text columns
+                            if ([7, 8, 22].includes(i)) {
+                                td.classList.add('truncate-cell');
+                                td.title = text || '';
+                            }
 
-                            // Money formatting for specific columns: [12-YardRate, 13-PricePerDay, 17-TransPay, 18-SalesPrice, 19-Amount, 21-PaidDriver]
-                            if ([12, 13, 17, 18, 19, 21].includes(i)) {
+                            // Money formatting for specific columns
+                            if ([12, 13, 14, 15, 16, 21].includes(i)) {
                                 const val = parseFloat(text) || 0;
                                 td.textContent = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                 td.style.fontWeight = 'bold';
@@ -1820,11 +1864,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                     td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                                     td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 13) { // Price per Day
-                                    const isClear = (rowData[31] === 'PAID' || val <= 0.01);
-                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
-                                    td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 17) { // Trans Pay
+                                } else if (i === 13) { // Transport (Driver Pay)
                                     const isClear = (stRate === 'PAID' || val <= 0.01);
                                     const isCash = !!rowData[47];
                                     const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
@@ -1832,7 +1872,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                     td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                                     td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 18) { // Sales Price
+                                } else if (i === 14) { // Sales
                                     const isClear = (stSales === 'PAID' || val <= 0.01);
                                     const isCash = !!rowData[48];
                                     const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
@@ -1840,11 +1880,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                                     td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                                     td.style.color = isClear ? '#166534' : '#991b1b';
-                                } else if (i === 19) { // Amount
-                                    // NO Background color as requested. Just Icons:
-                                    const iconClass = (stAmount === 'PAID') ? 'fas fa-money-bill-wave' : 'fas fa-university';
-                                    const iconColor = (stAmount === 'PAID') ? '#059669' : '#3b82f6';
-                                    td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${stAmount === 'PAID' ? 'CASH' : 'BANK TRANSFER'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+                                } else if (i === 15) { // Storage (Price per Day)
+                                    const isClear = (rowData[31] === 'PAID' || val <= 0.01);
+                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = isClear ? '#166534' : '#991b1b';
+                                } else if (i === 16) { // Rent
+                                    const isClear = (rowData[31] === 'PAID' || val <= 0.01);
+                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                                    td.style.color = isClear ? '#166534' : '#991b1b';
                                 }
                             } else {
                                 td.textContent = text;

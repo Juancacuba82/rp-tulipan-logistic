@@ -1194,27 +1194,33 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 const cashAmtEl = document.getElementById('yard-cash-amt');
                 const bankAmtEl = document.getElementById('yard-bank-amt');
 
-                if (data && data.length > 0) {
-                    if (data.length === 1) {
-                        payMethodEl.value = data[0].metodo === 'cash' ? 'CASH' : 'BANK';
-                    } else if (data.length > 1) {
-                        payMethodEl.value = 'SPLIT';
-                        data.forEach(d => {
-                            if (d.metodo === 'cash') cashAmtEl.value = d.monto;
-                            if (d.metodo === 'bank') bankAmtEl.value = d.monto;
-                        });
+                if (payMethodEl) {
+                    if (data && data.length > 0) {
+                        if (data.length === 1) {
+                            payMethodEl.value = data[0].metodo === 'cash' ? 'CASH' : 'BANK';
+                        } else if (data.length > 1) {
+                            payMethodEl.value = 'SPLIT';
+                            data.forEach(d => {
+                                if (d.metodo === 'cash' && cashAmtEl) cashAmtEl.value = d.monto;
+                                if (d.metodo === 'bank' && bankAmtEl) bankAmtEl.value = d.monto;
+                            });
+                        }
+                    } else {
+                        payMethodEl.value = 'BANK';
                     }
-                } else {
-                    payMethodEl.value = 'BANK';
+                    if (window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
                 }
-                if (window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
             });
         } else {
-            document.getElementById('yard-pay-method').value = 'BANK';
-            if (window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
+            const payMethodEl = document.getElementById('yard-pay-method');
+            if (payMethodEl) {
+                payMethodEl.value = 'BANK';
+                if (window.toggleYardPaymentMethod) window.toggleYardPaymentMethod();
+            }
         }
 
-        document.getElementById('modal-title-yard').textContent = 'Edit Yard Container';
+        const titleEl = document.getElementById('modal-title-yard');
+        if (titleEl) titleEl.textContent = 'Edit Yard Container';
         // Populate the entry date field
         if (item.created_at) {
             const d = new Date(item.created_at);

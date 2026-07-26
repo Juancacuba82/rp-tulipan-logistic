@@ -503,6 +503,7 @@
             }
 
             alert(editingRentalId ? "Rental record updated!" : "New rental record saved!");
+            window.billingDataLoaded = false; // Invalidate billing cache to show new rental debts
             resetRentalForm();
             renderRentalsTable();
         } catch (err) {
@@ -625,6 +626,15 @@
             });
         }
     });
+
+    window.triggerRentalPaymentForBilling = async function(rentalId) {
+        const row = window.currentRentals.find(r => r.id === rentalId);
+        if (!row) { alert('Rental not found'); return; }
+        editingRentalId = row.id;
+        originalRentalState = { ...row };
+        await window.registerRentalPayment();
+        if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+    };
 
     window.registerRentalPayment = async function() {
         if (!editingRentalId || !originalRentalState) return;

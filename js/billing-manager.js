@@ -11,6 +11,34 @@
     window.combinedBillingTrips = [];    // Cached combined trips
     window.billingDataLoaded = false;    // Flag to prevent redundant fetches
 
+    window.injectVirtualRentals = function(trips) {
+        if (!window.currentRentals) return trips;
+        window.currentRentals.forEach(rental => {
+            if (rental.status === 'ACTIVE') {
+                const rentDebt = parseFloat(rental.base_price) || 0;
+                if (rentDebt > 0) {
+                    const virtualRow = new Array(80).fill('');
+                    virtualRow[0] = 'VIRTUAL_RENTAL_' + rental.id; // Trip ID
+                    virtualRow[1] = rental.final_date && rental.final_date !== '---' ? rental.final_date : rental.start_date; // Date (Due Date)
+                    virtualRow[2] = rental.size;                   // Size
+                    virtualRow[3] = rental.container_no;           // N. Cont
+                    virtualRow[4] = rental.release_no || '---';    // Release
+                    virtualRow[5] = 'RENTAL-' + (rental.container_no || '---'); // Order #
+                    virtualRow[6] = '---';                         // City
+                    virtualRow[8] = rental.delivery_place || '---';// Delivery Place
+                    virtualRow[11] = rental.customer_name;         // Customer
+                    virtualRow[27] = rentDebt.toFixed(2);          // Rent Amount (hasRent)
+                    virtualRow[31] = rental.payment_status === 'PAID' ? 'PAID' : 'PEND'; // stRent (payment status)
+                    virtualRow[41] = 'COMPLETE';                   // Status must be COMPLETE to show in Billing
+                    virtualRow[57] = 'NO';                         // Invoice sent
+                    
+                    trips.push(virtualRow);
+                }
+            }
+        });
+        return trips;
+    };
+
     window.initBillingCenter = async function() {
         if (window.billingDataLoaded && window.combinedBillingTrips.length > 0) {
             // Already loaded, just render from memory
@@ -21,6 +49,12 @@
         }
 
         console.log("Initializing Billing Center with dedicated fetch...");
+        
+        // --- ENSURE RENTALS ARE LOADED ---
+        if (typeof window.loadRentalsData === 'function' && (!window.currentRentals || window.currentRentals.length === 0)) {
+            await window.loadRentalsData();
+        }
+
         const body = document.getElementById('billing-table-body');
         if (body) {
             body.innerHTML = '<tr><td colspan="15" style="text-align:center; padding:20px; font-weight:bold; color:#1e40af;"><i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> Buscando órdenes pendientes...</td></tr>';
@@ -29,7 +63,8 @@
         if (typeof window.getPendingBillingTrips === 'function') {
             const data = await window.getPendingBillingTrips();
             if (data && data.length > 0 && typeof window.mapTripToArray === 'function') {
-                const trips = data.map(window.mapTripToArray);
+                let trips = data.map(window.mapTripToArray);
+                trips = window.injectVirtualRentals(trips); // INJECT VIRTUAL ROWS
                 const todayStr = new Date().toISOString().split('T')[0];
                 trips.sort((a, b) => {
                     const dateA = a[1] || '';
@@ -67,7 +102,10 @@
 
     window.buildCombinedBillingTrips = function() {
         // Fallback for cases where initBillingCenter is not yet active
-        const trips = window.currentTrips ? [...window.currentTrips] : [];
+        let trips = window.currentTrips ? [...window.currentTrips] : [];
+        
+        // --- INJECT VIRTUAL RENTAL DEBTS ---
+        trips = window.injectVirtualRentals(trips);
         
         const todayStr = new Date().toISOString().split('T')[0];
         trips.sort((a, b) => {
@@ -97,15 +135,23 @@
     }
 
     function rowHasPendingPayment(row) {
+        const orderNo = (row[5] || '---').toString().toUpperCase();
+        const isYardStorage = orderNo.startsWith('YRD-');
+
         const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
         const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-        const yardRate = parseFloat(row[13]) || 0;
+        const yardRate = !isYardStorage ? (parseFloat(row[13]) || 0) : 0;
         const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
+        const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
+        const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
 
         if (hasTrans && row[32] !== 'PAID') return true;
         if (hasSales && row[33] !== 'PAID') return true;
         if (yardRate > 0.01 && row[30] !== 'PAID') return true;
         if (takeTax  && row[52] !== 'PAID') return true;
+        if (hasRent && row[31] !== 'PAID') return true;
+        if (hasStorage && row[30] !== 'PAID') return true; // storage shares yard payment status
+
         return false;
     }
 
@@ -147,9 +193,14 @@
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
 
-            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-            const hasYard  = (parseFloat(row[13]) || 0) > 0.01;
+            const orderNoUpper = (row[5] || '---').toString().toUpperCase();
+            const isYardStorage = orderNoUpper.startsWith('YRD-');
+            
+            const hasTrans = (parseFloat(row[18]) || 0) > 0.01;
+            const hasSales = (parseFloat(row[20]) || 0) > 0.01;
+            const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
+            const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
+            const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
 
             // Check non-dropdown filters
             if (fPayment === 'pending' && !isPending) return;
@@ -163,6 +214,8 @@
             if (fService === 'TRANSPORT' && !hasTrans) return;
             if (fService === 'SALES' && !hasSales) return;
             if (fService === 'YARD' && !hasYard) return;
+            if (fService === 'STORAGE' && !hasStorage) return;
+            if (fService === 'RENT' && !hasRent) return;
 
             // To add a value to a specific dropdown, it must pass all OTHER dropdown filters
             const passCity = !fCity || city === fCity;
@@ -242,10 +295,14 @@
             const booking  = (row[65] && row[65] !== '---') ? row[65].toString().toLowerCase() : '';
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
+            const orderNoUpper = (row[5] || '---').toString().toUpperCase();
+            const isYardStorage = orderNoUpper.startsWith('YRD-');
             
-            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-            const hasYard  = (parseFloat(row[13]) || 0) > 0.01;
+            const hasTrans = (parseFloat(row[18]) || 0) > 0.01;
+            const hasSales = (parseFloat(row[20]) || 0) > 0.01;
+            const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
+            const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
+            const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
 
             if (fOrder    && !orderNo.includes(fOrder))    return false;
             if (fBooking  && !booking.includes(fBooking))  return false;
@@ -258,6 +315,8 @@
             if (fService === 'TRANSPORT' && !hasTrans)      return false;
             if (fService === 'SALES'     && !hasSales)      return false;
             if (fService === 'YARD'      && !hasYard)       return false;
+            if (fService === 'STORAGE'   && !hasStorage)    return false;
+            if (fService === 'RENT'      && !hasRent)       return false;
             if (fFrom     && rowDate  < fFrom)              return false;
             if (fTo       && rowDate  > fTo)                return false;
             if (fInvoice  && invSent  !== fInvoice)         return false;
@@ -277,29 +336,68 @@
             const isInvoiceSent = (row[57] === 'YES');
 
             // Compute totals for this single row
-            let totalTrans = 0;
-            let totalSales = 0;
-            let totalYard  = 0;
+            let totalYard = parseFloat(row[13]) || 0;
+            let totalTrans = parseFloat(row[18]) || 0;
+            const qty = parseInt(row[53]) || 1;
+            let totalSales = (parseFloat(row[20]) || 0) * qty;
+
+            // Storage calculation (Price per day * days, or Yard Stock flat fee)
+            let totalStorage = 0;
+            const isYardStorageRow = orderNo.startsWith('YRD-');
+            if (isYardStorageRow) {
+                totalStorage = totalYard;
+                totalYard = 0;
+            } else {
+                const ppd = parseFloat(row[14]) || 0;
+                if (ppd > 0) {
+                    const entryDate = new Date(row[1]); // Date In
+                    const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date(); // Date Out or Today
+                    const diffTime = Math.abs(exitDate - entryDate);
+                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                    totalStorage = ppd * diffDays;
+                }
+            }
+
+            // Rent calculation (Matches Rentals Total column exactly)
+            let totalRent = 0;
+            const mrate = parseFloat(row[27]) || 0;
+            if (mrate > 0) {
+                const tripId = row[0] || '';
+                if (tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                    const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
+                    if (rental && window.calculateRentalCost) {
+                        const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                        totalRent = costInfo.total;
+                    } else {
+                        totalRent = mrate;
+                    }
+                } else {
+                    const entryDate = new Date(row[1]);
+                    const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
+                    const diffDays = Math.ceil(Math.abs(exitDate - entryDate) / (1000 * 60 * 60 * 24));
+                    const diffPeriods = Math.max(1, Math.ceil(diffDays / 30));
+                    totalRent = mrate * diffPeriods;
+                }
+            }
+            
             let isOrderPendingPayment = false;
 
-            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-            const qty      = parseInt(row[53]) || 1;
-            if (hasTrans) totalTrans += (parseFloat(row[18]) || 0);
-            if (hasSales) totalSales += (parseFloat(row[20]) || 0) * qty;
-            totalYard  += (parseFloat(row[13]) || 0);
-            
             // Calculate pending portions for total due
             let rowSubtotalOwed = 0;
-            if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += (parseFloat(row[18]) || 0);
-            if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += (parseFloat(row[20]) || 0) * qty;
-            if ((parseFloat(row[13]) || 0) > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += (parseFloat(row[13]) || 0);
+            if (totalYard > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
+            if (totalTrans > 0.01 && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
+            if (totalSales > 0.01 && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
+            // Assuming row[31] (in-rentpaid) handles both Storage and Rent
+            if ((totalStorage > 0.01 || totalRent > 0.01) && row[31] !== 'PAID') {
+                rowSubtotalOwed += (totalStorage + totalRent);
+            }
             
             const takeTax = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
             let rowTaxOwed = 0;
             if (takeTax && row[52] !== 'PAID') {
                 const taxPct = parseFloat(row[50]) || 0;
-                rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
+                rowTaxOwed = ((totalTrans + totalSales + totalYard + totalStorage + totalRent) * taxPct) / 100;
             }
             
             totalOwedAmount += (rowSubtotalOwed + rowTaxOwed);
@@ -308,7 +406,7 @@
                 isOrderPendingPayment = true;
             }
 
-            const grandTotal = totalTrans + totalSales + totalYard;
+            const grandTotal = totalTrans + totalSales + totalYard + totalStorage + totalRent;
             const displayDate = fmtDate(row[1]);
             const customer    = row[11] || '---';
             const city        = row[6]  || '---';
@@ -359,9 +457,11 @@
                 <td style="${cs}">${city}</td>
                 <td style="${cs} white-space:normal; min-width:130px; text-align:left;">${place}</td>
                 <td style="display:none; ${cs}">${driverName}</td>
+                <td style="${cs} color:#f59e0b;">${totalYard > 0 ? fmtMoney(totalYard) : ''}</td>
                 <td style="${cs} color:#1e40af;">${totalTrans > 0 ? fmtMoney(totalTrans) : ''}</td>
                 <td style="${cs} color:#10b981;">${totalSales > 0 ? fmtMoney(totalSales) : ''}</td>
-                <td style="${cs} color:#f59e0b;">${totalYard > 0 ? fmtMoney(totalYard) : ''}</td>
+                <td style="${cs} color:#e11d48;">${totalStorage > 0 ? fmtMoney(totalStorage) : ''}</td>
+                <td style="${cs} color:#7c3aed;">${totalRent > 0 ? fmtMoney(totalRent) : ''}</td>
                 <td style="${cs} font-size:1rem; font-weight:900; color:#1e293b;">${fmtMoney(grandTotal)}</td>
                 <td style="${cs}">${invBadge}</td>
                 <td style="${cs}">${validBadge}</td>
@@ -483,14 +583,21 @@
         // Status badge
         let isEntirelyPaid = true;
         rows.forEach(r => {
+            const orderNo = (r[5] || '---').toString().toUpperCase();
+            const isYardStorage = orderNo.startsWith('YRD-');
             const hasTrans  = r[42] === 'YES' && (parseFloat(r[18]) || 0) > 0;
             const hasSales  = r[43] === 'YES' && (parseFloat(r[20]) || 0) > 0;
-            const yardRate  = parseFloat(r[13]) || 0;
+            const yardRate  = !isYardStorage ? (parseFloat(r[13]) || 0) : 0;
             const takeTax   = r[49] === true || r[49] === 'true' || r[49] === 'YES' || r[49] === 'on' || r[49] === 1;
+            const hasRent   = (parseFloat(r[27]) || 0) > 0.01;
+            const hasStorage = isYardStorage ? (parseFloat(r[13]) || 0) > 0.01 : (parseFloat(r[14]) || 0) > 0.01;
+
             if (hasTrans  && r[32] !== 'PAID') isEntirelyPaid = false;
             if (hasSales  && r[33] !== 'PAID') isEntirelyPaid = false;
             if (yardRate > 0.01 && r[30] !== 'PAID') isEntirelyPaid = false;
             if (takeTax   && r[52] !== 'PAID') isEntirelyPaid = false;
+            if (hasRent   && r[31] !== 'PAID') isEntirelyPaid = false;
+            if (hasStorage && r[30] !== 'PAID') isEntirelyPaid = false; // storage uses yard payment status
         });
 
         const badge = document.getElementById('bm-status-badge');
@@ -562,9 +669,82 @@
                     subtotal += qty * price;
                 }
                 if (yardRate > 0) {
-                    const desc = yardDesc && !yardDesc.startsWith('{') ? `YARD SERVICE: ${yardDesc}` : 'YARD SERVICE';
-                    addDetailRow(body, desc, qty, yardRate);
-                    subtotal += qty * yardRate;
+                    if (yardDesc && typeof yardDesc === 'string' && yardDesc.startsWith('[')) {
+                        try {
+                            const services = JSON.parse(yardDesc);
+                            if (Array.isArray(services)) {
+                                services.forEach(s => {
+                                    const servicePrice = parseFloat(s.price) || 0;
+                                    if (servicePrice > 0) {
+                                        addDetailRow(body, `YARD SERVICE: ${s.desc || 'Other'}`, qty, servicePrice);
+                                        subtotal += qty * servicePrice;
+                                    }
+                                });
+                            }
+                        } catch(e) {
+                            addDetailRow(body, 'YARD SERVICE', qty, yardRate);
+                            subtotal += qty * yardRate;
+                        }
+                    } else {
+                        const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}` : 'YARD SERVICE';
+                        addDetailRow(body, desc, qty, yardRate);
+                        subtotal += qty * yardRate;
+                    }
+                }
+                
+                // Storage
+                const ppd = parseFloat(row[14]) || 0;
+                if (ppd > 0) {
+                    const entryDate = new Date(row[1]);
+                    const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
+                    const diffTime = Math.abs(exitDate - entryDate);
+                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                    addDetailRow(body, 'STORAGE', diffDays, ppd);
+                    subtotal += diffDays * ppd;
+                }
+
+                // Rent
+                const tripId = row[0] || '';
+                const mrate = parseFloat(row[27]) || 0;
+                if (mrate > 0) {
+                    let diffPeriods = 1;
+                    let periodLabel = 'Month';
+                    let startDateObj = new Date(row[1]);
+                    let calcTotal = mrate;
+                    
+                    if (tripId.startsWith('VIRTUAL_RENTAL_')) {
+                        const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                        const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
+                        if (rental && window.calculateRentalCost) {
+                            periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
+                            startDateObj = new Date(rental.start_date);
+                            const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                            calcTotal = costInfo.total;
+                            diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
+                        }
+                    } else {
+                        const entryDate = new Date(row[1]);
+                        const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
+                        const diffDays = Math.ceil(Math.abs(exitDate - entryDate) / (1000 * 60 * 60 * 24));
+                        diffPeriods = Math.max(1, Math.ceil(diffDays / 30));
+                    }
+
+                    for (let i = 1; i <= diffPeriods; i++) {
+                        let pStart = new Date(startDateObj);
+                        let pEnd = new Date(startDateObj);
+                        if (periodLabel === 'Week') {
+                            pStart.setDate(pStart.getDate() + (i-1)*7);
+                            pEnd.setDate(pStart.getDate() + 7);
+                        } else {
+                            pStart.setDate(pStart.getDate() + (i-1)*30);
+                            pEnd.setDate(pStart.getDate() + 30);
+                        }
+                        
+                        const dStr = pStart.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'}) + ' - ' + pEnd.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
+                        
+                        addDetailRow(body, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})`, 1, mrate);
+                        subtotal += mrate;
+                    }
                 }
             });
         }
@@ -874,6 +1054,18 @@
         if (!row) return;
 
         const tripId = row[0];
+        
+        // Handle virtual rental row
+        if (tripId && tripId.startsWith('VIRTUAL_RENTAL_')) {
+            const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+            if (typeof window.triggerRentalPaymentForBilling === 'function') {
+                window.triggerRentalPaymentForBilling(rentalId);
+            } else {
+                alert("Rental payment function is not available.");
+            }
+            return;
+        }
+
         const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
         if (!tripId || !isUUID(tripId)) {
             alert("No se puede marcar como pagado. ID inválido.");
