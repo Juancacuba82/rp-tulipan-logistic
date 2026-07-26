@@ -3220,7 +3220,7 @@
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-calendar-day"></i>
                                     <input type="date" id="filter-from" class="form-input"
-                                        onchange="renderDriverLog(); fetchHistory();">
+                                        onchange="if(window.handleDriverDateChange) window.handleDriverDateChange();">
                                 </div>
                             </div>
                             <div class="attendance-input-group">
@@ -3228,7 +3228,7 @@
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-calendar-check"></i>
                                     <input type="date" id="filter-to" class="form-input"
-                                        onchange="renderDriverLog(); fetchHistory();">
+                                        onchange="if(window.handleDriverDateChange) window.handleDriverDateChange();">
                                 </div>
                             </div>
                             <button onclick="resetReportFilters()" class="btn-reset-modern">

@@ -20,8 +20,10 @@
             const dateFrom = document.getElementById('filter-from')?.value;
             const dateTo = document.getElementById('filter-to')?.value;
 
-            if (window.currentTrips && window.currentTrips.length > 0) {
-                const allRows = window.currentTrips;
+            const sourceTrips = (window.driverReportTrips && window.driverReportTrips.length > 0) ? window.driverReportTrips : window.currentTrips;
+
+            if (sourceTrips && sourceTrips.length > 0) {
+                const allRows = sourceTrips;
 
                 // 1. Filter the rows first
                 const filtered = allRows.filter(r => {
@@ -47,7 +49,7 @@
                         || rCont.toLowerCase().includes(searchTerm)
                         || rOrder.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
-                    const isComplete = (rStatus === 'PAID' || rStatus === 'COMPLETE');
+                    const isComplete = (rStatus === 'PAID' || rStatus === 'COMPLETE' || rStatus === 'PENDING_PAYMENT');
 
                     return matchesSearch && matchesDate && isComplete;
                 });
@@ -1131,18 +1133,17 @@
             }
 
             // Filter trips for the date range to find active drivers
-            const trips = window.currentTrips || [];
+            const trips = window.driverReportTrips || window.currentTrips || [];
             const driversInPeriod = new Set();
             
             trips.forEach(t => {
                 const tDate = t[1]; // Date index
                 const tDriver = t[17]; // Driver index
-                const tStatus = t[41]; // Order status index (needs to be PAID/COMPLETED?)
-                // Note: renderDriverLog filters by isComplete (rStatus === 'PAID')
+                const tStatus = t[41]; // Order status index
                 
                 if (tDriver && tDriver !== '---' && tDriver !== 'UNASSIGNED') {
                     const matchesDate = (!from || tDate >= from) && (!to || tDate <= to);
-                    const isPaid = (tStatus === 'PAID' || tStatus === 'COMPLETE'); 
+                    const isPaid = (tStatus === 'PAID' || tStatus === 'COMPLETE' || tStatus === 'PENDING_PAYMENT'); 
                     if (matchesDate && isPaid) {
                         driversInPeriod.add(tDriver.toString().trim().toUpperCase());
                     }
@@ -1181,3 +1182,43 @@
                 if (window.syncDriverNames) window.syncDriverNames();
             }
         };
+
+        window.fetchTripsForDriverReport = async function() {
+            const dateFrom = document.getElementById('filter-from')?.value;
+            const dateTo = document.getElementById('filter-to')?.value;
+
+            if (dateFrom && dateTo && window.db) {
+                try {
+                    // Show a quick visual indicator
+                    const body = document.getElementById('dl-body');
+                    if (body) {
+                        body.innerHTML = '<tr><td colspan="15" style="text-align:center; padding:20px; font-weight:bold; color:#1e40af;"><i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> Downloading trips for selected dates...</td></tr>';
+                    }
+
+                    const { data, error } = await window.db.from('trips')
+                        .select('*')
+                        .gte('date', dateFrom)
+                        .lte('date', dateTo);
+                        
+                    if (error) throw error;
+                    
+                    if (data && window.mapTripToArray) {
+                        window.driverReportTrips = data.map(window.mapTripToArray);
+                    } else {
+                        window.driverReportTrips = [];
+                    }
+                } catch(e) {
+                    console.error("Error fetching trips for driver report:", e);
+                }
+            } else {
+                window.driverReportTrips = null;
+            }
+        };
+
+        window.handleDriverDateChange = async function() {
+            await window.fetchTripsForDriverReport();
+            if (window.updateAvailableDriversForReport) window.updateAvailableDriversForReport();
+            if (window.renderDriverLog) window.renderDriverLog();
+            if (window.fetchHistory) window.fetchHistory();
+        };
+
