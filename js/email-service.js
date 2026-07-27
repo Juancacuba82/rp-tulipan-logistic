@@ -64,14 +64,14 @@
             }));
 
             const canvas = await html2canvas(container, {
-                scale: scale,
+                scale: 0.7,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', quality);
-            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgData = canvas.toDataURL('image/jpeg', 0.35);
+            const pdf = new jsPDF({ compress: true, orientation: 'p', unit: 'mm', format: 'a4' });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const imgWidth = pageWidth;
             const imgHeight = (canvas.height * pageWidth) / canvas.width;
@@ -242,14 +242,14 @@
             }));
 
             const canvas = await html2canvas(container, {
-                scale: 1.2,
+                scale: 0.7,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.7);
-            const pdf     = new jsPDF(orientation, 'mm', 'a4');
+            const imgData = canvas.toDataURL('image/jpeg', 0.35);
+            const pdf     = new jsPDF({ compress: true, orientation: orientation, unit: 'mm', format: 'a4' });
             const pw      = pdf.internal.pageSize.getWidth();
             const ph      = pdf.internal.pageSize.getHeight();
             const iw      = pw;

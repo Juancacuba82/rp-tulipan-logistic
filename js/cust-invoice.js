@@ -394,9 +394,9 @@ window.downloadCustInvoiceSummary = async function(format, btnElement = null) {
             a.click();
             document.body.removeChild(a);
         } else if (format === 'PDF') {
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const imgData = canvas.toDataURL('image/jpeg', 0.65);
             const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pdf = new jsPDF({ compress: true, orientation: 'l', unit: 'mm', format: 'a4' });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 10;
@@ -442,9 +442,9 @@ window.downloadCustInvoiceSummary = async function(format, btnElement = null) {
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SENDING...';
             }
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const imgData = canvas.toDataURL('image/jpeg', 0.65);
             const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('l', 'mm', 'a4');
+            const pdf = new jsPDF({ compress: true, orientation: 'l', unit: 'mm', format: 'a4' });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 10;

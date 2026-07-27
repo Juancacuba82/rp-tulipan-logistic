@@ -1076,103 +1076,258 @@
         const originalEl = document.getElementById('bm-invoice-preview');
         if (!originalEl) return null;
 
-        // Create an off-screen container to ensure html2canvas can render it
-        // even if the modal is hidden (display: none).
-        const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:860px;background:white;z-index:-1;';
-        
-        // Clone the preview element deeply
-        const clone = originalEl.cloneNode(true);
-        // Temporarily hide actions for PDF in the clone
-        const actions = clone.querySelector('#bm-invoice-actions');
-        if (actions) actions.style.display = 'none';
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ compress: true, orientation: 'p', unit: 'mm', format: 'a4' });
 
-        // Remove unchecked rows from clone and hide checkboxes
-        const cloneRows = clone.querySelectorAll('#bm-services-body tr');
+        // Data extraction
+        const orderNo = document.getElementById('bm-order-display')?.textContent || '';
+        const date = document.getElementById('bm-date-display')?.textContent || '';
+        const term = document.getElementById('bm-term-display')?.textContent || '';
+        
+        let issuerName = 'RP TULIPAN TRANSPORT INC';
+        const select = document.getElementById('bm-company-selector');
+        if (select) {
+            issuerName = select.options[select.selectedIndex]?.value || 'RP TULIPAN TRANSPORT INC';
+        }
+        const billName = document.getElementById('bm-bill-to-name')?.textContent || '';
+        const billAddress = document.getElementById('bm-bill-to-address')?.textContent || '';
+        
+        const fromAddress = document.getElementById('bm-from-address')?.textContent || '';
+        const toAddress = document.getElementById('bm-to-address')?.textContent || '';
+        
+        const subtotal = document.getElementById('bm-subtotal')?.textContent || '';
+        const grandTotal = document.getElementById('bm-total')?.textContent || '';
+
+        // Colors
+        const primaryColor = [20, 30, 55]; // Deep blue
+        const textColor = [51, 65, 85];
+
+        // Draw Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(26);
+        doc.setTextColor(30, 41, 59); // #1e293b
+        doc.text("INVOICE", 15, 25);
+        
+        // Status Badge (Pending)
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(220, 38, 38);
+        doc.setFillColor(254, 226, 226);
+        doc.roundedRect(175, 18, 20, 6, 2, 2, 'F');
+        doc.text("PENDING", 185, 22, { align: "center" });
+
+        // Company Details (Left)
+        doc.setFontSize(10);
+        if (issuerName === 'JR SUPER CRANE') {
+            doc.setTextColor(79, 70, 229); // indigo-600 (blue-violet)
+        } else {
+            doc.setTextColor(220, 38, 38); // red-600
+        }
+        doc.text(issuerName, 15, 33);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        doc.text("9804 NW 80th Ave, Hialeah Gardens FL 33016", 15, 38);
+
+        // Invoice Details (Right)
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Order #: ${orderNo}`, 195, 33, { align: 'right' });
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Date: ${date}`, 195, 38, { align: 'right' });
+        doc.setFont("helvetica", "bold");
+        doc.text(`Payment Term: ${term}`, 195, 43, { align: 'right' });
+
+        // Divider
+        doc.setDrawColor(30, 41, 59);
+        doc.setLineWidth(0.6);
+        doc.line(15, 48, 195, 48);
+
+        // Bill To & Service Location
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("BILL TO:", 15, 55);
+        doc.text("SERVICE LOCATION / DELIVERY ADDRESS:", 105, 55);
+
+        doc.setFontSize(11);
+        doc.text(billName, 15, 62);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(51, 65, 85);
+        
+        const splitBill = doc.splitTextToSize(billAddress, 80);
+        doc.text(splitBill, 15, 67);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("FROM: ", 105, 62);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        const splitFrom = doc.splitTextToSize(fromAddress, 75);
+        doc.text(splitFrom, 118, 62);
+        
+        const fromHeight = splitFrom.length * 5;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("TO: ", 105, 62 + fromHeight);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        const splitTo = doc.splitTextToSize(toAddress, 80);
+        doc.text(splitTo, 113, 62 + fromHeight);
+
+        // Extract Table Data
+        const tableData = [];
         const originalRows = originalEl.querySelectorAll('#bm-services-body tr');
+        originalRows.forEach(tr => {
+            const cb = tr.querySelector('.invoice-row-checkbox');
+            if (cb && cb.checked) {
+                const desc = tr.children[0]?.textContent.trim() || '';
+                const qty = tr.children[1]?.textContent.trim() || '';
+                const unit = tr.children[2]?.textContent.trim() || '';
+                const total = tr.children[3]?.textContent.trim() || '';
+                tableData.push([desc, qty, unit, total]);
+            }
+        });
+
+        const startY = Math.max(70 + splitBill.length * 5, 70 + fromHeight + splitTo.length * 5) + 5;
+
+        // Draw Table using autoTable
+        doc.autoTable({
+            startY: startY,
+            head: [['DESCRIPTION', 'QTY', 'UNIT COST', 'TOTAL']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [30, 41, 59], // #1e293b
+                textColor: 255,
+                fontStyle: 'bold',
+                fontSize: 9,
+                valign: 'middle',
+                cellPadding: 4,
+                lineColor: [30, 41, 59],
+                lineWidth: 0.5
+            },
+            bodyStyles: {
+                fontSize: 10,
+                textColor: 0,
+                cellPadding: 6,
+                lineColor: [30, 41, 59], // matching header color
+                lineWidth: 0.5
+            },
+            alternateRowStyles: {
+                fillColor: 255
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold' },
+                1: { halign: 'center' },
+                2: { halign: 'right' },
+                3: { halign: 'right', fontStyle: 'bold' }
+            },
+            margin: { left: 15, right: 15 }
+        });
+
+        let finalY = doc.lastAutoTable.finalY + 10;
+
+        // Subtotal & Grand Total
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("Subtotal:", 165, finalY, { align: 'right' });
+        doc.text(subtotal, 195, finalY, { align: 'right' });
         
-        for (let i = 0; i < originalRows.length; i++) {
-            const cb = originalRows[i].querySelector('.invoice-row-checkbox');
-            if (cb && !cb.checked) {
-                if (cloneRows[i]) cloneRows[i].remove();
-            } else {
-                if (cloneRows[i]) {
-                    const cloneCb = cloneRows[i].querySelector('.no-print-checkbox');
-                    if (cloneCb) cloneCb.remove();
-                }
-            }
+        finalY += 5;
+        doc.setDrawColor(30, 41, 59);
+        doc.setLineWidth(0.5);
+        doc.line(15, finalY, 195, finalY); // Divider
+        
+        finalY += 2;
+        doc.setFillColor(248, 250, 252); // light gray bg for grand total
+        doc.rect(15, finalY, 180, 12, 'F');
+
+        finalY += 8;
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text("GRAND TOTAL:", 165, finalY, { align: 'right' });
+        doc.setTextColor(29, 78, 216); // blue-700
+        doc.text(grandTotal, 195, finalY, { align: 'right' });
+
+        // Payment Info
+        finalY += 15;
+        if (finalY > 240) {
+            doc.addPage();
+            finalY = 20;
         }
 
-        container.appendChild(clone);
-        document.body.appendChild(container);
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(15, finalY, 180, 42, 3, 3, 'FD');
 
-        // --- PAGE BREAK FIX ---
-        const A4_WIDTH_MM = 210;
-        const A4_HEIGHT_MM = 297;
-        const MARGIN_MM = 5;
-        const USABLE_MM = A4_HEIGHT_MM - (MARGIN_MM * 2);
-        const pxPerMm = 860 / A4_WIDTH_MM; 
-        const usablePx = USABLE_MM * pxPerMm;
+        finalY += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.setFont("helvetica", "bold");
+        doc.text("ACH / WIRE PAYMENT INFORMATION", 25, finalY);
 
-        const cloneRect = clone.getBoundingClientRect();
-        const allRows = clone.querySelectorAll('table tr');
-        let currentPage = 1;
+        finalY += 8;
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Bank Name: ", 25, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        doc.text("Bank of America", 48, finalY);
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Routing Number: ", 105, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        doc.text("063100277", 135, finalY);
 
-        for (let i = 0; i < allRows.length; i++) {
-            const tr = allRows[i];
-            const trRect = tr.getBoundingClientRect();
-            const trTop = trRect.top - cloneRect.top;
-            const trBottom = trRect.bottom - cloneRect.top;
-            
-            // If the row spans across the page boundary
-            if (trTop < currentPage * usablePx && trBottom > (currentPage * usablePx) + 2) { 
-                const pushDown = (currentPage * usablePx) - trTop;
-                const spacer = document.createElement('tr');
-                spacer.style.height = pushDown + 'px';
-                spacer.innerHTML = `<td colspan="10" style="border:none; padding:0;"></td>`;
-                tr.parentNode.insertBefore(spacer, tr);
-                currentPage++;
-            } else if (trBottom > currentPage * usablePx) {
-                // In case a row starts after the boundary but we missed the exact crossing
-                currentPage = Math.ceil(trBottom / usablePx);
-            }
-        }
-        // --- END PAGE BREAK FIX ---
+        finalY += 6;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Company Name: ", 25, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        doc.text(issuerName, 52, finalY);
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Wire/Swift Code: ", 105, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        doc.text("BOFAUS3N", 135, finalY);
 
-        try {
-            const { jsPDF } = window.jspdf;
-            const canvas    = await html2canvas(clone, { scale: 1.2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData   = canvas.toDataURL('image/jpeg', 0.7);
+        finalY += 6;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Account Number: ", 25, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        doc.text("898111245429", 55, finalY);
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Bank Address: ", 105, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        doc.text("900 W 49 ST, Hialeah, FL 33012", 130, finalY);
 
-            const pdf      = new jsPDF('p', 'mm', 'a4');
-            const pw       = pdf.internal.pageSize.getWidth();
-            const imgW     = pw;
-            const imgH     = (canvas.height * pw) / canvas.width;
+        finalY += 6;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(29, 78, 216);
+        doc.text("ZELLE: 786-768-4409", 105, finalY);
 
-            // Multi-page support
-            const ph       = pdf.internal.pageSize.getHeight();
-            const margin   = 5;
-            const usable   = ph - margin * 2;
+        finalY += 8;
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text("* Please include the Invoice or Order number in the payment reference.", 25, finalY);
 
-            if (imgH <= usable) {
-                pdf.addImage(imgData, 'JPEG', 0, margin, imgW, imgH);
-            } else {
-                const pages = Math.ceil(imgH / usable);
-                for (let pg = 0; pg < pages; pg++) {
-                    if (pg > 0) pdf.addPage();
-                    const yOffset = -(pg * usable) + margin;
-                    pdf.addImage(imgData, 'JPEG', 0, yOffset, imgW, imgH);
-                    pdf.setFillColor(255, 255, 255);
-                    if (pg > 0) pdf.rect(0, 0, pw, margin, 'F');
-                    const over = yOffset + imgH - ph + margin;
-                    if (over > 0) pdf.rect(0, ph - margin, pw, margin + 1, 'F');
-                }
-            }
-
-            return pdf.output('blob');
-        } finally {
-            document.body.removeChild(container);
-        }
+        return doc.output('blob');
     }
 
     // Make it globally accessible for email-service
@@ -1211,19 +1366,19 @@
         const tableClone = table.cloneNode(true);
         tableClone.querySelectorAll('thead tr').forEach(tr => {
             const ths = tr.querySelectorAll('th');
-            for (let i = ths.length - 1; i >= 14; i--) {
+            for (let i = ths.length - 1; i >= 15; i--) {
                 if (ths[i]) ths[i].remove();
             }
         });
         tableClone.querySelectorAll('tbody tr').forEach(tr => {
             const tds = tr.querySelectorAll('td');
-            for (let i = tds.length - 1; i >= 14; i--) {
+            for (let i = tds.length - 1; i >= 15; i--) {
                 if (tds[i]) tds[i].remove();
             }
         });
 
         const hiddenContainer = document.createElement('div');
-        hiddenContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;background:white;padding:40px;';
+        hiddenContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:max-content;min-width:1800px;background:white;padding:40px;';
         document.body.appendChild(hiddenContainer);
         
         try {
@@ -1250,7 +1405,7 @@
                 `;
                 hiddenContainer.appendChild(footer);
 
-                const canvas = await html2canvas(hiddenContainer, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                const canvas = await html2canvas(hiddenContainer, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 2200 });
                 const url = canvas.toDataURL('image/png');
                 const a   = document.createElement('a');
                 a.href     = url;
@@ -1264,7 +1419,7 @@
                 hiddenContainer.appendChild(tableClone);
                 
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('l', 'mm', 'a4');
+                const pdf = new jsPDF({ compress: true, orientation: 'l', unit: 'mm', format: 'a4' });
                 
                 pdf.setFont("helvetica", "bold");
                 pdf.setFontSize(22);

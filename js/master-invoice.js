@@ -368,10 +368,10 @@
 
         try {
             const { jsPDF } = window.jspdf;
-            const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const canvas = await html2canvas(clone, { scale: 0.7, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/jpeg', 0.35);
             
-            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdf = new jsPDF({ compress: true, orientation: 'p', unit: 'mm', format: 'a4' });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const imgWidth = pageWidth;
             const imgHeight = (canvas.height * pageWidth) / canvas.width;
