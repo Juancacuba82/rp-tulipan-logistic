@@ -789,6 +789,15 @@
                 }
             }
 
+            function normalizeServiceDesc(raw) {
+                if (!raw) return 'Other';
+                let s = raw.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+                s = s.replace(/CONATINER/g, 'CONTAINER');
+                s = s.replace(/DEPOSITO/g, 'DEPOSIT');
+                s = s.replace(/\s+/g, ' '); 
+                return s;
+            }
+
             // 1. Transport Services
             if (!serviceFilter || serviceFilter === 'TRANSPORT') {
                 rows.forEach(row => {
@@ -816,7 +825,8 @@
                                     services.forEach(s => {
                                         const servicePrice = parseFloat(s.price) || 0;
                                         if (servicePrice > 0) {
-                                            addAggregatedItem(yardMap, `YARD SERVICE: ${s.desc || 'Other'}`, qty, servicePrice);
+                                            const normalized = normalizeServiceDesc(s.desc);
+                                            addAggregatedItem(yardMap, `YARD SERVICE: ${normalized}`, qty, servicePrice);
                                         }
                                     });
                                 }
@@ -824,7 +834,10 @@
                                 addAggregatedItem(yardMap, `YARD SERVICE`, qty, yardRate);
                             }
                         } else {
-                            const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}` : `YARD SERVICE`;
+                            let desc = `YARD SERVICE`;
+                            if (yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES') {
+                                desc = `YARD SERVICE: ${normalizeServiceDesc(yardDesc)}`;
+                            }
                             addAggregatedItem(yardMap, desc, qty, yardRate);
                         }
                     }

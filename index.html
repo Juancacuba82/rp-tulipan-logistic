@@ -1764,6 +1764,7 @@
                         <!-- Removed Yard Services dropdown as it is now a checkbox above -->
                         <div class="form-group" id="yard-rate-group" style="display:none; flex-direction: column; gap: 0;">
                             <div style="display: flex; flex-direction: column; width: 100%;">
+                                <datalist id="yard-services-datalist"></datalist>
                                 <div id="yard-services-list" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px;"></div>
                                 <button type="button" onclick="window.addYardServiceRow()" style="margin-bottom: 12px; padding: 6px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: 0.2s;">
                                     <i class="fas fa-plus"></i> Add Service
@@ -7142,7 +7143,7 @@
             row.style.cssText = 'display: flex; gap: 5px; align-items: center;';
             
             row.innerHTML = `
-                <input type="text" class="ys-desc" placeholder="Service (e.g. Paint)" value="${desc}" oninput="window.calculateYardTotal()" style="flex: 2; font-size: 0.75rem; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                <input type="text" class="ys-desc" list="yard-services-datalist" placeholder="Service (e.g. Paint)" value="${desc}" oninput="window.calculateYardTotal()" style="flex: 2; font-size: 0.75rem; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
                 <input type="number" class="ys-price" placeholder="$0.00" value="${price}" oninput="window.calculateYardTotal()" style="flex: 1; font-size: 0.75rem; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
                 <button type="button" onclick="this.parentElement.remove(); window.calculateYardTotal()" style="background: transparent; color: #ef4444; border: none; cursor: pointer; padding: 4px;" title="Remove"><i class="fas fa-trash"></i></button>
             `;

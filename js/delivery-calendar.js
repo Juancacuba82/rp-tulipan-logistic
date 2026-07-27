@@ -1742,6 +1742,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // --- POPULATE FILTER DROPDOWNS (City, Size, Customer, Driver, Company) ---
                 if (window.populateFilterPickers) window.populateFilterPickers();
+                if (window.populateYardServicesDatalist) window.populateYardServicesDatalist();
 
                 // --- CALC SYNC: Recalculate based on ALL Trips loaded ---
                 if (window.renderDriverLog) window.renderDriverLog();
@@ -2746,6 +2747,38 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === modal) window.closeNearbyTrucksModal();
         });
     }
+    
+    window.populateYardServicesDatalist = function() {
+        const datalist = document.getElementById('yard-services-datalist');
+        if (!datalist) return;
+        const services = new Set();
+        const trips = window.allTripsUnfiltered || window.currentTrips || [];
+        
+        trips.forEach(row => {
+            const yardDesc = row[12];
+            if (yardDesc && yardDesc !== '---' && yardDesc !== 'NO' && yardDesc !== 'YES') {
+                if (yardDesc.startsWith('[')) {
+                    try {
+                        const parsed = JSON.parse(yardDesc);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach(p => {
+                                if (p.desc) services.add(p.desc.trim().toUpperCase());
+                            });
+                        }
+                    } catch(e) {}
+                } else if (!yardDesc.startsWith('{')) {
+                    services.add(yardDesc.trim().toUpperCase());
+                }
+            }
+        });
+
+        datalist.innerHTML = '';
+        services.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            datalist.appendChild(opt);
+        });
+    };
 });
 
 // --- MASS DELETE ORDERS ---
