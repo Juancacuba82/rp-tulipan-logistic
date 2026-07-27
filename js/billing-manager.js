@@ -736,15 +736,28 @@
             const servicesTable = body.closest('table');
             if (servicesTable) servicesTable.style.display = '';
 
+            const transportMap = new Map();
+            const yardMap = new Map();
+            const rentMap = new Map();
+            const storageMap = new Map();
+            const salesMap = new Map();
+
+            function addAggregatedItem(map, desc, qty, price) {
+                const key = `${desc}|${price.toFixed(2)}`;
+                if (map.has(key)) {
+                    map.get(key).qty += qty;
+                } else {
+                    map.set(key, { desc, price, qty });
+                }
+            }
+
             // 1. Transport Services
             rows.forEach(row => {
                 const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
                 if (hasTrans) {
                     const price = parseFloat(row[18]) || 0;
                     const qty = parseInt(row[53]) || 1;
-                    const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
-                    addDetailRow(body, `TRANSPORT SERVICE${contSuffix}`, qty, price);
-                    subtotal += qty * price;
+                    addAggregatedItem(transportMap, 'TRANSPORT SERVICE', qty, price);
                 }
             });
             
@@ -753,7 +766,6 @@
                 const yardDesc = row[12] && row[12] !== '---' ? row[12] : '';
                 const yardRate = parseFloat(row[13]) || 0;
                 const qty = parseInt(row[53]) || 1;
-                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
                 
                 if (yardRate > 0) {
                     if (yardDesc && typeof yardDesc === 'string' && yardDesc.startsWith('[')) {
@@ -763,19 +775,16 @@
                                 services.forEach(s => {
                                     const servicePrice = parseFloat(s.price) || 0;
                                     if (servicePrice > 0) {
-                                        addDetailRow(body, `YARD SERVICE: ${s.desc || 'Other'}${contSuffix}`, qty, servicePrice);
-                                        subtotal += qty * servicePrice;
+                                        addAggregatedItem(yardMap, `YARD SERVICE: ${s.desc || 'Other'}`, qty, servicePrice);
                                     }
                                 });
                             }
                         } catch(e) {
-                            addDetailRow(body, `YARD SERVICE${contSuffix}`, qty, yardRate);
-                            subtotal += qty * yardRate;
+                            addAggregatedItem(yardMap, `YARD SERVICE`, qty, yardRate);
                         }
                     } else {
-                        const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}${contSuffix}` : `YARD SERVICE${contSuffix}`;
-                        addDetailRow(body, desc, qty, yardRate);
-                        subtotal += qty * yardRate;
+                        const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}` : `YARD SERVICE`;
+                        addAggregatedItem(yardMap, desc, qty, yardRate);
                     }
                 }
             });
@@ -784,7 +793,6 @@
             rows.forEach(row => {
                 const mrate = parseFloat(row[27]) || 0;
                 const tripId = row[0] || '';
-                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
                 
                 if (mrate > 0) {
                     let diffPeriods = 1;
@@ -832,8 +840,7 @@
                         
                         const dStr = pStart.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'}) + ' - ' + pEnd.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
                         
-                        addDetailRow(body, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})${contSuffix}`, 1, mrate);
-                        subtotal += mrate;
+                        addAggregatedItem(rentMap, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})`, 1, mrate);
                     }
                 }
             });
@@ -841,29 +848,33 @@
             // 4. Storage
             rows.forEach(row => {
                 const ppd = parseFloat(row[14]) || 0;
-                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
                 
                 if (ppd > 0) {
                     const entryDate = new Date(row[1]);
                     const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
                     const diffTime = Math.abs(exitDate - entryDate);
                     const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                    addDetailRow(body, `STORAGE${contSuffix}`, diffDays, ppd);
-                    subtotal += diffDays * ppd;
+                    addAggregatedItem(storageMap, `STORAGE`, diffDays, ppd);
                 }
             });
             
             // 5. Container Sales
             rows.forEach(row => {
                 const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
-                
                 if (hasSales) {
                     const price = parseFloat(row[20]) || 0;
                     const qty = parseInt(row[53]) || 1;
-                    addDetailRow(body, `CONTAINER SALES${contSuffix}`, qty, price);
-                    subtotal += qty * price;
+                    addAggregatedItem(salesMap, `CONTAINER SALES`, qty, price);
                 }
+            });
+
+            // Append grouped items to the table
+            const allMaps = [transportMap, yardMap, rentMap, storageMap, salesMap];
+            allMaps.forEach(map => {
+                map.forEach(item => {
+                    addDetailRow(body, item.desc, item.qty, item.price);
+                    subtotal += (item.qty * item.price);
+                });
             });
         }
 
