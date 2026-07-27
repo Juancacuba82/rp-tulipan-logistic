@@ -238,6 +238,43 @@
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 8px rgba(30, 41, 59, 0.4) !important;
         }
 
+        .glossy-dark-btn {
+            background: linear-gradient(to bottom, #475569 0%, #1e293b 100%) !important;
+            color: white !important;
+            border: 3px solid #f3f4f6 !important;
+            border-radius: 20px !important;
+            padding: 8px 16px !important;
+            font-size: 0.85rem !important;
+            font-weight: 800 !important;
+            cursor: pointer !important;
+            box-shadow:
+                inset 0 10px 8px -6px rgba(255, 255, 255, 0.4),
+                inset 0 -3px 6px rgba(0, 0, 0, 0.5),
+                0 4px 6px -1px rgba(0, 0, 0, 0.3),
+                0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+
+        .glossy-dark-btn:hover {
+            box-shadow:
+                inset 0 15px 12px -10px rgba(255, 255, 255, 0.6),
+                inset 0 -4px 8px rgba(0, 0, 0, 0.3),
+                0 6px 12px -2px rgba(0, 0, 0, 0.4),
+                0 3px 6px -2px rgba(0, 0, 0, 0.3) !important;
+            background: linear-gradient(to bottom, #64748b 0%, #334155 100%) !important;
+        }
+
+        .glossy-dark-btn:active {
+            transform: translateY(1px);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 0 10px rgba(30, 41, 59, 0.5) !important;
+        }
+
         .glossy-green-btn-sm {
             background: linear-gradient(to bottom, #50de89 0%, #0db84f 100%) !important;
             color: white !important;
@@ -4167,7 +4204,10 @@
                         <button onclick="downloadBillingStatement('PDF', this)" class="glossy-red-btn">
                             <i class="fas fa-file-pdf"></i> STATEMENT PDF
                         </button>
-                        <button id="btn-booking-invoice" onclick="if(window.viewMasterInvoice) window.viewMasterInvoice()" class="glossy-green-btn" style="display: none;">
+                        <button id="btn-service-invoice" onclick="if(window.viewServiceInvoice) window.viewServiceInvoice()" class="glossy-dark-btn" style="display: none;">
+                            <i class="fas fa-layer-group"></i> SERVICE INVOICE
+                        </button>
+                        <button id="btn-booking-invoice" onclick="if(window.viewMasterInvoice) window.viewMasterInvoice()" class="glossy-dark-btn" style="display: none;">
                             <i class="fas fa-layer-group"></i> BOOKING INVOICE
                         </button>
                     </div>
@@ -4353,6 +4393,60 @@
                 </div>
             </div>
         </section>
+
+        <!-- ── MULTI-RENT PAYMENT MODAL ──────────────────────────── -->
+        <div id="multi-rent-modal"
+            style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:9995;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+            <div style="background:var(--card-bg);width:800px;max-width:95%;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,0.4);border:1px solid var(--border-color);display:flex;flex-direction:column;overflow:hidden;">
+                <!-- Header -->
+                <div style="background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);padding:20px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:rgba(124,58,237,0.2);display:flex;align-items:center;justify-content:center;border:1px solid rgba(124,58,237,0.4);">
+                            <i class="fas fa-boxes" style="color:#a78bfa;font-size:1.2rem;"></i>
+                        </div>
+                        <div>
+                            <h2 style="margin:0;color:white;font-size:1.3rem;font-weight:700;letter-spacing:0.5px;">Asistente Masivo de Rentas</h2>
+                            <p style="margin:0;color:#94a3b8;font-size:0.85rem;margin-top:2px;">Indica cuántos periodos paga cada contenedor</p>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('multi-rent-modal').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;padding:5px;transition:color 0.2s;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <!-- Body -->
+                <div style="padding:20px;max-height:60vh;overflow-y:auto;background:var(--app-bg);">
+                    <table style="width:100%;border-collapse:separate;border-spacing:0 8px;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;padding:10px;color:#64748b;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #e2e8f0;">Contenedor</th>
+                                <th style="text-align:left;padding:10px;color:#64748b;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #e2e8f0;">Cliente</th>
+                                <th style="text-align:center;padding:10px;color:#64748b;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #e2e8f0;">Precio Base</th>
+                                <th style="text-align:center;padding:10px;color:#64748b;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #e2e8f0;">Periodos a Pagar</th>
+                                <th style="text-align:right;padding:10px;color:#64748b;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #e2e8f0;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="multi-rent-table-body">
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Footer -->
+                <div style="padding:20px;background:var(--card-bg);border-top:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+                    <div style="display:flex;flex-direction:column;">
+                        <span style="color:#64748b;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Total a Cobrar</span>
+                        <span id="multi-rent-grand-total" style="color:#10b981;font-size:1.8rem;font-weight:800;line-height:1;">$0.00</span>
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <button onclick="document.getElementById('multi-rent-modal').style.display='none'" class="glossy-dark-btn" style="padding:10px 20px !important;">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button onclick="if(window.processMultiRentPayments) window.processMultiRentPayments()" class="glossy-green-btn" style="padding:10px 24px !important; font-size:1rem !important;">
+                            <i class="fas fa-check-double"></i> Procesar Rentas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ── BILLING DETAIL MODAL ──────────────────────────────── -->
         <div id="billing-detail-modal"

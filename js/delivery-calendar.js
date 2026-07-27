@@ -516,7 +516,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 // --- MANUALLY SYNC RENTALS ---
-                if (isMoveToRentals) {
+                if (isMoveToRentals && globalStatus === 'COMPLETE') {
                     try {
                         let searchOrder = yardData.origin_release;
                         let searchCont = yardData.container_no;

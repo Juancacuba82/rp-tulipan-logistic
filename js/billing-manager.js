@@ -554,6 +554,17 @@
             }
         }
 
+        // Toggle Service Invoice Button
+        const serviceInput = document.getElementById('bc-f-service');
+        const serviceInvoiceBtn = document.getElementById('btn-service-invoice');
+        if (serviceInvoiceBtn) {
+            if (serviceInput && serviceInput.value.trim() !== '') {
+                serviceInvoiceBtn.style.display = 'inline-flex';
+            } else {
+                serviceInvoiceBtn.style.display = 'none';
+            }
+        }
+
         // Update the incomplete orders alert banner to reflect the filtered rows
         if (typeof window.renderIncompleteOrdersBanner === 'function') {
             window.renderIncompleteOrdersBanner();
@@ -618,6 +629,33 @@
         }
     };
 
+    // --- SERVICE INVOICE ---
+    window.viewServiceInvoice = function () {
+        const rows = window.billingRows || [];
+        if (rows.length === 0) {
+            alert('No hay órdenes filtradas para generar el Service Invoice.');
+            return;
+        }
+
+        const serviceInput = document.getElementById('bc-f-service');
+        const selectedService = serviceInput ? serviceInput.value.trim().toUpperCase() : '';
+        if (!selectedService) {
+            alert('Por favor selecciona un servicio en el filtro.');
+            return;
+        }
+
+        let masterTitle = 'SERVICE INVOICE: ' + selectedService;
+
+        window.currentBillingOrderRows = rows;
+        renderBillingDetailModal(rows, masterTitle, selectedService);
+
+        const modal = document.getElementById('billing-detail-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
     window.closeBillingDetail = function () {
         const modal = document.getElementById('billing-detail-modal');
         if (modal) modal.style.display = 'none';
@@ -631,7 +669,7 @@
     });
 
     // ── RENDER DETAIL CONTENT INSIDE MODAL ───────────────────
-    function renderBillingDetailModal(rows, orderNo) {
+    function renderBillingDetailModal(rows, orderNo, serviceFilter = null) {
         const mainRow     = rows[0];
         const preview     = document.getElementById('bm-invoice-preview');
         if (!preview) return;
@@ -752,121 +790,131 @@
             }
 
             // 1. Transport Services
-            rows.forEach(row => {
-                const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-                if (hasTrans) {
-                    const price = parseFloat(row[18]) || 0;
-                    const qty = parseInt(row[53]) || 1;
-                    addAggregatedItem(transportMap, 'TRANSPORT SERVICE', qty, price);
-                }
-            });
+            if (!serviceFilter || serviceFilter === 'TRANSPORT') {
+                rows.forEach(row => {
+                    const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+                    if (hasTrans) {
+                        const price = parseFloat(row[18]) || 0;
+                        const qty = parseInt(row[53]) || 1;
+                        addAggregatedItem(transportMap, 'TRANSPORT SERVICE', qty, price);
+                    }
+                });
+            }
             
             // 2. Yard Services
-            rows.forEach(row => {
-                const yardDesc = row[12] && row[12] !== '---' ? row[12] : '';
-                const yardRate = parseFloat(row[13]) || 0;
-                const qty = parseInt(row[53]) || 1;
-                
-                if (yardRate > 0) {
-                    if (yardDesc && typeof yardDesc === 'string' && yardDesc.startsWith('[')) {
-                        try {
-                            const services = JSON.parse(yardDesc);
-                            if (Array.isArray(services)) {
-                                services.forEach(s => {
-                                    const servicePrice = parseFloat(s.price) || 0;
-                                    if (servicePrice > 0) {
-                                        addAggregatedItem(yardMap, `YARD SERVICE: ${s.desc || 'Other'}`, qty, servicePrice);
-                                    }
-                                });
+            if (!serviceFilter || serviceFilter === 'YARD') {
+                rows.forEach(row => {
+                    const yardDesc = row[12] && row[12] !== '---' ? row[12] : '';
+                    const yardRate = parseFloat(row[13]) || 0;
+                    const qty = parseInt(row[53]) || 1;
+                    
+                    if (yardRate > 0) {
+                        if (yardDesc && typeof yardDesc === 'string' && yardDesc.startsWith('[')) {
+                            try {
+                                const services = JSON.parse(yardDesc);
+                                if (Array.isArray(services)) {
+                                    services.forEach(s => {
+                                        const servicePrice = parseFloat(s.price) || 0;
+                                        if (servicePrice > 0) {
+                                            addAggregatedItem(yardMap, `YARD SERVICE: ${s.desc || 'Other'}`, qty, servicePrice);
+                                        }
+                                    });
+                                }
+                            } catch(e) {
+                                addAggregatedItem(yardMap, `YARD SERVICE`, qty, yardRate);
                             }
-                        } catch(e) {
-                            addAggregatedItem(yardMap, `YARD SERVICE`, qty, yardRate);
+                        } else {
+                            const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}` : `YARD SERVICE`;
+                            addAggregatedItem(yardMap, desc, qty, yardRate);
                         }
-                    } else {
-                        const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}` : `YARD SERVICE`;
-                        addAggregatedItem(yardMap, desc, qty, yardRate);
                     }
-                }
-            });
+                });
+            }
             
             // 3. Container Rentals
-            rows.forEach(row => {
-                const mrate = parseFloat(row[27]) || 0;
-                const tripId = row[0] || '';
-                
-                if (mrate > 0) {
-                    let diffPeriods = 1;
-                    let periodLabel = 'Month';
-                    let startDateObj = new Date(row[1]);
-                    let calcTotal = mrate;
+            if (!serviceFilter || serviceFilter === 'RENT') {
+                rows.forEach(row => {
+                    const mrate = parseFloat(row[27]) || 0;
+                    const tripId = row[0] || '';
                     
-                    if (tripId.startsWith('VIRTUAL_RENTAL_')) {
-                        const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
-                        const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
-                        if (rental && window.calculateRentalCost) {
-                            periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                            startDateObj = new Date(rental.start_date);
-                            const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
-                            calcTotal = costInfo.total;
-                            diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
-                        }
-                    } else if (row.isActiveRentalMerged) {
-                        const rentalId = row.isActiveRentalMerged;
-                        const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
-                        if (rental && window.calculateRentalCost) {
-                            periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                            startDateObj = new Date(rental.start_date);
-                            const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
-                            calcTotal = costInfo.total;
-                            diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
-                        }
-                    } else {
-                        const entryDate = new Date(row[1]);
-                        const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
-                        const diffDays = Math.ceil(Math.abs(exitDate - entryDate) / (1000 * 60 * 60 * 24));
-                        diffPeriods = Math.max(1, Math.ceil(diffDays / 30));
-                    }
-
-                    for (let i = 1; i <= diffPeriods; i++) {
-                        let pStart = new Date(startDateObj);
-                        let pEnd = new Date(startDateObj);
-                        if (periodLabel === 'Week') {
-                            pStart.setDate(pStart.getDate() + (i-1)*7);
-                            pEnd.setDate(pStart.getDate() + 7);
+                    if (mrate > 0) {
+                        let diffPeriods = 1;
+                        let periodLabel = 'Month';
+                        let startDateObj = new Date(row[1]);
+                        let calcTotal = mrate;
+                        
+                        if (tripId.startsWith('VIRTUAL_RENTAL_')) {
+                            const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                            const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
+                            if (rental && window.calculateRentalCost) {
+                                periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
+                                startDateObj = new Date(rental.start_date);
+                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                                calcTotal = costInfo.total;
+                                diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
+                            }
+                        } else if (row.isActiveRentalMerged) {
+                            const rentalId = row.isActiveRentalMerged;
+                            const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
+                            if (rental && window.calculateRentalCost) {
+                                periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
+                                startDateObj = new Date(rental.start_date);
+                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                                calcTotal = costInfo.total;
+                                diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
+                            }
                         } else {
-                            pStart.setDate(pStart.getDate() + (i-1)*30);
-                            pEnd.setDate(pStart.getDate() + 30);
+                            const entryDate = new Date(row[1]);
+                            const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
+                            const diffDays = Math.ceil(Math.abs(exitDate - entryDate) / (1000 * 60 * 60 * 24));
+                            diffPeriods = Math.max(1, Math.ceil(diffDays / 30));
                         }
-                        
-                        const dStr = pStart.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'}) + ' - ' + pEnd.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
-                        
-                        addAggregatedItem(rentMap, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})`, 1, mrate);
+
+                        for (let i = 1; i <= diffPeriods; i++) {
+                            let pStart = new Date(startDateObj);
+                            let pEnd = new Date(startDateObj);
+                            if (periodLabel === 'Week') {
+                                pStart.setDate(pStart.getDate() + (i-1)*7);
+                                pEnd.setDate(pStart.getDate() + 7);
+                            } else {
+                                pStart.setDate(pStart.getDate() + (i-1)*30);
+                                pEnd.setDate(pStart.getDate() + 30);
+                            }
+                            
+                            const dStr = pStart.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'}) + ' - ' + pEnd.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
+                            
+                            addAggregatedItem(rentMap, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})`, 1, mrate);
+                        }
                     }
-                }
-            });
+                });
+            }
             
             // 4. Storage
-            rows.forEach(row => {
-                const ppd = parseFloat(row[14]) || 0;
-                
-                if (ppd > 0) {
-                    const entryDate = new Date(row[1]);
-                    const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
-                    const diffTime = Math.abs(exitDate - entryDate);
-                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                    addAggregatedItem(storageMap, `STORAGE`, diffDays, ppd);
-                }
-            });
+            if (!serviceFilter || serviceFilter === 'STORAGE') {
+                rows.forEach(row => {
+                    const ppd = parseFloat(row[14]) || 0;
+                    
+                    if (ppd > 0) {
+                        const entryDate = new Date(row[1]);
+                        const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
+                        const diffTime = Math.abs(exitDate - entryDate);
+                        const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                        addAggregatedItem(storageMap, `STORAGE`, diffDays, ppd);
+                    }
+                });
+            }
             
             // 5. Container Sales
-            rows.forEach(row => {
-                const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-                if (hasSales) {
-                    const price = parseFloat(row[20]) || 0;
-                    const qty = parseInt(row[53]) || 1;
-                    addAggregatedItem(salesMap, `CONTAINER SALES`, qty, price);
-                }
-            });
+            if (!serviceFilter || serviceFilter === 'SALES') {
+                rows.forEach(row => {
+                    const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
+                    if (hasSales) {
+                        const price = parseFloat(row[20]) || 0;
+                        const qty = parseInt(row[53]) || 1;
+                        addAggregatedItem(salesMap, `CONTAINER SALES`, qty, price);
+                    }
+                });
+            }
 
             // Append grouped items to the table
             const allMaps = [transportMap, yardMap, rentMap, storageMap, salesMap];
@@ -1150,13 +1198,13 @@
         const tableClone = table.cloneNode(true);
         tableClone.querySelectorAll('thead tr').forEach(tr => {
             const ths = tr.querySelectorAll('th');
-            for (let i = ths.length - 1; i >= 13; i--) {
+            for (let i = ths.length - 1; i >= 14; i--) {
                 if (ths[i]) ths[i].remove();
             }
         });
         tableClone.querySelectorAll('tbody tr').forEach(tr => {
             const tds = tr.querySelectorAll('td');
-            for (let i = tds.length - 1; i >= 13; i--) {
+            for (let i = tds.length - 1; i >= 14; i--) {
                 if (tds[i]) tds[i].remove();
             }
         });
@@ -1317,7 +1365,8 @@
                 const pMethod = yardSnap.paymentMethod;
                 const cVal = yardSnap.cashSplit || 0;
                 const bVal = yardSnap.bankSplit || 0;
-                const desc = `Pago Factura Yard - ${row[5] || '---'}`;
+                const orderNoStr = (row[5] || '---').toString().toUpperCase();
+                const desc = orderNoStr.startsWith('YRD-') ? `Pago Factura Storage - ${orderNoStr}` : `Pago Factura Yard - ${orderNoStr}`;
                 const cust = row[11] || '';
                 const tot  = parseFloat(row[13]) || 0;
 
@@ -1389,124 +1438,328 @@
             return;
         }
 
-        // --- Calculate Total Pending Amount ---
-        let totalBulkAmount = 0;
-        for (const row of pendingRows) {
+        const regularRows = pendingRows.filter(row => {
             const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
             const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
             const yardRate = parseFloat(row[13]) || 0;
             const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
             
-            const qty = parseFloat(row[21]) || 1;
-            
-            let totalTrans = 0, totalSales = 0, totalYard = 0;
-            if (hasTrans) totalTrans = parseFloat(row[18]) || 0;
-            if (hasSales) totalSales = (parseFloat(row[20]) || 0) * qty;
-            if (yardRate > 0) totalYard = yardRate;
-            
-            let rowSubtotalOwed = 0;
-            if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
-            if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
-            if (yardRate > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
-            
-            let rowTaxOwed = 0;
-            if (takeTax && row[52] !== 'PAID') {
-                const taxPct = parseFloat(row[50]) || 0;
-                rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
-            }
-            
-            totalBulkAmount += (rowSubtotalOwed + rowTaxOwed);
-        }
+            if (hasTrans && row[32] !== 'PAID') return true;
+            if (hasSales && row[33] !== 'PAID') return true;
+            if (yardRate > 0.01 && row[30] !== 'PAID') return true;
+            if (takeTax && row[52] !== 'PAID') return true;
+            return false;
+        });
 
-        const confirmPay = confirm(`¿Estás seguro de marcar las ${pendingRows.length} órdenes filtradas como totalmente PAGADAS?\nTotal a procesar: $${totalBulkAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
-        if (!confirmPay) return;
-
-        let paymentSplit = null;
-        if (totalBulkAmount > 0 && typeof window.showSplitPaymentModal === 'function') {
-            paymentSplit = await window.showSplitPaymentModal(totalBulkAmount);
-            if (!paymentSplit) {
-                alert('Operación cancelada por el usuario.');
-                return; // User cancelled modal
-            }
-        } else if (totalBulkAmount > 0) {
-            // fallback if modal is not available globally
-            paymentSplit = { cashAmt: totalBulkAmount, bankAmt: 0 };
-        }
+        const rentRows = pendingRows.filter(row => {
+            const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
+            if (hasRent && row[31] !== 'PAID') return true;
+            return false;
+        });
 
         const origHtml = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
 
         try {
-            let updatedCount = 0;
-            for (const row of pendingRows) {
-                const tripId = row[0];
-                const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-                if (!tripId || (!row.isYardAggregate && !isUUID(tripId))) {
-                    console.warn("Invalid ID skipped:", tripId);
-                    continue;
-                }
-
-                {
-                    const updateData = {
-                        st_rate: 'PAID',
-                        st_sales: 'PAID',
-                        st_yard: 'PAID',
-                        st_tax: 'PAID',
-                        paid: true,
-                        invoice_sent: 'YES'
-                    };
-
-                    await window.updateTrip(tripId, updateData);
-
-                    // Update local state
-                    row[32] = 'PAID'; 
-                    row[33] = 'PAID'; 
-                    row[30] = 'PAID'; 
-                    row[52] = 'PAID'; 
-                    row[57] = 'YES'; 
-
-                    if (window.allTripsUnfiltered) {
-                        const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                        if (ufRow) {
-                            ufRow[32] = 'PAID';
-                            ufRow[33] = 'PAID';
-                            ufRow[30] = 'PAID';
-                            ufRow[52] = 'PAID';
-                            ufRow[57] = 'YES'; 
-                        }
+            // Process regular rows first if any
+            if (regularRows.length > 0) {
+                let totalBulkAmount = 0;
+                for (const row of regularRows) {
+                    const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+                    const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
+                    const yardRate = parseFloat(row[13]) || 0;
+                    const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
+                    
+                    const qty = parseFloat(row[21]) || 1;
+                    
+                    let totalTrans = 0, totalSales = 0, totalYard = 0;
+                    if (hasTrans) totalTrans = parseFloat(row[18]) || 0;
+                    if (hasSales) totalSales = (parseFloat(row[20]) || 0) * qty;
+                    if (yardRate > 0) totalYard = yardRate;
+                    
+                    let rowSubtotalOwed = 0;
+                    if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
+                    if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
+                    if (yardRate > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
+                    
+                    let rowTaxOwed = 0;
+                    if (takeTax && row[52] !== 'PAID') {
+                        const taxPct = parseFloat(row[50]) || 0;
+                        rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
                     }
-                    updatedCount++;
+                    
+                    totalBulkAmount += (rowSubtotalOwed + rowTaxOwed);
                 }
-            }
-            
-            if (paymentSplit && window.logCashTransaction) {
-                const desc = `Pago Masivo Billing - ${pendingRows.length} ordenes`;
-                const cust = pendingRows.length > 0 ? (pendingRows[0][11] || 'Varios') : '';
+
+                const confirmPay = confirm(`¿Estás seguro de cobrar los servicios regulares de las ${regularRows.length} órdenes?\nTotal a procesar (sin rentas): $${totalBulkAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
                 
-                // Get all order numbers to save in the reference for searching
-                const orderNumbers = pendingRows.map(r => r[5] || 'S/N').join(', ');
-                const refText = orderNumbers.length > 100 ? orderNumbers.substring(0, 97) + '...' : orderNumbers;
-                
-                if (paymentSplit.cashAmt > 0) {
-                    await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: `${desc} [Cash]`, referencia: refText, chofer: cust });
-                }
-                if (paymentSplit.bankAmt > 0) {
-                    await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: `${desc} [Bank]`, referencia: refText, chofer: cust });
+                if (confirmPay) {
+                    let paymentSplit = null;
+                    if (totalBulkAmount > 0 && typeof window.showSplitPaymentModal === 'function') {
+                        paymentSplit = await window.showSplitPaymentModal(totalBulkAmount);
+                        if (!paymentSplit) {
+                            alert('Cobro regular cancelado por el usuario.');
+                        }
+                    } else if (totalBulkAmount > 0) {
+                        paymentSplit = { cashAmt: totalBulkAmount, bankAmt: 0 };
+                    }
+
+                    if (paymentSplit) {
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                        let updatedCount = 0;
+                        for (const row of regularRows) {
+                            const tripId = row[0];
+                            const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+                            if (!tripId || (!row.isYardAggregate && !isUUID(tripId))) continue;
+
+                            const updateData = {
+                                st_rate: 'PAID',
+                                st_sales: 'PAID',
+                                st_yard: 'PAID',
+                                st_tax: 'PAID',
+                                paid: true,
+                                invoice_sent: 'YES'
+                            };
+
+                            await window.updateTrip(tripId, updateData);
+
+                            row[32] = 'PAID'; 
+                            row[33] = 'PAID'; 
+                            row[30] = 'PAID'; 
+                            row[52] = 'PAID'; 
+                            row[57] = 'YES'; 
+
+                            if (window.allTripsUnfiltered) {
+                                const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                                if (ufRow) {
+                                    ufRow[32] = 'PAID';
+                                    ufRow[33] = 'PAID';
+                                    ufRow[30] = 'PAID';
+                                    ufRow[52] = 'PAID';
+                                    ufRow[57] = 'YES'; 
+                                }
+                            }
+                            updatedCount++;
+                        }
+                        
+                        if (paymentSplit && window.logCashTransaction) {
+                            const desc = `Pago Masivo Billing - ${regularRows.length} ordenes (Serv. Regulares)`;
+                            const cust = regularRows.length > 0 ? (regularRows[0][11] || 'Varios') : '';
+                            const orderNumbers = regularRows.map(r => r[5] || 'S/N').join(', ');
+                            const refText = orderNumbers.length > 100 ? orderNumbers.substring(0, 97) + '...' : orderNumbers;
+                            
+                            if (paymentSplit.cashAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: `${desc} [Cash]`, referencia: refText, chofer: cust });
+                            if (paymentSplit.bankAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: `${desc} [Bank]`, referencia: refText, chofer: cust });
+                        }
+
+                        if (window.showToast) window.showToast(`${updatedCount} órdenes regulares cobradas`, 'success');
+                    }
                 }
             }
 
-            if (window.showToast) window.showToast(`${updatedCount} órdenes marcadas como pagadas`, 'success');
-            else alert(`${updatedCount} órdenes marcadas como pagadas exitosamente`);
-            
-            // Re-render billing table
-            window.renderBillingTable();
+            // After regular processing, if there are rents, open Assistant
+            if (rentRows.length > 0) {
+                if (typeof window.openMultiRentModal === 'function') {
+                    window.openMultiRentModal(rentRows);
+                } else {
+                    alert('Asistente de rentas no disponible.');
+                }
+            } else {
+                window.renderBillingTable();
+            }
+
         } catch (err) {
             console.error('Error marking bulk as paid:', err);
             alert('Hubo un error al marcar algunas órdenes como pagadas.');
         } finally {
             btn.disabled = false;
             btn.innerHTML = origHtml;
+        }
+    };
+
+    window.pendingMultiRentals = [];
+
+    window.openMultiRentModal = function(rentRows) {
+        window.pendingMultiRentals = [];
+        const tbody = document.getElementById('multi-rent-table-body');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        // Extract rentals
+        for (const row of rentRows) {
+            const tripId = row[0] || '';
+            let rentalId = null;
+            if (tripId.startsWith('VIRTUAL_RENTAL_')) {
+                rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+            } else if (row.isActiveRentalMerged) {
+                rentalId = row.isActiveRentalMerged;
+            }
+            
+            if (rentalId) {
+                const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
+                if (rental) {
+                    window.pendingMultiRentals.push({
+                        row: row,
+                        rental: rental,
+                        basePrice: parseFloat(rental.base_price) || 0,
+                        periodsToPay: 0,
+                        subtotal: 0
+                    });
+                }
+            }
+        }
+        
+        if (window.pendingMultiRentals.length === 0) {
+            alert('No se encontraron rentas válidas activas en la selección.');
+            window.renderBillingTable();
+            return;
+        }
+        
+        window.pendingMultiRentals.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-weight:600;">${item.rental.container_no || 'N/A'}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#475569;">${item.rental.customer_name || 'N/A'}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#10b981;font-weight:700;text-align:center;">$${item.basePrice.toLocaleString('en-US', {minimumFractionDigits:2})} / ${item.rental.time_rent || 'month'}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:center;">
+                    <input type="number" min="0" value="0" style="width:60px;padding:5px;border-radius:5px;border:1px solid #cbd5e1;text-align:center;" oninput="window.updateMultiRentSubtotal(${index}, this.value)">
+                </td>
+                <td id="mrt-subtotal-${index}" style="padding:10px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-weight:800;text-align:right;">$0.00</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        window.updateMultiRentGrandTotal();
+        
+        const modal = document.getElementById('multi-rent-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // prevent bg scroll
+        }
+    };
+
+    window.updateMultiRentSubtotal = function(index, value) {
+        const item = window.pendingMultiRentals[index];
+        if (!item) return;
+        
+        const periods = parseInt(value, 10) || 0;
+        item.periodsToPay = Math.max(0, periods);
+        item.subtotal = item.periodsToPay * item.basePrice;
+        
+        const td = document.getElementById(`mrt-subtotal-${index}`);
+        if (td) td.textContent = `$${item.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        
+        window.updateMultiRentGrandTotal();
+    };
+
+    window.updateMultiRentGrandTotal = function() {
+        let total = 0;
+        window.pendingMultiRentals.forEach(item => {
+            total += item.subtotal;
+        });
+        const gt = document.getElementById('multi-rent-grand-total');
+        if (gt) gt.textContent = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    };
+
+    window.processMultiRentPayments = async function() {
+        const itemsToPay = window.pendingMultiRentals.filter(item => item.periodsToPay > 0);
+        
+        if (itemsToPay.length === 0) {
+            alert('No has indicado ningún periodo a cobrar.');
+            return;
+        }
+        
+        let totalAmount = 0;
+        itemsToPay.forEach(item => totalAmount += item.subtotal);
+        
+        const confirmPay = confirm(`¿Estás seguro de procesar el pago de ${itemsToPay.length} rentas por un total de $${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}?`);
+        if (!confirmPay) return;
+        
+        let paymentSplit = null;
+        if (totalAmount > 0 && typeof window.showSplitPaymentModal === 'function') {
+            paymentSplit = await window.showSplitPaymentModal(totalAmount);
+            if (!paymentSplit) {
+                alert('Operación cancelada.');
+                return;
+            }
+        } else if (totalAmount > 0) {
+            paymentSplit = { cashAmt: totalAmount, bankAmt: 0 };
+        }
+        
+        const btn = document.querySelector('#multi-rent-modal .glossy-green-btn');
+        let origHtml = '';
+        if (btn) {
+            origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        }
+        
+        try {
+            for (const item of itemsToPay) {
+                const row = item.rental;
+                const periods = item.periodsToPay;
+                
+                const sDate = row.final_date ? new Date(row.final_date) : new Date(row.start_date || new Date());
+                
+                if (row.time_rent === 'monthly') {
+                    sDate.setMonth(sDate.getMonth() + periods);
+                } else if (row.time_rent === 'weekly') {
+                    sDate.setDate(sDate.getDate() + (7 * periods));
+                } else if (row.time_rent === 'diary') {
+                    sDate.setDate(sDate.getDate() + (1 * periods));
+                }
+                
+                const newFinalDateStr = sDate.toISOString().split('T')[0];
+                
+                const todayStr = new Date().toISOString().split('T')[0];
+                const todayMs = new Date(todayStr).getTime();
+                const newFinalDateMs = new Date(newFinalDateStr).getTime();
+                
+                const isPaidUp = newFinalDateMs > todayMs;
+                const newPaymentStatus = isPaidUp ? 'PAID' : 'PENDING';
+                
+                const payload = {
+                    final_date: newFinalDateStr,
+                    payment_status: newPaymentStatus
+                };
+                
+                const { data, error } = await db.from('rentals').update(payload).eq('id', row.id).select();
+                if (error) throw error;
+                
+                const resultData = data[0];
+                const idx = window.currentRentals.findIndex(r => r.id === row.id);
+                if (idx !== -1) window.currentRentals[idx] = resultData;
+            }
+            
+            if (paymentSplit && window.logCashTransaction) {
+                const desc = `Pago Masivo de Rentas - ${itemsToPay.length} Contenedores`;
+                const orderNumbers = itemsToPay.map(i => i.rental.container_no || 'S/N').join(', ');
+                const refText = orderNumbers.length > 100 ? orderNumbers.substring(0, 97) + '...' : orderNumbers;
+                
+                if (paymentSplit.cashAmt > 0) {
+                    await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: `${desc} [Cash]`, referencia: refText, chofer: 'Varios' });
+                }
+                if (paymentSplit.bankAmt > 0) {
+                    await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: `${desc} [Bank]`, referencia: refText, chofer: 'Varios' });
+                }
+            }
+            
+            if (window.showToast) window.showToast(`Se cobraron ${itemsToPay.length} rentas exitosamente`, 'success');
+            else alert(`Se cobraron ${itemsToPay.length} rentas exitosamente`);
+            
+            document.getElementById('multi-rent-modal').style.display = 'none';
+            document.body.style.overflow = '';
+            window.renderBillingTable();
+            
+        } catch (err) {
+            console.error('Error in multi rent payment:', err);
+            alert('Hubo un error al procesar algunas rentas: ' + err.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
         }
     };
 
