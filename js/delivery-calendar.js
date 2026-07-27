@@ -1597,7 +1597,26 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (document.getElementById('in-flag2')) document.getElementById('in-flag2').checked = isTransChecked;
             if (document.getElementById('in-flag3')) document.getElementById('in-flag3').checked = isSalesChecked;
             if (document.getElementById('in-move-to-yard')) document.getElementById('in-move-to-yard').checked = isToYardChecked;
-            if (document.getElementById('in-move-to-rentals')) document.getElementById('in-move-to-rentals').checked = false;
+            
+            let isRentalChecked = false;
+            if (window.currentRentals) {
+                const searchOrder = (rowData[5] || rowData[4] || '').trim().toLowerCase();
+                const searchCont = (rowData[3] || '').trim().toLowerCase();
+                if (searchCont && searchCont !== '---') {
+                    isRentalChecked = window.currentRentals.some(r => {
+                        const rCont = (r.container_no || '').trim().toLowerCase();
+                        if (rCont !== searchCont) return false;
+                        
+                        const rOrder = (r.order_number || r.release_no || '').trim().toLowerCase();
+                        if (rOrder === searchOrder) return true;
+                        
+                        if (searchOrder.startsWith('ord-') && (rOrder === '' || rOrder === '---')) return true;
+                        
+                        return false;
+                    });
+                }
+            }
+            if (document.getElementById('in-move-to-rentals')) document.getElementById('in-move-to-rentals').checked = isRentalChecked;
 
             if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
             const destSel = document.getElementById('in-to-yard-dest');
@@ -1780,7 +1799,27 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.flagTransport = (rowData[42] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagToYard = !!rowData[62] ? 'YES' : 'NO';
-                        tr.dataset.flagRent = !!rowData[63] ? 'YES' : 'NO';
+                        
+                        let isRentalFlag = false;
+                        if (window.currentRentals) {
+                            const searchOrder = (rowData[5] || rowData[4] || '').trim().toLowerCase();
+                            const searchCont = (rowData[3] || '').trim().toLowerCase();
+                            if (searchCont && searchCont !== '---') {
+                                isRentalFlag = window.currentRentals.some(r => {
+                                    const rCont = (r.container_no || '').trim().toLowerCase();
+                                    if (rCont !== searchCont) return false;
+                                    
+                                    const rOrder = (r.order_number || r.release_no || '').trim().toLowerCase();
+                                    if (rOrder === searchOrder) return true;
+                                    
+                                    if (searchOrder.startsWith('ord-') && (rOrder === '' || rOrder === '---')) return true;
+                                    
+                                    return false;
+                                });
+                            }
+                        }
+                        tr.dataset.flagRent = isRentalFlag ? 'YES' : 'NO';
+                        
                         tr.dataset.fromCall = (rowData[58] === 'FORM_CALL') ? 'YES' : 'NO';
 
                         // Priority Highlight for Today
@@ -2802,6 +2841,35 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
                 .eq('origin_release', orderNoForDel);
         const { error: yardDelErr } = await yardDelQuery;
         if (yardDelErr) console.error('Error auto-deleting yard entry:', yardDelErr);
+    }
+
+    // --- RENTALS CLEANUP ---
+    if (orderNoForDel !== '---') {
+        if (window.currentRentals && window.currentRentals.length > 0) {
+            const orderNoLower = orderNoForDel.toLowerCase();
+            const contNoLower = containerNoForDel.toLowerCase();
+            const rentalsToDelete = window.currentRentals.filter(r => {
+                const rCont = (r.container_no || '').trim().toLowerCase();
+                if (contNoLower && rCont !== contNoLower) return false;
+                const rOrder = (r.order_number || r.release_no || '').trim().toLowerCase();
+                if (rOrder === orderNoLower) return true;
+                if (orderNoLower.startsWith('ord-') && (rOrder === '' || rOrder === '---')) return true;
+                return false;
+            });
+            for (const r of rentalsToDelete) {
+                await db.from('rentals').delete().eq('id', r.id);
+                window.currentRentals = window.currentRentals.filter(curr => curr.id !== r.id);
+            }
+            if (rentalsToDelete.length > 0 && typeof window.renderRentalsTable === 'function') {
+                window.renderRentalsTable();
+            }
+        } else {
+            // Fallback DB-only delete if cache is empty
+            const rentalsDelQuery = containerNoForDel
+                ? db.from('rentals').delete().eq('release_no', orderNoForDel).eq('container_no', containerNoForDel)
+                : db.from('rentals').delete().eq('release_no', orderNoForDel);
+            await rentalsDelQuery;
+        }
     }
 
 

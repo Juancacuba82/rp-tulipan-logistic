@@ -57,6 +57,10 @@
             // Always use the locally-mutated data — never re-fetch (that would overwrite our changes)
             window.currentRentals = data || [];
 
+            if (typeof window.renderCalendar === 'function' && window.currentTrips) {
+                window.renderCalendar();
+            }
+
             if (typeof window.loadReleasesData === 'function' && (!window.currentReleases || window.currentReleases.length === 0)) {
                 await window.loadReleasesData();
             }

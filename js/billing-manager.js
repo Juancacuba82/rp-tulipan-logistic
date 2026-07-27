@@ -13,30 +13,70 @@
 
     window.injectVirtualRentals = function(trips) {
         if (!window.currentRentals) return trips;
+        
+        const newVirtualTrips = [];
+        
         window.currentRentals.forEach(rental => {
             if (rental.status === 'ACTIVE') {
                 const rentDebt = parseFloat(rental.base_price) || 0;
                 if (rentDebt > 0) {
-                    const virtualRow = new Array(80).fill('');
-                    virtualRow[0] = 'VIRTUAL_RENTAL_' + rental.id; // Trip ID
-                    virtualRow[1] = rental.final_date && rental.final_date !== '---' ? rental.final_date : rental.start_date; // Date (Due Date)
-                    virtualRow[2] = rental.size;                   // Size
-                    virtualRow[3] = rental.container_no;           // N. Cont
-                    virtualRow[4] = rental.release_no || '---';    // Release
-                    virtualRow[5] = 'RENTAL-' + (rental.container_no || '---'); // Order #
-                    virtualRow[6] = '---';                         // City
-                    virtualRow[8] = rental.delivery_place || '---';// Delivery Place
-                    virtualRow[11] = rental.customer_name;         // Customer
-                    virtualRow[27] = rentDebt.toFixed(2);          // Rent Amount (hasRent)
-                    virtualRow[31] = rental.payment_status === 'PAID' ? 'PAID' : 'PEND'; // stRent (payment status)
-                    virtualRow[41] = 'COMPLETE';                   // Status must be COMPLETE to show in Billing
-                    virtualRow[57] = 'NO';                         // Invoice sent
+                    const rRel = (rental.order_number || rental.release_no || '').trim().toLowerCase();
+                    const rCont = (rental.container_no || '').trim().toLowerCase();
                     
-                    trips.push(virtualRow);
+                    let origTrip = null;
+                    if (rCont && rCont !== '---') {
+                        origTrip = trips.find(t => {
+                            const tCont = (t[3] || '').trim().toLowerCase();
+                            if (tCont !== rCont) return false;
+                            const tOrder = (t[5] || t[4] || '').trim().toLowerCase();
+                            if (tOrder === rRel) return true;
+                            if (tOrder.startsWith('ord-') && (rRel === '' || rRel === '---')) return true;
+                            return false;
+                        });
+                    }
+                    
+                    if (origTrip) {
+                        origTrip[27] = rentDebt.toFixed(2);
+                        origTrip[31] = rental.payment_status === 'PAID' ? 'PAID' : 'PEND';
+                        origTrip.isActiveRentalMerged = rental.id;
+                    } else {
+                        const virtualRow = new Array(80).fill('');
+                        virtualRow[0] = 'VIRTUAL_RENTAL_' + rental.id;
+                        virtualRow[1] = rental.final_date && rental.final_date !== '---' ? rental.final_date : rental.start_date;
+                        virtualRow[2] = rental.size;
+                        virtualRow[3] = rental.container_no;
+                        virtualRow[4] = rental.release_no || '---';
+                        virtualRow[5] = 'RENTAL-' + (rental.container_no || '---');
+                        virtualRow[6] = '---';
+                        virtualRow[8] = rental.delivery_place || '---';
+                        virtualRow[11] = rental.customer_name;
+                        virtualRow[27] = rentDebt.toFixed(2);
+                        virtualRow[31] = rental.payment_status === 'PAID' ? 'PAID' : 'PEND';
+                        virtualRow[41] = 'COMPLETE';
+                        virtualRow[57] = 'NO';
+                        
+                        let fullOrigTrip = null;
+                        if (window.currentTrips && rCont && rCont !== '---') {
+                            fullOrigTrip = window.currentTrips.find(t => {
+                                const tCont = (t[3] || '').trim().toLowerCase();
+                                if (tCont !== rCont) return false;
+                                const tOrder = (t[5] || t[4] || '').trim().toLowerCase();
+                                if (tOrder === rRel) return true;
+                                if (tOrder.startsWith('ord-') && (rRel === '' || rRel === '---')) return true;
+                                return false;
+                            });
+                        }
+                        if (fullOrigTrip) {
+                            virtualRow[65] = fullOrigTrip[65] || '---';
+                            virtualRow[17] = fullOrigTrip[17] || '---';
+                        }
+                        
+                        newVirtualTrips.push(virtualRow);
+                    }
                 }
             }
         });
-        return trips;
+        return trips.concat(newVirtualTrips);
     };
 
     window.initBillingCenter = async function() {
@@ -363,8 +403,14 @@
             const mrate = parseFloat(row[27]) || 0;
             if (mrate > 0) {
                 const tripId = row[0] || '';
+                let rentalId = null;
                 if (tripId.startsWith('VIRTUAL_RENTAL_')) {
-                    const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                    rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                } else if (row.isActiveRentalMerged) {
+                    rentalId = row.isActiveRentalMerged;
+                }
+                
+                if (rentalId) {
                     const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                     if (rental && window.calculateRentalCost) {
                         const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
@@ -497,6 +543,17 @@
         const totalDueDisplay = document.getElementById('billing-total-due-display');
         if (totalDueDisplay) totalDueDisplay.textContent = fmtMoney(totalOwedAmount);
 
+        // Toggle Booking Invoice Button
+        const bookingInput = document.getElementById('bc-f-booking');
+        const masterInvoiceBtn = document.getElementById('btn-booking-invoice');
+        if (masterInvoiceBtn) {
+            if (bookingInput && bookingInput.value.trim() !== '') {
+                masterInvoiceBtn.style.display = 'inline-flex';
+            } else {
+                masterInvoiceBtn.style.display = 'none';
+            }
+        }
+
         // Update the incomplete orders alert banner to reflect the filtered rows
         if (typeof window.renderIncompleteOrdersBanner === 'function') {
             window.renderIncompleteOrdersBanner();
@@ -533,6 +590,34 @@
         }
     };
 
+    // --- MASTER INVOICE (BOOKING INVOICE) ---
+    window.viewMasterInvoice = function () {
+        const rows = window.billingRows || [];
+        if (rows.length === 0) {
+            alert('No hay órdenes filtradas para generar el Booking Invoice.');
+            return;
+        }
+
+        // Determine title
+        let masterTitle = 'MASTER-INVOICE';
+        const firstBooking = (rows[0][65] || '---').toString().trim().toUpperCase();
+        if (firstBooking !== '---') {
+            const allSameBooking = rows.every(r => (r[65] || '---').toString().trim().toUpperCase() === firstBooking);
+            if (allSameBooking) {
+                masterTitle = 'BOOKING-' + firstBooking;
+            }
+        }
+
+        window.currentBillingOrderRows = rows;
+        renderBillingDetailModal(rows, masterTitle);
+
+        const modal = document.getElementById('billing-detail-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
     window.closeBillingDetail = function () {
         const modal = document.getElementById('billing-detail-modal');
         if (modal) modal.style.display = 'none';
@@ -557,7 +642,7 @@
         if (coSel && coDisp) coDisp.textContent = coSel.value;
 
         // Header
-        document.getElementById('bm-order-display').textContent = mainRow[5] || '---';
+        document.getElementById('bm-order-display').textContent = orderNo || mainRow[5] || '---';
         document.getElementById('bm-date-display').textContent  = window.formatDateMMDDYYYY
             ? window.formatDateMMDDYYYY(mainRow[1])
             : fmtDate(mainRow[1]);
@@ -651,23 +736,25 @@
             const servicesTable = body.closest('table');
             if (servicesTable) servicesTable.style.display = '';
 
+            // 1. Transport Services
             rows.forEach(row => {
-                const hasTrans        = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-                const hasSales        = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-                const yardDesc        = row[12] && row[12] !== '---' ? row[12] : '';
-                const yardRate        = parseFloat(row[13]) || 0;
-                const qty             = parseInt(row[53]) || 1;
-
+                const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
                 if (hasTrans) {
                     const price = parseFloat(row[18]) || 0;
-                    addDetailRow(body, 'TRANSPORT SERVICE', qty, price);
+                    const qty = parseInt(row[53]) || 1;
+                    const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
+                    addDetailRow(body, `TRANSPORT SERVICE${contSuffix}`, qty, price);
                     subtotal += qty * price;
                 }
-                if (hasSales) {
-                    const price = parseFloat(row[20]) || 0;
-                    addDetailRow(body, 'CONTAINER SALES', qty, price);
-                    subtotal += qty * price;
-                }
+            });
+            
+            // 2. Yard Services
+            rows.forEach(row => {
+                const yardDesc = row[12] && row[12] !== '---' ? row[12] : '';
+                const yardRate = parseFloat(row[13]) || 0;
+                const qty = parseInt(row[53]) || 1;
+                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
+                
                 if (yardRate > 0) {
                     if (yardDesc && typeof yardDesc === 'string' && yardDesc.startsWith('[')) {
                         try {
@@ -676,36 +763,29 @@
                                 services.forEach(s => {
                                     const servicePrice = parseFloat(s.price) || 0;
                                     if (servicePrice > 0) {
-                                        addDetailRow(body, `YARD SERVICE: ${s.desc || 'Other'}`, qty, servicePrice);
+                                        addDetailRow(body, `YARD SERVICE: ${s.desc || 'Other'}${contSuffix}`, qty, servicePrice);
                                         subtotal += qty * servicePrice;
                                     }
                                 });
                             }
                         } catch(e) {
-                            addDetailRow(body, 'YARD SERVICE', qty, yardRate);
+                            addDetailRow(body, `YARD SERVICE${contSuffix}`, qty, yardRate);
                             subtotal += qty * yardRate;
                         }
                     } else {
-                        const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}` : 'YARD SERVICE';
+                        const desc = yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES' ? `YARD SERVICE: ${yardDesc}${contSuffix}` : `YARD SERVICE${contSuffix}`;
                         addDetailRow(body, desc, qty, yardRate);
                         subtotal += qty * yardRate;
                     }
                 }
-                
-                // Storage
-                const ppd = parseFloat(row[14]) || 0;
-                if (ppd > 0) {
-                    const entryDate = new Date(row[1]);
-                    const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
-                    const diffTime = Math.abs(exitDate - entryDate);
-                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                    addDetailRow(body, 'STORAGE', diffDays, ppd);
-                    subtotal += diffDays * ppd;
-                }
-
-                // Rent
-                const tripId = row[0] || '';
+            });
+            
+            // 3. Container Rentals
+            rows.forEach(row => {
                 const mrate = parseFloat(row[27]) || 0;
+                const tripId = row[0] || '';
+                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
+                
                 if (mrate > 0) {
                     let diffPeriods = 1;
                     let periodLabel = 'Month';
@@ -714,6 +794,16 @@
                     
                     if (tripId.startsWith('VIRTUAL_RENTAL_')) {
                         const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                        const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
+                        if (rental && window.calculateRentalCost) {
+                            periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
+                            startDateObj = new Date(rental.start_date);
+                            const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                            calcTotal = costInfo.total;
+                            diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
+                        }
+                    } else if (row.isActiveRentalMerged) {
+                        const rentalId = row.isActiveRentalMerged;
                         const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                         if (rental && window.calculateRentalCost) {
                             periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
@@ -742,9 +832,37 @@
                         
                         const dStr = pStart.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'}) + ' - ' + pEnd.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
                         
-                        addDetailRow(body, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})`, 1, mrate);
+                        addDetailRow(body, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})${contSuffix}`, 1, mrate);
                         subtotal += mrate;
                     }
+                }
+            });
+            
+            // 4. Storage
+            rows.forEach(row => {
+                const ppd = parseFloat(row[14]) || 0;
+                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
+                
+                if (ppd > 0) {
+                    const entryDate = new Date(row[1]);
+                    const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
+                    const diffTime = Math.abs(exitDate - entryDate);
+                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                    addDetailRow(body, `STORAGE${contSuffix}`, diffDays, ppd);
+                    subtotal += diffDays * ppd;
+                }
+            });
+            
+            // 5. Container Sales
+            rows.forEach(row => {
+                const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
+                const contSuffix = rows.length > 1 ? ` (${row[3] || 'No Cont'})` : '';
+                
+                if (hasSales) {
+                    const price = parseFloat(row[20]) || 0;
+                    const qty = parseInt(row[53]) || 1;
+                    addDetailRow(body, `CONTAINER SALES${contSuffix}`, qty, price);
+                    subtotal += qty * price;
                 }
             });
         }
@@ -769,15 +887,61 @@
         document.getElementById('bm-total').textContent    = fmtMoney(grandTotal);
     }
 
+    window.recalculateInvoiceTotals = function() {
+        const body = document.getElementById('bm-services-body');
+        if (!body) return;
+        
+        let newSubtotal = 0;
+        const rows = body.querySelectorAll('tr');
+        rows.forEach(tr => {
+            const cb = tr.querySelector('.invoice-row-checkbox');
+            if (!cb) return;
+            if (cb.checked) {
+                tr.style.opacity = '1';
+                const totalText = tr.children[3].textContent.replace(/[^0-9.-]+/g, '');
+                newSubtotal += parseFloat(totalText) || 0;
+            } else {
+                tr.style.opacity = '0.4';
+            }
+        });
+        
+        const taxPctDisplay = document.getElementById('bm-tax-pct-display');
+        let taxPct = 0;
+        if (taxPctDisplay && taxPctDisplay.parentElement.style.display !== 'none') {
+            const rawPct = taxPctDisplay.textContent.replace('%', '').trim();
+            taxPct = parseFloat(rawPct) || 0;
+        }
+        
+        const newTax = (newSubtotal * taxPct) / 100;
+        const newGrandTotal = newSubtotal + newTax;
+        
+        const subEl = document.getElementById('bm-subtotal');
+        if (subEl) subEl.textContent = window.fmtMoney ? window.fmtMoney(newSubtotal) : '$' + newSubtotal.toFixed(2);
+        
+        const taxAmtEl = document.getElementById('bm-tax-amt');
+        if (taxAmtEl) taxAmtEl.textContent = window.fmtMoney ? window.fmtMoney(newTax) : '$' + newTax.toFixed(2);
+        
+        const totalEl = document.getElementById('bm-total');
+        if (totalEl) totalEl.textContent = window.fmtMoney ? window.fmtMoney(newGrandTotal) : '$' + newGrandTotal.toFixed(2);
+        
+        // Also update bd-grand-total if it exists (for Master Invoice sending)
+        const bdGrandTotal = document.getElementById('bd-grand-total');
+        if (bdGrandTotal) bdGrandTotal.textContent = window.fmtMoney ? window.fmtMoney(newGrandTotal) : '$' + newGrandTotal.toFixed(2);
+    };
+
     function addDetailRow(body, desc, qty, unitPrice) {
         const tr    = document.createElement('tr');
         tr.style.borderBottom = '1px solid #f1f5f9';
+        tr.style.transition = 'opacity 0.2s';
         const total = qty * unitPrice;
         tr.innerHTML = `
-            <td style="padding:14px 15px;font-weight:600;color:#1e293b;">${desc}</td>
+            <td style="padding:14px 15px;font-weight:600;color:#1e293b;display:flex;align-items:center;gap:10px;">
+                <input type="checkbox" class="invoice-row-checkbox no-print-checkbox" checked onchange="window.recalculateInvoiceTotals()" style="cursor:pointer;width:16px;height:16px;accent-color:#1e40af;">
+                <span>${desc}</span>
+            </td>
             <td style="padding:14px 15px;text-align:center;color:#0f172a;">${qty}</td>
             <td style="padding:14px 15px;text-align:right;color:#0f172a;">${fmtMoney(unitPrice)}</td>
-            <td style="padding:14px 15px;text-align:right;font-weight:800;color:#1e293b;">${fmtMoney(total)}</td>
+            <td style="padding:14px 15px;text-align:right;font-weight:800;color:#1e293b;" class="row-total-val">${fmtMoney(total)}</td>
         `;
         body.appendChild(tr);
     }
@@ -851,8 +1015,57 @@
         const actions = clone.querySelector('#bm-invoice-actions');
         if (actions) actions.style.display = 'none';
 
+        // Remove unchecked rows from clone and hide checkboxes
+        const cloneRows = clone.querySelectorAll('#bm-services-body tr');
+        const originalRows = originalEl.querySelectorAll('#bm-services-body tr');
+        
+        for (let i = 0; i < originalRows.length; i++) {
+            const cb = originalRows[i].querySelector('.invoice-row-checkbox');
+            if (cb && !cb.checked) {
+                if (cloneRows[i]) cloneRows[i].remove();
+            } else {
+                if (cloneRows[i]) {
+                    const cloneCb = cloneRows[i].querySelector('.no-print-checkbox');
+                    if (cloneCb) cloneCb.remove();
+                }
+            }
+        }
+
         container.appendChild(clone);
         document.body.appendChild(container);
+
+        // --- PAGE BREAK FIX ---
+        const A4_WIDTH_MM = 210;
+        const A4_HEIGHT_MM = 297;
+        const MARGIN_MM = 5;
+        const USABLE_MM = A4_HEIGHT_MM - (MARGIN_MM * 2);
+        const pxPerMm = 860 / A4_WIDTH_MM; 
+        const usablePx = USABLE_MM * pxPerMm;
+
+        const cloneRect = clone.getBoundingClientRect();
+        const allRows = clone.querySelectorAll('table tr');
+        let currentPage = 1;
+
+        for (let i = 0; i < allRows.length; i++) {
+            const tr = allRows[i];
+            const trRect = tr.getBoundingClientRect();
+            const trTop = trRect.top - cloneRect.top;
+            const trBottom = trRect.bottom - cloneRect.top;
+            
+            // If the row spans across the page boundary
+            if (trTop < currentPage * usablePx && trBottom > (currentPage * usablePx) + 2) { 
+                const pushDown = (currentPage * usablePx) - trTop;
+                const spacer = document.createElement('tr');
+                spacer.style.height = pushDown + 'px';
+                spacer.innerHTML = `<td colspan="10" style="border:none; padding:0;"></td>`;
+                tr.parentNode.insertBefore(spacer, tr);
+                currentPage++;
+            } else if (trBottom > currentPage * usablePx) {
+                // In case a row starts after the boundary but we missed the exact crossing
+                currentPage = Math.ceil(trBottom / usablePx);
+            }
+        }
+        // --- END PAGE BREAK FIX ---
 
         try {
             const { jsPDF } = window.jspdf;

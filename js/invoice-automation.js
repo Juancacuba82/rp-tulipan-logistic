@@ -410,6 +410,13 @@
         }
 
         // ── 1. Run the Guardian ──────────────────────────────
+        const isMasterInvoice = rows.length > 1 && rows.some(r => r[5] !== rows[0][5]);
+        
+        if (isMasterInvoice) {
+            executeMasterInvoiceSendProcess(rows, btn);
+            return;
+        }
+
         const validation = window.validateInvoiceReadiness(row);
         if (!validation.ok) {
             showValidationBlockModal(row, validation.reasons, () => {
@@ -420,6 +427,89 @@
 
         executeManualSendProcess(row, btn);
     };
+
+    async function executeMasterInvoiceSendProcess(rows, btn) {
+        const customerEmail = document.getElementById('bd-email')?.value || rows[0][36] || '';
+        if (!customerEmail || !customerEmail.includes('@')) {
+            alert('Please enter a valid email address in the detail window.');
+            return;
+        }
+        
+        // Find if they all share the same booking number
+        const firstBooking = (rows[0][65] || '---').toString().trim().toUpperCase();
+        const allSameBooking = firstBooking !== '---' && rows.every(r => (r[65] || '---').toString().trim().toUpperCase() === firstBooking);
+        const masterTitle = allSameBooking ? `BOOKING ${firstBooking}` : 'MASTER INVOICE';
+        
+        if (!confirm(`Send ${masterTitle} package to ${customerEmail}?`)) return;
+
+        const orig = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
+
+        try {
+            // Generate Master PDF
+            if (!window.generateMasterInvoiceBlob) throw new Error('Master invoice generator not found');
+            const pdfBlob = await window.generateMasterInvoiceBlob();
+            if (!pdfBlob) throw new Error('Failed to generate PDF');
+
+            const reader = new FileReader();
+            const b64Promise = new Promise(resolve => {
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(pdfBlob);
+            });
+            const b64Pdf = await b64Promise;
+            
+            const serviceId = localStorage.getItem('ejs_service_id') || 'service_pwwi83e';
+            const templateId = localStorage.getItem('ejs_template_id') || 'template_v8a5z0d';
+            const publicKey = localStorage.getItem('ejs_public_key') || 'yIom8YvRj8_jD3W7r';
+            
+            // Calculate grand total from the modal display
+            const gtDisplay = document.getElementById('bd-grand-total');
+            const grandTotalStr = gtDisplay ? gtDisplay.textContent : '0.00';
+            
+            emailjs.init(publicKey);
+            
+            const templateParams = {
+                to_email: customerEmail,
+                customer_name: rows[0][11] || 'Customer',
+                order_number: masterTitle,
+                grand_total: grandTotalStr,
+                pdf_1_b64: b64Pdf,
+                pdf_1_name: `${masterTitle.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`,
+                pdf_2_b64: "", // NO BOLs
+                pdf_2_name: "",
+                pdf_3_b64: "", // NO Proofs
+                pdf_3_name: ""
+            };
+            
+            await emailjs.send(serviceId, templateId, templateParams);
+            
+            // Update tracking for all rows
+            const nowIso = new Date().toISOString();
+            for (const row of rows) {
+                const tripId = row[0];
+                if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    const currentCount = parseInt(row[64]) || 0;
+                    await window.db.from('trips').update({
+                        invoice_last_sent: nowIso,
+                        reminder_count: currentCount + 1
+                    }).eq('id', tripId);
+                    
+                    row[63] = nowIso;
+                    row[64] = currentCount + 1;
+                }
+            }
+            
+            if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+            if (window.showToast) window.showToast('✅ Master Invoice sent & tracking updated!', 'success');
+            else alert(`Master Invoice sent to ${customerEmail}!`);
+        } catch (e) {
+            console.error('Master Invoice send error:', e);
+            const errMsg = e.text || e.message || JSON.stringify(e);
+            alert('Error sending master invoice: ' + errMsg);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        }
+    }
 
     async function executeManualSendProcess(row, btn) {
         // ── 2. Confirm send ──────────────────────────────────
