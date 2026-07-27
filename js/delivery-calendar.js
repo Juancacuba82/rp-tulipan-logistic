@@ -872,29 +872,49 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
 
             const fmtDate = (ds) => window.formatDateMMDDYYYY(ds);
-            
-            // Map table cells to rowData indices
-            // Cells: 0=Date, 1=Size, 2=N.Cont, 3=Booking#, 4=Release#, 5=Order, 6=City, 7=PickUp, 8=Delivery, 9=Doors, 10=Miles, 11=Customer, 12=YardRate, 13=PPDay, 14=DateOut, 15=Company, 16=Driver, 17=TransPay, 18=SalesPrice, 19=Amount, 20=Phone, 21=PaidDriver, 22=Note
-            const displayMapping = [
-                1, 2, 3, 65, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 20, 22, 23, 24, 25
+            const displayData = [
+                fmtDate(rowData[1]),  // 0: Date (MM/DD/YYYY)
+                rowData[2],           // 1: Size
+                rowData[3],           // 2: N. Cont
+                (rowData[65] && rowData[65] !== '---') ? rowData[65] : '', // 3: Booking Number
+                rowData[4],           // 4: Release #
+                rowData[5],           // 5: Order
+                rowData[6],           // 6: City
+                rowData[7],           // 7: Pick Up Address
+                rowData[8],           // 8: Delivery Place
+                rowData[9],           // 9: Doors Direction
+                rowData[10],          // 10: Miles
+                rowData[11],          // 11: Customer
+                (parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 12: Yard Rate
+                (parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 13: Transport
+                (parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 14: Sales Price
+                (parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 15: Storage
+                parseFloat(String(rowData[27]).replace(/[$,]/g, '')) || 0, // 16: Rent
+                fmtDate(rowData[15]), // 17: Date Out (MM/DD/YYYY)
+                rowData[16],          // 18: Company
+                rowData[17],          // 19: Driver
+                rowData[23],          // 20: Phone #
+                (parseFloat(String(rowData[24]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 21: Paid Driver
+                rowData[25],          // 22: Note
+                (() => {
+                    const emailVal = rowData[61];
+                    if (!emailVal || emailVal === '---') return '---';
+                    const clean = emailVal.trim().toLowerCase();
+                    const name = window.globalUserNameMap ? window.globalUserNameMap[clean] : null;
+                    return name || emailVal.split('@')[0].toUpperCase();
+                })(), // 23: Employee (Seller)
+                rowData[36]           // 24: Email
             ];
 
-
             const cells = tr.querySelectorAll('td');
-            displayMapping.forEach((dataIdx, cellIdx) => {
+            displayData.forEach((val, cellIdx) => {
                 if (cells[cellIdx]) {
-                    let val = rowData[dataIdx];
-                    if (dataIdx === 1 || dataIdx === 15) val = fmtDate(val);
-                    
-                    if ([13, 14, 18, 20, 22, 24].includes(dataIdx)) {
+                    if ([12, 13, 14, 15, 16, 21].includes(cellIdx)) {
                         let numVal = parseFloat(String(val).replace(/[$,]/g, '')) || 0;
-                        if ([13, 14, 18, 20, 24].includes(dataIdx)) {
-                            numVal = numVal * (parseInt(rowData[53]) || 1);
-                        }
                         const fmtMoney = `$${numVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
                         cells[cellIdx].style.fontWeight = 'bold';
                         
-                        if (dataIdx === 13) {
+                        if (cellIdx === 13) { // Transport
                             const isClear = (stYard === 'PAID' || numVal <= 0.01);
                             const isCash = !!rowData[46];
                             const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
@@ -902,43 +922,40 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
                             cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                             cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
-                        } else if (dataIdx === 14) {
+                        } else if (cellIdx === 16) { // Rent
                             const isClear = (stRent === 'PAID' || numVal <= 0.01);
                             cells[cellIdx].textContent = fmtMoney;
                             cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                             cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
-                        } else if (dataIdx === 18) {
-                            const isClear = (stRate === 'PAID' || numVal <= 0.01);
-                            const isCash = !!rowData[47];
-                            const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
-                            const iconColor = isCash ? '#059669' : '#3b82f6';
-                            cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
+                        } else if (cellIdx === 12) { // Yard Rate
+                            const isClear = (stYard === 'PAID' || numVal <= 0.01);
+                            cells[cellIdx].textContent = fmtMoney;
                             cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                             cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
-                        } else if (dataIdx === 20) {
+                        } else if (cellIdx === 15) { // Storage
+                            const isClear = (stYard === 'PAID' || numVal <= 0.01);
+                            cells[cellIdx].textContent = fmtMoney;
+                            cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
+                            cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
+                        } else if (cellIdx === 14) { // Sales
                             const isClear = (stSales === 'PAID' || numVal <= 0.01);
-                            const isCash = !!rowData[48];
-                            const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
-                            const iconColor = isCash ? '#059669' : '#3b82f6';
-                            cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
+                            cells[cellIdx].textContent = fmtMoney;
                             cells[cellIdx].style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
                             cells[cellIdx].style.color = isClear ? '#166534' : '#991b1b';
-                        } else if (dataIdx === 22) {
-                            const isCash = (stAmount === 'PAID');
-                            const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
-                            const iconColor = isCash ? '#059669' : '#3b82f6';
-                            cells[cellIdx].innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>${fmtMoney}`;
-                            cells[cellIdx].style.backgroundColor = '';
-                            cells[cellIdx].style.color = '';
-                        } else if (dataIdx === 24) {
+                        } else if (cellIdx === 21) { // Paid Driver
                             cells[cellIdx].textContent = fmtMoney;
                             cells[cellIdx].style.backgroundColor = '';
                             cells[cellIdx].style.color = '';
                         }
-                    } else if (dataIdx === 17) {
-                        cells[cellIdx].textContent = val;
                     } else {
-                        cells[cellIdx].textContent = val;
+                        // Check if it's the Action column (which shouldn't be overwritten with text)
+                        // Actually, cellIdx 25 is Action, displayData only has 0-24.
+                        if (cellIdx < displayData.length) {
+                            cells[cellIdx].textContent = val;
+                            cells[cellIdx].style.fontWeight = 'normal';
+                            cells[cellIdx].style.backgroundColor = '';
+                            cells[cellIdx].style.color = '';
+                        }
                     }
                 }
             });
@@ -1598,8 +1615,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (document.getElementById('in-flag3')) document.getElementById('in-flag3').checked = isSalesChecked;
             if (document.getElementById('in-move-to-yard')) document.getElementById('in-move-to-yard').checked = isToYardChecked;
             
-            let isRentalChecked = false;
-            if (window.currentRentals) {
+            let isRentalChecked = (rowData[26] === 'RENT');
+            if (!isRentalChecked && window.currentRentals) {
                 const searchOrder = (rowData[5] || rowData[4] || '').trim().toLowerCase();
                 const searchCont = (rowData[3] || '').trim().toLowerCase();
                 if (searchCont && searchCont !== '---') {

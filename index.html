@@ -1470,6 +1470,7 @@
                                         </select>
                                         <div style="display: flex; align-items: center; gap: 8px; margin-left: 5px;">
                                             <input type="checkbox" id="in-move-to-rentals"
+                                                onchange="const m = document.getElementById('in-mode'); if(m) m.value = this.checked ? 'RENT' : 'SALE';"
                                                 style="width: 18px; height: 18px; accent-color: #7c3aed;">
                                             <span
                                                 style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">Rent</span>
@@ -7160,8 +7161,17 @@
 
             if (chkYard) {
                 const isChecked = chkYard.checked;
-                // Sync the hidden field used for database saving
-                if (yardHidden) yardHidden.value = isChecked ? 'YES' : 'NO';
+                // Sync the hidden field used for database saving without wiping JSON
+                if (yardHidden) {
+                    if (!isChecked) {
+                        yardHidden.value = 'NO';
+                    } else {
+                        const currentVal = yardHidden.value;
+                        if (!currentVal || currentVal === 'NO' || currentVal === '---') {
+                            yardHidden.value = 'YES';
+                        }
+                    }
+                }
 
                 // Automatically set deduct stock to true when Yard is selected
                 if (isChecked) {
