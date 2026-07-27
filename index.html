@@ -2111,6 +2111,16 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="attendance-input-group">
+                                    <label><i class="fas fa-handshake"></i> ZELLER</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-handshake"></i>
+                                        <select id="f-zeller" class="form-select"
+                                            onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
+                                            <option value="">All Zellers</option>
+                                        </select>
+                                    </div>
+                                </div>
 
                                 <!-- COLUMN 3 -->
                                 <div class="attendance-input-group">
@@ -7293,7 +7303,8 @@
                 'f-size': 2,
                 'f-customer': 11,
                 'f-driver': 17,
-                'f-company': 16
+                'f-company': 16,
+                'f-zeller': 'special_zeller'
             };
 
             for (let id in filters) {
@@ -7302,8 +7313,20 @@
                 const columnIdx = filters[id];
 
                 // Get dynamic values from data
-                let dynamicValues = [...new Set(rows.map(row => (row[columnIdx] || '').toString().trim()))]
-                    .filter(val => val && val !== '---' && val !== '');
+                let dynamicValues = [];
+                if (id === 'f-zeller') {
+                    dynamicValues = [...new Set(rows.map(row => {
+                        const tripRel = row[4];
+                        if (tripRel && tripRel !== '---' && window.currentReleases) {
+                            const relObj = window.currentReleases.find(r => r[0] === tripRel);
+                            if (relObj) return (relObj[13] || '').toString().trim();
+                        }
+                        return '';
+                    }))].filter(val => val && val !== '---' && val !== '');
+                } else {
+                    dynamicValues = [...new Set(rows.map(row => (row[columnIdx] || '').toString().trim()))]
+                        .filter(val => val && val !== '---' && val !== '');
+                }
 
                 let finalValues = [];
 
@@ -7375,6 +7398,7 @@
                 transferredOnly: document.getElementById('f-transferred')?.checked || false,
                 pastDueOnly: document.getElementById('f-past-due')?.checked || false,
                 seller: document.getElementById('f-seller-cal')?.value || '',
+                zeller: document.getElementById('f-zeller')?.value || '',
                 zipcode: document.getElementById('f-zip')?.value.toLowerCase() || ''
             };
 
@@ -7423,6 +7447,19 @@
                 const valPickup = (rowData[7] || '').toLowerCase().trim();
                 const valDelivery = (rowData[8] || '').toLowerCase().trim();
                 const matchZip = !filters.zipcode || valPickup.includes(filters.zipcode) || valDelivery.includes(filters.zipcode);
+                
+                let matchZeller = true;
+                if (filters.zeller) {
+                    const tripRel = rowData[4];
+                    if (!tripRel || tripRel === '---') {
+                        matchZeller = false;
+                    } else if (window.currentReleases) {
+                        const relObj = window.currentReleases.find(r => r[0] === tripRel);
+                        if (!relObj || relObj[13] !== filters.zeller) matchZeller = false;
+                    } else {
+                        matchZeller = false;
+                    }
+                }
 
                 const isoValDate = valDate; // rowData[1] is already YYYY-MM-DD
                 const matchDate = (!filters.fromDate || isoValDate >= filters.fromDate) &&
@@ -7507,7 +7544,7 @@
                 }
 
                 if (matchCity && matchSize && matchDriver && matchCustomer && matchCompany && matchStatus && matchPayStatus &&
-                    matchNcont && matchBooking && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent && matchZip) {
+                    matchNcont && matchBooking && matchOrder && matchRelease && matchPhone && matchDate && matchServiceType && matchTransferred && matchPastDue && matchSeller && matchInvoiceSent && matchZip && matchZeller) {
                     tr.style.display = '';
                     visibleRowsData.push(rowData);
                 } else {
@@ -7548,7 +7585,8 @@
                     'f-customer': 11,
                     'f-company': 16,
                     'f-driver': 17,
-                    'f-seller-cal': 61
+                    'f-seller-cal': 61,
+                    'f-zeller': 'special_zeller'
                 };
 
                 for (let id in filtersToUpdate) {
@@ -7564,6 +7602,13 @@
                         else if (id === 'f-company') val = rowData[16];
                         else if (id === 'f-driver') val = rowData[17];
                         else if (id === 'f-seller-cal') val = rowData[61];
+                        else if (id === 'f-zeller') {
+                            const tripRel = rowData[4];
+                            if (tripRel && tripRel !== '---' && window.currentReleases) {
+                                const relObj = window.currentReleases.find(r => r[0] === tripRel);
+                                if (relObj) val = relObj[13];
+                            }
+                        }
 
                         val = (val || '').trim();
                         if (val && val !== '---') {
