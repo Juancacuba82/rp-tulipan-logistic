@@ -4278,9 +4278,9 @@
                                 <label><i class="fas fa-search"></i> BOOKING #</label>
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-tag"></i>
-                                    <input type="text" id="bc-f-booking" class="form-input"
-                                        placeholder="Search Booking..." oninput="renderBillingTable()"
-                                        style="width:160px;">
+                                    <select id="bc-f-booking" class="form-select" onchange="renderBillingTable()" style="width:160px; padding-left:35px;">
+                                        <option value="">All Bookings</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="attendance-input-group">

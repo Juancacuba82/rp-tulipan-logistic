@@ -205,8 +205,10 @@
         const customers  = new Set();
         const drivers    = new Set();
         const releases   = new Set();
+        const bookings   = new Set();
 
         const fOrder    = (document.getElementById('bc-f-order')?.value    || '').toLowerCase().trim();
+        const fBooking  = (document.getElementById('bc-f-booking')?.value  || '').trim();
         const fCity     = (document.getElementById('bc-f-city')?.value     || '').trim();
         const fPlace    = (document.getElementById('bc-f-place')?.value    || '').trim();
         const fCustomer = (document.getElementById('bc-f-customer')?.value || '').trim();
@@ -230,6 +232,7 @@
             const customer = (row[11] || '').toString().trim();
             const driver   = (row[17] || '').toString().trim();
             const release  = (row[4]  || '---').toString().trim();
+            const booking  = (row[65] && row[65] !== '---') ? row[65].toString().trim() : '';
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
 
@@ -263,12 +266,14 @@
             const passCustomer = !fCustomer || customer === fCustomer;
             const passDriver = !fDriver || driver === fDriver;
             const passRelease = !fRelease || release === fRelease;
+            const passBooking = !fBooking || booking === fBooking;
 
-            if (passPlace && passCustomer && passDriver && passRelease && city && city !== '---') cities.add(city);
-            if (passCity && passCustomer && passDriver && passRelease && place && place !== '---') places.add(place);
-            if (passCity && passPlace && passDriver && passRelease && customer && customer !== '---') customers.add(customer);
-            if (passCity && passPlace && passCustomer && passRelease && driver && driver !== '---') drivers.add(driver);
-            if (passCity && passPlace && passCustomer && passDriver && release && release !== '---') releases.add(release);
+            if (passPlace && passCustomer && passDriver && passRelease && passBooking && city && city !== '---') cities.add(city);
+            if (passCity && passCustomer && passDriver && passRelease && passBooking && place && place !== '---') places.add(place);
+            if (passCity && passPlace && passDriver && passRelease && passBooking && customer && customer !== '---') customers.add(customer);
+            if (passCity && passPlace && passCustomer && passRelease && passBooking && driver && driver !== '---') drivers.add(driver);
+            if (passCity && passPlace && passCustomer && passDriver && passBooking && release && release !== '---') releases.add(release);
+            if (passCity && passPlace && passCustomer && passDriver && passRelease && booking && booking !== '---') bookings.add(booking);
         });
 
         const fill = (id, vals, defaultTxt) => {
@@ -291,6 +296,7 @@
             }
         };
 
+        fill('bc-f-booking',  bookings,  'All Bookings');
         fill('bc-f-city',     cities,    'All Cities');
         fill('bc-f-place',    places,    'All Places');
         fill('bc-f-customer', customers, 'All Customers');
@@ -306,7 +312,7 @@
         window.populateBillingFilters();
 
         const fOrder    = (document.getElementById('bc-f-order')?.value    || '').toLowerCase().trim();
-        const fBooking  = (document.getElementById('bc-f-booking')?.value  || '').toLowerCase().trim();
+        const fBooking  = (document.getElementById('bc-f-booking')?.value  || '').trim();
         const fCity     = (document.getElementById('bc-f-city')?.value     || '').trim();
         const fPlace    = (document.getElementById('bc-f-place')?.value    || '').trim();
         const fCustomer = (document.getElementById('bc-f-customer')?.value || '').trim();
@@ -332,7 +338,7 @@
             const customer = (row[11] || '').toString().trim();
             const driver   = (row[17] || '').toString().trim();
             const release  = (row[4]  || '---').toString().trim();
-            const booking  = (row[65] && row[65] !== '---') ? row[65].toString().toLowerCase() : '';
+            const booking  = (row[65] && row[65] !== '---') ? row[65].toString().trim() : '';
             const rowDate  = row[1]   || '';
             const invSent  = (row[57] || 'NO').toUpperCase();
             const orderNoUpper = (row[5] || '---').toString().toUpperCase();
@@ -345,7 +351,7 @@
             const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
 
             if (fOrder    && !orderNo.includes(fOrder))    return false;
-            if (fBooking  && !booking.includes(fBooking))  return false;
+            if (fBooking  && booking !== fBooking)         return false;
             if (fCity     && city     !== fCity)            return false;
             if (fPlace    && place    !== fPlace)           return false;
             if (fCustomer && customer !== fCustomer)        return false;

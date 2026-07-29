@@ -210,60 +210,7 @@
         }
     };
 
-    // ── WEEKLY REMINDER CHECK ─────────────────────────────────
-    /**
-     * Finds orders that are still unpaid, had an invoice sent, but it's been ≥7 days.
-     * Re-sends the invoice as a reminder.
-     * Runs once per session when billing view loads.
-     */
-    window.checkAndSendInvoiceReminders = async function () {
-        const trips = window.currentTrips || [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
 
-        const toRemind = [];
-
-        trips.forEach(row => {
-            const status = (row[41] || '').toUpperCase();
-            const isReady = status === 'COMPLETE' || status === 'DELIVERED';
-            if (!isReady) return;
-
-            const hasPending = rowHasPendingPaymentLocal(row);
-            if (!hasPending) return;  // already paid, skip
-
-            const lastSentDate = row[63];
-            if (!lastSentDate) return;  // never sent, handled by autoSend above
-
-            // Calculate days since last send
-            const last = new Date(lastSentDate);
-            last.setHours(0, 0, 0, 0);
-            const daysSince = Math.floor((today - last) / (1000 * 60 * 60 * 24));
-
-            if (daysSince < REMINDER_DAYS) return;  // not yet time
-
-            // Omitimos la validación del Guardián aquí para respetar los envíos forzados
-            // y permitir que el recordatorio siga saliendo cada 7 días.
-
-            toRemind.push({ row, daysSince });
-        });
-
-        if (toRemind.length === 0) {
-            console.log('[AutoInvoice] No reminders due today.');
-            return;
-        }
-
-        console.log(`[AutoInvoice] ${toRemind.length} reminder(s) due.`);
-
-        for (const { row, daysSince } of toRemind) {
-            try {
-                await sendInvoiceForRow(row, 'auto-reminder');
-                console.log(`[AutoInvoice] ✅ Reminder sent for order ${row[5]} (${daysSince} days since last)`);
-                await new Promise(r => setTimeout(r, 180000)); // 3 minute delay between sends to prevent UI freezing
-            } catch (err) {
-                console.warn(`[AutoInvoice] ⚠️ Could not send reminder for order ${row[5]}:`, err);
-            }
-        }
-    };
 
     // ── CORE SEND + TRACK ─────────────────────────────────────
     /**
@@ -526,8 +473,7 @@
 
         let confirmMsg = `Send 3-document invoice package to ${customerEmail} for Order #${orderNo}?`;
         if (lastSentDate) {
-            confirmMsg += `\n\n📋 Previous sends: ${reminderCount}  |  Last sent: ${lastSentText}`;
-            confirmMsg += `\n\nSending now will reset the 7-day automatic reminder clock.`;
+            confirmMsg += `\n\n🔔 Previous sends: ${reminderCount}  |  Last sent: ${lastSentText}`;
         }
         if (!confirm(confirmMsg)) return;
 
@@ -674,12 +620,7 @@
         //     console.warn('[AutoInvoice] autoSendNewCompleteInvoices error:', err);
         // }
 
-        // --- AUTOMATIC REMINDERS: SLOW DRIP MODE ---
-        try {
-            await window.checkAndSendInvoiceReminders();
-        } catch (err) {
-            console.warn('[AutoInvoice] checkAndSendInvoiceReminders error:', err);
-        }
+
     };
 
 })();
