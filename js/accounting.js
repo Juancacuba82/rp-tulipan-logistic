@@ -219,14 +219,14 @@
                     const cAmt = parseFloat(t.sales_cash_amt) || 0;
                     const bAmt = parseFloat(t.sales_bank_amt) || 0;
                     if (cAmt > 0 || bAmt > 0) {
-                        if (cAmt > 0) unified.push({ id: t.trip_id + '-sc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
-                        if (bAmt > 0) unified.push({ id: t.trip_id + '-sb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                        if (cAmt > 0) unified.push({ id: t.trip_id + '-sc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'sales_c', orig_id: t.trip_id });
+                        if (bAmt > 0) unified.push({ id: t.trip_id + '-sb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'sales_b', orig_id: t.trip_id });
                     } else {
                         const salesMonto = (parseFloat(t.sales_price) || 0) * qty;
                         if (salesMonto > 0) {
                             unified.push({
                                 id: (t.trip_id || Math.random().toString()) + '-s', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isSCash ? 'cash' : 'bank', monto: salesMonto,
-                                descripcion: `Venta de Contenedor`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || ''
+                                descripcion: `Venta de Contenedor`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'sales', orig_id: t.trip_id
                             });
                         }
                     }
@@ -237,14 +237,14 @@
                     const cAmt = parseFloat(t.trans_cash_amt) || 0;
                     const bAmt = parseFloat(t.trans_bank_amt) || 0;
                     if (cAmt > 0 || bAmt > 0) {
-                        if (cAmt > 0) unified.push({ id: t.trip_id + '-tc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
-                        if (bAmt > 0) unified.push({ id: t.trip_id + '-tb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                        if (cAmt > 0) unified.push({ id: t.trip_id + '-tc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'trans_c', orig_id: t.trip_id });
+                        if (bAmt > 0) unified.push({ id: t.trip_id + '-tb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'trans_b', orig_id: t.trip_id });
                     } else {
                         const transMonto = parseFloat(t.trans_pay) || 0;
                         if (transMonto > 0) {
                             unified.push({
                                 id: (t.trip_id || Math.random().toString()) + '-t', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isRCash ? 'cash' : 'bank', monto: transMonto,
-                                descripcion: `Servicio de Transporte`, referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || ''
+                                descripcion: `Servicio de Transporte`, referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'trans', orig_id: t.trip_id
                             });
                         }
                     }
@@ -255,14 +255,14 @@
                     const cAmt = parseFloat(t.yard_cash_amt) || 0;
                     const bAmt = parseFloat(t.yard_bank_amt) || 0;
                     if (cAmt > 0 || bAmt > 0) {
-                        if (cAmt > 0) unified.push({ id: t.trip_id + '-yc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
-                        if (bAmt > 0) unified.push({ id: t.trip_id + '-yb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '' });
+                        if (cAmt > 0) unified.push({ id: t.trip_id + '-yc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'yard_c', orig_id: t.trip_id });
+                        if (bAmt > 0) unified.push({ id: t.trip_id + '-yb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'yard_b', orig_id: t.trip_id });
                     } else {
                         const yardMonto = (parseFloat(t.yard_rate) || 0) * qty;
                         if (yardMonto > 0) {
                             unified.push({
                                 id: (t.trip_id || Math.random().toString()) + '-y', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isYCash ? 'cash' : 'bank', monto: yardMonto,
-                                descripcion: `Servicio de Yarda`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || ''
+                                descripcion: `Servicio de Yarda`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'yard', orig_id: t.trip_id
                             });
                         }
                     }
@@ -291,7 +291,9 @@
                         category: e.category,
                         n_cont: '',
                         order_no: '',
-                        release_no: ''
+                        release_no: '',
+                        source_table: 'expenses',
+                        orig_id: e.id
                     });
                 }
             });
@@ -318,7 +320,9 @@
                         customer: r.seller || '',
                         n_cont: '',
                         order_no: '',
-                        release_no: r.release_no || ''
+                        release_no: r.release_no || '',
+                        source_table: 'releases',
+                        orig_id: r.id
                     });
                 }
             });
@@ -577,7 +581,7 @@
                 ? `<span class="acct-badge acct-badge-cash"><i class="fas fa-money-bill-wave"></i> CASH</span>`
                 : `<span class="acct-badge acct-badge-bank"><i class="fas fa-university"></i> BANK</span>`;
                 
-            if (t.source_table === 'cash_ledger' && window.currentUserRole === 'admin') {
+            if (window.currentUserRole === 'admin') {
                 badgeHtml = `<div style="cursor:pointer;" onclick="window.toggleCashLedgerMethod('${t.id}', '${t.metodo}')" title="Cambiar método de pago">${badgeHtml}</div>`;
             }
             const metodoBadge = badgeHtml;
@@ -733,22 +737,73 @@
         if (tbody) tbody.style.opacity = '0.5';
 
         try {
-            const { error } = await window.db.from('cash_ledger').update({ metodo: newMethod }).eq('id', id);
-            if (error) throw error;
-            
-            // Instantly update local cache without full reload
+            // Find the transaction in local cache to get source info
+            let tx = null;
             if (typeof allTransactions !== 'undefined') {
-                const tx = allTransactions.find(t => t.id === id);
-                if (tx) tx.metodo = newMethod;
+                tx = allTransactions.find(t => t.id === id);
             }
-            if (typeof window.renderAccountingDashboard === 'function') {
-                window.renderAccountingDashboard();
+            if (!tx || !tx.source_table) {
+                throw new Error("No se pudo determinar el origen de esta transacción.");
+            }
+
+            // DB Update based on source_table
+            if (tx.source_table === 'cash_ledger') {
+                const { error } = await window.db.from('cash_ledger').update({ metodo: newMethod }).eq('id', id);
+                if (error) throw error;
+            } else if (tx.source_table === 'expenses') {
+                const { error } = await window.db.from('expenses').update({ payment_method: newMethod }).eq('id', tx.orig_id);
+                if (error) throw error;
+            } else if (tx.source_table === 'releases') {
+                const { error } = await window.db.from('releases').update({ is_cash: newMethod === 'cash' }).eq('id', tx.orig_id);
+                if (error) throw error;
+            } else if (tx.source_table === 'trips') {
+                // Determine which column to update based on sub_type
+                const updates = {};
+                if (tx.sub_type === 'sales') {
+                    updates.s_cash = (newMethod === 'cash');
+                } else if (tx.sub_type === 'trans') {
+                    updates.r_cash = (newMethod === 'cash');
+                } else if (tx.sub_type === 'yard') {
+                    updates.y_cash = (newMethod === 'cash');
+                } else if (tx.sub_type.endsWith('_c') || tx.sub_type.endsWith('_b')) {
+                    // It's a split payment, we are moving the amount from cash to bank or viceversa
+                    const { data: tripData, error: fetchErr } = await window.db.from('trips').select('*').eq('trip_id', tx.orig_id).single();
+                    if (fetchErr) throw fetchErr;
+                    
+                    let cCol, bCol;
+                    if (tx.sub_type.startsWith('sales')) { cCol = 'sales_cash_amt'; bCol = 'sales_bank_amt'; }
+                    else if (tx.sub_type.startsWith('trans')) { cCol = 'trans_cash_amt'; bCol = 'trans_bank_amt'; }
+                    else if (tx.sub_type.startsWith('yard')) { cCol = 'yard_cash_amt'; bCol = 'yard_bank_amt'; }
+                    
+                    const cAmt = parseFloat(tripData[cCol]) || 0;
+                    const bAmt = parseFloat(tripData[bCol]) || 0;
+                    
+                    if (tx.sub_type.endsWith('_c')) {
+                        updates[cCol] = '0';
+                        updates[bCol] = (bAmt + cAmt).toString();
+                    } else {
+                        updates[bCol] = '0';
+                        updates[cCol] = (cAmt + bAmt).toString();
+                    }
+                }
+                const { error } = await window.db.from('trips').update(updates).eq('trip_id', tx.orig_id);
+                if (error) throw error;
+            }
+            
+            // Re-fetch to reconstruct all split entries properly if it was a trip split
+            if (tx.source_table === 'trips' && (tx.sub_type.endsWith('_c') || tx.sub_type.endsWith('_b'))) {
+                await loadAccountingData(true);
             } else {
-                window.loadAccountingData(true);
+                tx.metodo = newMethod;
+                if (typeof window.renderAccountingDashboard === 'function') {
+                    window.renderAccountingDashboard();
+                } else {
+                    loadAccountingData(true);
+                }
             }
         } catch (err) {
             console.error('Error changing payment method:', err);
-            alert('Error al cambiar el método de pago.');
+            alert('Error al cambiar el método de pago: ' + err.message);
         } finally {
             if (tbody) tbody.style.opacity = '1';
         }
