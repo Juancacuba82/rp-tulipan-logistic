@@ -8910,6 +8910,163 @@
             </div>
         </div>
     </div>
+
+    <!-- GLOBAL SMART CONTEXT MENU -->
+    <script>
+    document.addEventListener('contextmenu', (e) => {
+        // Only intercept if we clicked inside a table cell (TD) inside a tbody
+        const td = e.target.closest('td');
+        if (!td) return;
+        
+        const tr = td.closest('tr');
+        if (!tr || !tr.parentElement || tr.parentElement.tagName.toLowerCase() !== 'tbody') return;
+
+        const table = tr.closest('table');
+        if (!table) return;
+
+        // Get the thead to find column names
+        const thead = table.querySelector('thead');
+        if (!thead) return;
+        
+        const ths = thead.querySelectorAll('th');
+        if (ths.length === 0) return;
+
+        // We only want to show the context menu if there is actual data in the row
+        if (tr.children.length === 0) return;
+
+        // Prevent default browser context menu
+        e.preventDefault();
+
+        let menu = document.getElementById('global-context-menu');
+        if (!menu) {
+            menu = document.createElement('div');
+            menu.id = 'global-context-menu';
+            menu.style.cssText = `
+                display: none; position: fixed; z-index: 10000;
+                background: white; border-radius: 8px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                padding: 8px 0; min-width: 250px; max-height: 400px; overflow-y: auto;
+                font-family: 'Inter', sans-serif;
+                border: 1px solid #e2e8f0;
+            `;
+            document.body.appendChild(menu);
+
+            document.addEventListener('click', () => {
+                if (menu) menu.style.display = 'none';
+            });
+        }
+
+        menu.innerHTML = '';
+
+        const addMenuItem = (label, textToCopy) => {
+            if (!textToCopy || textToCopy === '---' || textToCopy === 'TBA' || textToCopy === '') return;
+            
+            // Smart icons mapping
+            let icon = 'fas fa-copy';
+            const labelLow = label.toLowerCase();
+            if (labelLow.includes('cont') || labelLow.includes('size')) icon = 'fas fa-box';
+            else if (labelLow.includes('book')) icon = 'fas fa-book';
+            else if (labelLow.includes('release') || labelLow.includes('bol')) icon = 'fas fa-file-alt';
+            else if (labelLow.includes('order')) icon = 'fas fa-hashtag';
+            else if (labelLow.includes('city') || labelLow.includes('address') || labelLow.includes('place')) icon = 'fas fa-map-marker-alt';
+            else if (labelLow.includes('date')) icon = 'fas fa-calendar-alt';
+            else if (labelLow.includes('driver') || labelLow.includes('truck') || labelLow.includes('plate') || labelLow.includes('vin')) icon = 'fas fa-truck';
+            else if (labelLow.includes('customer') || labelLow.includes('seller') || labelLow.includes('employee') || labelLow.includes('company')) icon = 'fas fa-user-tie';
+            else if (labelLow.includes('phone')) icon = 'fas fa-phone';
+
+            const item = document.createElement('div');
+            item.style.cssText = `
+                padding: 10px 16px; cursor: pointer; color: #1e293b; font-size: 14px;
+                display: flex; align-items: center; transition: background 0.2s;
+                border-bottom: 1px solid #f1f5f9;
+            `;
+            
+            let displayText = textToCopy;
+            if (displayText.length > 25) displayText = displayText.substring(0, 25) + '...';
+
+            item.innerHTML = `<i class="${icon}" style="margin-right: 10px; color: #3b82f6; width: 16px; text-align: center;"></i> Copy ${label}: <strong style="margin-left: 5px;" title="${textToCopy}">${displayText}</strong>`;
+            item.onmouseenter = () => item.style.backgroundColor = '#f1f5f9';
+            item.onmouseleave = () => item.style.backgroundColor = 'transparent';
+            item.onclick = async () => {
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    
+                    const toast = document.createElement('div');
+                    toast.textContent = `Copied: ${textToCopy}`;
+                    toast.style.cssText = `
+                        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+                        background: #10b981; color: white; padding: 8px 16px; border-radius: 20px;
+                        font-size: 14px; z-index: 10001; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        animation: fadeInOut 2s forwards;
+                    `;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2000);
+                } catch (err) {
+                    console.error('Failed to copy', err);
+                }
+            };
+            menu.appendChild(item);
+        };
+
+        const tds = tr.children;
+        let addedCount = 0;
+        for (let i = 0; i < tds.length; i++) {
+            if (i >= ths.length) break;
+            const rawLabel = ths[i].textContent || ths[i].innerText || '';
+            let label = rawLabel.trim();
+            const rawText = tds[i].textContent || tds[i].innerText || '';
+            const textToCopy = rawText.trim();
+            
+            // Clean up label if it has sorting icons
+            label = label.replace(/\n/g, '').replace(/\s+/g, ' ').trim();
+            if (label.includes('TOTALS')) continue; // Ignore total row headers
+            
+            if (!label || label === '' || label.toLowerCase() === 'action' || label.toLowerCase() === 'delete' || label.toLowerCase() === 'edit') continue;
+            
+            if (textToCopy && textToCopy !== '---' && textToCopy !== 'TBA' && textToCopy !== '$0.00' && textToCopy !== '0.00' && textToCopy !== '') {
+                addMenuItem(label, textToCopy);
+                addedCount++;
+            }
+        }
+
+        if (addedCount === 0) {
+            menu.innerHTML = '<div style="padding: 10px 16px; color: #94a3b8; font-size: 14px; font-style: italic;">Nothing to copy here</div>';
+        } else {
+            menu.lastChild.style.borderBottom = 'none';
+        }
+
+        if (!document.getElementById('toast-anim-global')) {
+            const style = document.createElement('style');
+            style.id = 'toast-anim-global';
+            style.innerHTML = `
+                @keyframes fadeInOut {
+                    0% { opacity: 0; transform: translate(-50%, 10px); }
+                    15% { opacity: 1; transform: translate(-50%, 0); }
+                    85% { opacity: 1; transform: translate(-50%, 0); }
+                    100% { opacity: 0; transform: translate(-50%, -10px); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        menu.style.display = 'block';
+        
+        let x = e.clientX;
+        let y = e.clientY;
+        
+        menu.style.visibility = 'hidden';
+        menu.style.display = 'block';
+        const menuWidth = menu.offsetWidth || 250;
+        const menuHeight = menu.offsetHeight || 300;
+        menu.style.visibility = 'visible';
+
+        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+        if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
+        
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+    });
+    </script>
 </body>
 
 </html>
