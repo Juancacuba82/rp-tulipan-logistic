@@ -1678,6 +1678,46 @@
                         paymentSplit = { cashAmt: totalBulkAmount, bankAmt: 0 };
                     }
 
+                    // --- PARTIAL PAYMENT LOGIC ---
+                    if (paymentSplit && (paymentSplit.cashAmt + paymentSplit.bankAmt) < totalBulkAmount) {
+                        const totalPaid = paymentSplit.cashAmt + paymentSplit.bankAmt;
+                        const debt = totalBulkAmount - totalPaid;
+                        const customerName = regularRows[0] ? regularRows[0][11] : '';
+                        const dateStr = new Date().toISOString().split('T')[0];
+                        
+                        try {
+                            const { data, error } = await db.from('trips').insert([{
+                                date: dateStr,
+                                container_no: 'DEUDA PENDIENTE',
+                                customer_name: customerName,
+                                sales_price: debt.toString(),
+                                st_sales: 'PENDING_PAYMENT',
+                                status: 'PENDING_PAYMENT'
+                            }]).select();
+                            
+                            if (error) {
+                                console.error('Error creating partial payment debt trip:', error);
+                                alert('Advertencia: El pago fue parcial pero hubo un error al crear la orden de Deuda Pendiente por $' + debt);
+                            } else {
+                                if (window.allTripsUnfiltered && data && data.length > 0) {
+                                    const newRow = [
+                                        data[0].trip_id, data[0].date, '', data[0].container_no, '', '', '', '', '', '', '',
+                                        data[0].customer_name, '', '', '', '', '', '', '', '', data[0].sales_price,
+                                        '', '', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT', '', '', '', '', '', '', '',
+                                        'PENDING_PAYMENT', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT'
+                                    ];
+                                    window.allTripsUnfiltered.push(newRow);
+                                    if (window.combinedBillingTrips) {
+                                        window.combinedBillingTrips.push(newRow);
+                                    }
+                                }
+                            }
+                        } catch (debtErr) {
+                            console.error('Exception creating debt trip:', debtErr);
+                        }
+                    }
+                    // -----------------------------
+
                     if (paymentSplit) {
                         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
                         let updatedCount = 0;
@@ -1711,6 +1751,16 @@
                                     ufRow[30] = 'PAID';
                                     ufRow[52] = 'PAID';
                                     ufRow[57] = 'YES'; 
+                                }
+                            }
+                            if (window.combinedBillingTrips) {
+                                const cbRow = window.combinedBillingTrips.find(t => t[0] === tripId);
+                                if (cbRow) {
+                                    cbRow[32] = 'PAID';
+                                    cbRow[33] = 'PAID';
+                                    cbRow[30] = 'PAID';
+                                    cbRow[52] = 'PAID';
+                                    cbRow[57] = 'YES';
                                 }
                             }
                             updatedCount++;
@@ -1777,8 +1827,8 @@
                         row: row,
                         rental: rental,
                         basePrice: parseFloat(rental.base_price) || 0,
-                        periodsToPay: 0,
-                        subtotal: 0
+                        periodsToPay: 1,
+                        subtotal: parseFloat(rental.base_price) || 0
                     });
                 }
             }
@@ -1797,9 +1847,9 @@
                 <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#475569;">${item.rental.customer_name || 'N/A'}</td>
                 <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#10b981;font-weight:700;text-align:center;">$${item.basePrice.toLocaleString('en-US', {minimumFractionDigits:2})} / ${item.rental.time_rent || 'month'}</td>
                 <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:center;">
-                    <input type="number" min="0" value="0" style="width:60px;padding:5px;border-radius:5px;border:1px solid #cbd5e1;text-align:center;" oninput="window.updateMultiRentSubtotal(${index}, this.value)">
+                    <input type="number" min="0" value="1" style="width:60px;padding:5px;border-radius:5px;border:1px solid #cbd5e1;text-align:center;" oninput="window.updateMultiRentSubtotal(${index}, this.value)">
                 </td>
-                <td id="mrt-subtotal-${index}" style="padding:10px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-weight:800;text-align:right;">$0.00</td>
+                <td id="mrt-subtotal-${index}" style="padding:10px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-weight:800;text-align:right;">$${item.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
             `;
             tbody.appendChild(tr);
         });

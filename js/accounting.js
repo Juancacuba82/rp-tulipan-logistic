@@ -573,9 +573,14 @@
 
             const tipoColor  = isIncome ? '#10b981' : '#ef4444';
             const tipoIcon   = isIncome ? 'fa-arrow-down' : 'fa-arrow-up';
-            const metodoBadge = isCash
+            let badgeHtml = isCash
                 ? `<span class="acct-badge acct-badge-cash"><i class="fas fa-money-bill-wave"></i> CASH</span>`
                 : `<span class="acct-badge acct-badge-bank"><i class="fas fa-university"></i> BANK</span>`;
+                
+            if (t.source_table === 'cash_ledger' && window.currentUserRole === 'admin') {
+                badgeHtml = `<div style="cursor:pointer;" onclick="window.toggleCashLedgerMethod('${t.id}', '${t.metodo}')" title="Cambiar método de pago">${badgeHtml}</div>`;
+            }
+            const metodoBadge = badgeHtml;
 
             const dateStr = t.created_at
                 ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
@@ -716,6 +721,36 @@
             }
         } else {
             alert("Las transacciones mostradas aquí son un espejo de tus Órdenes, Gastos y Releases.\n\nPara eliminar una transacción, por favor bórrala desde su módulo original (Trips, Expenses o Releases).");
+        }
+    };
+
+    window.toggleCashLedgerMethod = async function(id, currentMethod) {
+        if (!confirm('¿Deseas cambiar el método de pago de esta transacción (Cash ↔ Bank)?')) return;
+        const newMethod = (currentMethod === 'cash') ? 'bank' : 'cash';
+        
+        // Optimistic UI update
+        const tbody = document.getElementById('acct-table-body');
+        if (tbody) tbody.style.opacity = '0.5';
+
+        try {
+            const { error } = await window.db.from('cash_ledger').update({ metodo: newMethod }).eq('id', id);
+            if (error) throw error;
+            
+            // Instantly update local cache without full reload
+            if (typeof allTransactions !== 'undefined') {
+                const tx = allTransactions.find(t => t.id === id);
+                if (tx) tx.metodo = newMethod;
+            }
+            if (typeof window.renderAccountingDashboard === 'function') {
+                window.renderAccountingDashboard();
+            } else {
+                window.loadAccountingData(true);
+            }
+        } catch (err) {
+            console.error('Error changing payment method:', err);
+            alert('Error al cambiar el método de pago.');
+        } finally {
+            if (tbody) tbody.style.opacity = '1';
         }
     };
 

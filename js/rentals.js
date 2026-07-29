@@ -748,7 +748,7 @@
         }
     };
 
-    function showSplitPaymentModal(totalAmount) {
+    window.showSplitPaymentModal = function(totalAmount) {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.style.position = 'fixed';
