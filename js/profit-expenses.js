@@ -432,9 +432,16 @@
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                     const qty        = parseInt(row[53]) || 1;  // index 53: qty
                     const salesPrice = parseFloat(row[20]) || 0; // index 20: sales_price
-                    const hasYard    = (row[12] === 'YES');       // index 12: yard_services
-                    const hasTrans   = (row[42] === 'YES');       // index 42: has_trans
-                    const hasSales   = (row[43] === 'YES');       // index 43: has_sales
+                    const yardVal    = parseFloat(row[13]) || 0;
+                    const pricePerDay= parseFloat(row[14]) || 0;
+                    const rawYard    = (row[12] || '').toString().trim().toUpperCase();
+                    const hasYard    = (rawYard && rawYard !== 'NO' && rawYard !== '---') || yardVal > 0 || pricePerDay > 0;
+                    const rawTrans   = (row[42] || '').toString().trim().toUpperCase();
+                    const transVal   = parseFloat(row[18]) || 0;
+                    const hasTrans   = (rawTrans && rawTrans !== 'NO' && rawTrans !== '---') || transVal > 0;
+                    
+                    const rawSales   = (row[43] || '').toString().trim().toUpperCase();
+                    const hasSales   = (rawSales && rawSales !== 'NO' && rawSales !== '---') || salesPrice > 0;
 
                     // A. Sales Component — Gross Revenue = sales_price * qty
                     if (hasSales && salesPrice > 0) {
