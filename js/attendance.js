@@ -607,6 +607,13 @@ window.loadAttendanceData = async function(force = false) {
             }
 
             if (type === 'CLOCK_IN') {
+                // --- NEW: Anti-Duplicate Shield ---
+                const existingSession = employeeSessions[employee];
+                if (existingSession && existingSession.outTime === '---' && existingSession.date === date) {
+                    // Ignore consecutive CLOCK_IN on the same day if the current session is still open
+                    return; 
+                }
+
                 // If they clock in, we start a new session entry
                 const newSession = {
                     date,
