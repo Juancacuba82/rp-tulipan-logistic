@@ -1604,7 +1604,6 @@
 
     // ── MARK ALL FILTERED AS PAID ─────────────────────────────
     window.markAllFilteredAsPaid = async function(btn) {
-        // Find all pending rows in window.billingRows
         const pendingRows = (window.billingRows || []).filter(row => rowHasPendingPayment(row));
         
         if (pendingRows.length === 0) {
@@ -1635,171 +1634,333 @@
         btn.disabled = true;
 
         try {
-            // Process regular rows first if any
-            if (regularRows.length > 0) {
-                let totalBulkAmount = 0;
-                for (const row of regularRows) {
-                    const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-                    const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-                    const yardRate = parseFloat(row[13]) || 0;
-                    const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
-                    
-                    const qty = parseFloat(row[21]) || 1;
-                    
-                    let totalTrans = 0, totalSales = 0, totalYard = 0;
-                    if (hasTrans) totalTrans = parseFloat(row[18]) || 0;
-                    if (hasSales) totalSales = (parseFloat(row[20]) || 0) * qty;
-                    if (yardRate > 0) totalYard = yardRate;
-                    
-                    let rowSubtotalOwed = 0;
-                    if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
-                    if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
-                    if (yardRate > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
-                    
-                    let rowTaxOwed = 0;
-                    if (takeTax && row[52] !== 'PAID') {
-                        const taxPct = parseFloat(row[50]) || 0;
-                        rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
-                    }
-                    
-                    totalBulkAmount += (rowSubtotalOwed + rowTaxOwed);
-                }
-
-                const confirmPay = confirm(`¿Estás seguro de cobrar los servicios regulares de las ${regularRows.length} órdenes?\nTotal a procesar (sin rentas): $${totalBulkAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
+            // 1. Calculate Regular Total
+            let totalRegularAmount = 0;
+            for (const row of regularRows) {
+                const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+                const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
+                const yardRate = parseFloat(row[13]) || 0;
+                const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
+                const qty = parseFloat(row[21]) || 1;
                 
-                if (confirmPay) {
-                    let paymentSplit = null;
-                    if (totalBulkAmount > 0 && typeof window.showSplitPaymentModal === 'function') {
-                        paymentSplit = await window.showSplitPaymentModal(totalBulkAmount);
-                        if (!paymentSplit) {
-                            alert('Cobro regular cancelado por el usuario.');
-                        }
-                    } else if (totalBulkAmount > 0) {
-                        paymentSplit = { cashAmt: totalBulkAmount, bankAmt: 0 };
+                let totalTrans = 0, totalSales = 0, totalYard = 0;
+                if (hasTrans) totalTrans = parseFloat(row[18]) || 0;
+                if (hasSales) totalSales = (parseFloat(row[20]) || 0) * qty;
+                if (yardRate > 0) totalYard = yardRate;
+                
+                let rowSubtotalOwed = 0;
+                if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
+                if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
+                if (yardRate > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
+                
+                let rowTaxOwed = 0;
+                if (takeTax && row[52] !== 'PAID') {
+                    const taxPct = parseFloat(row[50]) || 0;
+                    rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
+                }
+                totalRegularAmount += (rowSubtotalOwed + rowTaxOwed);
+            }
+
+            // 2. Calculate Rent Total (1 period each)
+            let totalRentAmount = 0;
+            const validRentals = [];
+            for (const row of rentRows) {
+                const tripId = row[0] || '';
+                let rentalId = null;
+                if (tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                } else if (row.isActiveRentalMerged) {
+                    rentalId = row.isActiveRentalMerged;
+                }
+                if (rentalId) {
+                    const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
+                    if (rental) {
+                        const basePrice = parseFloat(rental.base_price) || 0;
+                        totalRentAmount += basePrice;
+                        validRentals.push({ row, rental, basePrice, periodsToPay: 1, subtotal: basePrice });
                     }
+                }
+            }
 
-                    // --- PARTIAL PAYMENT LOGIC ---
-                    if (paymentSplit && (paymentSplit.cashAmt + paymentSplit.bankAmt) < totalBulkAmount) {
-                        const totalPaid = paymentSplit.cashAmt + paymentSplit.bankAmt;
-                        const debt = totalBulkAmount - totalPaid;
-                        const customerName = regularRows[0] ? regularRows[0][11] : '';
-                        const dateStr = new Date().toISOString().split('T')[0];
-                        
-                        try {
-                            const { data, error } = await db.from('trips').insert([{
-                                date: dateStr,
-                                container_no: 'DEUDA PENDIENTE',
-                                customer_name: customerName,
-                                sales_price: debt.toString(),
-                                st_sales: 'PENDING_PAYMENT',
-                                status: 'PENDING_PAYMENT'
-                            }]).select();
-                            
-                            if (error) {
-                                console.error('Error creating partial payment debt trip:', error);
-                                alert('Advertencia: El pago fue parcial pero hubo un error al crear la orden de Deuda Pendiente por $' + debt);
-                            } else {
-                                if (window.allTripsUnfiltered && data && data.length > 0) {
-                                    const newRow = [
-                                        data[0].trip_id, data[0].date, '', data[0].container_no, '', '', '', '', '', '', '',
-                                        data[0].customer_name, '', '', '', '', '', '', '', '', data[0].sales_price,
-                                        '', '', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT', '', '', '', '', '', '', '',
-                                        'PENDING_PAYMENT', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT'
-                                    ];
-                                    window.allTripsUnfiltered.push(newRow);
-                                    if (window.combinedBillingTrips) {
-                                        window.combinedBillingTrips.push(newRow);
-                                    }
-                                }
-                            }
-                        } catch (debtErr) {
-                            console.error('Exception creating debt trip:', debtErr);
-                        }
+            const grandTotal = totalRegularAmount + totalRentAmount;
+
+            if (grandTotal <= 0) {
+                alert('El monto total a cobrar es $0.00');
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+                return;
+            }
+
+            // 3. Custom Flow Prompt
+            const paymentSplit = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0'; overlay.style.left = '0';
+                overlay.style.width = '100vw'; overlay.style.height = '100vh';
+                overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                overlay.style.display = 'flex';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.style.zIndex = '999999';
+
+                const modal = document.createElement('div');
+                modal.style.backgroundColor = 'white';
+                modal.style.padding = '25px';
+                modal.style.borderRadius = '12px';
+                modal.style.width = '420px';
+                modal.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.2)';
+                modal.style.borderTop = '5px solid #10b981';
+                modal.style.fontFamily = 'Montserrat, sans-serif';
+
+                modal.innerHTML = `
+                    <h3 style="margin-top:0; color:#1e293b; font-size:18px;"><i class="fas fa-file-invoice-dollar" style="color:#10b981; margin-right:8px;"></i>Cobro Masivo</h3>
+                    
+                    <div id="btn-group-1">
+                        <p style="font-size:15px; color:#475569; margin-bottom:20px; line-height:1.5;">
+                            ¿El cliente va a abonar el monto <strong>TOTAL</strong> de <strong>$${grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>?
+                        </p>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <button id="btn-pay-all" style="padding:12px; background:#10b981; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px; transition:0.2s;">Sí, Pagar Todo ($${grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})})</button>
+                            <button id="btn-pay-partial" style="padding:12px; background:#f59e0b; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px; transition:0.2s;">No, Pago Parcial</button>
+                            <button id="btn-cancel" style="padding:10px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-top:5px; transition:0.2s;">Cancelar</button>
+                        </div>
+                    </div>
+                    
+                    <div id="method-group" style="display:none; flex-direction:column; gap:10px;">
+                        <p style="font-size:15px; color:#475569; margin-bottom:15px; font-weight:bold;">¿Cómo pagó los $${grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}?</p>
+                        <button id="btn-all-cash" style="padding:12px; background:#10b981; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;"><i class="fas fa-money-bill-wave"></i> Efectivo (CASH)</button>
+                        <button id="btn-all-bank" style="padding:12px; background:#3b82f6; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;"><i class="fas fa-university"></i> Bank / Zelle</button>
+                        <button id="btn-back-1" style="padding:10px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-top:5px;">Atrás</button>
+                    </div>
+                    
+                    <div id="partial-group" style="display:none;">
+                        <p style="font-size:14px; color:#475569; margin-bottom:15px; background:#fff7ed; padding:10px; border-radius:5px; border-left:3px solid #f59e0b;">Ingrese el monto <b>exacto</b> abonado. El sistema creará una orden de Deuda Pendiente por la diferencia.</p>
+                        <div style="margin-bottom:10px;">
+                            <label style="display:block; font-size:12px; font-weight:bold; color:#64748b; margin-bottom:4px;">Cash Amount ($)</label>
+                            <input type="number" id="split-cash" value="" step="0.01" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block; font-size:12px; font-weight:bold; color:#64748b; margin-bottom:4px;">Bank/Zelle Amount ($)</label>
+                            <input type="number" id="split-bank" value="" step="0.01" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; gap:10px;">
+                            <button id="btn-back-2" style="padding:8px 16px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Atrás</button>
+                            <button id="btn-confirm-partial" style="padding:8px 16px; background:#10b981; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Procesar Pago Parcial</button>
+                        </div>
+                    </div>
+                `;
+
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+
+                const close = () => { document.body.removeChild(overlay); resolve(null); };
+
+                const btnGroup1 = modal.querySelector('#btn-group-1');
+                const methodGroup = modal.querySelector('#method-group');
+                const partialGroup = modal.querySelector('#partial-group');
+                const cashInput = modal.querySelector('#split-cash');
+                const bankInput = modal.querySelector('#split-bank');
+
+                modal.querySelectorAll('button').forEach(b => {
+                    b.onmouseover = () => b.style.opacity = '0.85';
+                    b.onmouseout = () => b.style.opacity = '1';
+                });
+
+                modal.querySelector('#btn-cancel').onclick = close;
+                
+                modal.querySelector('#btn-pay-all').onclick = () => {
+                    btnGroup1.style.display = 'none';
+                    methodGroup.style.display = 'flex';
+                };
+                
+                modal.querySelector('#btn-back-1').onclick = () => {
+                    methodGroup.style.display = 'none';
+                    btnGroup1.style.display = 'flex';
+                };
+                
+                modal.querySelector('#btn-all-cash').onclick = () => {
+                    document.body.removeChild(overlay);
+                    resolve({ cashAmt: grandTotal, bankAmt: 0 });
+                };
+                
+                modal.querySelector('#btn-all-bank').onclick = () => {
+                    document.body.removeChild(overlay);
+                    resolve({ cashAmt: 0, bankAmt: grandTotal });
+                };
+                
+                modal.querySelector('#btn-pay-partial').onclick = () => {
+                    btnGroup1.style.display = 'none';
+                    partialGroup.style.display = 'block';
+                    cashInput.focus();
+                };
+                
+                modal.querySelector('#btn-back-2').onclick = () => {
+                    partialGroup.style.display = 'none';
+                    btnGroup1.style.display = 'flex';
+                };
+                
+                modal.querySelector('#btn-confirm-partial').onclick = () => {
+                    const c = parseFloat(cashInput.value) || 0;
+                    const b = parseFloat(bankInput.value) || 0;
+                    if (c === 0 && b === 0) {
+                        alert('Debe ingresar un monto.');
+                        return;
                     }
-                    // -----------------------------
+                    if (c + b > grandTotal) {
+                        alert('El monto ingresado ($' + (c+b).toFixed(2) + ') es mayor al total adeudado ($' + grandTotal.toFixed(2) + ').');
+                        return;
+                    }
+                    document.body.removeChild(overlay);
+                    resolve({ cashAmt: c, bankAmt: b });
+                };
+            });
 
-                    if (paymentSplit) {
-                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-                        let updatedCount = 0;
-                        for (const row of regularRows) {
-                            const tripId = row[0];
-                            const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-                            if (!tripId || (!row.isYardAggregate && !isUUID(tripId))) continue;
+            if (!paymentSplit) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+                return;
+            }
 
-                            const updateData = {
-                                st_rate: 'PAID',
-                                st_sales: 'PAID',
-                                st_yard: 'PAID',
-                                st_tax: 'PAID',
-                                paid: true,
-                                invoice_sent: 'YES'
-                            };
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
 
-                            await window.updateTrip(tripId, updateData);
-
-                            row[32] = 'PAID'; 
-                            row[33] = 'PAID'; 
-                            row[30] = 'PAID'; 
-                            row[52] = 'PAID'; 
-                            row[57] = 'YES'; 
-
-                            if (window.allTripsUnfiltered) {
-                                const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                                if (ufRow) {
-                                    ufRow[32] = 'PAID';
-                                    ufRow[33] = 'PAID';
-                                    ufRow[30] = 'PAID';
-                                    ufRow[52] = 'PAID';
-                                    ufRow[57] = 'YES'; 
-                                }
-                            }
+            // 4. Debt Creation Logic (Partial Payment)
+            const totalPaid = paymentSplit.cashAmt + paymentSplit.bankAmt;
+            if (totalPaid < grandTotal) {
+                const debt = grandTotal - totalPaid;
+                const customerName = (regularRows.length > 0) ? regularRows[0][11] : (validRentals.length > 0 ? validRentals[0].row[11] : '');
+                const dateStr = new Date().toISOString().split('T')[0];
+                
+                try {
+                    const { data, error } = await db.from('trips').insert([{
+                        date: dateStr,
+                        container_no: 'DEUDA PENDIENTE',
+                        customer_name: customerName,
+                        sales_price: debt.toString(),
+                        st_sales: 'PENDING_PAYMENT',
+                        status: 'PENDING_PAYMENT'
+                    }]).select();
+                    
+                    if (error) {
+                        console.error('Error creating partial payment debt trip:', error);
+                        alert('Advertencia: El pago fue parcial pero hubo un error al crear la orden de Deuda Pendiente por $' + debt);
+                    } else {
+                        if (window.allTripsUnfiltered && data && data.length > 0) {
+                            const newRow = [
+                                data[0].trip_id, data[0].date, '', data[0].container_no, '', '', '', '', '', '', '',
+                                data[0].customer_name, '', '', '', '', '', '', '', '', data[0].sales_price,
+                                '', '', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT', '', '', '', '', '', '', '',
+                                'PENDING_PAYMENT', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT'
+                            ];
+                            window.allTripsUnfiltered.push(newRow);
                             if (window.combinedBillingTrips) {
-                                const cbRow = window.combinedBillingTrips.find(t => t[0] === tripId);
-                                if (cbRow) {
-                                    cbRow[32] = 'PAID';
-                                    cbRow[33] = 'PAID';
-                                    cbRow[30] = 'PAID';
-                                    cbRow[52] = 'PAID';
-                                    cbRow[57] = 'YES';
-                                }
+                                window.combinedBillingTrips.push(newRow);
                             }
-                            updatedCount++;
                         }
-                        
-                        if (paymentSplit && window.logCashTransaction) {
-                            const desc = `Pago Masivo Billing - ${regularRows.length} ordenes (Serv. Regulares)`;
-                            const cust = regularRows.length > 0 ? (regularRows[0][11] || 'Varios') : '';
-                            const orderNumbers = regularRows.map(r => r[5] || 'S/N').join(', ');
-                            const refText = orderNumbers.length > 100 ? orderNumbers.substring(0, 97) + '...' : orderNumbers;
-                            
-                            if (paymentSplit.cashAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: `${desc} [Cash]`, referencia: refText, chofer: cust });
-                            if (paymentSplit.bankAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: `${desc} [Bank]`, referencia: refText, chofer: cust });
-                        }
-
-                        if (window.showToast) window.showToast(`${updatedCount} órdenes regulares cobradas`, 'success');
                     }
+                } catch (debtErr) {
+                    console.error('Exception creating debt trip:', debtErr);
                 }
             }
 
-            // After regular processing, if there are rents, open Assistant
-            if (rentRows.length > 0) {
-                if (typeof window.openMultiRentModal === 'function') {
-                    window.openMultiRentModal(rentRows);
-                } else {
-                    alert('Asistente de rentas no disponible.');
+            // 5. Mark Regular Rows as PAID
+            let regularUpdatedCount = 0;
+            for (const row of regularRows) {
+                const tripId = row[0];
+                const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+                if (!tripId || (!row.isYardAggregate && !isUUID(tripId))) continue;
+
+                const updateData = {
+                    st_rate: 'PAID',
+                    st_sales: 'PAID',
+                    st_yard: 'PAID',
+                    st_tax: 'PAID',
+                    paid: true,
+                    invoice_sent: 'YES'
+                };
+
+                await window.updateTrip(tripId, updateData);
+
+                row[32] = 'PAID'; row[33] = 'PAID'; row[30] = 'PAID'; row[52] = 'PAID'; row[57] = 'YES'; 
+                if (window.allTripsUnfiltered) {
+                    const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                    if (ufRow) { ufRow[32] = 'PAID'; ufRow[33] = 'PAID'; ufRow[30] = 'PAID'; ufRow[52] = 'PAID'; ufRow[57] = 'YES'; }
                 }
-            } else {
-                window.renderBillingTable();
+                if (window.combinedBillingTrips) {
+                    const cbRow = window.combinedBillingTrips.find(t => t[0] === tripId);
+                    if (cbRow) { cbRow[32] = 'PAID'; cbRow[33] = 'PAID'; cbRow[30] = 'PAID'; cbRow[52] = 'PAID'; cbRow[57] = 'YES'; }
+                }
+                regularUpdatedCount++;
             }
+
+            // 6. Mark Rent Rows as PAID (1 period)
+            let rentUpdatedCount = 0;
+            for (const item of validRentals) {
+                const rental = item.rental;
+                const periodsToPay = item.periodsToPay; // 1
+                
+                const oldDate = new Date(rental.date_paid + 'T12:00:00');
+                const newDate = new Date(oldDate);
+                
+                if (rental.time_rent === 'month') {
+                    newDate.setMonth(newDate.getMonth() + periodsToPay);
+                } else if (rental.time_rent === 'week') {
+                    newDate.setDate(newDate.getDate() + (periodsToPay * 7));
+                } else if (rental.time_rent === 'day') {
+                    newDate.setDate(newDate.getDate() + periodsToPay);
+                } else if (rental.time_rent === 'year') {
+                    newDate.setFullYear(newDate.getFullYear() + periodsToPay);
+                }
+                const newDateStr = newDate.toISOString().split('T')[0];
+                
+                const { error: rErr } = await window.db.from('rentals').update({ date_paid: newDateStr }).eq('id', rental.id);
+                if (rErr) console.error("Rent payment err:", rErr);
+                else {
+                    rental.date_paid = newDateStr;
+                    item.row[31] = 'PAID'; // Update visual row status
+                    item.row[29] = newDateStr; // Update date in row
+                    if (window.allTripsUnfiltered) {
+                        const ufRow = window.allTripsUnfiltered.find(t => t[0] === item.row[0]);
+                        if (ufRow) { ufRow[31] = 'PAID'; ufRow[29] = newDateStr; }
+                    }
+                    if (window.combinedBillingTrips) {
+                        const cbRow = window.combinedBillingTrips.find(t => t[0] === item.row[0]);
+                        if (cbRow) { cbRow[31] = 'PAID'; cbRow[29] = newDateStr; }
+                    }
+                    rentUpdatedCount++;
+                }
+            }
+            
+            // 7. Log single consolidated Cash Ledger transaction
+            if (window.logCashTransaction) {
+                const parts = [];
+                if (regularRows.length > 0) parts.push(`${regularRows.length} Ord. Regulares`);
+                if (validRentals.length > 0) parts.push(`${validRentals.length} Rentas (1 Per.)`);
+                const desc = `Pago Masivo - ${parts.join(' y ')}`;
+                
+                const cust = (regularRows.length > 0) ? (regularRows[0][11] || 'Varios') : (validRentals.length > 0 ? validRentals[0].row[11] : '');
+                
+                let orderNumbers = [];
+                regularRows.forEach(r => orderNumbers.push(r[5] || 'S/N'));
+                validRentals.forEach(r => orderNumbers.push(r.row[5] || 'S/N'));
+                const joinNum = orderNumbers.join(', ');
+                const refText = joinNum.length > 100 ? joinNum.substring(0, 97) + '...' : joinNum;
+                
+                if (paymentSplit.cashAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: `${desc}`, referencia: refText, chofer: cust });
+                if (paymentSplit.bankAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: `${desc}`, referencia: refText, chofer: cust });
+            }
+
+            if (window.showToast) window.showToast(`${regularUpdatedCount} regulares y ${rentUpdatedCount} rentas cobradas`, 'success');
+            window.renderBillingTable();
 
         } catch (err) {
             console.error('Error marking bulk as paid:', err);
-            alert('Hubo un error al marcar algunas órdenes como pagadas.');
+            alert('Hubo un error al procesar el pago masivo: ' + err.message);
         } finally {
             btn.disabled = false;
             btn.innerHTML = origHtml;
         }
     };
+
 
     window.pendingMultiRentals = [];
 
