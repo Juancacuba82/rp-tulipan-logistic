@@ -23,6 +23,19 @@
                     const rRel = (rental.order_number || rental.release_no || '').trim().toLowerCase();
                     const rCont = (rental.container_no || '').trim().toLowerCase();
                     
+                    let dynStatus = (rental.payment_status || 'PEND').trim().toUpperCase();
+                    if (rental.final_date) {
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const finalDateObj = new Date(rental.final_date);
+                        finalDateObj.setHours(0,0,0,0);
+                        if (dynStatus === 'PAID' && today >= finalDateObj) {
+                            dynStatus = 'PEND';
+                        }
+                    } else {
+                        dynStatus = 'PEND';
+                    }
+                    
                     let origTrip = null;
                     if (rCont && rCont !== '---') {
                         origTrip = trips.find(t => {
@@ -37,7 +50,7 @@
                     
                     if (origTrip) {
                         origTrip[27] = rentDebt.toFixed(2);
-                        origTrip[31] = rental.payment_status === 'PAID' ? 'PAID' : 'PEND';
+                        origTrip[31] = dynStatus === 'PAID' ? 'PAID' : 'PEND';
                         origTrip.isActiveRentalMerged = rental.id;
                     } else {
                         const virtualRow = new Array(80).fill('');
@@ -51,7 +64,7 @@
                         virtualRow[8] = rental.delivery_place || '---';
                         virtualRow[11] = rental.customer_name;
                         virtualRow[27] = rentDebt.toFixed(2);
-                        virtualRow[31] = rental.payment_status === 'PAID' ? 'PAID' : 'PEND';
+                        virtualRow[31] = dynStatus === 'PAID' ? 'PAID' : 'PEND';
                         virtualRow[41] = 'COMPLETE';
                         virtualRow[57] = 'NO';
                         

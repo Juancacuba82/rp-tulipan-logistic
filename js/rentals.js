@@ -348,8 +348,41 @@
             const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
             totalAccumulated += costInfo.total;
             
-            // Highlight row in red if expired (ACTIVE and date reached/passed)
-            const isExpired = row.status === 'ACTIVE' && row.final_date && new Date(row.final_date) <= new Date().setHours(0,0,0,0);
+            // Highlight row in red if expired (ACTIVE and date reached/passed + 1 period)
+            let isExpired = false;
+            let dynamicPaymentStatus = (row.payment_status || 'PENDING').trim().toUpperCase();
+            
+            if (row.status === 'ACTIVE' && row.final_date) {
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const finalDateObj = new Date(row.final_date);
+                finalDateObj.setHours(0,0,0,0);
+                
+                // If DB says PAID but date has passed, force to PENDING
+                if (dynamicPaymentStatus === 'PAID' && today >= finalDateObj) {
+                    dynamicPaymentStatus = 'PENDING';
+                }
+                
+                // If it evaluates to PENDING (either manually or forced), check for red alert
+                if (dynamicPaymentStatus === 'PENDING' || today >= finalDateObj) {
+                    const nextPeriodDate = new Date(finalDateObj);
+                    if (row.time_rent === 'monthly') {
+                        nextPeriodDate.setMonth(nextPeriodDate.getMonth() + 1);
+                    } else if (row.time_rent === 'weekly') {
+                        nextPeriodDate.setDate(nextPeriodDate.getDate() + 7);
+                    } else if (row.time_rent === 'diary') {
+                        nextPeriodDate.setDate(nextPeriodDate.getDate() + 1);
+                    } else {
+                        nextPeriodDate.setMonth(nextPeriodDate.getMonth() + 1);
+                    }
+                    
+                    if (today >= nextPeriodDate) {
+                        isExpired = true; // Red alert
+                    }
+                }
+            } else if (row.status === 'ACTIVE' && !row.final_date) {
+                dynamicPaymentStatus = 'PENDING';
+            }
             
             const cNum = (row.container_no || '').toString().trim().toUpperCase();
             const isDuplicate = (cNum && cNum !== '---' && cNum !== 'TBA' && containerCounts[cNum] > 1);
@@ -388,8 +421,8 @@
                     </span>
                 </td>
                 <td>
-                    <span class="status-badge" style="background: ${row.payment_status === 'PAID' ? '#1e40af' : '#94a3b8'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">
-                        ${row.payment_status || 'PENDING'}
+                    <span class="status-badge" style="background: ${dynamicPaymentStatus === 'PAID' ? '#1e40af' : '#94a3b8'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">
+                        ${dynamicPaymentStatus}
                     </span>
                 </td>
                 <td style="font-size: 0.75rem; color: #000000; font-weight: 700; min-width: 140px; max-width: 140px; white-space: normal; word-wrap: break-word; line-height: 1.2;">${row.notes || ''}</td>
