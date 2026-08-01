@@ -75,7 +75,77 @@
         populateRentalReleaseSelect();
         populateRentalFilterCustomerSelect();
         populateRentalFilterSizeSelect();
+        populateRentalFilterContainerList();
     }
+    
+    window.clearRentalFilters = function() {
+        document.getElementById('rental-filter-start').value = '';
+        document.getElementById('rental-filter-end').value = '';
+        document.getElementById('rental-filter-customer').value = '';
+        document.getElementById('rental-filter-size').value = '';
+        document.getElementById('rental-filter-container').value = '';
+        document.getElementById('rental-show-all').checked = false;
+        renderRentalsTable();
+    };
+
+    function populateRentalFilterContainerList() {
+        const dropdown = document.getElementById('rental-container-dropdown');
+        if (!dropdown || !window.currentRentals) return;
+        dropdown.innerHTML = '';
+        const uniqueContainers = [...new Set(window.currentRentals.map(r => (r.container_no || '').toString().trim().toUpperCase()).filter(c => c && c !== '---' && c !== 'TBA'))].sort();
+        uniqueContainers.forEach(container => {
+            const item = document.createElement('div');
+            item.textContent = container;
+            item.style.padding = '8px 12px';
+            item.style.fontSize = '0.8rem';
+            item.style.fontWeight = '700';
+            item.style.color = '#1e293b';
+            item.style.cursor = 'pointer';
+            item.style.transition = 'background-color 0.15s ease';
+            item.onmouseenter = () => item.style.backgroundColor = '#f1f5f9';
+            item.onmouseleave = () => item.style.backgroundColor = 'transparent';
+            item.onclick = (e) => {
+                e.stopPropagation();
+                document.getElementById('rental-filter-container').value = container;
+                dropdown.style.display = 'none';
+                renderRentalsTable();
+            };
+            dropdown.appendChild(item);
+        });
+    }
+
+    window.showRentalContainerDropdown = function() {
+        const dropdown = document.getElementById('rental-container-dropdown');
+        if (dropdown) {
+            dropdown.style.display = 'flex';
+            if(typeof window.filterRentalContainerDropdown === 'function') {
+                window.filterRentalContainerDropdown();
+            }
+        }
+    };
+
+    window.filterRentalContainerDropdown = function() {
+        const inputStr = (document.getElementById('rental-filter-container')?.value || '').toLowerCase();
+        const dropdown = document.getElementById('rental-container-dropdown');
+        if (!dropdown) return;
+        const items = dropdown.querySelectorAll('div');
+        items.forEach(item => {
+            if (item.textContent.toLowerCase().includes(inputStr)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    };
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        const input = document.getElementById('rental-filter-container');
+        const dropdown = document.getElementById('rental-container-dropdown');
+        if (input && dropdown && e.target !== input && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
 
     function populateRentalFilterCustomerSelect() {
         const sel = document.getElementById('rental-filter-customer');
@@ -247,56 +317,56 @@
         const diffDays = Math.ceil((endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
         const daysPassed = Math.max(0, diffDays);
         
-        let units = 1;
-        let filteredUnits = 0;
-        let useFilter = dateFrom || dateTo;
-
-        if (startDateStr && finalDateStr) {
-            const sDate = new Date(startDateStr);
-            const fDate = new Date(finalDateStr);
-            if (fDate > sDate) {
-                let count = 0;
-                let temp = new Date(sDate);
-                while (temp < fDate) {
-                    let periodStart = new Date(temp);
-                    if (timeRent === 'monthly') temp.setMonth(temp.getMonth() + 1);
-                    else if (timeRent === 'weekly') temp.setDate(temp.getDate() + 7);
-                    else if (timeRent === 'diary') temp.setDate(temp.getDate() + 1);
-                    else { temp.setMonth(temp.getMonth() + 1); } // Default monthly
-                    let periodEnd = new Date(temp);
-                    count++;
-
-                    if (useFilter) {
-                        let pStr = periodEnd.toISOString().split('T')[0];
-                        // If period end falls inside the filter
-                        if ((!dateFrom || pStr >= dateFrom) && (!dateTo || pStr <= dateTo)) {
-                            filteredUnits++;
-                        }
-                    }
-
-                    if (count > 1000) break; // Safety
-                }
-                units = count;
-            } else if (useFilter) {
-                let pStr = sDate.toISOString().split('T')[0];
-                if ((!dateFrom || pStr >= dateFrom) && (!dateTo || pStr <= dateTo)) {
-                    filteredUnits = 1;
-                } else {
-                    filteredUnits = 0;
-                }
-            }
-        } else if (useFilter) {
-            let pStr = start.toISOString().split('T')[0];
-            if ((!dateFrom || pStr >= dateFrom) && (!dateTo || pStr <= dateTo)) {
-                filteredUnits = 1;
-            } else {
-                filteredUnits = 0;
-            }
+        const bPrice = parseFloat(basePrice) || 0;
+        
+        // Calculate EXACT theoretical total cost based on calendar months (ignores 30 vs 31 days for full months)
+        let totalTheoreticalCost = 0;
+        if (timeRent === 'monthly') {
+            const months = (endDate.getFullYear() - start.getFullYear()) * 12 + (endDate.getMonth() - start.getMonth());
+            const daysDiff = endDate.getDate() - start.getDate();
+            const totalMonths = months + (daysDiff / 30.0);
+            totalTheoreticalCost = totalMonths * bPrice;
+        } else if (timeRent === 'weekly') {
+            const totalDays = (endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+            totalTheoreticalCost = (totalDays / 7.0) * bPrice;
+        } else {
+            const totalDays = (endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+            totalTheoreticalCost = totalDays * bPrice;
+        }
+        
+        // Calculate the effective start and end dates based on filters
+        let effectiveStart = start;
+        let effectiveEnd = endDate;
+        
+        const useFilter = dateFrom || dateTo;
+        if (useFilter) {
+            const fStart = dateFrom ? new Date(dateFrom + 'T00:00:00') : new Date('2000-01-01T00:00:00');
+            if (dateFrom) fStart.setHours(0, 0, 0, 0);
+            
+            const fEnd = dateTo ? new Date(dateTo + 'T00:00:00') : new Date('2099-12-31T23:59:59');
+            if (dateTo) fEnd.setHours(23, 59, 59, 999); 
+            
+            effectiveStart = new Date(Math.max(start.getTime(), fStart.getTime()));
+            effectiveEnd = new Date(Math.min(endDate.getTime(), fEnd.getTime()));
+        }
+        
+        let overlapDays = 0;
+        if (effectiveStart <= effectiveEnd) {
+            overlapDays = (effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24);
+        }
+        
+        // Real total elapsed days of the entire rental
+        const totalRealDays = (endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+        
+        // Calculate final total using the proportion of overlap vs total duration
+        let finalTotal = 0;
+        if (totalRealDays > 0) {
+            const overlapRatio = Math.max(0, overlapDays) / totalRealDays;
+            finalTotal = totalTheoreticalCost * overlapRatio;
         }
 
-        let finalUnits = useFilter ? filteredUnits : units;
-        const total = parseFloat(basePrice) * finalUnits;
-        return { total: total, days: daysPassed };
+        const finalDaysPassed = Math.ceil(totalRealDays);
+        return { total: Math.max(0, finalTotal), days: finalDaysPassed, overlapDays: Math.ceil(Math.max(0, overlapDays)) };
     }
 
     function renderRentalsTable() {
@@ -310,6 +380,7 @@
         const endDateFilter = document.getElementById('rental-filter-end')?.value;
         const customerFilter = (document.getElementById('rental-filter-customer')?.value || '').trim().toLowerCase();
         const sizeFilter = (document.getElementById('rental-filter-size')?.value || '').trim().toLowerCase();
+        const containerFilter = (document.getElementById('rental-filter-container')?.value || '').trim().toLowerCase();
 
         let visibleCount = 0;
 
@@ -330,8 +401,13 @@
             // Default: Show only ACTIVE. If showAll is checked, show EVERYTHING.
             if (!showAll && statusStr !== 'ACTIVE') return;
             
-            if (startDateFilter && row.start_date < startDateFilter) return;
-            if (endDateFilter && row.start_date > endDateFilter) return;
+            // INSTEAD of strict start_date filtering, we calculate the cost first!
+            const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent, startDateFilter, endDateFilter);
+            
+            // If filters are active, and this container didn't overlap the period AT ALL, hide it!
+            if ((startDateFilter || endDateFilter) && costInfo.overlapDays <= 0) {
+                return;
+            }
             
             if (customerFilter) {
                 const cName = (row.customer_name || '').trim().toLowerCase();
@@ -343,9 +419,13 @@
                 if (rSize !== sizeFilter) return;
             }
             
+            if (containerFilter) {
+                const cNumStr = (row.container_no || '').toString().trim().toLowerCase();
+                if (!cNumStr.includes(containerFilter)) return;
+            }
+            
             visibleCount++;
             
-            const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent);
             totalAccumulated += costInfo.total;
             
             // Highlight row in red if expired (ACTIVE and date reached/passed + 1 period)
@@ -384,6 +464,11 @@
                 dynamicPaymentStatus = 'PENDING';
             }
             
+            
+            // Calculate absolute total for Balance Due (ignoring date filters)
+            const absoluteCostInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent, null, null);
+            const balanceDue = (dynamicPaymentStatus === 'PAID') ? 0 : absoluteCostInfo.total;
+            
             const cNum = (row.container_no || '').toString().trim().toUpperCase();
             const isDuplicate = (cNum && cNum !== '---' && cNum !== 'TBA' && containerCounts[cNum] > 1);
 
@@ -413,8 +498,8 @@
                 <td style="font-weight: 700; color: #000000;">${row.customer_name || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">${window.formatUSPhone(row.phone) || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">$${parseFloat(row.base_price).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                <td style="font-weight: 800; color: #000000;">${costInfo.days} days</td>
-                <td style="font-weight: 900; color: ${row.status === 'ACTIVE' ? '#10b981' : '#000000'}; font-size: 1rem;">$${costInfo.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="font-weight: 800; color: #000000;">${absoluteCostInfo.days} days</td>
+                <td style="font-weight: 900; color: ${balanceDue > 0 ? (isExpired ? '#ef4444' : '#000000') : '#10b981'}; font-size: 1rem;">$${balanceDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td>
                     <span class="status-badge" style="background: ${row.status === 'FINISHED' ? '#64748b' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">
                         ${row.status || 'ACTIVE'}

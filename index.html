@@ -5334,6 +5334,14 @@
                                         </select>
                                     </div>
                                     <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
+                                    <div style="position: relative; display: flex; align-items: center; gap: 8px;">
+                                        <i class="fas fa-box" style="color: #475569; font-size: 0.8rem;"></i>
+                                        <input type="text" id="rental-filter-container" autocomplete="off" oninput="if(typeof filterRentalContainerDropdown === 'function') filterRentalContainerDropdown(); renderRentalsTable();" onfocus="if(typeof showRentalContainerDropdown === 'function') showRentalContainerDropdown();"
+                                            placeholder="Container #"
+                                            style="border: none; outline: none; font-size: 0.8rem; font-weight: 700; color: #1e293b; background: transparent; width: 110px;">
+                                        <div id="rental-container-dropdown" style="display: none; position: absolute; top: 35px; left: 0; width: 150px; max-height: 250px; overflow-y: auto; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); z-index: 1000; flex-direction: column; padding: 5px 0;"></div>
+                                    </div>
+                                    <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
                                     <div style="display: flex; align-items: center; gap: 8px;">
                                         <input type="checkbox" id="rental-show-all" onchange="renderRentalsTable()"
                                             style="width: 20px; height: 20px; cursor: pointer; accent-color: #0f172a;">
@@ -5341,6 +5349,10 @@
                                             style="margin: 0; font-size: 0.75rem; color: #1e293b; font-weight: 800; cursor:pointer; text-transform: uppercase;">Show
                                             All (Inc. Finished)</label>
                                     </div>
+                                    <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
+                                    <button onclick="clearRentalFilters()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #ef4444; font-weight: 800; font-size: 0.75rem;">
+                                        <i class="fas fa-times-circle"></i> Clear
+                                    </button>
                                 </div>
 
                                 <div style="display: flex; gap: 10px;">
