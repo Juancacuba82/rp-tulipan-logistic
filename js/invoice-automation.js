@@ -377,7 +377,7 @@
     };
 
     async function executeMasterInvoiceSendProcess(rows, btn) {
-        const customerEmail = document.getElementById('bd-email')?.value || rows[0][36] || '';
+        let customerEmail = document.getElementById('bd-email')?.value || rows[0][36] || '';
         if (!customerEmail || !customerEmail.includes('@')) {
             alert('Please enter a valid email address in the detail window.');
             return;
@@ -405,10 +405,18 @@
         
         if (duplicateContainers.size > 0) {
             const dups = Array.from(duplicateContainers).join(', ');
-            const confirmDup = confirm(`¡Atención! Hemos detectado contenedores duplicados en este grupo: ${dups}.\n\n¿Estás seguro de que deseas enviar la factura de todos modos?`);
-            if (!confirmDup) return;
+            const confirmDup = confirm(`¡Atención! Hemos detectado contenedores duplicados en este grupo: ${dups}.\n\n¿Estás seguro de que deseas enviar la factura de todos modos a ${customerEmail}?`);
+            if (!confirmDup) {
+                const testEmail = prompt("Envío cancelado. Si deseas enviar una prueba, ingresa el correo destino aquí (o déjalo en blanco para abortar):", customerEmail);
+                if (!testEmail || !testEmail.includes('@')) return;
+                customerEmail = testEmail.trim();
+            }
         } else {
-            if (!confirm(`Send ${masterTitle} package to ${customerEmail}?`)) return;
+            if (!confirm(`Send ${masterTitle} package to ${customerEmail}?`)) {
+                const testEmail = prompt("Envío cancelado. Si deseas enviar una prueba, ingresa el correo destino aquí (o déjalo en blanco para abortar):", customerEmail);
+                if (!testEmail || !testEmail.includes('@')) return;
+                customerEmail = testEmail.trim();
+            }
         }
 
         const orig = btn ? btn.innerHTML : '';
@@ -447,7 +455,10 @@
                 pdf_2_b64: "", // NO BOLs
                 pdf_2_name: "",
                 pdf_3_b64: "", // NO Proofs
-                pdf_3_name: ""
+                pdf_3_name: "",
+                adjunto_invoice: b64Pdf, // For newer templates
+                adjunto_recibo: b64Pdf,  // For newer templates
+                adjunto_fotos: ""
             };
             
             await emailjs.send(serviceId, templateId, templateParams);
@@ -458,13 +469,26 @@
                 const tripId = row[0];
                 if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
                     const currentCount = parseInt(row[64]) || 0;
+                    const newCount = currentCount + 1;
+                    
                     await window.db.from('trips').update({
+                        invoice_sent: 'YES',
                         invoice_last_sent: nowIso,
-                        reminder_count: currentCount + 1
+                        invoice_reminder_count: newCount
                     }).eq('trip_id', tripId);
                     
+                    row[57] = 'YES';
                     row[63] = nowIso;
-                    row[64] = currentCount + 1;
+                    row[64] = newCount;
+                    
+                    if (window.allTripsUnfiltered) {
+                        const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                        if (ufRow) {
+                            ufRow[57] = 'YES';
+                            ufRow[63] = nowIso;
+                            ufRow[64] = newCount;
+                        }
+                    }
                 }
             }
             
@@ -497,7 +521,16 @@
         if (lastSentDate) {
             confirmMsg += `\n\n🔔 Previous sends: ${reminderCount}  |  Last sent: ${lastSentText}`;
         }
-        if (!confirm(confirmMsg)) return;
+        
+        let targetEmail = customerEmail;
+        if (!confirm(confirmMsg)) {
+            const testEmail = prompt("Envío cancelado. Si deseas enviar una prueba, ingresa el correo destino aquí (o déjalo en blanco para abortar):", customerEmail);
+            if (!testEmail || !testEmail.includes('@')) return;
+            targetEmail = testEmail.trim();
+        }
+
+        const originalEmail = row[36];
+        row[36] = targetEmail;
 
         // ── 3. Get the button that triggered the event ───────
         const orig = btn ? btn.innerHTML : '';
@@ -513,6 +546,7 @@
             alert('Error sending invoice: ' + errMsg);
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+            row[36] = originalEmail;
         }
     }
 

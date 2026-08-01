@@ -340,14 +340,28 @@
             }
         });
         
+        let targetEmail = customerEmail;
+
         if (duplicateContainers.size > 0) {
             const dups = Array.from(duplicateContainers).join(', ');
-            const confirmDup = confirm(`¡Atención! Hemos detectado contenedores duplicados en este Master Invoice: ${dups}.\n\n¿Estás seguro de que deseas enviarlo de todos modos?`);
-            if (!confirmDup) return;
+            const confirmDup = confirm(`¡Atención! Hemos detectado contenedores duplicados en este Master Invoice: ${dups}.\n\n¿Estás seguro de que deseas enviarlo de todos modos a ${targetEmail}?`);
+            if (!confirmDup) {
+                const testEmail = prompt("Envío cancelado. Si deseas enviar una prueba, ingresa el correo destino aquí (o déjalo en blanco para abortar):", targetEmail);
+                if (!testEmail || !testEmail.includes('@')) return;
+                targetEmail = testEmail.trim();
+            }
         } else {
-            const confirmSend = confirm(`Send Master Invoice to ${customerEmail}?`);
-            if (!confirmSend) return;
+            const confirmSend = confirm(`Send Master Invoice to ${targetEmail}?`);
+            if (!confirmSend) {
+                const testEmail = prompt("Envío cancelado. Si deseas enviar una prueba, ingresa el correo destino aquí (o déjalo en blanco para abortar):", targetEmail);
+                if (!testEmail || !testEmail.includes('@')) return;
+                targetEmail = testEmail.trim();
+            }
         }
+        
+        // Temporarily override row[36] just in case window.sendReceiptEmail uses it
+        const originalEmail = rows[0][36];
+        rows[0][36] = targetEmail;
 
         const btn = event.currentTarget;
         const originalContent = btn.innerHTML;
@@ -367,13 +381,26 @@
                     const tripId = row[0];
                     if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
                         const currentCount = parseInt(row[64]) || 0;
+                        const newCount = currentCount + 1;
+                        
                         await window.db.from('trips').update({
+                            invoice_sent: 'YES',
                             invoice_last_sent: nowIso,
-                            reminder_count: currentCount + 1
+                            invoice_reminder_count: newCount
                         }).eq('trip_id', tripId);
                         
+                        row[57] = 'YES';
                         row[63] = nowIso;
-                        row[64] = currentCount + 1;
+                        row[64] = newCount;
+                        
+                        if (window.allTripsUnfiltered) {
+                            const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                            if (ufRow) {
+                                ufRow[57] = 'YES';
+                                ufRow[63] = nowIso;
+                                ufRow[64] = newCount;
+                            }
+                        }
                     }
                 }
 
@@ -386,6 +413,7 @@
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalContent;
+            rows[0][36] = originalEmail;
         }
     };
 
