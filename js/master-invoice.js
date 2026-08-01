@@ -249,7 +249,7 @@
                 subtotal += (qty * price);
             }
             if (yardRate > 0) {
-                const desc = yardServiceDesc ? `YARD SERVICE: ${yardServiceDesc}` : "YARD SERVICE";
+                const desc = yardServiceDesc ? `ADDITIONAL CHARGE: ${yardServiceDesc}` : "ADDITIONAL CHARGE";
                 addServiceRow(body, desc, qty, yardRate);
                 subtotal += (qty * yardRate);
             }
@@ -325,8 +325,29 @@
             return;
         }
 
-        const confirmSend = confirm(`Send Master Invoice to ${customerEmail}?`);
-        if (!confirmSend) return;
+        // Check for duplicate containers
+        const seenContainers = new Set();
+        const duplicateContainers = new Set();
+        
+        rows.forEach(r => {
+            const containerNo = (r[3] || '').toString().trim().toUpperCase();
+            if (containerNo && containerNo !== '---') {
+                if (seenContainers.has(containerNo)) {
+                    duplicateContainers.add(containerNo);
+                } else {
+                    seenContainers.add(containerNo);
+                }
+            }
+        });
+        
+        if (duplicateContainers.size > 0) {
+            const dups = Array.from(duplicateContainers).join(', ');
+            const confirmDup = confirm(`¡Atención! Hemos detectado contenedores duplicados en este Master Invoice: ${dups}.\n\n¿Estás seguro de que deseas enviarlo de todos modos?`);
+            if (!confirmDup) return;
+        } else {
+            const confirmSend = confirm(`Send Master Invoice to ${customerEmail}?`);
+            if (!confirmSend) return;
+        }
 
         const btn = event.currentTarget;
         const originalContent = btn.innerHTML;
@@ -339,6 +360,24 @@
                 // Reuse existing sendReceiptEmail logic if possible, 
                 // but Master Invoice might need a custom EmailJS template or parameters
                 await window.sendReceiptEmail(rows[0], blob);
+                
+                // Update tracking for all rows in the master invoice
+                const nowIso = new Date().toISOString();
+                for (const row of rows) {
+                    const tripId = row[0];
+                    if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                        const currentCount = parseInt(row[64]) || 0;
+                        await window.db.from('trips').update({
+                            invoice_last_sent: nowIso,
+                            reminder_count: currentCount + 1
+                        }).eq('trip_id', tripId);
+                        
+                        row[63] = nowIso;
+                        row[64] = currentCount + 1;
+                    }
+                }
+
+                if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
                 alert("Master Invoice sent successfully!");
             }
         } catch (e) {

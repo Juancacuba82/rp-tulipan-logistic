@@ -357,7 +357,8 @@
         }
 
         // ── 1. Run the Guardian ──────────────────────────────
-        const isMasterInvoice = rows.length > 1 && rows.some(r => r[5] !== rows[0][5]);
+        // If there are multiple rows being sent at once (e.g., from Booking or Service invoice), process them together
+        const isMasterInvoice = rows.length > 1;
         
         if (isMasterInvoice) {
             executeMasterInvoiceSendProcess(rows, btn);
@@ -387,7 +388,28 @@
         const allSameBooking = firstBooking !== '---' && rows.every(r => (r[65] || '---').toString().trim().toUpperCase() === firstBooking);
         const masterTitle = allSameBooking ? `BOOKING ${firstBooking}` : 'MASTER INVOICE';
         
-        if (!confirm(`Send ${masterTitle} package to ${customerEmail}?`)) return;
+        // Check for duplicate containers
+        const seenContainers = new Set();
+        const duplicateContainers = new Set();
+        
+        rows.forEach(r => {
+            const containerNo = (r[3] || '').toString().trim().toUpperCase();
+            if (containerNo && containerNo !== '---') {
+                if (seenContainers.has(containerNo)) {
+                    duplicateContainers.add(containerNo);
+                } else {
+                    seenContainers.add(containerNo);
+                }
+            }
+        });
+        
+        if (duplicateContainers.size > 0) {
+            const dups = Array.from(duplicateContainers).join(', ');
+            const confirmDup = confirm(`¡Atención! Hemos detectado contenedores duplicados en este grupo: ${dups}.\n\n¿Estás seguro de que deseas enviar la factura de todos modos?`);
+            if (!confirmDup) return;
+        } else {
+            if (!confirm(`Send ${masterTitle} package to ${customerEmail}?`)) return;
+        }
 
         const orig = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
@@ -439,7 +461,7 @@
                     await window.db.from('trips').update({
                         invoice_last_sent: nowIso,
                         reminder_count: currentCount + 1
-                    }).eq('id', tripId);
+                    }).eq('trip_id', tripId);
                     
                     row[63] = nowIso;
                     row[64] = currentCount + 1;

@@ -847,17 +847,17 @@
                                         const servicePrice = parseFloat(s.price) || 0;
                                         if (servicePrice > 0) {
                                             const normalized = normalizeServiceDesc(s.desc);
-                                            addAggregatedItem(yardMap, `YARD SERVICE: ${normalized}`, qty, servicePrice);
+                                            addAggregatedItem(yardMap, `ADDITIONAL CHARGE: ${normalized}`, qty, servicePrice);
                                         }
                                     });
                                 }
                             } catch(e) {
-                                addAggregatedItem(yardMap, `YARD SERVICE`, qty, yardRate);
+                                addAggregatedItem(yardMap, `ADDITIONAL CHARGE`, qty, yardRate);
                             }
                         } else {
-                            let desc = `YARD SERVICE`;
+                            let desc = `ADDITIONAL CHARGE`;
                             if (yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES') {
-                                desc = `YARD SERVICE: ${normalizeServiceDesc(yardDesc)}`;
+                                desc = `ADDITIONAL CHARGE: ${normalizeServiceDesc(yardDesc)}`;
                             }
                             addAggregatedItem(yardMap, desc, qty, yardRate);
                         }
