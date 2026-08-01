@@ -377,6 +377,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const yardNotesPrefix = toYardDest === 'STORAGE' ? '[Storage Yard] ' : '';
                 const orderNote = (document.getElementById('in-note')?.value || '').trim();
                 const combinedNotes = orderNote ? `${yardNotesPrefix}${orderNote}` : yardNotesPrefix.trim();
+                
+                // Save the Storage Yard marker to the trips table as well, so it persists in the calendar UI
+                dbObj.note = combinedNotes || '---';
+                rowData[25] = dbObj.note;
                 const yardData = {
                     container_no: (document.getElementById('in-ncont')?.value || '---').toUpperCase(),
                     size: selectedSize || '---',
@@ -952,7 +956,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         // Actually, cellIdx 25 is Action, displayData only has 0-24.
                         if (cellIdx < displayData.length) {
                             cells[cellIdx].textContent = val;
-                            cells[cellIdx].style.fontWeight = 'normal';
                             cells[cellIdx].style.backgroundColor = '';
                             cells[cellIdx].style.color = '';
                         }
@@ -1437,6 +1440,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             togglePickupAddressMode('manual');
                             el.value = (v === '---' || v === undefined || v === null) ? '' : v;
                         }
+                    } else if (id === 'in-note') {
+                        let noteStr = (v === '---' || v === undefined || v === null) ? '' : v.toString();
+                        if (noteStr.includes('[Storage Yard]')) {
+                            noteStr = noteStr.replace('[Storage Yard] ', '').replace('[Storage Yard]', '').trim();
+                        }
+                        el.value = noteStr;
                     } else {
                         el.value = (v === '---' || v === undefined || v === null) ? '' : v;
                     }
@@ -1638,7 +1647,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
             const destSel = document.getElementById('in-to-yard-dest');
             if (destSel) {
-                if (isToYardChecked && yardItemId) {
+                const noteVal = rowData[25] || '';
+                const isStorageNote = noteVal.includes('[Storage Yard]');
+                
+                if (isStorageNote) {
+                    destSel.value = 'STORAGE';
+                    destSel.style.display = 'inline-block';
+                } else if (isToYardChecked && yardItemId) {
                     const isStorage = window.isYardItemInStorage ? window.isYardItemInStorage(yardItemId) : false;
                     destSel.value = isStorage ? 'STORAGE' : 'RPTULIPAN';
                 } else {
