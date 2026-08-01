@@ -432,7 +432,9 @@
                 if (rentalId) {
                     const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                     if (rental && window.calculateRentalCost) {
-                        const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                        let effectiveStart = (rental.status !== 'FINISHED' && rental.final_date) ? rental.final_date : rental.start_date;
+                        const endForCalc = rental.status === 'FINISHED' ? rental.final_date : null;
+                        const costInfo = window.calculateRentalCost(effectiveStart, endForCalc, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
                         totalRent = costInfo.total;
                     } else {
                         totalRent = mrate;
@@ -880,8 +882,10 @@
                             const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                             if (rental && window.calculateRentalCost) {
                                 periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                                startDateObj = new Date(rental.start_date);
-                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                                let effectiveStart = (rental.status !== 'FINISHED' && rental.final_date) ? rental.final_date : rental.start_date;
+                                startDateObj = new Date(effectiveStart);
+                                const endForCalc = rental.status === 'FINISHED' ? rental.final_date : null;
+                                const costInfo = window.calculateRentalCost(effectiveStart, endForCalc, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
                                 calcTotal = costInfo.total;
                                 diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
                             }
@@ -890,8 +894,10 @@
                             const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                             if (rental && window.calculateRentalCost) {
                                 periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                                startDateObj = new Date(rental.start_date);
-                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
+                                let effectiveStart = (rental.status !== 'FINISHED' && rental.final_date) ? rental.final_date : rental.start_date;
+                                startDateObj = new Date(effectiveStart);
+                                const endForCalc = rental.status === 'FINISHED' ? rental.final_date : null;
+                                const costInfo = window.calculateRentalCost(effectiveStart, endForCalc, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
                                 calcTotal = costInfo.total;
                                 diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
                             }
@@ -915,7 +921,7 @@
                             
                             const dStr = pStart.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'}) + ' - ' + pEnd.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
                             
-                            addAggregatedItem(rentMap, `CONTAINER RENTAL (${periodLabel} ${i}: ${dStr})`, 1, mrate);
+                            addAggregatedItem(rentMap, `CONTAINER RENTAL`, 1, mrate);
                         }
                     }
                 });
