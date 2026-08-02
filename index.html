@@ -1813,13 +1813,14 @@
                             </div>
                         </div>
                         <div class="form-group" id="price-per-day-group" style="display:none;">
-                            <label class="sidebar-label-btn sidebar-label-btn-orange">Price per Day</label>
+                            <label class="sidebar-label-btn sidebar-label-btn-storage">Price per Day</label>
                             <input type="number" id="in-priceperday" class="trip-pay-input" placeholder="0.00"
                                 style="width:100%;">
                         </div>
-                        <div class="form-group" id="date-out-group" style="display:none;"><label
-                                class="sidebar-label-btn sidebar-label-btn-orange">Date Out</label><input type="date"
-                                id="in-dateout"></div>
+                        <div class="form-group" id="lift-cost-group" style="display:none;">
+                            <label class="sidebar-label-btn sidebar-label-btn-storage">Lift Cost</label>
+                            <input type="number" id="in-liftcost" class="trip-pay-input" placeholder="0.00" style="width:100%;">
+                        </div>
                         <!-- Removed DAY RATE and consolidated section -->
 
                         <div class="form-group" id="sales-price-group" style="display:none;">
@@ -7248,7 +7249,7 @@
             const chkYard = document.getElementById('in-flag1');
             const yardHidden = document.getElementById('in-yard');
             const yr = document.getElementById('yard-rate-group');
-            const doGroup = document.getElementById('date-out-group');
+            const doGroup = document.getElementById('lift-cost-group');
             const ppd = document.getElementById('price-per-day-group');
 
             if (chkYard) {
@@ -7348,7 +7349,7 @@
                 destSel.style.display = isChecked ? 'inline-block' : 'none';
             }
             const ppd = document.getElementById('price-per-day-group');
-            const doGroup = document.getElementById('date-out-group');
+            const doGroup = document.getElementById('lift-cost-group');
             if (ppd) {
                 ppd.style.display = isChecked ? 'flex' : 'none';
                 if (!isChecked && document.getElementById('in-priceperday')) {

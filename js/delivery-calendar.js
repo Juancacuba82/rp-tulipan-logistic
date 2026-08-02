@@ -390,8 +390,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     notes: combinedNotes,
                     customer_name: selectedCustomer || '---',
                     customer_phone: document.getElementById('in-phone')?.value || '',
-                    daily_rate: parseFloat(document.getElementById('in-priceperday')?.value) || 0,
-                    exit_date: document.getElementById('in-dateout')?.value || null
+                    daily_rate: dbObj ? dbObj.price_per_day : (parseFloat(document.getElementById('in-priceperday')?.value) || 0),
+                    liftCostStr: document.getElementById('in-liftcost')?.value
                 };
 
                 // Capture the editing state BEFORE it gets cleared
@@ -430,8 +430,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
 
                 // --- MANUALLY SYNC YARD STOCK ---
-                // Only create/update the yard record if the order is finalized (Complete)
-                if (isMoveToYard && isFinalized) {
+                // Create/update the yard record (removed isFinalized restriction to guarantee daily_rate syncs)
+                if (isMoveToYard) {
                     try {
                         let searchOrder = yardData.origin_release;
                         let searchCont = yardData.container_no;
@@ -446,7 +446,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
 
                         const { data: existingYard } = await db.from('yard_stock')
-                            .select('id')
+                            .select('id, lift_cost')
                             .eq('origin_release', searchOrder)
                             .eq('container_no', searchCont)
                             .limit(1);
@@ -467,7 +467,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     customer_name: yardData.customer_name,
                                     customer_phone: yardData.customer_phone,
                                     daily_rate: yardData.daily_rate,
-                                    exit_date: yardData.exit_date,
+                                    lift_cost: yardData.liftCostStr !== '' && yardData.liftCostStr !== undefined ? parseFloat(yardData.liftCostStr) : (existingYard[0].lift_cost || 0),
                                     created_at: createdAtStr
                                 })
                                 .eq('id', existingYard[0].id);
@@ -484,7 +484,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     customer_name: yardData.customer_name,
                                     customer_phone: yardData.customer_phone,
                                     daily_rate: yardData.daily_rate,
-                                    exit_date: yardData.exit_date,
+                                    lift_cost: yardData.liftCostStr !== '' && yardData.liftCostStr !== undefined ? parseFloat(yardData.liftCostStr) : 0,
                                     created_at: createdAtStr,
                                     status: 'AVAILABLE',
                                     entry_fee: 0,
@@ -796,6 +796,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             if (typeof toggleSalesPrice === 'function') toggleSalesPrice();
             else if (window.toggleSalesPrice) window.toggleSalesPrice();
+
+            if (typeof toggleToYardDestSelect === 'function') toggleToYardDestSelect();
+            else if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
 
             if (typeof updateStatusColor === 'function') updateStatusColor('PEND');
             else if (window.updateStatusColor) window.updateStatusColor('PEND');
@@ -1624,6 +1627,23 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (document.getElementById('in-flag3')) document.getElementById('in-flag3').checked = isSalesChecked;
             if (document.getElementById('in-move-to-yard')) document.getElementById('in-move-to-yard').checked = isToYardChecked;
             
+            if (isToYardChecked && window.db) {
+                const searchOrder = (rowData[5] || rowData[4] || '').trim();
+                const searchCont = (rowData[3] || '').trim().toUpperCase();
+                if (searchOrder && searchOrder !== '---' && searchCont && searchCont !== '---') {
+                    window.db.from('yard_stock')
+                        .select('lift_cost')
+                        .ilike('origin_release', searchOrder)
+                        .eq('container_no', searchCont)
+                        .limit(1)
+                        .then(({data, error}) => {
+                            if (!error && data && data.length > 0 && document.getElementById('in-liftcost')) {
+                                document.getElementById('in-liftcost').value = data[0].lift_cost || '';
+                            }
+                        });
+                }
+            }
+
             let isRentalChecked = (rowData[26] === 'RENT');
             if (!isRentalChecked && window.currentRentals) {
                 const searchOrder = (rowData[5] || rowData[4] || '').trim().toLowerCase();

@@ -805,6 +805,13 @@ main {
     box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2) !important;
 }
 
+.sidebar-label-btn-storage {
+    background: rgba(220, 38, 38, 0.1) !important;
+    color: #dc2626 !important;
+    border: 2px solid #dc2626 !important;
+    box-shadow: none !important;
+}
+
 
 
 /* --- Red/Green Status Switch (Custom Slider) --- */
