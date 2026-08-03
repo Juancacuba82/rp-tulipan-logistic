@@ -69,6 +69,10 @@
 
             // Filter: COMPLETE orders with Sales
             const filtered = logisticsData.filter(row => {
+                // Ignore pending debts so they don't skew the sales totals
+                const nContVal = (row[3] || '').toString().toUpperCase();
+                if (nContVal.includes('DEUDA PENDIENTE')) return false;
+
                 const orderStatus = (row[41] || '').toString().toUpperCase();
                 // Show COMPLETE, PAID, DELIVERED orders
                 // (User requested to see all delivered containers regardless of payment status)
