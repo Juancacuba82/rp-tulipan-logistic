@@ -1938,7 +1938,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             const td = document.createElement('td');
                             
                             // Truncate long text columns
-                            if ([7, 22].includes(i)) {
+                            if ([22].includes(i)) {
                                 td.classList.add('truncate-cell');
                                 td.title = text || '';
                             }
