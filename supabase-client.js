@@ -24,6 +24,11 @@ function isStudent() {
     return (window.currentUserRole || '').toLowerCase().trim() === 'student';
 }
 
+function isAdmin() {
+    return (window.currentUserRole || '').toLowerCase().trim() === 'admin';
+}
+window.isAdmin = isAdmin;
+
 function checkStudentPermission(moduleName, action = 'modify') {
     if (isStudent()) {
         // Whitelist: Allow creating Tasks and Calls
@@ -202,7 +207,7 @@ async function updateTrip(tripId, updateData) {
 }
 
 async function deleteTrip(tripId) {
-    if (!checkStudentPermission('calendar', 'delete')) return;
+    if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
     const { error } = await db.from('trips').delete().eq('trip_id', tripId);
     if (error) { console.error('Error deleting trip:', error); throw error; }
 }
@@ -263,7 +268,7 @@ async function addExpense(expenseData) {
 }
 
 async function deleteExpense(expenseId) {
-    if (!checkStudentPermission('expenses', 'delete')) return;
+    if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
     const { error } = await db.from('expenses').delete().eq('id', expenseId);
     if (error) { console.error('Error deleting expense:', error); throw error; }
 }
@@ -331,7 +336,7 @@ async function updateRentalsBatch(ids, updateData) {
 }
 
 async function deleteRental(id) {
-    if (!checkStudentPermission('rentals', 'delete')) return;
+    if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
     const { error, data } = await db.from('rentals').delete().eq('id', id).select();
     if (error) { console.error('Error deleting rental:', error); throw error; }
     if (!data || data.length === 0) {

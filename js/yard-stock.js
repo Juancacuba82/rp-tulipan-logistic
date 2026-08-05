@@ -255,9 +255,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
+                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-trash-alt"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </td>
             `;
@@ -401,9 +401,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
+                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-trash-alt"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </td>
             `;
@@ -548,9 +548,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
+                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-trash-alt"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </td>
             `;
@@ -1243,6 +1243,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     };
 
     window.deleteYardItem = async function (id) {
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role !== 'admin') {
+            alert("Only administrators can delete records.");
+            return;
+        }
         if (!confirm("Are you sure you want to remove this container from the yard?")) return;
         try {
             const { error } = await window.db.from('yard_stock').delete().eq('id', id);

@@ -677,13 +677,12 @@
 
     async function removeRental() {
         if (!editingRentalId) return;
-        if (!confirm("Are you sure you want to delete this rental record?")) return;
-
         const role = (window.currentUserRole || '').toLowerCase().trim();
-        if (role === 'student') {
-            alert("Students cannot delete rental records.");
+        if (role !== 'admin') {
+            alert("Only administrators can delete records.");
             return;
         }
+        if (!confirm("Are you sure you want to delete this rental record?")) return;
 
         const row = window.currentRentals.find(r => r.id === editingRentalId);
         try { 

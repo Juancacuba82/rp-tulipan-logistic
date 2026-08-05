@@ -268,9 +268,9 @@
                 item.className = 'driver-item';
                 item.innerHTML = `
                     <span>${d.name}</span>
-                    <button onclick="deleteDriver('${d.id}')" class="btn-del-driver" title="Delete Driver">
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteDriver('${d.id}')" class="btn-del-driver" title="Delete Driver">
                         <i class="fas fa-trash-alt"></i>
-                    </button>
+                    </button>` : ''}
                 `;
                 container.appendChild(item);
             });
@@ -304,8 +304,8 @@
 
         async function deleteDriver(id) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage drivers.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to remove this driver from the active list?")) return;
@@ -431,9 +431,9 @@
                         <button onclick="startEditCustomer('${c.name.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}')" class="btn-del-driver" style="background: #e2e8f0; color: #3b82f6;" title="Edit Customer">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="deleteCustomer('${c.name.replace(/'/g, "\\'")}')" class="btn-del-driver" title="Delete Customer">
+                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteCustomer('${c.name.replace(/'/g, "\\'")}')" class="btn-del-driver" title="Delete Customer">
                             <i class="fas fa-trash-alt"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 `;
                 container.appendChild(item);
@@ -547,8 +547,8 @@
 
         async function deleteCustomer(name) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage customers.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to remove this customer from the active list?")) return;
@@ -661,9 +661,9 @@
                 item.className = 'driver-item';
                 item.innerHTML = `
                     <span>${a.name}</span>
-                    <button onclick="deletePickupAddress('${a.id}')" class="btn-del-driver" title="Delete Address">
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deletePickupAddress('${a.id}')" class="btn-del-driver" title="Delete Address">
                         <i class="fas fa-trash-alt"></i>
-                    </button>
+                    </button>` : ''}
                 `;
                 container.appendChild(item);
             });
@@ -697,8 +697,8 @@
 
         async function deletePickupAddress(id) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage pickup addresses.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to remove this address from the active list?")) return;
@@ -784,9 +784,9 @@
                 item.className = 'driver-item';
                 item.innerHTML = `
                     <span>${d.name}</span>
-                    <button onclick="deleteDepot('${d.id}')" class="btn-del-driver" title="Delete Depot">
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteDepot('${d.id}')" class="btn-del-driver" title="Delete Depot">
                         <i class="fas fa-trash-alt"></i>
-                    </button>
+                    </button>` : ''}
                 `;
                 container.appendChild(item);
             });
@@ -820,8 +820,8 @@
 
         async function deleteDepot(id) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage depots.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to remove this depot?")) return;
@@ -955,9 +955,9 @@
                 item.className = 'driver-item';
                 item.innerHTML = `
                     <span>${s.name}</span>
-                    <button onclick="deleteSeller('${s.id}')" class="btn-del-driver" title="Delete Seller">
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteSeller('${s.id}')" class="btn-del-driver" title="Delete Seller">
                         <i class="fas fa-trash-alt"></i>
-                    </button>
+                    </button>` : ''}
                 `;
                 container.appendChild(item);
             });
@@ -991,8 +991,8 @@
 
         async function deleteSeller(id) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage sellers.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to remove this seller?")) return;
@@ -1071,9 +1071,9 @@
                 item.className = 'driver-item';
                 item.innerHTML = `
                     <span>${c.name}</span>
-                    <button onclick="deleteCompany('${c.id}')" class="btn-del-driver" title="Delete Company">
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteCompany('${c.id}')" class="btn-del-driver" title="Delete Company">
                         <i class="fas fa-trash-alt"></i>
-                    </button>
+                    </button>` : ''}
                 `;
                 container.appendChild(item);
             });
@@ -1107,8 +1107,8 @@
 
         async function deleteCompany(id) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage companies.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to remove this company from the active list?")) return;
@@ -1196,9 +1196,9 @@
                 item.className = 'driver-item';
                 item.innerHTML = `
                     <span>${s.name}</span>
-                    <button onclick="deleteContainerSize('${s.id}')" class="btn-del-driver" title="Delete Size">
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteContainerSize('${s.id}')" class="btn-del-driver" title="Delete Size">
                         <i class="fas fa-trash-alt"></i>
-                    </button>
+                    </button>` : ''}
                 `;
                 container.appendChild(item);
             });
@@ -1226,8 +1226,8 @@
 
         window.deleteContainerSize = async function (id) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage container sizes.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to delete this size option?")) return;
@@ -1344,9 +1344,9 @@
                 item.className = 'driver-item';
                 item.innerHTML = `
                     <span>${s.name}</span>
-                    <button onclick="deleteExpenseCategory('${s.id}')" class="btn-del-driver" title="Delete Category">
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteExpenseCategory('${s.id}')" class="btn-del-driver" title="Delete Category">
                         <i class="fas fa-trash-alt"></i>
-                    </button>
+                    </button>` : ''}
                 `;
                 container.appendChild(item);
             });
@@ -1382,6 +1382,11 @@
         };
 
         window.deleteExpenseCategory = async function (id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
+                return;
+            }
             if (!confirm("Are you sure you want to delete this category?")) return;
             try {
                 const { error } = await db.from('expense_categories').delete().eq('id', id);

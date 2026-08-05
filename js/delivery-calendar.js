@@ -2105,14 +2105,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         delBtn.onclick = async (e) => {
                             e.stopPropagation();
                             const role = (window.currentUserRole || '').toLowerCase().trim();
-                            if (role === 'student') {
-                                alert("Students cannot delete orders.");
+                            if (role !== 'admin') {
+                                alert("Only administrators can delete records.");
                                 return;
                             }
                             if (!confirm('¿Seguro que quieres borrar este viaje? Esta acción no se puede deshacer.')) return;
                             await window.performOrderDeletion(rowData, false);
                         };
-                        actionTd.appendChild(delBtn);
+                        if ((window.currentUserRole || '').toLowerCase().trim() === 'admin') {
+                            actionTd.appendChild(delBtn);
+                        }
                         tr.appendChild(actionTd);
 
                         tr.style.cursor = 'pointer';
@@ -2997,8 +2999,8 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
 
 window.deleteSelectedOrders = async function() {
     const role = (window.currentUserRole || '').toLowerCase().trim();
-    if (role === 'student') {
-        alert("Students cannot delete orders.");
+    if (role !== 'admin') {
+        alert("Only administrators can delete records.");
         return;
     }
     

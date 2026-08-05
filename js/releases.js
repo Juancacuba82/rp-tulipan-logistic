@@ -372,12 +372,12 @@
                         }
                     }
                     else if (idx === 'ACTION') {
-                        td.innerHTML = `
+                        td.innerHTML = (window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `
                             <button onclick="event.stopPropagation(); window.deleteRelease('${rowData[15]}', '${rowData[0]}')" 
                                     style="background: #fee2e2; border: none; color: #ef4444; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
                                 <i class="fas fa-trash-alt"></i>
                             </button>
-                        `;
+                        ` : '';
                         td.style.textAlign = 'center';
                         td.style.background = isPendingNo ? 'transparent' : '#f8fafc';
                     }
@@ -422,8 +422,8 @@
 
         async function deleteRelease(id, relNo) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot delete records.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!id || id === 'undefined') {

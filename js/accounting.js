@@ -713,6 +713,11 @@
     // DELETE TRANSACTION (Admin only)
     // =========================================================================
     window.deleteAccountingTx = async function (id, source_table) {
+        const role = (window.currentUserRole || '').toLowerCase().trim();
+        if (role !== 'admin') {
+            alert("Only administrators can delete records.");
+            return;
+        }
         if (source_table === 'cash_ledger') {
             if (!confirm('¿Estás seguro de que quieres eliminar esta transacción manual del Cash Ledger?')) return;
             try {

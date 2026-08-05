@@ -42,7 +42,7 @@
                         <td style="padding:10px; font-size:0.85rem; font-weight:700; color:#1e293b;">${row.task}</td>
                         <td style="padding:10px; font-size:0.85rem; text-align:right; color:#1e293b;">${row.mileage ? row.mileage.toLocaleString() : '--'} mi</td>
                         <td style="padding:10px; text-align:center;">
-                            <button onclick="deleteMaintenanceEntry('${row.id}', '${unitId}')" style="background:none; border:none; color:#94a3b8; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                            ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteMaintenanceEntry('${row.id}', '${unitId}')" style="background:none; border:none; color:#94a3b8; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>` : ''}
                         </td>
                     `;
                     body.appendChild(tr);
@@ -85,8 +85,8 @@
 
         window.deleteMaintenanceEntry = async function(entryId, unitId) {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot delete records.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Delete this record permanently?")) return;

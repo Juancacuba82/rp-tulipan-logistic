@@ -889,8 +889,8 @@ window.loadAttendanceData = async function(force = false) {
 
 window.deleteAttendanceSession = async function(inId, outId) {
     const role = (window.currentUserRole || '').toLowerCase().trim();
-    if (role === 'student') {
-        alert("Students cannot delete attendance records.");
+    if (role !== 'admin') {
+        alert("Only administrators can delete attendance records.");
         return;
     }
     if (!confirm("Are you sure you want to delete this attendance session?")) return;

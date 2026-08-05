@@ -496,12 +496,22 @@ window.handleTopTransfer = function() {
 };
 
 window.handleTopDelete = function() {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role !== 'admin') {
+        alert("Only administrators can delete records.");
+        return;
+    }
     if (editingCallId) {
         deleteCallLog(editingCallId);
     }
 };
 
 async function deleteCallLog(id) {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role !== 'admin') {
+        alert("Only administrators can delete records.");
+        return;
+    }
     if (!confirm("Are you sure you want to delete this lead?")) return;
 
     try {
