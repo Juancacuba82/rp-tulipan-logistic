@@ -1471,7 +1471,7 @@
                                         </select>
                                         <div style="display: flex; align-items: center; gap: 8px; margin-left: 5px;">
                                             <input type="checkbox" id="in-move-to-rentals"
-                                                onchange="const m = document.getElementById('in-mode'); if(m) m.value = this.checked ? 'RENT' : 'SALE';"
+                                                onchange="const m = document.getElementById('in-mode'); if(m) m.value = this.checked ? 'RENT' : 'SALE'; if(this.checked){ const s=document.getElementById('in-flag3'); if(s && s.checked){s.checked=false; if(typeof toggleSalesPrice==='function') toggleSalesPrice();} }"
                                                 style="width: 18px; height: 18px; accent-color: #7c3aed;">
                                             <span
                                                 style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">Rent</span>
@@ -7336,6 +7336,13 @@
                 if (!show) {
                     const sales = document.getElementById('in-sales');
                     if (sales) sales.value = 0;
+                } else {
+                    const rentChk = document.getElementById('in-move-to-rentals');
+                    if (rentChk && rentChk.checked) {
+                        rentChk.checked = false;
+                        const m = document.getElementById('in-mode');
+                        if (m) m.value = 'SALE';
+                    }
                 }
             }
             autoToggleDeductStock();

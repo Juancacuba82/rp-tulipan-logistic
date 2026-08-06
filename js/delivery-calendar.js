@@ -584,6 +584,35 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     } catch(err) {
                         console.error('Error syncing with Rentals:', err);
                     }
+                } else if (!isMoveToRentals && editingIndex !== null) {
+                    // If they change an order and uncheck Rent, remove it from Rentals
+                    try {
+                        let searchOrder = yardData.origin_release;
+                        let searchCont = yardData.container_no;
+                        
+                        const oldRow = window.currentTrips[editingIndex];
+                        if (oldRow) {
+                            searchOrder = (oldRow[5] || '').trim().toUpperCase() || searchOrder;
+                            searchCont = (oldRow[3] || '').trim().toUpperCase() || searchCont;
+                        }
+
+                        const rentalsDelQuery = searchCont && searchCont !== '---'
+                            ? db.from('rentals').delete().eq('release_no', searchOrder).eq('container_no', searchCont)
+                            : db.from('rentals').delete().eq('release_no', searchOrder);
+                            
+                        const { data: deletedData } = await rentalsDelQuery.select('id');
+                        
+                        if (deletedData && deletedData.length > 0 && window.currentRentals) {
+                            for (const d of deletedData) {
+                                window.currentRentals = window.currentRentals.filter(r => r.id !== d.id);
+                            }
+                            if (typeof window.renderRentalsTable === 'function') {
+                                window.renderRentalsTable();
+                            }
+                        }
+                    } catch(err) {
+                        console.error("Failed to remove rental on uncheck", err);
+                    }
                 }
 
                 // --- REFRESH YARD UI ---
