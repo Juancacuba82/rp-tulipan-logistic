@@ -1,5 +1,5 @@
 /**
- * calls.js - Logic for FORM CALL (Lead Management)
+ * calls.js - Logic for FORM CALLS (Lead Management)
  */
 
 let currentCalls = [];
@@ -66,7 +66,7 @@ async function populateCallAssignedSelect() {
         const data = await getProfilesEmails();
 
         sel.innerHTML = '';
-        
+
         const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
         if (isAdmin) {
             const optEveryone = document.createElement('option');
@@ -99,7 +99,7 @@ async function populateCallAssignedSelect() {
         // Fallback: use existing creators if profiles fetch fails
         const emails = [...new Set(currentCalls.map(c => c.created_by).filter(e => !!e))];
         if (window.userEmail && !emails.includes(window.userEmail)) emails.push(window.userEmail);
-        
+
         sel.innerHTML = '';
 
         const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
@@ -135,7 +135,7 @@ function renderCallsTable() {
     // Show all UI elements for all roles — todos pueden ver todo
     const sellerFilterItem = document.getElementById('cf-seller-filter-item');
     if (sellerFilterItem) sellerFilterItem.style.display = 'block';
-    
+
     document.querySelectorAll('.admin-th-assigned').forEach(el => el.style.display = '');
 
     // Get filter values
@@ -151,10 +151,10 @@ function renderCallsTable() {
     tbody.innerHTML = "";
 
     const filtered = currentCalls.filter(c => {
-        const matchSearch = !search || 
-            (c.customer || "").toLowerCase().includes(search) || 
+        const matchSearch = !search ||
+            (c.customer || "").toLowerCase().includes(search) ||
             (c.phone || "").toLowerCase().includes(search);
-        
+
         const matchFrom = !fFrom || (c.next_call_date && c.next_call_date >= fFrom);
         const matchTo = !fTo || (c.next_call_date && c.next_call_date <= fTo);
         const matchService = !fService || c.service_type === fService;
@@ -180,7 +180,7 @@ function renderCallsTable() {
     // Split calls: Today's calls first, then the rest
     const todayCalls = [];
     const otherCalls = [];
-    
+
     filtered.forEach(c => {
         if (c.next_call_date === todayStr) {
             todayCalls.push(c);
@@ -241,7 +241,7 @@ function renderCallsTable() {
             <td style="text-align: center;">${(c.city || "").toUpperCase()}</td>
             <td>${c.zip_code || "---"}</td>
             <td>${(c.measures || "").toUpperCase()}</td>
-            <td style="color: #15803d; font-weight: 800;">$${Number(c.amount || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+            <td style="color: #15803d; font-weight: 800;">$${Number(c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td style="color: #b91c1c; font-weight: 700;">${nextStr}</td>
             <td><span class="inv-badge ${getStatusBadgeClass(c.status)}">${c.status || 'PENDING'}</span></td>
             <td class="admin-td-assigned" style="font-weight: 700; color: #1e40af;">${worker}</td>
@@ -271,7 +271,7 @@ async function openTransferModal(id) {
             const data = await getProfilesEmails();
 
             sel.innerHTML = '<option value="">Select Employee...</option>';
-            
+
             const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
             if (isAdmin) {
                 const optEveryone = document.createElement('option');
@@ -320,7 +320,7 @@ async function executeTransfer() {
     try {
         const { data, error } = await db.from('call_logs').update({ created_by: email }).eq('id', callIdToTransfer).select();
         if (error) throw error;
-        
+
         alert("Client transferred successfully");
         closeTransferModal();
 
@@ -332,7 +332,7 @@ async function executeTransfer() {
             const idx = currentCalls.findIndex(c => c.id === callIdToTransfer);
             if (idx !== -1) currentCalls[idx] = data[0];
         }
-        
+
         if (editingCallId === callIdToTransfer) {
             resetCallForm();
         } else {
@@ -357,7 +357,7 @@ function getStatusBadgeClass(status) {
 async function saveCallLog() {
     const btn = document.getElementById('btn-save-call');
     const originalText = btn.textContent;
-    
+
     // Collect data
     const payload = {
         date: document.getElementById('call-date').value || new Date().toISOString().split('T')[0],
@@ -366,9 +366,9 @@ async function saveCallLog() {
         phone: document.getElementById('call-phone').value,
         city: document.getElementById('call-city').value.toUpperCase(),
         zip_code: document.getElementById('call-zip').value,
-        measures: (document.getElementById('call-size').style.display === 'none' 
-                    ? document.getElementById('call-size-sel').value 
-                    : document.getElementById('call-size').value).toUpperCase(),
+        measures: (document.getElementById('call-size').style.display === 'none'
+            ? document.getElementById('call-size-sel').value
+            : document.getElementById('call-size').value).toUpperCase(),
         amount: Math.round((parseFloat(document.getElementById('call-amount').value) || 0) * 100) / 100,
         next_call_date: document.getElementById('call-next-date').value || null,
         status: document.getElementById('call-status').value,
@@ -402,7 +402,7 @@ async function saveCallLog() {
                 // Remove from call_logs since it's now in the calendar
                 const { error: delErr } = await db.from('call_logs').delete().eq('id', editingCallId);
                 if (delErr) console.warn("Note: Transferred to calendar but failed to remove from call logs:", delErr);
-                
+
                 // Remove from local state
                 currentCalls = currentCalls.filter(c => c.id !== editingCallId);
             }
@@ -433,7 +433,7 @@ async function saveCallLog() {
                 alert("Call registered successfully");
             }
         }
-        
+
         resetCallForm();
         if (window.populateCityFilter) populateCityFilter();
     } catch (err) {
@@ -450,7 +450,7 @@ function editCallLog(id) {
     if (!call) return;
 
     editingCallId = id;
-    
+
     document.getElementById('call-date').value = call.date || "";
     document.getElementById('call-customer').value = call.customer || "";
     document.getElementById('call-service').value = call.service_type || "Sales";
@@ -475,12 +475,12 @@ function editCallLog(id) {
     document.getElementById('call-next-date').value = call.next_call_date || "";
     document.getElementById('call-status').value = call.status || "PENDING";
     document.getElementById('call-description').value = call.description || "";
-    
+
     const assignSel = document.getElementById('call-assigned');
     if (assignSel) assignSel.value = call.created_by || window.userEmail || "";
 
     document.getElementById('btn-save-call').textContent = "UPDATE CALL RECORD";
-    
+
     const btnTrans = document.getElementById('btn-top-transfer');
     const btnDel = document.getElementById('btn-top-delete');
     if (btnTrans) { btnTrans.disabled = false; btnTrans.style.opacity = '1'; btnTrans.style.cursor = 'pointer'; }
@@ -489,13 +489,13 @@ function editCallLog(id) {
     renderCallsTable();
 }
 
-window.handleTopTransfer = function() {
+window.handleTopTransfer = function () {
     if (editingCallId) {
         openTransferModal(editingCallId);
     }
 };
 
-window.handleTopDelete = function() {
+window.handleTopDelete = function () {
     const role = (window.currentUserRole || '').toLowerCase().trim();
     if (role !== 'admin') {
         alert("Only administrators can delete records.");
@@ -549,10 +549,10 @@ function resetCallForm() {
     document.getElementById('call-next-date').value = "";
     document.getElementById('call-status').value = "PENDING";
     document.getElementById('call-description').value = "";
-    
+
     const assignSel = document.getElementById('call-assigned');
     if (assignSel && window.userEmail) assignSel.value = window.userEmail;
-    
+
     document.getElementById('btn-save-call').textContent = "SAVE CALL RECORD";
 
     const btnTrans = document.getElementById('btn-top-transfer');
@@ -580,13 +580,13 @@ async function updateCallSellerDropdown() {
     if (!sel) return;
 
     const currentVal = sel.value;
-    
+
     try {
         // Fetch all potential sellers (admins, employees, staff)
         const data = await getProfilesEmails();
 
         sel.innerHTML = '<option value="">All Employees</option>';
-        
+
         const optEveryone = document.createElement('option');
         optEveryone.value = 'EVERYONE';
         optEveryone.textContent = 'EVERYONE';
@@ -623,10 +623,10 @@ async function updateCallSellerDropdown() {
 function populateCityFilter() {
     const filterSel = document.getElementById('cf-city');
     if (!filterSel) return;
-    
+
     const currentVal = filterSel.value;
     const cities = [...new Set(currentCalls.map(c => c.city).filter(city => !!city))].sort();
-    
+
     filterSel.innerHTML = '<option value="">All Cities</option>';
     cities.forEach(city => {
         const opt = document.createElement('option');
@@ -634,13 +634,13 @@ function populateCityFilter() {
         opt.textContent = city.toUpperCase();
         filterSel.appendChild(opt);
     });
-    
+
     if (currentVal) filterSel.value = currentVal;
 }
 
 // Update loadCallsData to also populate the city filter
 const originalLoadCallsData = loadCallsData;
-loadCallsData = async function() {
+loadCallsData = async function () {
     await originalLoadCallsData();
     populateCityFilter();
 }
@@ -665,7 +665,7 @@ function toggleCallSizeMode() {
 
 async function transferSoldCallToCalendar(call) {
     console.log("Transferring sold call to calendar...", call);
-    
+
     // Generate a unique Order No
     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let ordSuffix = '';
@@ -723,9 +723,9 @@ document.addEventListener('DOMContentLoaded', () => {
         phoneInp.addEventListener('input', (e) => {
             const cursor = e.target.selectionStart;
             const oldLen = e.target.value.length;
-            
+
             e.target.value = window.formatUSPhone(e.target.value);
-            
+
             // Adjust cursor position if characters were added/removed (simplified)
             const newLen = e.target.value.length;
             if (newLen > oldLen) {
@@ -816,7 +816,7 @@ function buildCallButton(c) {
     if (c.last_called_at) {
         const lastDate = new Date(c.last_called_at);
         const isToday = lastDate >= todayStart;
-        
+
         let dateStr = '';
         if (isToday) {
             dateStr = lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -873,7 +873,7 @@ function subscribeToCallsRealtime() {
             (payload) => {
                 if (!payload.new) return;
                 let newRecord = payload.new;
-                
+
                 // Si el registro nuevo viene de la web, asignarlo a rptulipantransport
                 if (newRecord.source === 'website' && newRecord.created_by !== 'rptulipantransport@gmail.com') {
                     newRecord.created_by = 'rptulipantransport@gmail.com';
