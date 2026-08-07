@@ -1,5 +1,5 @@
 /**
- * calls.js - Logic for FORM CALL (Lead Management)
+ * calls.js - Logic for FORM CALLS (Lead Management)
  */
 
 let currentCalls = [];
