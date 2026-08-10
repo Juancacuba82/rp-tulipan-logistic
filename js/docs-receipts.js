@@ -37,8 +37,48 @@
         const docsCustomerFilter = (document.getElementById('docs-customer-dropdown')?.value || '').toLowerCase();
         const fromDate = document.getElementById('trip-from-date')?.value;
         const toDate = document.getElementById('trip-to-date')?.value;
+        const sourceFilter = document.getElementById('docs-source-dropdown')?.value || 'calendar';
         const list = document.getElementById('trip-list-scroll');
         if (!list) return;
+
+        if (sourceFilter === 'custom') {
+            list.innerHTML = '<p style="text-align:center; padding: 20px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Loading Custom Receipts...</p>';
+            try {
+                const sc = window.db || (typeof db !== 'undefined' ? db : (typeof supabase !== 'undefined' ? supabase : null));
+                if (sc) {
+                    const { data, error } = await sc.from('custom_receipts').select('*').order('created_at', { ascending: false });
+                    list.innerHTML = '';
+                    if (error) throw error;
+                    
+                    if (!data || data.length === 0) {
+                        list.innerHTML = '<p style="text-align:center; padding: 20px; color: #64748b;">No custom receipts found.</p>';
+                        return;
+                    }
+                    
+                    data.forEach(receipt => {
+                        const div = document.createElement('div');
+                        div.className = 'trip-item';
+                        const compName = receipt.company === 'supercrane' ? 'JR Super Crane' : 'RP Tulipan';
+                        div.innerHTML = `
+                            <h4>Custom Receipt · ${receipt.date}</h4>
+                            <p style="font-weight:bold; color:#1e293b;">${receipt.customer_name || 'No Customer'}</p>
+                            <p>${compName} | ${receipt.order_no || 'No Order#'}</p>
+                            <p style="font-size:0.8rem; color:#16a34a; font-weight: bold;">Total: $${parseFloat(receipt.total || 0).toFixed(2)}</p>
+                        `;
+                        div.onclick = () => {
+                            if(window.viewCustomReceiptHistory) {
+                                window.viewCustomReceiptHistory(receipt);
+                            }
+                        };
+                        list.appendChild(div);
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching custom receipts:", err);
+                list.innerHTML = '<p style="text-align:center; padding: 20px; color: #ef4444;">Error loading custom receipts.</p>';
+            }
+            return;
+        }
 
         // Ensure data is available
         if (!window.currentTrips || window.currentTrips.length === 0) {
