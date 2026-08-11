@@ -1882,8 +1882,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.flagSales = (rowData[43] === 'YES') ? 'YES' : 'NO';
                         tr.dataset.flagToYard = !!rowData[62] ? 'YES' : 'NO';
                         
-                        let isRentalFlag = false;
-                        if (window.currentRentals) {
+                        let isRentalFlag = (rowData[26] === 'RENT');
+                        if (!isRentalFlag && window.currentRentals) {
                             const searchOrder = (rowData[5] || rowData[4] || '').trim().toLowerCase();
                             const searchCont = (rowData[3] || '').trim().toLowerCase();
                             if (searchCont && searchCont !== '---') {
