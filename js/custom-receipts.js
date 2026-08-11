@@ -8,10 +8,13 @@ function openCustomReceiptModal() {
     document.getElementById('cr-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('cr-order').value = '';
     document.getElementById('cr-customer').value = '';
+    document.getElementById('cr-contact-name').value = '';
+    document.getElementById('cr-address').value = '';
+    document.getElementById('cr-phone').value = '';
     document.getElementById('cr-email').value = '';
     
-    document.getElementById('cr-cc-fee').value = '0';
-    document.getElementById('cr-tax-rate').value = '0';
+    document.getElementById('cr-cc-fee').checked = false;
+    document.getElementById('cr-tax-rate').checked = false;
     document.getElementById('cr-payments').value = '0';
     
     customReceiptItems = [];
@@ -28,7 +31,7 @@ function closeCustomReceiptModal() {
 
 function addCustomReceiptItem() {
     const id = Date.now().toString();
-    customReceiptItems.push({ id, desc: '', qty: 1, price: 0 });
+    customReceiptItems.push({ id, desc: '', qty: 1, price: '' });
     renderCustomReceiptItems();
 }
 
@@ -42,7 +45,7 @@ function updateItemField(id, field, value) {
     const item = customReceiptItems.find(i => i.id === id);
     if (item) {
         if (field === 'qty' || field === 'price') {
-            item[field] = parseFloat(value) || 0;
+            item[field] = value === '' ? '' : (parseFloat(value) || 0);
         } else {
             item[field] = value;
         }
@@ -50,7 +53,9 @@ function updateItemField(id, field, value) {
         // Auto-update total cell without full re-render for better UX
         const tr = document.querySelector(`tr[data-cr-id="${id}"]`);
         if (tr) {
-            const total = item.qty * item.price;
+            const qtyNum = parseFloat(item.qty) || 0;
+            const priceNum = parseFloat(item.price) || 0;
+            const total = qtyNum * priceNum;
             tr.querySelector('.cr-item-total').textContent = `$${total.toFixed(2)}`;
         }
         updateCustomReceiptTotals();
@@ -62,7 +67,9 @@ function renderCustomReceiptItems() {
     tbody.innerHTML = '';
     
     customReceiptItems.forEach(item => {
-        const total = item.qty * item.price;
+        const qtyNum = parseFloat(item.qty) || 0;
+        const priceNum = parseFloat(item.price) || 0;
+        const total = qtyNum * priceNum;
         const tr = document.createElement('tr');
         tr.dataset.crId = item.id;
         tr.innerHTML = `
@@ -73,7 +80,7 @@ function renderCustomReceiptItems() {
                 <input type="number" value="${item.qty}" oninput="updateItemField('${item.id}', 'qty', this.value)" style="width: 60px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 0.85rem;">
             </td>
             <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right;">
-                <input type="number" value="${item.price}" oninput="updateItemField('${item.id}', 'price', this.value)" style="width: 80px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: right; font-size: 0.85rem;" step="0.01">
+                <input type="text" inputmode="decimal" value="${item.price}" oninput="updateItemField('${item.id}', 'price', this.value)" style="width: 80px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: right; font-size: 0.85rem;" placeholder="0.00">
             </td>
             <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #1e293b;" class="cr-item-total">
                 $${total.toFixed(2)}
@@ -87,12 +94,20 @@ function renderCustomReceiptItems() {
 }
 
 function updateCustomReceiptTotals() {
-    const subtotal = customReceiptItems.reduce((sum, item) => sum + (item.qty * item.price), 0);
-    const ccFee = parseFloat(document.getElementById('cr-cc-fee').value) || 0;
-    const taxRate = parseFloat(document.getElementById('cr-tax-rate').value) || 0;
+    const subtotal = customReceiptItems.reduce((sum, item) => {
+        const qtyNum = parseFloat(item.qty) || 0;
+        const priceNum = parseFloat(item.price) || 0;
+        return sum + (qtyNum * priceNum);
+    }, 0);
+    const applyCcFee = document.getElementById('cr-cc-fee').checked;
+    const applyTax = document.getElementById('cr-tax-rate').checked;
     const payments = parseFloat(document.getElementById('cr-payments').value) || 0;
     
+    const taxRate = applyTax ? 7 : 0;
     const taxAmount = subtotal * (taxRate / 100);
+    
+    const ccFee = applyCcFee ? (subtotal + taxAmount) * 0.04 : 0;
+    
     const totalDue = subtotal + ccFee + taxAmount - payments;
     
     document.getElementById('cr-subtotal').textContent = `$${subtotal.toFixed(2)}`;
@@ -129,6 +144,9 @@ function previewCustomReceipt() {
     const date = document.getElementById('cr-date').value;
     const orderNo = document.getElementById('cr-order').value || '---';
     const customer = document.getElementById('cr-customer').value || '---';
+    const contactName = document.getElementById('cr-contact-name').value || '';
+    const address = document.getElementById('cr-address').value || '';
+    const phone = document.getElementById('cr-phone').value || '';
     const email = document.getElementById('cr-email').value || '';
     
     const totals = updateCustomReceiptTotals();
@@ -136,56 +154,67 @@ function previewCustomReceipt() {
     
     let itemsHtml = '';
     customReceiptItems.forEach(item => {
-        if (item.desc || item.price > 0) {
+        const qtyNum = parseFloat(item.qty) || 0;
+        const priceNum = parseFloat(item.price) || 0;
+        if (item.desc || priceNum > 0) {
             itemsHtml += `
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 12px 10px; font-size: 0.95rem; color: #1e293b;">${item.desc}</td>
-                    <td style="padding: 12px 10px; font-size: 0.95rem; color: #1e293b; text-align: center;">${item.qty}</td>
-                    <td style="padding: 12px 10px; font-size: 0.95rem; color: #1e293b; text-align: right;">$${item.price.toFixed(2)}</td>
-                    <td style="padding: 12px 10px; font-size: 0.95rem; color: #1e293b; text-align: right; font-weight: 700;">$${(item.qty * item.price).toFixed(2)}</td>
+                    <td style="padding: 12px 10px; font-size: 0.95rem; color: #1e293b; text-align: center;">${qtyNum}</td>
+                    <td style="padding: 12px 10px; font-size: 0.95rem; color: #1e293b; text-align: right;">$${priceNum.toFixed(2)}</td>
+                    <td style="padding: 12px 10px; font-size: 0.95rem; color: #1e293b; text-align: right; font-weight: 700;">$${(qtyNum * priceNum).toFixed(2)}</td>
                 </tr>
             `;
         }
     });
 
     const a4Html = `
-        <div style="font-family: 'Inter', sans-serif; color: #0f172a; max-width: 800px; margin: 0 auto; background: white;">
+        <div style="font-family: 'Inter', sans-serif; color: #0f172a; width: 100%; background: white; padding: 20px; box-sizing: border-box;">
             
             <!-- Header -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${company.color}; padding-bottom: 20px; margin-bottom: 30px;">
-                <div>
-                    <h1 style="color: ${company.color}; font-size: 2.2rem; font-weight: 900; margin: 0 0 5px 0; text-transform: uppercase;">${company.name}</h1>
-                    <p style="margin: 2px 0; font-size: 0.9rem; color: #475569;"><i class="fas fa-map-marker-alt" style="width: 15px; color: ${company.color};"></i> ${company.address}</p>
-                    <p style="margin: 2px 0; font-size: 0.9rem; color: #475569;"><i class="fas fa-phone" style="width: 15px; color: ${company.color};"></i> ${company.phone}</p>
-                    <p style="margin: 2px 0; font-size: 0.9rem; color: #475569;"><i class="fas fa-envelope" style="width: 15px; color: ${company.color};"></i> ${company.email}</p>
-                </div>
-                <div style="text-align: right;">
-                    <h2 style="font-size: 2.5rem; font-weight: 900; color: #e2e8f0; margin: 0 0 10px 0; letter-spacing: 2px; text-transform: uppercase;">INVOICE</h2>
-                    <div style="display: inline-block; text-align: left; background: #f8fafc; padding: 10px 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                        <p style="margin: 0; font-weight: 700; color: #64748b; font-size: 0.8rem;">INVOICE NO.</p>
-                        <p style="margin: 0; font-weight: 900; color: #1e293b; font-size: 1.1rem;">${orderNo}</p>
-                        <div style="height: 1px; background: #e2e8f0; margin: 5px 0;"></div>
-                        <p style="margin: 0; font-weight: 700; color: #64748b; font-size: 0.8rem;">DATE</p>
-                        <p style="margin: 0; font-weight: 900; color: #1e293b; font-size: 1.1rem;">${date}</p>
-                    </div>
-                </div>
-            </div>
+            <table style="width: 100%; border-bottom: 3px solid ${company.color}; margin-bottom: 30px; border-collapse: collapse; font-family: 'Inter', sans-serif;">
+                <tr>
+                    <td style="vertical-align: top; padding-bottom: 20px; width: 60%;">
+                        <div style="color: ${company.color}; font-size: 35px; font-weight: 900; margin-bottom: 5px; text-transform: uppercase;">${company.name}</div>
+                        <div style="margin-bottom: 3px; font-size: 14px; color: #475569;"><span style="color: ${company.color}; font-weight: 800; font-size: 13px; padding-right: 5px;">ADDR:</span> ${company.address}</div>
+                        <div style="margin-bottom: 3px; font-size: 14px; color: #475569;"><span style="color: ${company.color}; font-weight: 800; font-size: 13px; padding-right: 5px;">TEL:</span> ${company.phone}</div>
+                        <div style="margin-bottom: 3px; font-size: 14px; color: #475569;"><span style="color: ${company.color}; font-weight: 800; font-size: 13px; padding-right: 5px;">EMAIL:</span> ${company.email}</div>
+                    </td>
+                    <td style="vertical-align: top; text-align: right; padding-bottom: 20px; width: 40%;">
+                        <div style="font-size: 40px; font-weight: 900; color: #e2e8f0; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; text-align: right;">INVOICE</div>
+                        <table style="width: 180px; border-collapse: collapse; margin-left: auto; background: #f8fafc; border: 1px solid #e2e8f0;">
+                            <tr>
+                                <td style="padding: 10px 15px; text-align: left;">
+                                    <div style="font-weight: 700; color: #64748b; font-size: 13px; margin-bottom: 2px;">INVOICE NO.</div>
+                                    <div style="font-weight: 900; color: #1e293b; font-size: 18px; margin-bottom: 8px;">${orderNo}</div>
+                                    <div style="border-top: 1px solid #cbd5e1; margin-bottom: 8px;"></div>
+                                    <div style="font-weight: 700; color: #64748b; font-size: 13px; margin-bottom: 2px;">DATE</div>
+                                    <div style="font-weight: 900; color: #1e293b; font-size: 18px;">${date}</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
 
             <!-- Bill To -->
             <div style="margin-bottom: 30px;">
-                <h3 style="font-size: 0.9rem; color: ${company.color}; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">BILL TO</h3>
-                <p style="margin: 0 0 5px 0; font-size: 1.1rem; font-weight: 700; color: #1e293b;">${customer}</p>
-                <p style="margin: 0; font-size: 0.9rem; color: #64748b;">${email}</p>
+                <div style="font-size: 14px; color: ${company.color}; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">BILL TO</div>
+                <div style="margin-bottom: 5px; font-size: 18px; font-weight: 700; color: #1e293b;">${customer}</div>
+                ${contactName ? `<div style="margin-bottom: 2px; font-size: 14px; font-weight: 600; color: #334155;">ATTN: ${contactName}</div>` : ''}
+                ${address ? `<div style="margin-bottom: 2px; font-size: 14px; color: #475569;">${address}</div>` : ''}
+                ${phone ? `<div style="margin-bottom: 2px; font-size: 14px; color: #475569;">${phone}</div>` : ''}
+                ${email ? `<div style="margin-bottom: 2px; font-size: 14px; color: #475569;">${email}</div>` : ''}
             </div>
 
             <!-- Items Table -->
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
                 <thead>
                     <tr style="background: ${company.color}; color: white;">
-                        <th style="padding: 12px 10px; text-align: left; font-weight: 700; font-size: 0.9rem; text-transform: uppercase;">Description</th>
-                        <th style="padding: 12px 10px; text-align: center; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; width: 10%;">Qty</th>
-                        <th style="padding: 12px 10px; text-align: right; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; width: 15%;">Unit Price</th>
-                        <th style="padding: 12px 10px; text-align: right; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; width: 15%;">Total</th>
+                        <th style="padding: 12px 10px; text-align: left; font-weight: 700; font-size: 14px; text-transform: uppercase;">Description</th>
+                        <th style="padding: 12px 10px; text-align: center; font-weight: 700; font-size: 14px; text-transform: uppercase; width: 10%;">Qty</th>
+                        <th style="padding: 12px 10px; text-align: right; font-weight: 700; font-size: 14px; text-transform: uppercase; width: 15%;">Unit Price</th>
+                        <th style="padding: 12px 10px; text-align: right; font-weight: 700; font-size: 14px; text-transform: uppercase; width: 15%;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -194,43 +223,47 @@ function previewCustomReceipt() {
             </table>
 
             <!-- Totals -->
-            <div style="display: flex; justify-content: flex-end;">
-                <div style="width: 350px;">
-                    <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f5f9;">
-                        <span style="font-weight: 600; color: #64748b;">Subtotal</span>
-                        <span style="font-weight: 700; color: #1e293b;">$${totals.subtotal.toFixed(2)}</span>
-                    </div>
-                    ${totals.taxAmount > 0 ? `
-                    <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f5f9;">
-                        <span style="font-weight: 600; color: #64748b;">Tax (${totals.taxRate}%)</span>
-                        <span style="font-weight: 700; color: #1e293b;">$${totals.taxAmount.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${totals.ccFee > 0 ? `
-                    <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f5f9;">
-                        <span style="font-weight: 600; color: #64748b;">CC Fee</span>
-                        <span style="font-weight: 700; color: #1e293b;">$${totals.ccFee.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    ${totals.payments > 0 ? `
-                    <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f5f9; color: #16a34a;">
-                        <span style="font-weight: 600;">Payments Received</span>
-                        <span style="font-weight: 700;">-$${totals.payments.toFixed(2)}</span>
-                    </div>
-                    ` : ''}
-                    
-                    <div style="display: flex; justify-content: space-between; padding: 15px 0 5px 0; margin-top: 5px; border-top: 2px solid ${company.color};">
-                        <span style="font-weight: 900; color: #0f172a; font-size: 1.2rem; text-transform: uppercase;">Balance Due</span>
-                        <span style="font-weight: 900; color: ${company.color}; font-size: 1.2rem;">$${Math.max(0, totals.totalDue).toFixed(2)}</span>
-                    </div>
-                </div>
-            </div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td></td>
+                    <td style="width: 350px; vertical-align: top;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #64748b; text-align: left; font-size: 15px;">Subtotal</td>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #1e293b; text-align: right; font-size: 15px;">$${totals.subtotal.toFixed(2)}</td>
+                            </tr>
+                            ${totals.taxAmount > 0 ? `
+                            <tr>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #64748b; text-align: left; font-size: 15px;">Tax (${totals.taxRate}%)</td>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #1e293b; text-align: right; font-size: 15px;">$${totals.taxAmount.toFixed(2)}</td>
+                            </tr>
+                            ` : ''}
+                            ${totals.ccFee > 0 ? `
+                            <tr>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #64748b; text-align: left; font-size: 15px;">CC Fee</td>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #1e293b; text-align: right; font-size: 15px;">$${totals.ccFee.toFixed(2)}</td>
+                            </tr>
+                            ` : ''}
+                            ${totals.payments > 0 ? `
+                            <tr>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #16a34a; text-align: left; font-size: 15px;">Payments Received</td>
+                                <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #16a34a; text-align: right; font-size: 15px;">-$${totals.payments.toFixed(2)}</td>
+                            </tr>
+                            ` : ''}
+                            <tr>
+                                <td style="padding: 15px 0 5px 0; border-top: 2px solid ${company.color}; font-weight: 900; color: #0f172a; font-size: 19px; text-transform: uppercase; text-align: left;">Balance Due</td>
+                                <td style="padding: 15px 0 5px 0; border-top: 2px solid ${company.color}; font-weight: 900; color: ${company.color}; font-size: 19px; text-align: right;">$${Math.max(0, totals.totalDue).toFixed(2)}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
             
             <div style="margin-top: 40px; margin-bottom: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 20px;">
-                <h3 style="font-size: 0.95rem; color: ${company.color}; font-weight: 800; text-transform: uppercase; margin-top: 0; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">ACH / Wire Payment Information</h3>
-                <p style="margin: 0 0 15px 0; font-size: 0.85rem; color: #475569;">Please use the following information to submit ACH/WIRE payments.</p>
+                <h3 style="font-size: 15px; color: ${company.color}; font-weight: 800; text-transform: uppercase; margin-top: 0; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">ACH / Wire Payment Information</h3>
+                <p style="margin: 0 0 15px 0; font-size: 14px; color: #475569;">Please use the following information to submit ACH/WIRE payments.</p>
                 
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                     <tbody>
                         <tr>
                             <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; width: 35%; color: #64748b; font-weight: 600;">Company Name:</td>
@@ -268,7 +301,7 @@ function previewCustomReceipt() {
                 </table>
             </div>
             
-            <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 0.85rem; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 14px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
                 <p>Thank you for your business!</p>
             </div>
         </div>
@@ -287,8 +320,19 @@ async function saveAndPreviewCustomReceipt() {
         const date = document.getElementById('cr-date').value;
         const orderNo = document.getElementById('cr-order').value;
         const customer = document.getElementById('cr-customer').value;
+        const contactName = document.getElementById('cr-contact-name').value;
+        const address = document.getElementById('cr-address').value;
+        const phone = document.getElementById('cr-phone').value;
         const email = document.getElementById('cr-email').value;
         const totals = updateCustomReceiptTotals();
+        
+        // Pack extra contact details into JSON to avoid database migration
+        const contactData = JSON.stringify({
+            email: email,
+            contact_name: contactName,
+            address: address,
+            phone: phone
+        });
         
         // Prepare data for Supabase
         const payload = {
@@ -296,7 +340,7 @@ async function saveAndPreviewCustomReceipt() {
             date: date,
             order_no: orderNo,
             customer_name: customer,
-            customer_contact: email,
+            customer_contact: contactData,
             items: customReceiptItems, // JSONB in Supabase
             subtotal: totals.subtotal,
             tax: totals.taxAmount,
@@ -373,20 +417,36 @@ window.viewCustomReceiptHistory = function(receiptData) {
     document.getElementById('cr-date').value = receiptData.date || '';
     document.getElementById('cr-order').value = receiptData.order_no || '';
     document.getElementById('cr-customer').value = receiptData.customer_name || '';
-    document.getElementById('cr-email').value = receiptData.customer_contact || '';
+    
+    // Parse contact details if stored as JSON
+    let contactData = receiptData.customer_contact || '';
+    if (contactData.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(contactData);
+            document.getElementById('cr-email').value = parsed.email || '';
+            document.getElementById('cr-contact-name').value = parsed.contact_name || '';
+            document.getElementById('cr-address').value = parsed.address || '';
+            document.getElementById('cr-phone').value = parsed.phone || '';
+        } catch (e) {
+            document.getElementById('cr-email').value = contactData;
+            document.getElementById('cr-contact-name').value = '';
+            document.getElementById('cr-address').value = '';
+            document.getElementById('cr-phone').value = '';
+        }
+    } else {
+        document.getElementById('cr-email').value = contactData;
+        document.getElementById('cr-contact-name').value = '';
+        document.getElementById('cr-address').value = '';
+        document.getElementById('cr-phone').value = '';
+    }
     
     // Reverse engineer tax/fees or just set them to trigger correct totals
-    document.getElementById('cr-cc-fee').value = receiptData.cc_fee || '0';
+    document.getElementById('cr-cc-fee').checked = parseFloat(receiptData.cc_fee) > 0;
     document.getElementById('cr-payments').value = receiptData.payments || '0';
     
     // Tax rate calculation (reverse from amount)
-    let sub = parseFloat(receiptData.subtotal) || 0;
     let taxAmt = parseFloat(receiptData.tax) || 0;
-    let taxRate = 0;
-    if (sub > 0 && taxAmt > 0) {
-        taxRate = (taxAmt / sub) * 100;
-    }
-    document.getElementById('cr-tax-rate').value = taxRate.toFixed(2);
+    document.getElementById('cr-tax-rate').checked = taxAmt > 0;
     
     // Set items
     if (Array.isArray(receiptData.items)) {
@@ -406,4 +466,63 @@ window.viewCustomReceiptHistory = function(receiptData) {
     
     // Show preview modal directly
     document.getElementById('cr-preview-modal').style.display = 'block';
+};
+
+window.emailCustomReceipt = async function() {
+    const btn = document.getElementById('btn-email-cr');
+    const originalText = btn.innerHTML;
+    
+    const email = document.getElementById('cr-email').value;
+    if (!email || !email.includes('@')) {
+        alert("Please enter a valid Customer Email before sending.");
+        return;
+    }
+    
+    if (!window.sendReceiptEmail || !window.htmlToPDFBlob) {
+        alert("Email service is not loaded yet. Please wait or refresh.");
+        return;
+    }
+    
+    try {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SENDING...';
+        btn.disabled = true;
+        
+        // Use htmlToPDFBlob from the current A4 view
+        const html = document.getElementById('cr-a4-preview').innerHTML;
+        const pdfBlob = await window.htmlToPDFBlob(html, 'p');
+        
+        if (!pdfBlob) throw new Error("Could not generate PDF");
+        
+        // Create mock rowData for sendReceiptEmail
+        const companyKey = document.getElementById('cr-company').value;
+        const date = document.getElementById('cr-date').value;
+        const orderNo = document.getElementById('cr-order').value || 'CUSTOM';
+        const customer = document.getElementById('cr-customer').value || 'Customer';
+        
+        const mockRowData = [];
+        mockRowData[0] = 'custom_' + Date.now(); // tripId
+        mockRowData[1] = date;
+        mockRowData[5] = orderNo;
+        mockRowData[11] = customer;
+        mockRowData[36] = email;
+        mockRowData[55] = []; // No photos
+        
+        let companyOverride = 'RP TULIPAN';
+        if (companyKey === 'supercrane') companyOverride = 'JR SUPER CRANE';
+        
+        await window.sendReceiptEmail(mockRowData, pdfBlob, companyOverride);
+        
+        // Success
+        btn.innerHTML = '<i class="fas fa-check"></i> SENT!';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }, 3000);
+        
+    } catch (err) {
+        console.error("Error sending custom receipt via email:", err);
+        alert("Error sending email: " + (err.message || JSON.stringify(err)));
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 };

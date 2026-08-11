@@ -6653,8 +6653,17 @@
                 // Allow Driver to see Fleet & Equipment buttons (Dashboard & Navbar), EXCEPT for yrg2007@hotmail.com, 
                 // Sototransportationusa@gmail.com and jzduarte011@gmail.com
                 const restrictedEmails = ['yrg2007@hotmail.com', 'sototransportationusa@gmail.com', 'jzduarte011@gmail.com',
-                    '3jyvargasllc@gmail.com', 'ramoncuba88@gmail.com', 'tjizzle88@yahoo.com'];
+                    '3jyvargasllc@gmail.com', 'ramoncuba88@gmail.com', 'tjizzle88@yahoo.com', 'jdsolutionsservicesinc@gmail.com'];
                 const isRestrictedDriver = window.userEmail && restrictedEmails.includes(window.userEmail.toLowerCase().trim());
+
+                if (window.userEmail && window.userEmail.toLowerCase().trim() === 'jdsolutionsservicesinc@gmail.com') {
+                    const custFilter = document.getElementById('docs-customer-dropdown');
+                    if (custFilter) custFilter.style.display = 'none';
+                    const statFilter = document.getElementById('docs-status-dropdown');
+                    if (statFilter) statFilter.style.display = 'none';
+                    const payFilter = document.getElementById('docs-payment-dropdown');
+                    if (payFilter) payFilter.style.display = 'none';
+                }
 
                 if (!isRestrictedDriver) {
                     const fleetSelectors = [
@@ -9127,12 +9136,27 @@
 
             <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 200px;">
-                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Customer Name</label>
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Company Name</label>
                     <input type="text" id="cr-customer" placeholder="e.g. Sun Shipping Line" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" oninput="previewCustomReceipt()">
                 </div>
                 <div style="flex: 1; min-width: 200px;">
-                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Customer Email/Phone</label>
-                    <input type="text" id="cr-email" placeholder="e.g. ops@sunshipping.com" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" oninput="previewCustomReceipt()">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Contact Person</label>
+                    <input type="text" id="cr-contact-name" placeholder="e.g. Andy Jack" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" oninput="previewCustomReceipt()">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div style="flex: 2; min-width: 300px;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Address</label>
+                    <input type="text" id="cr-address" placeholder="e.g. 123 Main St, Miami, FL" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" oninput="previewCustomReceipt()">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Phone</label>
+                    <input type="text" id="cr-phone" placeholder="e.g. (305) 555-1234" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" oninput="previewCustomReceipt()">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Email</label>
+                    <input type="text" id="cr-email" placeholder="e.g. ops@example.com" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" oninput="previewCustomReceipt()">
                 </div>
             </div>
 
@@ -9164,12 +9188,10 @@
                         <span style="font-weight: 800; color: #0f172a;" id="cr-subtotal">$0.00</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center;">
-                        <span style="font-weight: 700; color: #64748b;">Credit Card Fee ($):</span>
-                        <input type="number" id="cr-cc-fee" value="0" style="width: 80px; padding: 5px; border-radius: 4px; border: 1px solid #cbd5e1; text-align: right;" oninput="updateCustomReceiptTotals()">
+                        <label style="font-weight: 700; color: #64748b; cursor: pointer;"><input type="checkbox" id="cr-cc-fee" onchange="updateCustomReceiptTotals()" style="margin-right: 8px; transform: scale(1.2);"> Apply 4% CC Fee</label>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center;">
-                        <span style="font-weight: 700; color: #64748b;">Sales Tax (%):</span>
-                        <input type="number" id="cr-tax-rate" value="0" style="width: 80px; padding: 5px; border-radius: 4px; border: 1px solid #cbd5e1; text-align: right;" oninput="updateCustomReceiptTotals()">
+                        <label style="font-weight: 700; color: #64748b; cursor: pointer;"><input type="checkbox" id="cr-tax-rate" onchange="updateCustomReceiptTotals()" style="margin-right: 8px; transform: scale(1.2);"> Apply 7% Sales Tax</label>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center;">
                         <span style="font-weight: 700; color: #64748b;">Payments Received ($):</span>
@@ -9195,6 +9217,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: white; padding: 10px 20px; border-radius: 8px;">
                 <h3 style="margin: 0; font-weight: 900;"><i class="fas fa-eye"></i> Receipt Preview</h3>
                 <div style="display: flex; gap: 10px;">
+                    <button onclick="emailCustomReceipt()" id="btn-email-cr" class="btn-print-docs" style="background: #3b82f6;"><i class="fas fa-envelope"></i> EMAIL RECEIPT</button>
                     <button onclick="printCustomReceipt()" class="btn-print-docs"><i class="fas fa-print"></i> PRINT / PDF</button>
                     <button onclick="document.getElementById('cr-preview-modal').style.display='none'" class="btn-cancel" style="background: #ef4444; color: white;">CLOSE</button>
                 </div>

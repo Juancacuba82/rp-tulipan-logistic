@@ -205,11 +205,11 @@
     };
 
     // ── HELPER: render an offscreen HTML element, capture as PDF blob ──────────
-    async function htmlToPDFBlob(htmlContent, orientation = 'p') {
+    window.htmlToPDFBlob = async function htmlToPDFBlob(htmlContent, orientation = 'p') {
         const { jsPDF } = window.jspdf;
 
         const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:white;';
+        container.style.cssText = 'position:absolute;left:0;top:0;width:800px;z-index:-9999;pointer-events:none;background:white;';
         container.innerHTML = htmlContent;
 
         const style = document.createElement('style');
@@ -242,13 +242,15 @@
             }));
 
             const canvas = await html2canvas(container, {
-                scale: 0.7,
+                scale: 2, // High DPI rendering for crisp text
                 useCORS: true,
                 logging: false,
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                windowWidth: 800,
+                width: 800
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.35);
+            const imgData = canvas.toDataURL('image/jpeg', 0.85); // High quality JPEG
             const pdf     = new jsPDF({ compress: true, orientation: orientation, unit: 'mm', format: 'a4' });
             const pw      = pdf.internal.pageSize.getWidth();
             const ph      = pdf.internal.pageSize.getHeight();
