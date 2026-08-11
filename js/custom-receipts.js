@@ -169,18 +169,30 @@ function previewCustomReceipt() {
     });
 
     const a4Html = `
-        <div style="font-family: 'Inter', sans-serif; color: #0f172a; width: 100%; background: white; padding: 20px; box-sizing: border-box;">
+        <style>
+            @media screen and (max-width: 1024px) {
+                .cr-header-table, .cr-header-table tbody, .cr-header-table tr { display: block !important; width: 100% !important; }
+                .cr-header-left, .cr-header-right { display: block !important; width: 100% !important; text-align: left !important; padding-bottom: 10px !important; }
+                .cr-header-right table { margin-left: 0 !important; }
+                .cr-header-right > div { text-align: left !important; }
+                .cr-totals-container, .cr-totals-container tbody, .cr-totals-container tr { display: block !important; width: 100% !important; }
+                .cr-totals-spacer { display: none !important; }
+                .cr-totals-col { display: block !important; width: 100% !important; }
+                .cr-items-table th, .cr-items-table td { padding: 6px 4px !important; font-size: 0.8rem !important; }
+            }
+        </style>
+        <div style="font-family: 'Inter', sans-serif; color: #0f172a; width: 100%; background: white; padding: 20px; box-sizing: border-box; overflow-x: hidden;">
             
             <!-- Header -->
-            <table style="width: 100%; border-bottom: 3px solid ${company.color}; margin-bottom: 30px; border-collapse: collapse; font-family: 'Inter', sans-serif;">
+            <table class="cr-header-table" style="width: 100%; border-bottom: 3px solid ${company.color}; margin-bottom: 30px; border-collapse: collapse; font-family: 'Inter', sans-serif;">
                 <tr>
-                    <td style="vertical-align: top; padding-bottom: 20px; width: 60%;">
+                    <td class="cr-header-left" style="vertical-align: top; padding-bottom: 20px; width: 60%;">
                         <div style="color: ${company.color}; font-size: 35px; font-weight: 900; margin-bottom: 5px; text-transform: uppercase;">${company.name}</div>
                         <div style="margin-bottom: 3px; font-size: 14px; color: #475569;"><span style="color: ${company.color}; font-weight: 800; font-size: 13px; padding-right: 5px;">ADDR:</span> ${company.address}</div>
                         <div style="margin-bottom: 3px; font-size: 14px; color: #475569;"><span style="color: ${company.color}; font-weight: 800; font-size: 13px; padding-right: 5px;">TEL:</span> ${company.phone}</div>
                         <div style="margin-bottom: 3px; font-size: 14px; color: #475569;"><span style="color: ${company.color}; font-weight: 800; font-size: 13px; padding-right: 5px;">EMAIL:</span> ${company.email}</div>
                     </td>
-                    <td style="vertical-align: top; text-align: right; padding-bottom: 20px; width: 40%;">
+                    <td class="cr-header-right" style="vertical-align: top; text-align: right; padding-bottom: 20px; width: 40%;">
                         <div style="font-size: 40px; font-weight: 900; color: #e2e8f0; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; text-align: right;">INVOICE</div>
                         <table style="width: 180px; border-collapse: collapse; margin-left: auto; background: #f8fafc; border: 1px solid #e2e8f0;">
                             <tr>
@@ -208,7 +220,7 @@ function previewCustomReceipt() {
             </div>
 
             <!-- Items Table -->
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <table class="cr-items-table" style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
                 <thead>
                     <tr style="background: ${company.color}; color: white;">
                         <th style="padding: 12px 10px; text-align: left; font-weight: 700; font-size: 14px; text-transform: uppercase;">Description</th>
@@ -223,10 +235,10 @@ function previewCustomReceipt() {
             </table>
 
             <!-- Totals -->
-            <table style="width: 100%; border-collapse: collapse;">
+            <table class="cr-totals-container" style="width: 100%; border-collapse: collapse;">
                 <tr>
-                    <td></td>
-                    <td style="width: 350px; vertical-align: top;">
+                    <td class="cr-totals-spacer"></td>
+                    <td class="cr-totals-col" style="width: 350px; vertical-align: top;">
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
                                 <td style="padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #64748b; text-align: left; font-size: 15px;">Subtotal</td>

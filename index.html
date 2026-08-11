@@ -760,15 +760,48 @@
 
             .trip-selector-panel {
                 width: 100% !important;
-                height: 400px !important;
+                height: 300px !important;
+                max-height: 40vh !important;
                 border-right: none;
                 border-bottom: 2px solid #cbd5e1;
+                display: flex !important;
+                flex-direction: column !important;
+                background: #f8fafc !important;
+                order: 3;
             }
 
             .receipt-preview-panel {
                 padding: 10px;
                 width: 100%;
+                order: 2;
             }
+            
+            .receipt-preview-toolbar {
+                order: 1;
+            }
+
+            .toolbar-row-main {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .toolbar-doc-actions {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                width: 100%;
+            }
+
+            .toolbar-doc-actions button {
+                width: 100% !important;
+                margin: 0 !important;
+                justify-content: center;
+                font-size: 0.75rem !important;
+                padding: 0 5px !important;
+            }
+
+            .btn-print-docs { grid-column: span 2; }
 
             /* Generic Split View Mobile Fix */
             .dashboard-split-container {
@@ -9109,7 +9142,7 @@
     
     <!-- CUSTOM RECEIPT MODAL -->
     <div id="custom-receipt-modal" class="simple-modal" style="display: none; z-index: 9999;">
-        <div class="modal-content" style="max-width: 900px; width: 95%;">
+        <div class="modal-content" style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
             <span class="close" onclick="closeCustomReceiptModal()" style="color: #ef4444; font-size: 2.5rem; position: absolute; top: 15px; right: 20px; line-height: 1;">&times;</span>
             <div style="display: flex; align-items: center; margin-bottom: 20px;">
                 <i class="fas fa-file-invoice" style="font-size: 1.8rem; color: #2563eb; margin-right: 15px;"></i>
@@ -9213,17 +9246,17 @@
 
     <!-- CUSTOM RECEIPT PREVIEW MODAL -->
     <div id="cr-preview-modal" class="simple-modal" style="display: none; z-index: 10002;">
-        <div class="modal-content" style="max-width: 900px; width: 95%; background: #e2e8f0; padding: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: white; padding: 10px 20px; border-radius: 8px;">
-                <h3 style="margin: 0; font-weight: 900;"><i class="fas fa-eye"></i> Receipt Preview</h3>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="emailCustomReceipt()" id="btn-email-cr" class="btn-print-docs" style="background: #3b82f6;"><i class="fas fa-envelope"></i> EMAIL RECEIPT</button>
-                    <button onclick="printCustomReceipt()" class="btn-print-docs"><i class="fas fa-print"></i> PRINT / PDF</button>
-                    <button onclick="document.getElementById('cr-preview-modal').style.display='none'" class="btn-cancel" style="background: #ef4444; color: white;">CLOSE</button>
+        <div class="modal-content" style="max-width: 900px; width: 95%; max-height: 95vh; overflow-y: auto; background: #e2e8f0; padding: 10px;">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; background: white; padding: 10px 20px; border-radius: 8px;">
+                <h3 style="margin: 0; font-weight: 900; min-width: 200px;"><i class="fas fa-eye"></i> Receipt Preview</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1; justify-content: flex-end;">
+                    <button onclick="emailCustomReceipt()" id="btn-email-cr" class="btn-print-docs" style="background: #3b82f6; flex: 1; min-width: 140px; margin: 0; justify-content: center;"><i class="fas fa-envelope"></i> EMAIL RECEIPT</button>
+                    <button onclick="printCustomReceipt()" class="btn-print-docs" style="flex: 1; min-width: 140px; margin: 0; justify-content: center;"><i class="fas fa-print"></i> PRINT / PDF</button>
+                    <button onclick="document.getElementById('cr-preview-modal').style.display='none'" class="btn-cancel" style="background: #ef4444; color: white; flex: 1; min-width: 100px; margin: 0; justify-content: center;">CLOSE</button>
                 </div>
             </div>
-            <div style="max-height: 80vh; overflow-y: auto; display: flex; justify-content: center; background: #e2e8f0;">
-                <div id="cr-a4-preview" style="background: white; width: 210mm; min-height: 297mm; padding: 15mm 20mm; margin: 20px 0; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: center; background: #e2e8f0; padding: 10px 0;">
+                <div id="cr-a4-preview" class="a4-paper" style="margin: 0; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
                     <!-- A4 HTML rendered here -->
                 </div>
             </div>

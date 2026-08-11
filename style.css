@@ -1879,6 +1879,14 @@ main {
 }
 
 /* Receipt Inner Styles */
+.receipt-content-wrapper {
+    padding: 40px;
+}
+.receipt-signatures-wrapper {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 60px;
+}
 .receipt-header {
     display: flex;
     justify-content: space-between;
@@ -2038,9 +2046,66 @@ main {
     .a4-paper {
         width: 100% !important;
         min-height: auto;
-        padding: 10mm 5mm;
+        padding: 0; /* padding moved to .receipt-content-wrapper */
         transform: none !important;
         box-shadow: none;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    /* Custom Receipt Tables Mobile Fix */
+    .cr-header-table, .cr-header-table tbody, .cr-header-table tr {
+        display: block;
+        width: 100%;
+    }
+    .cr-header-left, .cr-header-right {
+        display: block;
+        width: 100% !important;
+        text-align: left !important;
+        padding-bottom: 10px !important;
+    }
+    .cr-header-right > div {
+        text-align: left !important;
+    }
+    .cr-header-right table {
+        margin-left: 0 !important;
+    }
+
+    .cr-totals-container, .cr-totals-container tbody, .cr-totals-container tr {
+        display: block;
+        width: 100%;
+    }
+    .cr-totals-spacer {
+        display: none;
+    }
+    .cr-totals-col {
+        display: block;
+        width: 100% !important;
+    }
+
+    .receipt-content-wrapper {
+        padding: 15px !important;
+    }
+
+    .receipt-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 15px;
+    }
+
+    .receipt-header > div:last-child {
+        text-align: left !important;
+    }
+
+    .receipt-signatures-wrapper {
+        flex-direction: column !important;
+        gap: 30px;
+        margin-top: 30px !important;
+    }
+
+    .signature-box {
+        width: 100% !important;
     }
 
     .receipt-grid-3 {
