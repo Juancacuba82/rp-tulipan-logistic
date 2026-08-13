@@ -64,13 +64,13 @@
             }));
 
             const canvas = await html2canvas(container, {
-                scale: 0.7,
+                scale: 1.2, // Increased for better quality
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.35);
+            const imgData = canvas.toDataURL('image/jpeg', 0.6); // Increased for better quality
             const pdf = new jsPDF({ compress: true, orientation: 'p', unit: 'mm', format: 'a4' });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const imgWidth = pageWidth;
@@ -242,7 +242,7 @@
             }));
 
             const canvas = await html2canvas(container, {
-                scale: 2, // High DPI rendering for crisp text
+                scale: 1.2, // Balanced scale for quality and size
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
@@ -250,7 +250,7 @@
                 width: 800
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.85); // High quality JPEG
+            const imgData = canvas.toDataURL('image/jpeg', 0.6); // Balanced quality JPEG to stay under 500Kb limit
             const pdf     = new jsPDF({ compress: true, orientation: orientation, unit: 'mm', format: 'a4' });
             const pw      = pdf.internal.pageSize.getWidth();
             const ph      = pdf.internal.pageSize.getHeight();

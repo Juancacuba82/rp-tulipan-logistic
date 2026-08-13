@@ -257,6 +257,7 @@
             const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
             const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
             const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
+            const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL') || row.isActiveRentalMerged !== undefined;
 
             // Check non-dropdown filters
             if (fPayment === 'pending' && !isPending) return;
@@ -271,7 +272,7 @@
             if (fService === 'SALES' && !hasSales) return;
             if (fService === 'YARD' && !hasYard) return;
             if (fService === 'STORAGE' && !hasStorage) return;
-            if (fService === 'RENT' && !hasRent) return;
+            if (fService === 'RENT' && (!hasRent || !isRentService)) return;
 
             // To add a value to a specific dropdown, it must pass all OTHER dropdown filters
             const passCity = !fCity || city === fCity;
@@ -362,6 +363,7 @@
             const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
             const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
             const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
+            const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL') || row.isActiveRentalMerged !== undefined;
 
             if (fOrder    && !orderNo.includes(fOrder))    return false;
             if (fBooking  && booking !== fBooking)         return false;
@@ -375,7 +377,7 @@
             if (fService === 'SALES'     && !hasSales)      return false;
             if (fService === 'YARD'      && !hasYard)       return false;
             if (fService === 'STORAGE'   && !hasStorage)    return false;
-            if (fService === 'RENT'      && !hasRent)       return false;
+            if (fService === 'RENT'      && (!hasRent || !isRentService)) return false;
             if (fFrom     && rowDate  < fFrom)              return false;
             if (fTo       && rowDate  > fTo)                return false;
             if (fInvoice  && invSent  !== fInvoice)         return false;
@@ -432,10 +434,8 @@
                 if (rentalId) {
                     const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                     if (rental && window.calculateRentalCost) {
-                        let effectiveStart = (rental.status !== 'FINISHED' && rental.final_date) ? rental.final_date : rental.start_date;
-                        const endForCalc = rental.status === 'FINISHED' ? rental.final_date : null;
-                        const costInfo = window.calculateRentalCost(effectiveStart, endForCalc, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
-                        totalRent = costInfo.total;
+                        const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent, null, null);
+                        totalRent = (row[31] === 'PAID') ? 0 : costInfo.total;
                     } else {
                         totalRent = mrate;
                     }
@@ -882,11 +882,9 @@
                             const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                             if (rental && window.calculateRentalCost) {
                                 periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                                let effectiveStart = (rental.status !== 'FINISHED' && rental.final_date) ? rental.final_date : rental.start_date;
-                                startDateObj = new Date(effectiveStart);
-                                const endForCalc = rental.status === 'FINISHED' ? rental.final_date : null;
-                                const costInfo = window.calculateRentalCost(effectiveStart, endForCalc, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
-                                calcTotal = costInfo.total;
+                                startDateObj = new Date(rental.start_date);
+                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent, null, null);
+                                calcTotal = (row[31] === 'PAID') ? 0 : costInfo.total;
                                 diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
                             }
                         } else if (row.isActiveRentalMerged) {
@@ -894,11 +892,9 @@
                             const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
                             if (rental && window.calculateRentalCost) {
                                 periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                                let effectiveStart = (rental.status !== 'FINISHED' && rental.final_date) ? rental.final_date : rental.start_date;
-                                startDateObj = new Date(effectiveStart);
-                                const endForCalc = rental.status === 'FINISHED' ? rental.final_date : null;
-                                const costInfo = window.calculateRentalCost(effectiveStart, endForCalc, rental.base_price, rental.daily_rate, rental.status, rental.time_rent);
-                                calcTotal = costInfo.total;
+                                startDateObj = new Date(rental.start_date);
+                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent, null, null);
+                                calcTotal = (row[31] === 'PAID') ? 0 : costInfo.total;
                                 diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
                             }
                         } else {
