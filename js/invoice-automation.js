@@ -480,10 +480,10 @@
             
             await emailjs.send(serviceId, templateId, templateParams);
             
-            // Add to Accounts Receivable
             if (window.addInvoiceToReceivables) {
                 const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
-                window.addInvoiceToReceivables(templateParams.customer_name, masterTitle, totalNum);
+                const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
+                window.addInvoiceToReceivables(templateParams.customer_name, masterTitle, totalNum, detailsHtml);
             }
 
             // Update tracking for all rows

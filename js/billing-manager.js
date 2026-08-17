@@ -1521,11 +1521,11 @@
 
             await html2pdf().set(opt).from(container).save();
 
-            // Add to Accounts Receivable
             if (window.addInvoiceToReceivables) {
                 const totalText = document.getElementById('mb-total')?.textContent || '0';
                 const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
-                window.addInvoiceToReceivables(customer, invNo, totalNum);
+                const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
+                window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml);
             }
 
             // Restore buttons

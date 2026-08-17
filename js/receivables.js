@@ -1,4 +1,4 @@
-// 1receivables.js
+// receivables.js
 
 window.receivablesData = {
     invoices: []
@@ -83,12 +83,16 @@ window.renderReceivables = function () {
             `;
             invoices.forEach(inv => {
                 const d = inv.date_generated ? new Date(inv.date_generated).toLocaleDateString() : 'N/A';
+                const displayInvNo = inv.invoice_number ? inv.invoice_number.toString() : 'N/A';
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700;">${inv.invoice_number}</td>
+                                <td style="padding:10px 0; font-weight:700;">${displayInvNo}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}</td>
                                 <td style="padding:10px 0; font-weight:700;">$${parseFloat(inv.total_amount || 0).toFixed(2)}</td>
                                 <td style="padding:10px 0; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                                    <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
                                     <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}', ${inv.total_amount}, '${inv.invoice_number}', '${custName}')">
                                         MARK PAID
                                     </button>
@@ -137,16 +141,20 @@ window.renderReceivables = function () {
             `;
             invoices.forEach(inv => {
                 const d = inv.paid_date ? new Date(inv.paid_date).toLocaleDateString() : 'N/A';
+                const displayInvNo = (inv.invoice_number || '---').toString();
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${inv.invoice_number}</del></td>
+                                <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del></td>
                                 <td style="padding:10px 0; color:#64748b;">${d}</td>
                                 <td style="padding:10px 0;">
                                     <span style="background:#e0f2fe; color:#0284c7; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${inv.payment_method || 'N/A'}</span>
                                 </td>
                                 <td style="padding:10px 0; font-weight:700; text-align:right; color:#10b981;">$${parseFloat(inv.total_amount || 0).toFixed(2)}</td>
-                                <td style="padding:10px 0; text-align:right;">
-                                    <button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem; margin-left:auto;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
+                                <td style="padding:10px 0; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                                    <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
@@ -353,13 +361,26 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
     };
 };
 
-window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount) {
+window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '') {
     if (!customerName || !invoiceNumber || !totalAmount) return;
     try {
+        const customerUpper = customerName.trim().toUpperCase();
+
+        // Anti-Duplicado por Número de Factura Exacto (Double-click protection)
+        const { data: dupInvNo } = await window.db.from('receivables_invoices')
+            .select('id')
+            .eq('invoice_number', invoiceNumber);
+
+        if (dupInvNo && dupInvNo.length > 0) {
+            console.log(`[Receivables] Anti-duplicate: Invoice ${invoiceNumber} is already recorded.`);
+            return;
+        }
+
         const { error } = await window.db.from('receivables_invoices').insert([{
-            customer_name: customerName,
+            customer_name: customerUpper,
             invoice_number: invoiceNumber,
-            total_amount: parseFloat(totalAmount)
+            total_amount: parseFloat(totalAmount),
+            details_html: detailsHtml
         }]);
         if (error) throw error;
         console.log(`[Receivables] Invoice ${invoiceNumber} added to AR.`);
@@ -382,4 +403,122 @@ window.deleteReceivable = async function (id) {
         console.error('[Receivables] Error deleting invoice:', err);
         alert('Failed to delete invoice: ' + err.message);
     }
+};
+
+window.openReceivablePreview = function (id) {
+    const inv = window.receivablesData.invoices.find(i => i.id === id);
+    if (!inv) return;
+
+    const invoiceNumber = inv.invoice_number;
+    const customerName = inv.customer_name;
+    const totalAmount = inv.total_amount;
+    const date = inv.date_generated ? new Date(inv.date_generated).toLocaleDateString() : 'N/A';
+    const status = inv.status;
+    const paymentMethod = inv.payment_method || '';
+    const paidDate = inv.paid_date || '';
+
+    let detailsContent = inv.details_html || `
+        <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+            <thead>
+                <tr style="border-bottom:2px solid #e2e8f0; color:#64748b; font-size:0.8rem; text-transform:uppercase;">
+                    <th style="text-align:left; padding:10px 0;">Description</th>
+                    <th style="text-align:right; padding:10px 0;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:15px 0; color:#0f172a; font-weight:700;">Balance Forward / Services Rendered</td>
+                    <td style="padding:15px 0; color:#0f172a; font-weight:900; text-align:right;">$${parseFloat(totalAmount).toFixed(2)}</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+
+    let existing = document.getElementById('recv-preview-modal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'recv-preview-modal';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.7)';
+    overlay.style.backdropFilter = 'blur(4px)';
+    overlay.style.zIndex = '9999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    const modal = document.createElement('div');
+    modal.style.backgroundColor = 'white';
+    modal.style.borderRadius = '16px';
+    modal.style.padding = '40px';
+    modal.style.width = '700px';
+    modal.style.maxWidth = '90vw';
+    modal.style.maxHeight = '90vh';
+    modal.style.overflowY = 'auto';
+    modal.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
+    modal.style.fontFamily = "'Outfit', sans-serif";
+
+    let paidInfo = '';
+    if (status === 'Paid') {
+        const pd = paidDate ? new Date(paidDate).toLocaleDateString() : 'N/A';
+        paidInfo = `
+            <div style="background:#ecfdf5; padding:15px; border-radius:10px; margin-top:20px; border:1px solid #10b981; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h4 style="margin:0; color:#065f46; font-size:0.9rem;">PAYMENT RECEIVED</h4>
+                    <p style="margin:5px 0 0; color:#047857; font-size:0.8rem;">Method: <strong>${paymentMethod}</strong> | Date: <strong>${pd}</strong></p>
+                </div>
+                <i class="fas fa-check-circle" style="color:#10b981; font-size:2rem;"></i>
+            </div>
+        `;
+    }
+
+    let html = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #e2e8f0; padding-bottom:20px; margin-bottom:20px;">
+            <div>
+                <h1 style="margin:0; color:#0f172a; font-size:1.8rem; font-weight:900;">INVOICE PREVIEW</h1>
+                <p style="margin:5px 0 0; color:#64748b; font-size:0.95rem;">Invoice #: <strong style="color:#0f172a;">${invoiceNumber}</strong></p>
+            </div>
+            <div style="text-align:right;">
+                <h3 style="margin:0; color:#64748b; font-size:0.8rem; text-transform:uppercase;">Status</h3>
+                <span style="display:inline-block; margin-top:5px; padding:5px 12px; border-radius:20px; font-weight:900; font-size:0.8rem; 
+                    ${status === 'Paid' ? 'background:#ecfdf5; color:#10b981;' : 'background:#fef2f2; color:#ef4444;'}">
+                    ${status}
+                </span>
+            </div>
+        </div>
+
+        <div style="margin-bottom:30px;">
+            <h4 style="margin:0 0 10px; color:#64748b; font-size:0.8rem; text-transform:uppercase;">Bill To</h4>
+            <p style="margin:0; font-size:1.2rem; font-weight:900; color:#0f172a;">${customerName}</p>
+            <p style="margin:5px 0 0; color:#64748b; font-size:0.9rem;">Date Generated: ${date}</p>
+        </div>
+
+        <div style="background:#f8fafc; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #e2e8f0;">
+            <h4 style="margin:0 0 15px; color:#0f172a; font-size:1rem; border-bottom:1px solid #cbd5e1; padding-bottom:10px;">SERVICES BILLED</h4>
+            <div class="billing-details-wrapper" style="font-size:0.9rem;">
+                ${detailsContent}
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:20px; border-radius:10px; color:white;">
+            <span style="font-weight:900; font-size:1.2rem;">GRAND TOTAL</span>
+            <span style="font-weight:900; color:#38bdf8; font-size:1.5rem;">$${parseFloat(totalAmount).toFixed(2)}</span>
+        </div>
+
+        ${paidInfo}
+
+        <div style="margin-top:30px; display:flex; justify-content:flex-end;">
+            <button id="btn-close-preview" class="glossy-dark-btn" style="padding:10px 30px;">CLOSE</button>
+        </div>
+    `;
+
+    modal.innerHTML = html;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    document.getElementById('btn-close-preview').onclick = () => overlay.remove();
 };
