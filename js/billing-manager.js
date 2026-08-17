@@ -58,8 +58,8 @@
                         virtualRow[1] = rental.final_date && rental.final_date !== '---' ? rental.final_date : rental.start_date;
                         virtualRow[2] = rental.size;
                         virtualRow[3] = rental.container_no;
-                        virtualRow[4] = rental.release_no || '---';
-                        virtualRow[5] = 'RENTAL-' + (rental.container_no || '---');
+                        virtualRow[4] = '---'; // Leave Releases blank to avoid confusion
+                        virtualRow[5] = rental.release_no && rental.release_no !== '---' ? rental.release_no : ('RENTAL-' + (rental.container_no || '---'));
                         virtualRow[6] = '---';
                         virtualRow[8] = rental.delivery_place || '---';
                         virtualRow[11] = rental.customer_name;
@@ -533,18 +533,7 @@
                 <td style="${cs}">${invBadge}</td>
                 <td style="${cs}">${validBadge}</td>
                 <td style="${cs} font-size:0.7rem; color:#475569;">${lastSentText}</td>
-                <td style="${cs}">
-                    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-                        <button onclick="openBillingDetail(${globalIdx})" class="glossy-dark-btn-sm">
-                            <i class="fas fa-file-invoice-dollar"></i> VIEW SEND
-                        </button>
-                        ${isOrderPendingPayment ? `
-                        <button onclick="markBillingRowAsPaid(${globalIdx}, this)" class="glossy-green-btn-sm" title="Mark as Paid">
-                            <i class="fas fa-check-double"></i> PAID
-                        </button>
-                        ` : ''}
-                    </div>
-                </td>
+
             `;
             fragment.appendChild(tr);
             visibleCount++;
@@ -586,6 +575,17 @@
             }
         }
 
+        // Toggle Filtered Invoice Button
+        const custInput = document.getElementById('bc-f-customer');
+        const sendFilteredBtn = document.getElementById('btn-send-filtered-invoice');
+        if (sendFilteredBtn) {
+            if (custInput && custInput.value.trim() !== '') {
+                sendFilteredBtn.style.display = 'inline-flex';
+            } else {
+                sendFilteredBtn.style.display = 'none';
+            }
+        }
+
         // Update the incomplete orders alert banner to reflect the filtered rows
         if (typeof window.renderIncompleteOrdersBanner === 'function') {
             window.renderIncompleteOrdersBanner();
@@ -600,385 +600,6 @@
         if (fPayment) fPayment.value = 'pending';
         window.renderBillingTable();
     };
-
-    // ── OPEN DETAIL MODAL ─────────────────────────────────────
-    window.openBillingDetail = function (globalIdx) {
-        const trips = window.combinedBillingTrips || [];
-        const row = trips[globalIdx];
-
-        if (!row) {
-            alert(`Record not found.`);
-            return;
-        }
-
-        const orderNo = (row[5] || '---').toString();
-        window.currentBillingOrderRows = [row];
-        renderBillingDetailModal([row], orderNo);
-
-        const modal = document.getElementById('billing-detail-modal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-    };
-
-    // --- MASTER INVOICE (BOOKING INVOICE) ---
-    window.viewMasterInvoice = function () {
-        const rows = window.billingRows || [];
-        if (rows.length === 0) {
-            alert('No hay órdenes filtradas para generar el Booking Invoice.');
-            return;
-        }
-
-        // Determine title
-        let masterTitle = 'MASTER-INVOICE';
-        const firstBooking = (rows[0][65] || '---').toString().trim().toUpperCase();
-        if (firstBooking !== '---') {
-            const allSameBooking = rows.every(r => (r[65] || '---').toString().trim().toUpperCase() === firstBooking);
-            if (allSameBooking) {
-                masterTitle = 'BOOKING-' + firstBooking;
-            }
-        }
-
-        window.currentBillingOrderRows = rows;
-        renderBillingDetailModal(rows, masterTitle);
-
-        const modal = document.getElementById('billing-detail-modal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-    };
-
-    // --- SERVICE INVOICE ---
-    window.viewServiceInvoice = function () {
-        const rows = window.billingRows || [];
-        if (rows.length === 0) {
-            alert('No hay órdenes filtradas para generar el Service Invoice.');
-            return;
-        }
-
-        const serviceInput = document.getElementById('bc-f-service');
-        const selectedService = serviceInput ? serviceInput.value.trim().toUpperCase() : '';
-        if (!selectedService) {
-            alert('Por favor selecciona un servicio en el filtro.');
-            return;
-        }
-
-        let masterTitle = 'SERVICE INVOICE: ' + selectedService;
-
-        window.currentBillingOrderRows = rows;
-        renderBillingDetailModal(rows, masterTitle, selectedService);
-
-        const modal = document.getElementById('billing-detail-modal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-    };
-
-    window.closeBillingDetail = function () {
-        const modal = document.getElementById('billing-detail-modal');
-        if (modal) modal.style.display = 'none';
-        document.body.style.overflow = '';
-    };
-
-    // Close modal on backdrop click
-    document.addEventListener('click', function (e) {
-        const modal = document.getElementById('billing-detail-modal');
-        if (modal && e.target === modal) window.closeBillingDetail();
-    });
-
-    // ── RENDER DETAIL CONTENT INSIDE MODAL ───────────────────
-    function renderBillingDetailModal(rows, orderNo, serviceFilter = null) {
-        const mainRow     = rows[0];
-        const preview     = document.getElementById('bm-invoice-preview');
-        if (!preview) return;
-
-        // Company selector
-        const coSel  = document.getElementById('bm-company-selector');
-        const coDisp = document.getElementById('bm-company-name-display');
-        if (coSel && coDisp) coDisp.textContent = coSel.value;
-
-        // Header
-        document.getElementById('bm-order-display').textContent = orderNo || mainRow[5] || '---';
-        document.getElementById('bm-date-display').textContent  = window.formatDateMMDDYYYY
-            ? window.formatDateMMDDYYYY(mainRow[1])
-            : fmtDate(mainRow[1]);
-
-        // Bill To
-        const customerName = mainRow[11] && mainRow[11] !== '---' ? mainRow[11] : 'No Customer';
-        document.getElementById('bm-bill-to-name').textContent = customerName;
-
-        const customerObj    = (window.currentCustomers || []).find(c => c.name === customerName);
-        const billAddressEl  = document.getElementById('bm-bill-to-address');
-        if (billAddressEl) {
-            if (customerObj && customerObj.address) {
-                billAddressEl.textContent     = customerObj.address;
-                billAddressEl.style.display   = 'block';
-            } else {
-                billAddressEl.style.display   = 'none';
-            }
-        }
-
-        document.getElementById('bm-from-address').textContent = mainRow[7] && mainRow[7] !== '---' ? mainRow[7] : 'N/A';
-        document.getElementById('bm-to-address').textContent   = mainRow[8] && mainRow[8] !== '---' ? mainRow[8] : 'N/A';
-
-        // Status badge
-        let isEntirelyPaid = true;
-        rows.forEach(r => {
-            const orderNo = (r[5] || '---').toString().toUpperCase();
-            const isYardStorage = orderNo.startsWith('YRD-');
-            const hasTrans  = r[42] === 'YES' && (parseFloat(r[18]) || 0) > 0;
-            const hasSales  = r[43] === 'YES' && (parseFloat(r[20]) || 0) > 0;
-            const yardRate  = !isYardStorage ? (parseFloat(r[13]) || 0) : 0;
-            const takeTax   = r[49] === true || r[49] === 'true' || r[49] === 'YES' || r[49] === 'on' || r[49] === 1;
-            const hasRent   = (parseFloat(r[27]) || 0) > 0.01;
-            const hasStorage = isYardStorage ? (parseFloat(r[13]) || 0) > 0.01 : (parseFloat(r[14]) || 0) > 0.01;
-
-            if (hasTrans  && r[32] !== 'PAID') isEntirelyPaid = false;
-            if (hasSales  && r[33] !== 'PAID') isEntirelyPaid = false;
-            if (yardRate > 0.01 && r[30] !== 'PAID') isEntirelyPaid = false;
-            if (takeTax   && r[52] !== 'PAID') isEntirelyPaid = false;
-            if (hasRent   && r[31] !== 'PAID') isEntirelyPaid = false;
-            if (hasStorage && r[30] !== 'PAID') isEntirelyPaid = false; // storage uses yard payment status
-        });
-
-        const badge = document.getElementById('bm-status-badge');
-        if (badge) {
-            badge.textContent       = isEntirelyPaid ? 'PAID' : 'PENDING';
-            badge.style.background  = isEntirelyPaid ? '#dcfce7' : '#fee2e2';
-            badge.style.color       = isEntirelyPaid ? '#15803d' : '#991b1b';
-        }
-
-        // Services table
-        const body    = document.getElementById('bm-services-body');
-        body.innerHTML = '';
-        let subtotal   = 0;
-
-        // Check if this is a YARD INVOICE static trip (yard_services = JSON snapshot)
-        let isYardInvoice = false;
-        let yardSnap = null;
-        try {
-            const maybeSnap = mainRow[12];
-            if (maybeSnap && typeof maybeSnap === 'string' && maybeSnap.startsWith('{')) {
-                yardSnap = JSON.parse(maybeSnap);
-                if (yardSnap && yardSnap.items) isYardInvoice = true;
-            }
-        } catch(e) {}
-
-        if (isYardInvoice && yardSnap) {
-            // For YARD INVOICE rows, show the full yard invoice HTML inline
-            subtotal = parseFloat(yardSnap.total) || (parseFloat(mainRow[13]) || 0);
-            const servicesTable = body.closest('table');
-            if (servicesTable) {
-                const container = servicesTable.parentElement;
-                servicesTable.style.display = 'none';
-                let yardContainer = container.querySelector('#bm-yard-invoice-detail');
-                if (!yardContainer) {
-                    yardContainer = document.createElement('div');
-                    yardContainer.id = 'bm-yard-invoice-detail';
-                    container.insertBefore(yardContainer, servicesTable);
-                }
-                if (window.generateYardInvoiceHTML) {
-                    const { html } = window.generateYardInvoiceHTML(yardSnap.items, yardSnap.dateFrom, yardSnap.dateTo, false, null);
-                    yardContainer.innerHTML = html;
-                    subtotal = parseFloat(mainRow[13]) || 0;
-                } else {
-                    yardContainer.innerHTML = `<p style="padding:20px;color:#475569;">YARD STORAGE — Total: ${fmtMoney(subtotal)}</p>`;
-                }
-            }
-        } else {
-            // Hide yard detail container if it exists
-            const existingYardDetail = document.getElementById('bm-yard-invoice-detail');
-            if (existingYardDetail) existingYardDetail.innerHTML = '';
-            const servicesTable = body.closest('table');
-            if (servicesTable) servicesTable.style.display = '';
-
-            const transportMap = new Map();
-            const yardMap = new Map();
-            const rentMap = new Map();
-            const storageMap = new Map();
-            const salesMap = new Map();
-
-            function addAggregatedItem(map, desc, qty, price) {
-                const key = `${desc}|${price.toFixed(2)}`;
-                if (map.has(key)) {
-                    map.get(key).qty += qty;
-                } else {
-                    map.set(key, { desc, price, qty });
-                }
-            }
-
-            function normalizeServiceDesc(raw) {
-                if (!raw) return 'Other';
-                let s = raw.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
-                s = s.replace(/CONATINER/g, 'CONTAINER');
-                s = s.replace(/DEPOSITO/g, 'DEPOSIT');
-                s = s.replace(/\s+/g, ' '); 
-                return s;
-            }
-
-            // 1. Transport Services
-            if (!serviceFilter || serviceFilter === 'TRANSPORT') {
-                rows.forEach(row => {
-                    const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-                    if (hasTrans) {
-                        const price = parseFloat(row[18]) || 0;
-                        const qty = parseInt(row[53]) || 1;
-                        addAggregatedItem(transportMap, 'TRANSPORT SERVICE', qty, price);
-                    }
-                });
-            }
-            
-            // 2. Yard Services
-            if (!serviceFilter || serviceFilter === 'YARD') {
-                rows.forEach(row => {
-                    const yardDesc = row[12] && row[12] !== '---' ? row[12] : '';
-                    const yardRate = parseFloat(row[13]) || 0;
-                    const qty = parseInt(row[53]) || 1;
-                    
-                    if (yardRate > 0) {
-                        if (yardDesc && typeof yardDesc === 'string' && yardDesc.startsWith('[')) {
-                            try {
-                                const services = JSON.parse(yardDesc);
-                                if (Array.isArray(services)) {
-                                    services.forEach(s => {
-                                        const servicePrice = parseFloat(s.price) || 0;
-                                        if (servicePrice > 0) {
-                                            const normalized = normalizeServiceDesc(s.desc);
-                                            addAggregatedItem(yardMap, `ADDITIONAL CHARGE: ${normalized}`, qty, servicePrice);
-                                        }
-                                    });
-                                }
-                            } catch(e) {
-                                addAggregatedItem(yardMap, `ADDITIONAL CHARGE`, qty, yardRate);
-                            }
-                        } else {
-                            let desc = `ADDITIONAL CHARGE`;
-                            if (yardDesc && !yardDesc.startsWith('{') && yardDesc !== 'YES') {
-                                desc = `ADDITIONAL CHARGE: ${normalizeServiceDesc(yardDesc)}`;
-                            }
-                            addAggregatedItem(yardMap, desc, qty, yardRate);
-                        }
-                    }
-                });
-            }
-            
-            // 3. Container Rentals
-            if (!serviceFilter || serviceFilter === 'RENT') {
-                rows.forEach(row => {
-                    const mrate = parseFloat(row[27]) || 0;
-                    const tripId = row[0] || '';
-                    
-                    if (mrate > 0) {
-                        let diffPeriods = 1;
-                        let periodLabel = 'Month';
-                        let startDateObj = new Date(row[1]);
-                        let calcTotal = mrate;
-                        
-                        if (tripId.startsWith('VIRTUAL_RENTAL_')) {
-                            const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
-                            const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
-                            if (rental && window.calculateRentalCost) {
-                                periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                                startDateObj = new Date(rental.start_date);
-                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent, null, null);
-                                calcTotal = (row[31] === 'PAID') ? 0 : costInfo.total;
-                                diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
-                            }
-                        } else if (row.isActiveRentalMerged) {
-                            const rentalId = row.isActiveRentalMerged;
-                            const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
-                            if (rental && window.calculateRentalCost) {
-                                periodLabel = (rental.time_rent || '').toLowerCase().includes('week') ? 'Week' : 'Month';
-                                startDateObj = new Date(rental.start_date);
-                                const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent, null, null);
-                                calcTotal = (row[31] === 'PAID') ? 0 : costInfo.total;
-                                diffPeriods = Math.max(1, Math.round(calcTotal / mrate));
-                            }
-                        } else {
-                            const entryDate = new Date(row[1]);
-                            const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
-                            const diffDays = Math.ceil(Math.abs(exitDate - entryDate) / (1000 * 60 * 60 * 24));
-                            diffPeriods = Math.max(1, Math.ceil(diffDays / 30));
-                        }
-
-                        for (let i = 1; i <= diffPeriods; i++) {
-                            let pStart = new Date(startDateObj);
-                            let pEnd = new Date(startDateObj);
-                            if (periodLabel === 'Week') {
-                                pStart.setDate(pStart.getDate() + (i-1)*7);
-                                pEnd.setDate(pStart.getDate() + 7);
-                            } else {
-                                pStart.setDate(pStart.getDate() + (i-1)*30);
-                                pEnd.setDate(pStart.getDate() + 30);
-                            }
-                            
-                            const dStr = pStart.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'}) + ' - ' + pEnd.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
-                            
-                            addAggregatedItem(rentMap, `CONTAINER RENTAL`, 1, mrate);
-                        }
-                    }
-                });
-            }
-            
-            // 4. Storage
-            if (!serviceFilter || serviceFilter === 'STORAGE') {
-                rows.forEach(row => {
-                    const ppd = parseFloat(row[14]) || 0;
-                    
-                    if (ppd > 0) {
-                        const entryDate = new Date(row[1]);
-                        const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date();
-                        const diffTime = Math.abs(exitDate - entryDate);
-                        const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                        addAggregatedItem(storageMap, `STORAGE`, diffDays, ppd);
-                    }
-                });
-            }
-            
-            // 5. Container Sales
-            if (!serviceFilter || serviceFilter === 'SALES') {
-                rows.forEach(row => {
-                    const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-                    if (hasSales) {
-                        const price = parseFloat(row[20]) || 0;
-                        const qty = parseInt(row[53]) || 1;
-                        addAggregatedItem(salesMap, `CONTAINER SALES`, qty, price);
-                    }
-                });
-            }
-
-            // Append grouped items to the table
-            const allMaps = [transportMap, yardMap, rentMap, storageMap, salesMap];
-            allMaps.forEach(map => {
-                map.forEach(item => {
-                    addDetailRow(body, item.desc, item.qty, item.price);
-                    subtotal += (item.qty * item.price);
-                });
-            });
-        }
-
-        // Tax
-        const takeTax   = mainRow[49] === true || mainRow[49] === 'true';
-        const taxPct    = parseFloat(mainRow[50]) || 0;
-        let   taxAmount = 0;
-
-        const taxRow = document.getElementById('bm-tax-row');
-        if (takeTax && taxPct > 0) {
-            taxAmount = (subtotal * taxPct) / 100;
-            if (taxRow) taxRow.style.display = 'table-row';
-            document.getElementById('bm-tax-rate').textContent   = taxPct;
-            document.getElementById('bm-tax-amount').textContent = fmtMoney(taxAmount);
-        } else {
-            if (taxRow) taxRow.style.display = 'none';
-        }
-
-        const grandTotal = subtotal + taxAmount;
-        document.getElementById('bm-subtotal').textContent = fmtMoney(subtotal);
-        document.getElementById('bm-total').textContent    = fmtMoney(grandTotal);
-    }
 
     window.recalculateInvoiceTotals = function() {
         const body = document.getElementById('bm-services-body');
@@ -1040,332 +661,6 @@
     }
 
     // ── COMPANY SELECTOR ──────────────────────────────────────
-    window.updateBillingCompany = function () {
-        const sel  = document.getElementById('bm-company-selector');
-        const disp = document.getElementById('bm-company-name-display');
-        if (sel && disp) disp.textContent = sel.value;
-    };
-
-    // ── DOWNLOAD MASTER INVOICE PDF ───────────────────────────
-    window.downloadBillingInvoicePDF = async function () {
-        const btn = event.currentTarget;
-        const orig = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-
-        try {
-            const firstRow = window.currentBillingOrderRows && window.currentBillingOrderRows[0];
-            // Check if this is a YARD INVOICE static trip
-            const serviceMode = firstRow ? (firstRow[12] || '') : '';
-            let isYardInvoice = false;
-            try { const snap = JSON.parse(serviceMode); if (snap && snap.items) isYardInvoice = true; } catch(e) {}
-            
-            if (isYardInvoice) {
-                const snap = JSON.parse(firstRow[12]);
-                const customerName = firstRow[11] || 'Customer';
-                const { html } = window.generateYardInvoiceHTML(snap.items, snap.dateFrom, snap.dateTo, false, null);
-                const b64Pdf = await window.generateYardInvoiceBase64(html, customerName);
-                const a = document.createElement('a');
-                a.href = b64Pdf;
-                a.download = `Yard_Invoice_${customerName}_${firstRow[5]}.pdf`;
-                a.click();
-            } else {
-                const blob = await generateMasterInvoiceBlob();
-                if (blob) {
-                    const url  = URL.createObjectURL(blob);
-                    const a    = document.createElement('a');
-                    const ord  = document.getElementById('bm-order-display')?.textContent || 'ORDER';
-                    a.href     = url;
-                    a.download = `Invoice_${ord}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                }
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Error generating PDF');
-        } finally {
-            btn.disabled  = false;
-            btn.innerHTML = orig;
-        }
-    };
-
-    // ── GENERATE MASTER INVOICE PDF BLOB ─────────────────────
-    async function generateMasterInvoiceBlob() {
-        const originalEl = document.getElementById('bm-invoice-preview');
-        if (!originalEl) return null;
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ compress: true, orientation: 'p', unit: 'mm', format: 'a4' });
-
-        // Data extraction
-        const orderNo = document.getElementById('bm-order-display')?.textContent || '';
-        const date = document.getElementById('bm-date-display')?.textContent || '';
-        const term = document.getElementById('bm-term-display')?.textContent || '';
-        
-        let issuerName = 'RP TULIPAN TRANSPORT INC';
-        const select = document.getElementById('bm-company-selector');
-        if (select) {
-            issuerName = select.options[select.selectedIndex]?.value || 'RP TULIPAN TRANSPORT INC';
-        }
-        const billName = document.getElementById('bm-bill-to-name')?.textContent || '';
-        const billAddress = document.getElementById('bm-bill-to-address')?.textContent || '';
-        
-        const fromAddress = document.getElementById('bm-from-address')?.textContent || '';
-        const toAddress = document.getElementById('bm-to-address')?.textContent || '';
-        
-        const subtotal = document.getElementById('bm-subtotal')?.textContent || '';
-        const grandTotal = document.getElementById('bm-total')?.textContent || '';
-
-        // Colors
-        const primaryColor = [20, 30, 55]; // Deep blue
-        const textColor = [51, 65, 85];
-
-        // Draw Header
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(26);
-        doc.setTextColor(30, 41, 59); // #1e293b
-        doc.text("INVOICE", 15, 25);
-        
-        // Status Badge (Pending)
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(220, 38, 38);
-        doc.setFillColor(254, 226, 226);
-        doc.roundedRect(175, 18, 20, 6, 2, 2, 'F');
-        doc.text("PENDING", 185, 22, { align: "center" });
-
-        // Company Details (Left)
-        doc.setFontSize(10);
-        if (issuerName === 'JR SUPER CRANE') {
-            doc.setTextColor(79, 70, 229); // indigo-600 (blue-violet)
-        } else {
-            doc.setTextColor(220, 38, 38); // red-600
-        }
-        doc.text(issuerName, 15, 33);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        doc.text("9804 NW 80th Ave, Hialeah Gardens FL 33016", 15, 38);
-
-        // Invoice Details (Right)
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Order #: ${orderNo}`, 195, 33, { align: 'right' });
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Date: ${date}`, 195, 38, { align: 'right' });
-        doc.setFont("helvetica", "bold");
-        doc.text(`Payment Term: ${term}`, 195, 43, { align: 'right' });
-
-        // Divider
-        doc.setDrawColor(30, 41, 59);
-        doc.setLineWidth(0.6);
-        doc.line(15, 48, 195, 48);
-
-        // Bill To & Service Location
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text("BILL TO:", 15, 55);
-        doc.text("SERVICE LOCATION / DELIVERY ADDRESS:", 105, 55);
-
-        doc.setFontSize(11);
-        doc.text(billName, 15, 62);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(51, 65, 85);
-        
-        const splitBill = doc.splitTextToSize(billAddress, 80);
-        doc.text(splitBill, 15, 67);
-
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text("FROM: ", 105, 62);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        const splitFrom = doc.splitTextToSize(fromAddress, 75);
-        doc.text(splitFrom, 118, 62);
-        
-        const fromHeight = splitFrom.length * 5;
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text("TO: ", 105, 62 + fromHeight);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        const splitTo = doc.splitTextToSize(toAddress, 80);
-        doc.text(splitTo, 113, 62 + fromHeight);
-
-        // Extract Table Data
-        const tableData = [];
-        const originalRows = originalEl.querySelectorAll('#bm-services-body tr');
-        originalRows.forEach(tr => {
-            const cb = tr.querySelector('.invoice-row-checkbox');
-            if (cb && cb.checked) {
-                const desc = tr.children[0]?.textContent.trim() || '';
-                const qty = tr.children[1]?.textContent.trim() || '';
-                const unit = tr.children[2]?.textContent.trim() || '';
-                const total = tr.children[3]?.textContent.trim() || '';
-                tableData.push([desc, qty, unit, total]);
-            }
-        });
-
-        const startY = Math.max(70 + splitBill.length * 5, 70 + fromHeight + splitTo.length * 5) + 5;
-
-        // Draw Table using autoTable
-        doc.autoTable({
-            startY: startY,
-            head: [['DESCRIPTION', 'QTY', 'UNIT COST', 'TOTAL']],
-            body: tableData,
-            theme: 'grid',
-            headStyles: {
-                fillColor: [30, 41, 59], // #1e293b
-                textColor: 255,
-                fontStyle: 'bold',
-                fontSize: 9,
-                valign: 'middle',
-                cellPadding: 4,
-                lineColor: [30, 41, 59],
-                lineWidth: 0.5
-            },
-            bodyStyles: {
-                fontSize: 10,
-                textColor: 0,
-                cellPadding: 6,
-                lineColor: [30, 41, 59], // matching header color
-                lineWidth: 0.5
-            },
-            alternateRowStyles: {
-                fillColor: 255
-            },
-            columnStyles: {
-                0: { fontStyle: 'bold' },
-                1: { halign: 'center' },
-                2: { halign: 'right' },
-                3: { halign: 'right', fontStyle: 'bold' }
-            },
-            margin: { left: 15, right: 15 }
-        });
-
-        let finalY = doc.lastAutoTable.finalY + 10;
-
-        // Subtotal & Grand Total
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text("Subtotal:", 165, finalY, { align: 'right' });
-        doc.text(subtotal, 195, finalY, { align: 'right' });
-        
-        finalY += 5;
-        doc.setDrawColor(30, 41, 59);
-        doc.setLineWidth(0.5);
-        doc.line(15, finalY, 195, finalY); // Divider
-        
-        finalY += 2;
-        doc.setFillColor(248, 250, 252); // light gray bg for grand total
-        doc.rect(15, finalY, 180, 12, 'F');
-
-        finalY += 8;
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text("GRAND TOTAL:", 165, finalY, { align: 'right' });
-        doc.setTextColor(29, 78, 216); // blue-700
-        doc.text(grandTotal, 195, finalY, { align: 'right' });
-
-        // Payment Info
-        finalY += 15;
-        if (finalY > 240) {
-            doc.addPage();
-            finalY = 20;
-        }
-
-        doc.setFillColor(248, 250, 252);
-        doc.setDrawColor(226, 232, 240);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(15, finalY, 180, 42, 3, 3, 'FD');
-
-        finalY += 8;
-        doc.setFontSize(10);
-        doc.setTextColor(30, 41, 59);
-        doc.setFont("helvetica", "bold");
-        doc.text("ACH / WIRE PAYMENT INFORMATION", 25, finalY);
-
-        finalY += 8;
-        doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
-        doc.text("Bank Name: ", 25, finalY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        doc.text("Bank of America", 48, finalY);
-        
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "bold");
-        doc.text("Routing Number: ", 105, finalY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        doc.text("063100277", 135, finalY);
-
-        finalY += 6;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "bold");
-        doc.text("Company Name: ", 25, finalY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        doc.text(issuerName, 52, finalY);
-        
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "bold");
-        doc.text("Wire/Swift Code: ", 105, finalY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        doc.text("BOFAUS3N", 135, finalY);
-
-        finalY += 6;
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "bold");
-        doc.text("Account Number: ", 25, finalY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        doc.text("898111245429", 55, finalY);
-        
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "bold");
-        doc.text("Bank Address: ", 105, finalY);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(51, 65, 85);
-        doc.text("900 W 49 ST, Hialeah, FL 33012", 130, finalY);
-
-        finalY += 6;
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(29, 78, 216);
-        doc.text("ZELLE: 786-768-4409", 105, finalY);
-
-        finalY += 8;
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text("* Please include the Invoice or Order number in the payment reference.", 25, finalY);
-
-        return doc.output('blob');
-    }
-
-    // Make it globally accessible for email-service
-    window.generateMasterInvoiceBlob = generateMasterInvoiceBlob;
-
-    // ── SEND EMAIL (3 PDFs) — routed through Guardian ────────
-    // The actual implementation lives in invoice-automation.js (sendBillingEmailWithValidation).
-    // This wrapper keeps backward compatibility with the HTML button onclick.
-    window.sendBillingEmail = function () {
-        if (window.sendBillingEmailWithValidation) {
-            return window.sendBillingEmailWithValidation();
-        }
-        // Fallback if automation module hasn't loaded yet
-        alert('Invoice automation module not loaded. Please refresh the page.');
-    };
-
-    // ── ACCOUNT STATEMENT (bulk summary for selected customer) ─
     window.downloadBillingStatement = async function (format, btnElement) {
         // Re-use logic similar to old downloadCustInvoiceSummary
         const table = document.getElementById('billing-center-table');
@@ -1504,479 +799,6 @@
 
     // Expose renderBillingDetailModal globally so the automation engine
     // can silently populate the invoice preview before generating PDFs
-    window.renderBillingDetailModalForRow = function(rows, orderNo) {
-        renderBillingDetailModal(rows, orderNo);
-    };
-
-    // ── MARK AS PAID DIRECTLY ─────────────────────────────────
-    window.markBillingRowAsPaid = async function(globalIdx, btn) {
-        const trips = window.combinedBillingTrips || [];
-        const row = trips[globalIdx];
-        if (!row) return;
-
-        const tripId = row[0];
-        
-        // Handle virtual rental row
-        if (tripId && tripId.startsWith('VIRTUAL_RENTAL_')) {
-            const rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
-            if (typeof window.triggerRentalPaymentForBilling === 'function') {
-                window.triggerRentalPaymentForBilling(rentalId);
-            } else {
-                alert("Rental payment function is not available.");
-            }
-            return;
-        }
-
-        const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-        if (!tripId || !isUUID(tripId)) {
-            alert("No se puede marcar como pagado. ID inválido.");
-            return;
-        }
-
-        const confirmPay = confirm(`¿Marcar la orden ${row[5]} como totalmente PAGADA?`);
-        if (!confirmPay) return;
-
-        const origHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-        try {
-            // ── AUTOMATIC CASH LEDGER FOR YARD INVOICES ──
-            // If this is a Yard Invoice that was saved as Pending but has a payment intent
-            let yardSnap = null;
-            try {
-                if (row[12] && typeof row[12] === 'string' && row[12].startsWith('{')) {
-                    yardSnap = JSON.parse(row[12]);
-                }
-            } catch(e) {}
-            
-            if (yardSnap && yardSnap.paymentMethod && yardSnap.paymentMethod !== 'pending' && window.logCashTransaction) {
-                const pMethod = yardSnap.paymentMethod;
-                const cVal = yardSnap.cashSplit || 0;
-                const bVal = yardSnap.bankSplit || 0;
-                const orderNoStr = (row[5] || '---').toString().toUpperCase();
-                const desc = orderNoStr.startsWith('YRD-') ? `Pago Factura Storage - ${orderNoStr}` : `Pago Factura Yard - ${orderNoStr}`;
-                const cust = row[11] || '';
-                const tot  = parseFloat(row[13]) || 0;
-
-                alert(`Debug: Logging to Cash Ledger -> Method: ${pMethod}, Amount: ${tot}`);
-
-                if (pMethod === 'cash' || pMethod === 'bank') {
-                    await window.logCashTransaction({ tipo: 'ingreso', metodo: pMethod, monto: tot, descripcion: desc, referencia: row[5], chofer: cust });
-                } else if (pMethod === 'split') {
-                    if (cVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: cVal, descripcion: `${desc} (Split Cash)`, referencia: row[5], chofer: cust });
-                    if (bVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: bVal, descripcion: `${desc} (Split Bank)`, referencia: row[5], chofer: cust });
-                }
-            } else if (yardSnap && !yardSnap.paymentMethod) {
-                alert('Debug: yardSnap found but NO paymentMethod present. Was this invoice created before the update?');
-            } else if (!yardSnap) {
-                alert('Debug: Not a yard invoice or no valid JSON found in row[12].');
-            }
-            // ── END AUTOMATIC CASH LEDGER ──
-
-            // All rows now use the standard trip update path (including YARD INVOICE static rows)
-            const updateData = {
-                st_rate: 'PAID',
-                st_sales: 'PAID',
-                st_yard: 'PAID',
-                st_tax: 'PAID',
-                paid: true,
-                invoice_sent: 'YES'
-            };
-
-            await window.updateTrip(tripId, updateData);
-
-            // Update local state
-            row[32] = 'PAID'; // st_rate
-            row[33] = 'PAID'; // st_sales
-            row[30] = 'PAID'; // st_yard
-            row[52] = 'PAID'; // st_tax
-            row[57] = 'YES';  // invoice_sent
-
-            if (window.allTripsUnfiltered) {
-                const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                if (ufRow) {
-                    ufRow[32] = 'PAID';
-                    ufRow[33] = 'PAID';
-                    ufRow[30] = 'PAID';
-                    ufRow[52] = 'PAID';
-                    ufRow[57] = 'YES';
-                }
-            }
-
-            if (window.showToast) window.showToast('Marcado como pagado exitosamente', 'success');
-            else alert('Marcado como pagado exitosamente');
-            
-            // Re-render billing table
-            window.renderBillingTable();
-        } catch (err) {
-            console.error('Error marking as paid:', err);
-            alert('Error al marcar como pagado.');
-            btn.disabled = false;
-            btn.innerHTML = origHtml;
-        }
-    };
-
-    // ── MARK ALL FILTERED AS PAID ─────────────────────────────
-    window.markAllFilteredAsPaid = async function(btn) {
-        const pendingRows = (window.billingRows || []).filter(row => rowHasPendingPayment(row));
-        
-        if (pendingRows.length === 0) {
-            alert('No hay órdenes pendientes en la vista filtrada actual.');
-            return;
-        }
-
-        const regularRows = pendingRows.filter(row => {
-            const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-            const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-            const yardRate = parseFloat(row[13]) || 0;
-            const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
-            
-            if (hasTrans && row[32] !== 'PAID') return true;
-            if (hasSales && row[33] !== 'PAID') return true;
-            if (yardRate > 0.01 && row[30] !== 'PAID') return true;
-            if (takeTax && row[52] !== 'PAID') return true;
-            return false;
-        });
-
-        const rentRows = pendingRows.filter(row => {
-            const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
-            if (hasRent && row[31] !== 'PAID') return true;
-            return false;
-        });
-
-        const origHtml = btn.innerHTML;
-        btn.disabled = true;
-
-        try {
-            // 1. Calculate Regular Total
-            let totalRegularAmount = 0;
-            for (const row of regularRows) {
-                const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
-                const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
-                const yardRate = parseFloat(row[13]) || 0;
-                const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
-                const qty = parseFloat(row[21]) || 1;
-                
-                let totalTrans = 0, totalSales = 0, totalYard = 0;
-                if (hasTrans) totalTrans = parseFloat(row[18]) || 0;
-                if (hasSales) totalSales = (parseFloat(row[20]) || 0) * qty;
-                if (yardRate > 0) totalYard = yardRate;
-                
-                let rowSubtotalOwed = 0;
-                if (hasTrans && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
-                if (hasSales && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
-                if (yardRate > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
-                
-                let rowTaxOwed = 0;
-                if (takeTax && row[52] !== 'PAID') {
-                    const taxPct = parseFloat(row[50]) || 0;
-                    rowTaxOwed = ((totalTrans + totalSales + totalYard) * taxPct) / 100;
-                }
-                totalRegularAmount += (rowSubtotalOwed + rowTaxOwed);
-            }
-
-            // 2. Calculate Rent Total (1 period each)
-            let totalRentAmount = 0;
-            const validRentals = [];
-            for (const row of rentRows) {
-                const tripId = row[0] || '';
-                let rentalId = null;
-                if (tripId.startsWith('VIRTUAL_RENTAL_')) {
-                    rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
-                } else if (row.isActiveRentalMerged) {
-                    rentalId = row.isActiveRentalMerged;
-                }
-                if (rentalId) {
-                    const rental = (window.currentRentals || []).find(r => String(r.id) === String(rentalId));
-                    if (rental) {
-                        const basePrice = parseFloat(rental.base_price) || 0;
-                        totalRentAmount += basePrice;
-                        validRentals.push({ row, rental, basePrice, periodsToPay: 1, subtotal: basePrice });
-                    }
-                }
-            }
-
-            const grandTotal = totalRegularAmount + totalRentAmount;
-
-            if (grandTotal <= 0) {
-                alert('El monto total a cobrar es $0.00');
-                btn.disabled = false;
-                btn.innerHTML = origHtml;
-                return;
-            }
-
-            // 3. Custom Flow Prompt
-            const paymentSplit = await new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.style.position = 'fixed';
-                overlay.style.top = '0'; overlay.style.left = '0';
-                overlay.style.width = '100vw'; overlay.style.height = '100vh';
-                overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
-                overlay.style.display = 'flex';
-                overlay.style.alignItems = 'center';
-                overlay.style.justifyContent = 'center';
-                overlay.style.zIndex = '999999';
-
-                const modal = document.createElement('div');
-                modal.style.backgroundColor = 'white';
-                modal.style.padding = '25px';
-                modal.style.borderRadius = '12px';
-                modal.style.width = '420px';
-                modal.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.2)';
-                modal.style.borderTop = '5px solid #10b981';
-                modal.style.fontFamily = 'Montserrat, sans-serif';
-
-                modal.innerHTML = `
-                    <h3 style="margin-top:0; color:#1e293b; font-size:18px;"><i class="fas fa-file-invoice-dollar" style="color:#10b981; margin-right:8px;"></i>Cobro Masivo</h3>
-                    
-                    <div id="btn-group-1">
-                        <p style="font-size:15px; color:#475569; margin-bottom:20px; line-height:1.5;">
-                            ¿El cliente va a abonar el monto <strong>TOTAL</strong> de <strong>$${grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>?
-                        </p>
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <button id="btn-pay-all" style="padding:12px; background:#10b981; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px; transition:0.2s;">Sí, Pagar Todo ($${grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})})</button>
-                            <button id="btn-pay-partial" style="padding:12px; background:#f59e0b; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px; transition:0.2s;">No, Pago Parcial</button>
-                            <button id="btn-cancel" style="padding:10px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-top:5px; transition:0.2s;">Cancelar</button>
-                        </div>
-                    </div>
-                    
-                    <div id="method-group" style="display:none; flex-direction:column; gap:10px;">
-                        <p style="font-size:15px; color:#475569; margin-bottom:15px; font-weight:bold;">¿Cómo pagó los $${grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}?</p>
-                        <button id="btn-all-cash" style="padding:12px; background:#10b981; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;"><i class="fas fa-money-bill-wave"></i> Efectivo (CASH)</button>
-                        <button id="btn-all-bank" style="padding:12px; background:#3b82f6; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;"><i class="fas fa-university"></i> Bank / Zelle</button>
-                        <button id="btn-back-1" style="padding:10px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-top:5px;">Atrás</button>
-                    </div>
-                    
-                    <div id="partial-group" style="display:none;">
-                        <p style="font-size:14px; color:#475569; margin-bottom:15px; background:#fff7ed; padding:10px; border-radius:5px; border-left:3px solid #f59e0b;">Ingrese el monto <b>exacto</b> abonado. El sistema creará una orden de Deuda Pendiente por la diferencia.</p>
-                        <div style="margin-bottom:10px;">
-                            <label style="display:block; font-size:12px; font-weight:bold; color:#64748b; margin-bottom:4px;">Cash Amount ($)</label>
-                            <input type="number" id="split-cash" value="" step="0.01" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
-                        </div>
-                        <div style="margin-bottom:20px;">
-                            <label style="display:block; font-size:12px; font-weight:bold; color:#64748b; margin-bottom:4px;">Bank/Zelle Amount ($)</label>
-                            <input type="number" id="split-bank" value="" step="0.01" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
-                        </div>
-                        <div style="display:flex; justify-content:flex-end; gap:10px;">
-                            <button id="btn-back-2" style="padding:8px 16px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Atrás</button>
-                            <button id="btn-confirm-partial" style="padding:8px 16px; background:#10b981; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Procesar Pago Parcial</button>
-                        </div>
-                    </div>
-                `;
-
-                overlay.appendChild(modal);
-                document.body.appendChild(overlay);
-
-                const close = () => { document.body.removeChild(overlay); resolve(null); };
-
-                const btnGroup1 = modal.querySelector('#btn-group-1');
-                const methodGroup = modal.querySelector('#method-group');
-                const partialGroup = modal.querySelector('#partial-group');
-                const cashInput = modal.querySelector('#split-cash');
-                const bankInput = modal.querySelector('#split-bank');
-
-                modal.querySelectorAll('button').forEach(b => {
-                    b.onmouseover = () => b.style.opacity = '0.85';
-                    b.onmouseout = () => b.style.opacity = '1';
-                });
-
-                modal.querySelector('#btn-cancel').onclick = close;
-                
-                modal.querySelector('#btn-pay-all').onclick = () => {
-                    btnGroup1.style.display = 'none';
-                    methodGroup.style.display = 'flex';
-                };
-                
-                modal.querySelector('#btn-back-1').onclick = () => {
-                    methodGroup.style.display = 'none';
-                    btnGroup1.style.display = 'flex';
-                };
-                
-                modal.querySelector('#btn-all-cash').onclick = () => {
-                    document.body.removeChild(overlay);
-                    resolve({ cashAmt: grandTotal, bankAmt: 0 });
-                };
-                
-                modal.querySelector('#btn-all-bank').onclick = () => {
-                    document.body.removeChild(overlay);
-                    resolve({ cashAmt: 0, bankAmt: grandTotal });
-                };
-                
-                modal.querySelector('#btn-pay-partial').onclick = () => {
-                    btnGroup1.style.display = 'none';
-                    partialGroup.style.display = 'block';
-                    cashInput.focus();
-                };
-                
-                modal.querySelector('#btn-back-2').onclick = () => {
-                    partialGroup.style.display = 'none';
-                    btnGroup1.style.display = 'flex';
-                };
-                
-                modal.querySelector('#btn-confirm-partial').onclick = () => {
-                    const c = parseFloat(cashInput.value) || 0;
-                    const b = parseFloat(bankInput.value) || 0;
-                    if (c === 0 && b === 0) {
-                        alert('Debe ingresar un monto.');
-                        return;
-                    }
-                    if (c + b > grandTotal) {
-                        alert('El monto ingresado ($' + (c+b).toFixed(2) + ') es mayor al total adeudado ($' + grandTotal.toFixed(2) + ').');
-                        return;
-                    }
-                    document.body.removeChild(overlay);
-                    resolve({ cashAmt: c, bankAmt: b });
-                };
-            });
-
-            if (!paymentSplit) {
-                btn.disabled = false;
-                btn.innerHTML = origHtml;
-                return;
-            }
-
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-
-            // 4. Debt Creation Logic (Partial Payment)
-            const totalPaid = paymentSplit.cashAmt + paymentSplit.bankAmt;
-            if (totalPaid < grandTotal) {
-                const debt = grandTotal - totalPaid;
-                const customerName = (regularRows.length > 0) ? regularRows[0][11] : (validRentals.length > 0 ? validRentals[0].row[11] : '');
-                const dateStr = new Date().toISOString().split('T')[0];
-                
-                try {
-                    const { data, error } = await db.from('trips').insert([{
-                        date: dateStr,
-                        container_no: 'DEUDA PENDIENTE',
-                        customer_name: customerName,
-                        sales_price: debt.toString(),
-                        st_sales: 'PENDING_PAYMENT',
-                        status: 'PENDING_PAYMENT'
-                    }]).select();
-                    
-                    if (error) {
-                        console.error('Error creating partial payment debt trip:', error);
-                        alert('Advertencia: El pago fue parcial pero hubo un error al crear la orden de Deuda Pendiente por $' + debt);
-                    } else {
-                        if (window.allTripsUnfiltered && data && data.length > 0) {
-                            const newRow = [
-                                data[0].trip_id, data[0].date, '', data[0].container_no, '', '', '', '', '', '', '',
-                                data[0].customer_name, '', '', '', '', '', '', '', '', data[0].sales_price,
-                                '', '', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT', '', '', '', '', '', '', '',
-                                'PENDING_PAYMENT', '', '', '', '', '', '', '', '', '', '', 'PENDING_PAYMENT'
-                            ];
-                            window.allTripsUnfiltered.push(newRow);
-                            if (window.combinedBillingTrips) {
-                                window.combinedBillingTrips.push(newRow);
-                            }
-                        }
-                    }
-                } catch (debtErr) {
-                    console.error('Exception creating debt trip:', debtErr);
-                }
-            }
-
-            // 5. Mark Regular Rows as PAID
-            let regularUpdatedCount = 0;
-            for (const row of regularRows) {
-                const tripId = row[0];
-                const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-                if (!tripId || (!row.isYardAggregate && !isUUID(tripId))) continue;
-
-                const updateData = {
-                    st_rate: 'PAID',
-                    st_sales: 'PAID',
-                    st_yard: 'PAID',
-                    st_tax: 'PAID',
-                    paid: true,
-                    invoice_sent: 'YES'
-                };
-
-                await window.updateTrip(tripId, updateData);
-
-                row[32] = 'PAID'; row[33] = 'PAID'; row[30] = 'PAID'; row[52] = 'PAID'; row[57] = 'YES'; 
-                if (window.allTripsUnfiltered) {
-                    const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                    if (ufRow) { ufRow[32] = 'PAID'; ufRow[33] = 'PAID'; ufRow[30] = 'PAID'; ufRow[52] = 'PAID'; ufRow[57] = 'YES'; }
-                }
-                if (window.combinedBillingTrips) {
-                    const cbRow = window.combinedBillingTrips.find(t => t[0] === tripId);
-                    if (cbRow) { cbRow[32] = 'PAID'; cbRow[33] = 'PAID'; cbRow[30] = 'PAID'; cbRow[52] = 'PAID'; cbRow[57] = 'YES'; }
-                }
-                regularUpdatedCount++;
-            }
-
-            // 6. Mark Rent Rows as PAID (1 period)
-            let rentUpdatedCount = 0;
-            for (const item of validRentals) {
-                const rental = item.rental;
-                const periodsToPay = item.periodsToPay; // 1
-                
-                const oldDate = new Date(rental.date_paid + 'T12:00:00');
-                const newDate = new Date(oldDate);
-                
-                if (rental.time_rent === 'month') {
-                    newDate.setMonth(newDate.getMonth() + periodsToPay);
-                } else if (rental.time_rent === 'week') {
-                    newDate.setDate(newDate.getDate() + (periodsToPay * 7));
-                } else if (rental.time_rent === 'day') {
-                    newDate.setDate(newDate.getDate() + periodsToPay);
-                } else if (rental.time_rent === 'year') {
-                    newDate.setFullYear(newDate.getFullYear() + periodsToPay);
-                }
-                const newDateStr = newDate.toISOString().split('T')[0];
-                
-                const { error: rErr } = await window.db.from('rentals').update({ date_paid: newDateStr }).eq('id', rental.id);
-                if (rErr) console.error("Rent payment err:", rErr);
-                else {
-                    rental.date_paid = newDateStr;
-                    item.row[31] = 'PAID'; // Update visual row status
-                    item.row[29] = newDateStr; // Update date in row
-                    if (window.allTripsUnfiltered) {
-                        const ufRow = window.allTripsUnfiltered.find(t => t[0] === item.row[0]);
-                        if (ufRow) { ufRow[31] = 'PAID'; ufRow[29] = newDateStr; }
-                    }
-                    if (window.combinedBillingTrips) {
-                        const cbRow = window.combinedBillingTrips.find(t => t[0] === item.row[0]);
-                        if (cbRow) { cbRow[31] = 'PAID'; cbRow[29] = newDateStr; }
-                    }
-                    rentUpdatedCount++;
-                }
-            }
-            
-            // 7. Log single consolidated Cash Ledger transaction
-            if (window.logCashTransaction) {
-                const parts = [];
-                if (regularRows.length > 0) parts.push(`${regularRows.length} Ord. Regulares`);
-                if (validRentals.length > 0) parts.push(`${validRentals.length} Rentas (1 Per.)`);
-                const desc = `Pago Masivo - ${parts.join(' y ')}`;
-                
-                const cust = (regularRows.length > 0) ? (regularRows[0][11] || 'Varios') : (validRentals.length > 0 ? validRentals[0].row[11] : '');
-                
-                let orderNumbers = [];
-                regularRows.forEach(r => orderNumbers.push(r[5] || 'S/N'));
-                validRentals.forEach(r => orderNumbers.push(r.row[5] || 'S/N'));
-                const joinNum = orderNumbers.join(', ');
-                const refText = joinNum.length > 100 ? joinNum.substring(0, 97) + '...' : joinNum;
-                
-                if (paymentSplit.cashAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: `${desc}`, referencia: refText, chofer: cust });
-                if (paymentSplit.bankAmt > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: `${desc}`, referencia: refText, chofer: cust });
-            }
-
-            if (window.showToast) window.showToast(`${regularUpdatedCount} regulares y ${rentUpdatedCount} rentas cobradas`, 'success');
-            window.renderBillingTable();
-
-        } catch (err) {
-            console.error('Error marking bulk as paid:', err);
-            alert('Hubo un error al procesar el pago masivo: ' + err.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = origHtml;
-        }
-    };
-
-
     window.pendingMultiRentals = [];
 
     window.openMultiRentModal = function(rentRows) {
@@ -2171,5 +993,418 @@
         }
     });
 
-})();
 
+    // ── MASTER FILTERED INVOICE ───────────────────────────────
+    window.openMasterBillingModal = function() {
+        const rows = window.billingRows || [];
+        if (rows.length === 0) {
+            alert('No hay órdenes para facturar en la vista actual.');
+            return;
+        }
+
+        const customer = document.getElementById('bc-f-customer')?.value;
+        if (!customer) {
+            alert('Debe seleccionar un cliente específico para generar un invoice.');
+            return;
+        }
+
+        document.getElementById('mb-bill-to-name').textContent = customer;
+        document.getElementById('mb-date-display').textContent = new Date().toLocaleDateString('en-US');
+
+        const fromDateStr = document.getElementById('bc-f-from')?.value;
+        const toDateStr = document.getElementById('bc-f-to')?.value;
+        const periodContainer = document.getElementById('mb-period-container');
+        const periodDisplay = document.getElementById('mb-period-display');
+        
+        if (fromDateStr || toDateStr) {
+            let pStr = '';
+            if (fromDateStr && toDateStr) {
+                const fD = new Date(fromDateStr + 'T00:00:00');
+                const tD = new Date(toDateStr + 'T00:00:00');
+                pStr = `From ${fD.toLocaleDateString('en-US')} to ${tD.toLocaleDateString('en-US')}`;
+            } else if (fromDateStr) {
+                const fD = new Date(fromDateStr + 'T00:00:00');
+                pStr = `From ${fD.toLocaleDateString('en-US')}`;
+            } else if (toDateStr) {
+                const tD = new Date(toDateStr + 'T00:00:00');
+                pStr = `Up to ${tD.toLocaleDateString('en-US')}`;
+            }
+            if(periodDisplay) periodDisplay.textContent = pStr;
+            if(periodContainer) periodContainer.style.display = 'block';
+        } else {
+            if(periodContainer) periodContainer.style.display = 'none';
+        }
+
+        const custObj = (window.currentCustomers || []).find(c => c.name === customer);
+        const custAddress = custObj && custObj.address ? custObj.address : '';
+        document.getElementById('mb-bill-to-address').textContent = custAddress;
+
+        let allSameLocations = true;
+        let firstLocStr = null;
+        let fromVal = 'N/A';
+        let toVal = 'PICK UP';
+        
+        rows.forEach(r => {
+            const f = (r[7] && r[7] !== '---') ? r[7].toString().trim() : 'N/A';
+            const t = (r[8] && r[8] !== '---') ? r[8].toString().trim() : 'PICK UP';
+            const locStr = `${f}_${t}`;
+            if (firstLocStr === null) {
+                firstLocStr = locStr;
+                fromVal = f;
+                toVal = t;
+            } else if (locStr !== firstLocStr) {
+                allSameLocations = false;
+            }
+        });
+
+        document.getElementById('mb-service-from').textContent = allSameLocations ? fromVal : 'VARIOUS LOCATIONS';
+        document.getElementById('mb-service-to').textContent = allSameLocations ? toVal : 'VARIOUS LOCATIONS';
+        const tbody = document.getElementById('mb-services-container');
+        tbody.innerHTML = '';
+        let grandTotal = 0;
+        let activeServices = 0;
+        let prefix = 'INV';
+
+        const fService = (document.getElementById('bc-f-service')?.value || '').trim();
+
+        const serviceGroups = {
+            TRANSPORT: {},
+            YARD: {},
+            SALES: {},
+            STORAGE: {},
+            RENT: {}
+        };
+
+        const addGroup = (srv, booking, unitCost, qty, total) => {
+            const key = booking && booking !== '---' ? `B|${booking}|${unitCost}` : `NB|${unitCost}`;
+            if (!serviceGroups[srv][key]) {
+                serviceGroups[srv][key] = { booking: booking && booking !== '---' ? booking : null, unitCost, qty: 0, total: 0 };
+            }
+            serviceGroups[srv][key].qty += qty;
+            serviceGroups[srv][key].total += total;
+        };
+
+        rows.forEach(r => {
+            const orderNo = (r[5] || '').toString().toUpperCase();
+            const bookingNo = (r[65] && r[65] !== '---') ? r[65].toString().trim() : '---';
+            const containerNo = (r[3] && r[3] !== '---') ? r[3].toString().trim() : '---';
+            
+            const f = (r[7] && r[7] !== '---') ? r[7].toString().trim() : 'N/A';
+            const t = (r[8] && r[8] !== '---') ? r[8].toString().trim() : 'PICK UP';
+            const locHtml = !allSameLocations ? `<br><span style="font-size:0.8rem;color:#475569;font-weight:normal;">(From: ${f} - To: ${t})</span>` : '';
+            
+            let grpSalesTrans = bookingNo !== '---' ? `Booking: ${bookingNo}` : '';
+            grpSalesTrans += locHtml;
+            
+            let grpYardStorageRent = containerNo !== '---' ? `Container: ${containerNo}` : (orderNo ? `Order: ${orderNo}` : '');
+            grpYardStorageRent += locHtml;
+
+            const isYardStorageRow = orderNo.startsWith('YRD-');
+
+            let rYard = parseFloat(r[13]) || 0;
+            let rTrans = parseFloat(r[18]) || 0;
+            const rQty = parseInt(r[53]) || 1;
+            let rSales = (parseFloat(r[20]) || 0) * rQty;
+
+            let rStorage = 0;
+            if (isYardStorageRow) {
+                rStorage = rYard;
+                rYard = 0;
+            } else {
+                const ppd = parseFloat(r[14]) || 0;
+                if (ppd > 0) {
+                    const entryDate = new Date(r[1]);
+                    const exitDate = r[15] && r[15] !== '---' ? new Date(r[15]) : new Date();
+                    const diffTime = Math.abs(exitDate - entryDate);
+                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                    rStorage = ppd * diffDays;
+                }
+            }
+
+            let rRent = 0;
+            const mrate = parseFloat(r[27]) || 0;
+            if (mrate > 0) {
+                const tripId = r[0] || '';
+                let rentalId = null;
+                if (tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    rentalId = tripId.replace('VIRTUAL_RENTAL_', '');
+                } else if (r.isActiveRentalMerged) {
+                    rentalId = r.isActiveRentalMerged;
+                }
+                if (rentalId) {
+                    const rental = (window.currentRentals || []).find(rt => String(rt.id) === String(rentalId));
+                    if (rental && window.calculateRentalCost) {
+                        const costInfo = window.calculateRentalCost(rental.start_date, rental.final_date, rental.base_price, rental.daily_rate, rental.status, rental.time_rent, null, null);
+                        rRent = (r[31] === 'PAID') ? 0 : costInfo.total;
+                    } else {
+                        rRent = mrate;
+                    }
+                } else {
+                    const entryDate = new Date(r[1]);
+                    const exitDate = r[15] && r[15] !== '---' ? new Date(r[15]) : new Date();
+                    const diffDays = Math.ceil(Math.abs(exitDate - entryDate) / (1000 * 60 * 60 * 24));
+                    const diffPeriods = Math.max(1, Math.ceil(diffDays / 30));
+                    rRent = mrate * diffPeriods;
+                }
+            }
+
+            if ((fService === '' || fService === 'TRANSPORT') && rTrans > 0 && r[42] === 'YES') {
+                addGroup('TRANSPORT', grpSalesTrans, rTrans, 1, rTrans);
+            }
+            if ((fService === '' || fService === 'YARD') && rYard > 0) {
+                let parsed = false;
+                if (r[12] && r[12] !== '---') {
+                    try {
+                        const services = JSON.parse(r[12]);
+                        if (Array.isArray(services)) {
+                            services.forEach(s => {
+                                const baseDesc = (s.desc && s.desc.trim() !== '') ? s.desc.trim() : 'YARD SERVICE';
+                                const price = parseFloat(s.price) || 0;
+                                if (price > 0) {
+                                    addGroup('YARD', baseDesc + locHtml, price, rQty, price * rQty);
+                                }
+                            });
+                            parsed = true;
+                        }
+                    } catch(e) {
+                        // Not JSON, continue to fallback
+                    }
+                }
+                if (!parsed) {
+                    const yardServiceName = (r[12] && r[12] !== '---') ? r[12].toString().trim() : 'YARD SERVICE';
+                    const uCost = rYard / rQty;
+                    addGroup('YARD', yardServiceName + locHtml, uCost, rQty, rYard);
+                }
+            }
+            if ((fService === '' || fService === 'SALES') && rSales > 0 && r[43] === 'YES') {
+                const uCost = rSales / rQty;
+                addGroup('SALES', grpSalesTrans, uCost, rQty, rSales);
+            }
+            if ((fService === '' || fService === 'STORAGE') && rStorage > 0) {
+                addGroup('STORAGE', grpYardStorageRent, rStorage, 1, rStorage);
+            }
+            if ((fService === '' || fService === 'RENT') && rRent > 0) {
+                addGroup('RENT', 'CONTAINER RENTAL' + locHtml, rRent, 1, rRent);
+            }
+        });
+
+        const renderService = (srv, title, prefixKey) => {
+            const keys = Object.keys(serviceGroups[srv]);
+            if (keys.length === 0) return;
+            
+            const isFirst = (activeServices === 0);
+            activeServices++;
+            prefix = prefixKey;
+            
+            // For jsPDF.html, table is the best block element to trigger page break
+            const breakHtml = isFirst ? '' : '<div style="page-break-before: always; break-before: page; height:1px;"></div>';
+            
+            let tableHtml = breakHtml + `
+                <table style="width:100%;border-collapse:collapse;margin-bottom:15px; page-break-inside: auto;">
+                    <thead>
+                        <tr style="background:#1e293b;color:white; page-break-inside: avoid;">
+                            <th style="padding:12px 15px;text-align:left;font-size:0.75rem;text-transform:uppercase;">Description</th>
+                            <th style="padding:12px 15px;text-align:center;font-size:0.75rem;text-transform:uppercase;">QTY</th>
+                            <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Unit Cost</th>
+                            <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Total</th>
+                        </tr>
+                        <tr style="background:#e2e8f0; page-break-inside: avoid;">
+                            <th colspan="4" style="padding:10px 15px;font-weight:900;color:#1e293b;text-align:center;text-transform:uppercase;">${title}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            let srvTotal = 0;
+            
+            keys.forEach(k => {
+                const grp = serviceGroups[srv][k];
+                let desc = title;
+                if (grp.booking && grp.booking !== '---') {
+                    if (grp.booking.startsWith('<br>')) {
+                        desc = title + grp.booking;
+                    } else {
+                        desc = grp.booking;
+                    }
+                }
+                srvTotal += grp.total;
+                
+                tableHtml += `
+                    <tr style="page-break-inside: avoid;">
+                        <td style="padding:14px 15px;font-weight:600;color:#1e293b; border-bottom:1px solid #e2e8f0;">${desc}</td>
+                        <td style="padding:14px 15px;text-align:center;color:#0f172a; border-bottom:1px solid #e2e8f0;">${grp.qty}</td>
+                        <td style="padding:14px 15px;text-align:right;color:#0f172a; border-bottom:1px solid #e2e8f0;">$${grp.unitCost.toFixed(2)}</td>
+                        <td style="padding:14px 15px;text-align:right;font-weight:800;color:#1e293b; border-bottom:1px solid #e2e8f0;">$${grp.total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            tableHtml += `
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#f8fafc; page-break-inside: avoid;">
+                            <td colspan="3" style="padding:10px 15px;text-align:right;font-size:0.9rem;font-weight:800;color:#1e293b;border-bottom:2px solid #cbd5e1;">${title} SUBTOTAL:</td>
+                            <td style="padding:10px 15px;text-align:right;font-size:0.95rem;font-weight:900;color:#1e40af;border-bottom:2px solid #cbd5e1;">$${srvTotal.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+            
+            tbody.innerHTML += tableHtml;
+            grandTotal += srvTotal;
+        };
+
+        renderService('TRANSPORT', 'TRANSPORT SERVICE', 'TRANS');
+        renderService('YARD', 'YARD / ADDITIONAL SERVICES', 'YARD');
+        renderService('SALES', 'CONTAINER SALES', 'SALE');
+        renderService('STORAGE', 'STORAGE SERVICE', 'STOR');
+        renderService('RENT', 'CONTAINER RENTAL', 'RENT');
+
+        document.getElementById('mb-total').textContent = `${grandTotal.toFixed(2)}`;
+
+        if (activeServices > 1) {
+            prefix = 'AS';
+        }
+
+        const uniqueNum = Math.floor(100000 + Math.random() * 900000);
+        const invoiceNo = `${prefix}-${uniqueNum}`;
+        document.getElementById('mb-invoice-number').textContent = invoiceNo;
+        // Save the generated number globally so it can be retrieved if needed (e.g. for PDF)
+        window.currentMasterInvoiceNo = invoiceNo;
+
+        const modal = document.getElementById('master-billing-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
+    window.closeMasterBillingModal = function() {
+        const modal = document.getElementById('master-billing-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    };
+
+    window.sendFilteredInvoiceEmail = async function() {
+        const btn = event.currentTarget;
+        const origText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ENVIANDO...';
+
+        try {
+            // Check if automation function is available, else simulate
+            if (window.sendBillingEmailWithValidation) {
+                window.currentBillingOrderRows = window.billingRows;
+                await window.sendBillingEmailWithValidation();
+            } else {
+                await new Promise(r => setTimeout(r, 1500));
+                if (window.showToast) window.showToast('Factura enviada exitosamente!', 'success');
+                else alert('Factura enviada exitosamente!');
+            }
+            window.closeMasterBillingModal();
+        } catch(e) {
+            console.error(e);
+            alert('Error enviando la factura.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+        }
+    };
+
+
+    window.updateMasterBillingCompany = function() {
+        const select = document.getElementById('mb-billing-company-select');
+        const companyId = select.value;
+
+        const nameEl = document.getElementById('mb-company-name');
+        const addrEl = document.getElementById('mb-company-address');
+        const bName = document.getElementById('mb-bank-name');
+        const bCompany = document.getElementById('mb-bank-company');
+        const bAccount = document.getElementById('mb-bank-account');
+        const bRouting = document.getElementById('mb-bank-routing');
+        const bSwift = document.getElementById('mb-bank-swift');
+        const bAddr = document.getElementById('mb-bank-addr');
+        const bZelle = document.getElementById('mb-bank-zelle');
+
+        if (companyId === 'JR_SUPER_CRANE') {
+            nameEl.textContent = 'JR SUPER CRANE TRANSPORT INC';
+            addrEl.textContent = '9804 NW 80th Ave, Hialeah Gardens FL 33016';
+            bName.textContent = 'Bank Of America';
+            bCompany.textContent = 'JR SUPER CRANE TRANSPORT INC';
+            bAccount.textContent = '898111245429';
+            bRouting.textContent = '063100277';
+            bSwift.textContent = 'BOFAUS3N';
+            bAddr.textContent = '900 W 49 ST, Hialeah, FL 33012';
+            bZelle.textContent = '786-768-4409';
+        } else {
+            // Default: RP_TULIPAN
+            nameEl.textContent = 'RP TULIPAN TRANSPORT INC';
+            addrEl.textContent = '9804 NW 80th Ave, Hialeah Gardens FL 33016';
+            bName.textContent = 'Bank Of America';
+            bCompany.textContent = 'RP TULIPAN TRANSPORT INC';
+            bAccount.textContent = '898111245429';
+            bRouting.textContent = '063100277';
+            bSwift.textContent = 'BOFAUS3N';
+            bAddr.textContent = '900 W 49 ST, Hialeah, FL 33012';
+            bZelle.textContent = '786-768-4409';
+        }
+    };
+
+    window.downloadFilteredInvoicePDF = async function() {
+        const btn = event.currentTarget;
+        const origText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GENERATING PDF...';
+
+        try {
+            const container = document.getElementById('mb-invoice-preview');
+            // Hide buttons temporarily
+            const actionsDiv = container.querySelector('div:last-child');
+            actionsDiv.style.display = 'none';
+
+            // Wait a tick for UI update
+            await new Promise(r => setTimeout(r, 100));
+
+            // Ensure html2pdf is available
+            if (typeof html2pdf === 'undefined') {
+                alert('Librería html2pdf no encontrada.');
+                actionsDiv.style.display = 'flex';
+                btn.disabled = false;
+                btn.innerHTML = origText;
+                return;
+            }
+
+            const customer = document.getElementById('bc-f-customer')?.value || 'Customer';
+            const invNo = window.currentMasterInvoiceNo || 'INV';
+            const filename = `${invNo}_${customer.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+
+            const opt = {
+                margin:       15,
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'pt', format: 'letter', orientation: 'portrait' },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            await html2pdf().set(opt).from(container).save();
+
+            // Restore buttons
+            actionsDiv.style.display = 'flex';
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            
+        } catch (e) {
+            console.error('Error generating PDF:', e);
+            alert('Error generando el PDF.');
+            // Restore actions just in case
+            const actionsDiv = document.getElementById('mb-invoice-preview').querySelector('div:last-child');
+            if (actionsDiv) actionsDiv.style.display = 'flex';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+        }
+    };
+
+})();
