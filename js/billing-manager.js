@@ -689,7 +689,7 @@
         ['bc-f-order','bc-f-booking','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-service','bc-f-release','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
-        if (fPayment) fPayment.value = 'pending';
+        if (fPayment) fPayment.value = 'all';
         window.renderBillingTable();
     };
 
@@ -1077,11 +1077,11 @@
         }
     };
 
-    // Force default payment filter to 'pending' on load to prevent browser cache issues
+    // Force default payment filter to 'all' on load to prevent browser cache issues
     document.addEventListener('DOMContentLoaded', () => {
         const paymentFilter = document.getElementById('bc-f-payment');
         if (paymentFilter) {
-            paymentFilter.value = 'pending';
+            paymentFilter.value = 'all';
         }
     });
 
@@ -1427,7 +1427,7 @@
             // Check if automation function is available, else simulate
             if (window.sendBillingEmailWithValidation) {
                 window.currentBillingOrderRows = window.billingRows;
-                await window.sendBillingEmailWithValidation();
+                await window.sendBillingEmailWithValidation(btn);
             } else {
                 await new Promise(r => setTimeout(r, 1500));
                 if (window.showToast) window.showToast('Factura enviada exitosamente!', 'success');
@@ -1525,7 +1525,9 @@
                 const totalText = document.getElementById('mb-total')?.textContent || '0';
                 const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
-                window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml);
+                const tripIds = (window.currentBillingOrderRows || []).map(r => r[0]).filter(Boolean);
+                const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
             }
 
             // Restore buttons

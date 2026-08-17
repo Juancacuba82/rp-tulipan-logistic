@@ -258,6 +258,45 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
 
             if (updateErr) throw updateErr;
 
+            // ── Sync trip payment status in calendar ─────────────
+            const invoiceRecord = window.receivablesData.invoices.find(i => i.id === id);
+            if (invoiceRecord && invoiceRecord.trip_ids) {
+                const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
+                const svcType = (invoiceRecord.service_type || '').toUpperCase();
+
+                // Map service type to the exact column(s) in the trips table
+                const serviceColumnMap = {
+                    'TRANSPORT': { st_rate: 'PAID' },
+                    'YARD':      { st_yard: 'PAID' },
+                    'SALES':     { st_sales: 'PAID' },
+                    'RENT':      { st_rent: 'PAID' },
+                    'STORAGE':   { st_amount: 'PAID' },
+                    'ALL':       { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' },
+                    '':          { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' }
+                };
+                const colsToUpdate = serviceColumnMap[svcType] || serviceColumnMap['ALL'];
+
+                if (tripIdList.length > 0 && Object.keys(colsToUpdate).length > 0) {
+                    await Promise.all(
+                        tripIdList.map(tid =>
+                            window.db.from('trips').update(colsToUpdate).eq('trip_id', tid)
+                        )
+                    );
+                    // Sync local cache so calendar reflects immediately
+                    tripIdList.forEach(tid => {
+                        const localRow = (window.currentTrips || []).find(t => t[0] === tid);
+                        if (localRow) {
+                            if (colsToUpdate.st_rate)   localRow[32] = 'PAID';
+                            if (colsToUpdate.st_yard)   localRow[30] = 'PAID';
+                            if (colsToUpdate.st_sales)  localRow[33] = 'PAID';
+                            if (colsToUpdate.st_rent)   localRow[31] = 'PAID';
+                            if (colsToUpdate.st_amount) localRow[34] = 'PAID';
+                        }
+                    });
+                    console.log(`[Receivables] Trip payment synced: ${tripIdList.join(',')} → ${JSON.stringify(colsToUpdate)}`);
+                }
+            }
+
             if (cashAmount > 0) {
                 if (window.logCashTransaction) {
                     await window.logCashTransaction({
@@ -361,7 +400,7 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
     };
 };
 
-window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '') {
+window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '', tripIds = [], serviceType = '') {
     if (!customerName || !invoiceNumber || !totalAmount) return;
     try {
         const customerUpper = customerName.trim().toUpperCase();
@@ -376,14 +415,20 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
             return;
         }
 
+        // Build trip sync metadata
+        const tripIdsStr = Array.isArray(tripIds) ? tripIds.filter(Boolean).join(',') : (tripIds || '');
+        const svcType = (serviceType || '').toString().toUpperCase().trim();
+
         const { error } = await window.db.from('receivables_invoices').insert([{
             customer_name: customerUpper,
             invoice_number: invoiceNumber,
             total_amount: parseFloat(totalAmount),
-            details_html: detailsHtml
+            details_html: detailsHtml,
+            trip_ids: tripIdsStr || null,
+            service_type: svcType || null
         }]);
         if (error) throw error;
-        console.log(`[Receivables] Invoice ${invoiceNumber} added to AR.`);
+        console.log(`[Receivables] Invoice ${invoiceNumber} added to AR. Trips: ${tripIdsStr}, Service: ${svcType}`);
     } catch (err) {
         console.error('[Receivables] Failed to add invoice to AR:', err);
         alert('Error al guardar en Accounts Receivable: ' + err.message);

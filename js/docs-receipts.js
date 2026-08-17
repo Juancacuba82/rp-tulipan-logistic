@@ -571,27 +571,27 @@
         let imgList = '';
         photos.forEach(url => {
             imgList += `
-                <div style="break-inside:avoid;margin-bottom:15px;">
-                    <img src="${url}" style="width:100%;max-height:260px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+                <div style="break-inside:avoid;margin-bottom:10px;">
+                    <img src="${url}" style="width:100%;max-height:180px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" loading="eager">
                 </div>
             `;
         });
 
         return `
             <div class="receipt-content-wrapper" style="font-family:'Outfit',sans-serif;">
-                <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e293b;padding-bottom:15px;margin-bottom:25px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1e293b;padding-bottom:10px;margin-bottom:15px;">
                     <div>
-                        <h1 style="color:${options.companyOverride === 'JR SUPER CRANE' ? '#1e40af' : '#b91c1c'};margin:0;font-size:1.8rem;font-weight:900;">${options.companyOverride === 'JR SUPER CRANE' ? 'JR SUPER CRANE' : 'RP TULIPAN'}</h1>
-                        <p style="font-weight:900;margin:0;">${options.companyOverride === 'JR SUPER CRANE' ? '' : 'TRANSPORT, INC.'}</p>
+                        <h1 style="color:${options.companyOverride === 'JR SUPER CRANE' ? '#1e40af' : '#b91c1c'};margin:0;font-size:1.4rem;font-weight:900;">${options.companyOverride === 'JR SUPER CRANE' ? 'JR SUPER CRANE' : 'RP TULIPAN'}</h1>
+                        <p style="font-weight:900;margin:0;font-size:0.85rem;">${options.companyOverride === 'JR SUPER CRANE' ? '' : 'TRANSPORT, INC.'}</p>
                     </div>
                     <div style="text-align:right;">
-                        <h2 style="margin:0;color:#1e293b;">DELIVERY EVIDENCE</h2>
-                        <p style="margin:3px 0;">Order: <strong>${orderNo}</strong></p>
-                        <p style="margin:3px 0;">Date: <strong>${dateStr}</strong></p>
-                        <p style="margin:3px 0;color:#64748b;font-size:0.85rem;">${photos.length} photo(s) attached</p>
+                        <h2 style="margin:0;color:#1e293b;font-size:1.1rem;">DELIVERY EVIDENCE</h2>
+                        <p style="margin:2px 0;font-size:0.85rem;">Order: <strong>${orderNo}</strong></p>
+                        <p style="margin:2px 0;font-size:0.85rem;">Date: <strong>${dateStr}</strong></p>
+                        <p style="margin:2px 0;color:#64748b;font-size:0.75rem;">${photos.length} photo(s) attached</p>
                     </div>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
                     ${imgList}
                 </div>
             </div>

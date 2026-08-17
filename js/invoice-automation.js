@@ -279,6 +279,14 @@
         }
 
         if (window.renderBillingTable) window.renderBillingTable();
+
+        // ── Push to Accounts Receivable ───────────────────────────
+        if (window.addInvoiceToReceivables && window.currentMasterInvoiceNo) {
+            const totalNum = parseFloat((document.getElementById('mb-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0;
+            const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
+            const svcFilter = document.getElementById('bc-f-service')?.value || '';
+            window.addInvoiceToReceivables(row[11] || 'Customer', window.currentMasterInvoiceNo, totalNum, detailsHtml, [row[0]], svcFilter);
+        }
     }
 
     /**
@@ -318,11 +326,11 @@
      * Wraps the existing sendBillingEmail to add validation + clock reset.
      * Called from the SEND EMAIL button inside the detail modal.
      */
-    window.sendBillingEmailWithValidation = async function () {
+    window.sendBillingEmailWithValidation = async function (externalBtn = null) {
         const rows = window.currentBillingOrderRows;
         if (!rows || rows.length === 0) return;
 
-        const btn = event?.currentTarget;
+        const btn = externalBtn || event?.currentTarget;
         const row = rows[0];
 
         //  YARD STOCK BIFURCATION
@@ -378,19 +386,19 @@
         const isMasterInvoice = rows.length > 1;
         
         if (isMasterInvoice) {
-            executeMasterInvoiceSendProcess(rows, btn);
+            await executeMasterInvoiceSendProcess(rows, btn);
             return;
         }
 
         const validation = window.validateInvoiceReadiness(row);
         if (!validation.ok) {
-            showValidationBlockModal(row, validation.reasons, () => {
-                executeManualSendProcess(row, btn);
+            showValidationBlockModal(row, validation.reasons, async () => {
+                await executeManualSendProcess(row, btn);
             });
             return;
         }
 
-        executeManualSendProcess(row, btn);
+        await executeManualSendProcess(row, btn);
     };
 
     async function executeMasterInvoiceSendProcess(rows, btn) {
@@ -436,10 +444,9 @@
             }
         }
 
-        const orig = btn ? btn.innerHTML : '';
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
 
         try {
+
             // Generate Master PDF
             if (!window.generateMasterInvoiceBlob) throw new Error('Master invoice generator not found');
             const pdfBlob = await window.generateMasterInvoiceBlob();
@@ -483,7 +490,9 @@
             if (window.addInvoiceToReceivables) {
                 const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
-                window.addInvoiceToReceivables(templateParams.customer_name, masterTitle, totalNum, detailsHtml);
+                const masterTripIds = rows.map(r => r[0]).filter(Boolean);
+                const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                window.addInvoiceToReceivables(templateParams.customer_name, window.currentMasterInvoiceNo || masterTitle, totalNum, detailsHtml, masterTripIds, svcFilter);
             }
 
             // Update tracking for all rows
@@ -532,16 +541,16 @@
                     }
                 }
             }
-            
+
             if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
             if (window.showToast) window.showToast('✅ Master Invoice sent & tracking updated!', 'success');
             else alert(`Master Invoice sent to ${customerEmail}!`);
+
         } catch (e) {
             console.error('Master Invoice send error:', e);
             const errMsg = e.text || e.message || JSON.stringify(e);
             alert('Error sending master invoice: ' + errMsg);
-        } finally {
-            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+            throw e; // Re-throw so the caller's finally can restore the button
         }
     }
 
@@ -573,20 +582,17 @@
         const originalEmail = row[36];
         row[36] = targetEmail;
 
-        // ── 3. Get the button that triggered the event ───────
-        const orig = btn ? btn.innerHTML : '';
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
-
         try {
             await sendInvoiceForRow(row, 'manual');
+            
             if (window.showToast) window.showToast('✅ Invoice sent & tracking updated!', 'success');
             else alert(`Invoice package sent to ${customerEmail}!`);
         } catch (e) {
             console.error('Manual send error:', e);
             const errMsg = e.text || e.message || JSON.stringify(e);
             alert('Error sending invoice: ' + errMsg);
+            throw e; // Re-throw so caller's finally restores the button
         } finally {
-            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
             row[36] = originalEmail;
         }
     }

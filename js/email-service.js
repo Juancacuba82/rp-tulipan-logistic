@@ -141,10 +141,9 @@
             let photosUrl = receiptUrl; // Fallback to receipt link if no photos
             let pBlob = null;
             
-            if (hasPhotos && window.getTripPhotosOnlyContent) {
-                console.log("Generating Photos PDF...");
-                const photosHtml = window.getTripPhotosOnlyContent(rowData, { companyOverride });
-                pBlob = await htmlToPDFBlob(photosHtml, 'p');
+            if (hasPhotos) {
+                console.log('Generating Photos PDF (native)...');
+                pBlob = await generateNativePhotosPDFBlob([rowData], { companyOverride });
                 if (pBlob) {
                     photosUrl = await uploadPDFToSupabase(pBlob, `photos_${orderNo}_${tripId}_${ts}.pdf`);
                     console.log("Photos PDF Public URL:", photosUrl);
@@ -304,6 +303,122 @@
         }
     }
 
+    // Native, highly optimized PDF generation specifically for photos
+    // This bypasses html2canvas entirely and draws compressed images directly onto the PDF
+    async function generateNativePhotosPDFBlob(rows, options = {}) {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ compress: true, orientation: 'p', unit: 'mm', format: 'a4' });
+        
+        let isJrSuperCrane = false;
+        if (options.companyOverride === 'JR SUPER CRANE' || options.companyOverride === 'JR_SUPER_CRANE') {
+            isJrSuperCrane = true;
+        }
+        const companyName = isJrSuperCrane ? 'JR SUPER CRANE TRANSPORT INC' : 'RP TULIPAN TRANSPORT INC';
+        
+        const pw = pdf.internal.pageSize.getWidth();
+        const ph = pdf.internal.pageSize.getHeight();
+        const margin = 15;
+        let yPos = margin;
+
+        const loadAndResizeImage = (url) => new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                // Resize to max width 600px for good quality but very small size
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxWidth = 600;
+                if (width > maxWidth) {
+                    height = (maxWidth / width) * height;
+                    width = maxWidth;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                // Aggressive compression
+                resolve({ 
+                    data: canvas.toDataURL('image/jpeg', 0.6), 
+                    w: width, 
+                    h: height,
+                    ratio: height / width
+                });
+            };
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+
+        let hasAnyPhotos = false;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const photos = row[55] || [];
+            if (!photos || photos.length === 0) continue;
+            
+            hasAnyPhotos = true;
+            const orderNo = (row[5] && row[5] !== '---') ? row[5] : '';
+            const dateStr = window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(row[1]) : (row[1] || '');
+
+            if (i > 0) {
+                pdf.addPage();
+                yPos = margin;
+            }
+
+            // Draw header
+            pdf.setFontSize(16);
+            pdf.setTextColor(isJrSuperCrane ? 30 : 185, isJrSuperCrane ? 64 : 28, isJrSuperCrane ? 175 : 28); // Blue for JR, Red for RP
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(companyName, margin, yPos);
+            yPos += 8;
+            pdf.setFontSize(12);
+            pdf.setTextColor(30, 41, 59); // Slate 800
+            pdf.text('DELIVERY EVIDENCE', margin, yPos);
+            yPos += 6;
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Order: ${orderNo}  |  Date: ${dateStr}`, margin, yPos);
+            yPos += 10;
+            
+            pdf.setDrawColor(30, 41, 59);
+            pdf.setLineWidth(0.5);
+            pdf.line(margin, yPos, pw - margin, yPos);
+            yPos += 10;
+
+            // Draw images 2 per row
+            const contentWidth = pw - (margin * 2);
+            const imgDrawWidth = (contentWidth - 10) / 2; // 10mm gap
+            
+            let col = 0;
+            for (let p = 0; p < photos.length; p++) {
+                const imgInfo = await loadAndResizeImage(photos[p]);
+                if (!imgInfo) continue;
+                
+                const imgDrawHeight = imgDrawWidth * imgInfo.ratio;
+                
+                if (yPos + imgDrawHeight > ph - margin) {
+                    pdf.addPage();
+                    yPos = margin;
+                }
+                
+                const xPos = margin + (col * (imgDrawWidth + 10));
+                pdf.addImage(imgInfo.data, 'JPEG', xPos, yPos, imgDrawWidth, imgDrawHeight);
+                
+                col++;
+                if (col > 1) {
+                    col = 0;
+                    yPos += imgDrawHeight + 10;
+                }
+            }
+        }
+        
+        if (!hasAnyPhotos) return null;
+
+        const blob = pdf.output('blob');
+        console.log('[Native Photos PDF] Size:', (blob.size / 1024).toFixed(2), 'KB');
+        return blob;
+    }
+
     // ── HELPER: upload a blob to Supabase and return public URL ──────────────
     async function uploadPDFToSupabase(blob, fileName) {
         const filePath = `invoices/${fileName}`;
@@ -360,19 +475,12 @@
         if (!receiptBlob) throw new Error('Could not generate Receipt PDF');
 
         // ── 3. Photos-only PDF ────────────────────────────────
-        console.log('[3-PDF] Generating Photos PDF...');
-        let photosBlob = null;
-        if (window.getTripPhotosOnlyContent) {
-            let combinedPhotosHtml = '';
-            for (let i = 0; i < rows.length; i++) {
-                if (i > 0) {
-                    combinedPhotosHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
-                }
-                combinedPhotosHtml += window.getTripPhotosOnlyContent(rows[i], companyOverrideOpts);
-            }
-            photosBlob = await htmlToPDFBlob(combinedPhotosHtml, 'p');
+        console.log('[3-PDF] Generating Photos PDF (native)...');
+        let photosBlob = await generateNativePhotosPDFBlob(rows, companyOverrideOpts);
+        
+        if (!photosBlob) {
+            console.log('No photos found for these orders, skipping photos PDF');
         }
-        if (!photosBlob) throw new Error('Could not generate Photos PDF');
 
         // ── Upload all 3 to Supabase ──────────────────────────
         console.log('[3-PDF] Uploading to Supabase...');
@@ -417,9 +525,9 @@
             invoice_url:   invoiceUrl,
             receipt_url:   receiptUrl,
             photos_url:    photosUrl,
-            adjunto_invoice: base64Invoice,
-            adjunto_recibo: base64Recibo,
-            adjunto_fotos: base64Fotos
+            adjunto_invoice: base64Invoice, // Primary Invoice attached
+            adjunto_recibo: "",             // Omitted to save space (use receipt_url link instead)
+            adjunto_fotos: base64Fotos      // Native photos attached
         };
 
         const response = await emailjs.send(serviceId, templateId, templateParams);
