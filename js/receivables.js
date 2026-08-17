@@ -1,4 +1,4 @@
-// receivables.js
+// 1receivables.js
 
 window.receivablesData = {
     invoices: []
@@ -33,7 +33,7 @@ window.renderReceivables = function () {
     window.receivablesData.invoices.forEach(inv => {
         const custName = inv.customer_name || 'UNKNOWN';
         const groupKey = inv.status === 'Paid' ? 'history' : 'pending';
-        
+
         if (!grouped[groupKey][custName]) grouped[groupKey][custName] = [];
         grouped[groupKey][custName].push(inv);
     });
@@ -87,7 +87,7 @@ window.renderReceivables = function () {
                             <tr style="border-bottom: 1px solid #f1f5f9;">
                                 <td style="padding:10px 0; font-weight:700;">${inv.invoice_number}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}</td>
-                                <td style="padding:10px 0; font-weight:700;">$${parseFloat(inv.total_amount||0).toFixed(2)}</td>
+                                <td style="padding:10px 0; font-weight:700;">$${parseFloat(inv.total_amount || 0).toFixed(2)}</td>
                                 <td style="padding:10px 0; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
                                     <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}', ${inv.total_amount}, '${inv.invoice_number}', '${custName}')">
                                         MARK PAID
@@ -108,7 +108,7 @@ window.renderReceivables = function () {
     }
 
     html += `</div>`; // End pending tab
-    
+
     // HISTORY TAB
     html += `<div id="recv-history" style="display:none;">`;
     if (Object.keys(grouped.history).length === 0) {
@@ -144,7 +144,7 @@ window.renderReceivables = function () {
                                 <td style="padding:10px 0;">
                                     <span style="background:#e0f2fe; color:#0284c7; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${inv.payment_method || 'N/A'}</span>
                                 </td>
-                                <td style="padding:10px 0; font-weight:700; text-align:right; color:#10b981;">$${parseFloat(inv.total_amount||0).toFixed(2)}</td>
+                                <td style="padding:10px 0; font-weight:700; text-align:right; color:#10b981;">$${parseFloat(inv.total_amount || 0).toFixed(2)}</td>
                                 <td style="padding:10px 0; text-align:right;">
                                     <button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem; margin-left:auto;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
@@ -167,7 +167,7 @@ window.renderReceivables = function () {
 
 window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) {
     totalAmount = parseFloat(totalAmount);
-    
+
     // Remove existing modal if any
     let existing = document.getElementById('receivables-payment-modal');
     if (existing) existing.remove();
@@ -241,13 +241,13 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
 
         try {
             const { error: updateErr } = await window.db.from('receivables_invoices')
-                .update({ 
-                    status: 'Paid', 
+                .update({
+                    status: 'Paid',
                     payment_method: label,
                     paid_date: new Date().toISOString()
                 })
                 .eq('id', id);
-                
+
             if (updateErr) throw updateErr;
 
             if (cashAmount > 0) {
@@ -316,7 +316,7 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
 
     document.getElementById('btn-pay-bank').onclick = () => processPayment(0, totalAmount, 'Bank');
     document.getElementById('btn-pay-cash').onclick = () => processPayment(totalAmount, 0, 'Cash');
-    
+
     const methodSelection = document.getElementById('recv-method-selection');
     const splitInputDiv = document.getElementById('recv-split-input');
     const cashInput = document.getElementById('recv-cash-amount');
@@ -369,12 +369,12 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
     }
 };
 
-window.deleteReceivable = async function(id) {
+window.deleteReceivable = async function (id) {
     if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
     try {
         const { error } = await window.db.from('receivables_invoices').delete().eq('id', id);
         if (error) throw error;
-        
+
         console.log(`[Receivables] Invoice ${id} deleted.`);
         await loadReceivables();
         renderReceivables();
