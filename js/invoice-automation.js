@@ -457,7 +457,7 @@
             const publicKey = localStorage.getItem('ejs_public_key') || 'yIom8YvRj8_jD3W7r';
             
             // Calculate grand total from the modal display
-            const gtDisplay = document.getElementById('bd-grand-total');
+            const gtDisplay = document.getElementById('mb-total');
             const grandTotalStr = gtDisplay ? gtDisplay.textContent : '0.00';
             
             emailjs.init(publicKey);
@@ -480,6 +480,12 @@
             
             await emailjs.send(serviceId, templateId, templateParams);
             
+            // Add to Accounts Receivable
+            if (window.addInvoiceToReceivables) {
+                const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
+                window.addInvoiceToReceivables(templateParams.customer_name, masterTitle, totalNum);
+            }
+
             // Update tracking for all rows
             const nowIso = new Date().toISOString();
             const currentFilter = document.getElementById('bc-f-service')?.value || '';

@@ -36,10 +36,11 @@
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1700" defer></script>
     <script src="./js/tasks.js?v=10" defer></script>
-    <script src="./js/billing-manager.js?v=106" defer></script>
-    <script src="./js/invoice-automation.js?v=1" defer></script>
+    <script src="./js/billing-manager.js?v=108" defer></script>
+    <script src="./js/invoice-automation.js?v=3" defer></script>
     <script src="./js/attendance.js?v=1" defer></script>
     <script src="./js/accounting.js?v=100" defer></script>
+    <script src="./js/receivables.js?v=6" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
@@ -1172,6 +1173,8 @@
                         class="fas fa-file-signature"></i> RELEASES</button>
                 <button onclick="closeMenu(); showView('billing-center')" class="btn-calendar"
                     title="BILLING & INVOICES"><i class="fas fa-file-invoice-dollar"></i> BILLING</button>
+                <button onclick="closeMenu(); showView('receivables'); if(window.initReceivables) window.initReceivables();" class="btn-calendar"
+                    title="ACCOUNTS RECEIVABLE"><i class="fas fa-hand-holding-usd"></i> ACCOUNTS REC.</button>
                 <button onclick="closeMenu(); showView('docs')" class="btn-calendar" title="DOCS & RECEIPTS"><i
                         class="fas fa-receipt"></i> DOCS</button>
                 <button onclick="closeMenu(); showView('calendar')" class="btn-calendar" title="DELIVERY CALENDAR"><i
@@ -4247,6 +4250,11 @@
                     </table>
                 </div>
             </div>
+        </section>
+
+        <!-- ACCOUNTS RECEIVABLE View -->
+        <section id="receivables-view" class="view-section hidden" style="padding: 20px;">
+            <div id="receivables-module" class="module-view"></div>
         </section>
 
         <!-- BILLING CENTER View (unified: Customer Invoice + Master Invoice) -->
