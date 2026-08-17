@@ -219,6 +219,7 @@
         const drivers    = new Set();
         const releases   = new Set();
         const bookings   = new Set();
+        const services   = new Set();
 
         const fOrder    = (document.getElementById('bc-f-order')?.value    || '').toLowerCase().trim();
         const fBooking  = (document.getElementById('bc-f-booking')?.value  || '').trim();
@@ -230,7 +231,6 @@
         const fRelease  = (document.getElementById('bc-f-release')?.value  || '').trim();
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
-        const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
         const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
 
         (window.combinedBillingTrips || []).forEach(row => {
@@ -259,22 +259,39 @@
             const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
             const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL') || row.isActiveRentalMerged !== undefined;
 
-            // Check non-dropdown filters
-            if (fPayment === 'pending' && !isPending) return;
-            if (fPayment === 'paid' && isPending) return;
+            let activeServicesFilter = [];
+            if (row[42] === 'YES' && hasTrans) activeServicesFilter.push('TRANSPORT');
+            if (hasYard) activeServicesFilter.push('YARD');
+            if (row[43] === 'YES' && hasSales) activeServicesFilter.push('SALES');
+            if (hasStorage) activeServicesFilter.push('STORAGE');
+            if (hasRent && isRentService) activeServicesFilter.push('RENT');
+
+            let invoiced = row[75] ? String(row[75]).split(',') : [];
+            if (row[57] === 'YES' && invoiced.length === 0) invoiced = activeServicesFilter.slice();
+
+            let invBadgeStatus = 'pending';
+            if (activeServicesFilter.length > 0) {
+                let allInvoiced = activeServicesFilter.every(s => invoiced.includes(s));
+                let someInvoiced = activeServicesFilter.some(s => invoiced.includes(s));
+                if (allInvoiced) invBadgeStatus = 'sent';
+                else if (someInvoiced) invBadgeStatus = 'partial';
+            } else if (row[57] === 'YES') {
+                invBadgeStatus = 'sent';
+            }
+
+            // Check fixed text/date filters
+            if (fPayment !== 'all' && fPayment !== invBadgeStatus) return;
             if (fOrder && !orderNo.includes(fOrder)) return;
             if (fFrom && rowDate < fFrom) return;
             if (fTo && rowDate > fTo) return;
-            if (fInvoice && invSent !== fInvoice) return;
-            if (fRelease && release !== fRelease) return;
 
-            if (fService === 'TRANSPORT' && !hasTrans) return;
-            if (fService === 'SALES' && !hasSales) return;
-            if (fService === 'YARD' && !hasYard) return;
-            if (fService === 'STORAGE' && !hasStorage) return;
-            if (fService === 'RENT' && (!hasRent || !isRentService)) return;
+            const passService = !fService || 
+                                (fService === 'TRANSPORT' && hasTrans) ||
+                                (fService === 'SALES' && hasSales) ||
+                                (fService === 'YARD' && hasYard) ||
+                                (fService === 'STORAGE' && hasStorage) ||
+                                (fService === 'RENT' && hasRent && isRentService);
 
-            // To add a value to a specific dropdown, it must pass all OTHER dropdown filters
             const passCity = !fCity || city === fCity;
             const passPlace = !fPlace || place === fPlace;
             const passCustomer = !fCustomer || customer === fCustomer;
@@ -282,12 +299,20 @@
             const passRelease = !fRelease || release === fRelease;
             const passBooking = !fBooking || booking === fBooking;
 
-            if (passPlace && passCustomer && passDriver && passRelease && passBooking && city && city !== '---') cities.add(city);
-            if (passCity && passCustomer && passDriver && passRelease && passBooking && place && place !== '---') places.add(place);
-            if (passCity && passPlace && passDriver && passRelease && passBooking && customer && customer !== '---') customers.add(customer);
-            if (passCity && passPlace && passCustomer && passRelease && passBooking && driver && driver !== '---') drivers.add(driver);
-            if (passCity && passPlace && passCustomer && passDriver && passBooking && release && release !== '---') releases.add(release);
-            if (passCity && passPlace && passCustomer && passDriver && passRelease && booking && booking !== '---') bookings.add(booking);
+            if (passPlace && passCustomer && passDriver && passRelease && passBooking && passService && city && city !== '---') cities.add(city);
+            if (passCity && passCustomer && passDriver && passRelease && passBooking && passService && place && place !== '---') places.add(place);
+            if (passCity && passPlace && passDriver && passRelease && passBooking && passService && customer && customer !== '---') customers.add(customer);
+            if (passCity && passPlace && passCustomer && passRelease && passBooking && passService && driver && driver !== '---') drivers.add(driver);
+            if (passCity && passPlace && passCustomer && passDriver && passBooking && passService && release && release !== '---') releases.add(release);
+            if (passCity && passPlace && passCustomer && passDriver && passRelease && passService && booking && booking !== '---') bookings.add(booking);
+            
+            if (passCity && passPlace && passCustomer && passDriver && passRelease && passBooking) {
+                if (hasTrans) services.add('TRANSPORT');
+                if (hasSales) services.add('SALES');
+                if (hasYard) services.add('YARD');
+                if (hasStorage) services.add('STORAGE');
+                if (hasRent && isRentService) services.add('RENT');
+            }
         });
 
         const fill = (id, vals, defaultTxt) => {
@@ -316,6 +341,7 @@
         fill('bc-f-customer', customers, 'All Customers');
         fill('bc-f-driver',   drivers,   'All Drivers');
         fill('bc-f-release',  releases,  'All Releases');
+        fill('bc-f-service',  services,  'All Services');
     };
 
     // ── RENDER MAIN TABLE ─────────────────────────────────────
@@ -335,16 +361,13 @@
         const fRelease  = (document.getElementById('bc-f-release')?.value || '').trim();
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
-        const fInvoice  = document.getElementById('bc-f-invoice')?.value || '';
         const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
 
         const filtered = (window.combinedBillingTrips || []).filter(row => {
             const status = (row[41] || '').toUpperCase();
             if (!(status === 'COMPLETE' || status === 'DELIVERED' || status === 'PAID')) return false;
             
-            const isPending = rowHasPendingPayment(row);
-            if (fPayment === 'pending' && !isPending) return false;
-            if (fPayment === 'paid' && isPending) return false;
+            // Old payment check removed
 
             const orderNo  = (row[5]  || '').toString().toLowerCase();
             const city     = (row[6]  || '').toString().trim();
@@ -380,7 +403,28 @@
             if (fService === 'RENT'      && (!hasRent || !isRentService)) return false;
             if (fFrom     && rowDate  < fFrom)              return false;
             if (fTo       && rowDate  > fTo)                return false;
-            if (fInvoice  && invSent  !== fInvoice)         return false;
+
+            let activeServicesFilter = [];
+            if (row[42] === 'YES' && hasTrans) activeServicesFilter.push('TRANSPORT');
+            if (hasYard) activeServicesFilter.push('YARD');
+            if (row[43] === 'YES' && hasSales) activeServicesFilter.push('SALES');
+            if (hasStorage) activeServicesFilter.push('STORAGE');
+            if (hasRent && isRentService) activeServicesFilter.push('RENT');
+
+            let invoiced = row[75] ? String(row[75]).split(',') : [];
+            if (row[57] === 'YES' && invoiced.length === 0) invoiced = activeServicesFilter.slice();
+
+            let invBadgeStatus = 'pending';
+            if (activeServicesFilter.length > 0) {
+                let allInvoiced = activeServicesFilter.every(s => invoiced.includes(s));
+                let someInvoiced = activeServicesFilter.some(s => invoiced.includes(s));
+                if (allInvoiced) invBadgeStatus = 'sent';
+                else if (someInvoiced) invBadgeStatus = 'partial';
+            } else if (row[57] === 'YES') {
+                invBadgeStatus = 'sent';
+            }
+
+            if (fPayment !== 'all' && fPayment !== invBadgeStatus) return false;
 
             return true;
         });
@@ -483,12 +527,53 @@
             const release     = row[4]  || '---';
             const driverName  = row[17] || '---';
 
-            let rowBg = isOrderPendingPayment ? '#fee2e2' : '#dcfce7'; // RED if pending, GREEN if paid
+            // Calculate which services are active
+            let activeServices = [];
+            if (row[42] === 'YES' && totalTrans > 0) activeServices.push('TRANSPORT');
+            if (totalYard > 0) activeServices.push('YARD');
+            if (row[43] === 'YES' && totalSales > 0) activeServices.push('SALES');
+            if (totalStorage > 0) activeServices.push('STORAGE');
+            if (totalRent > 0) activeServices.push('RENT');
+
+            let invoiced = row[75] ? String(row[75]).split(',') : [];
+            if (row[57] === 'YES' && invoiced.length === 0) invoiced = activeServices.slice();
+
+            let invBadgeStatus = 'PENDING';
+            if (activeServices.length > 0) {
+                let allInvoiced = activeServices.every(s => invoiced.includes(s));
+                let someInvoiced = activeServices.some(s => invoiced.includes(s));
+                if (allInvoiced) invBadgeStatus = 'SENT';
+                else if (someInvoiced) invBadgeStatus = 'PARTIAL';
+            } else if (row[57] === 'YES') {
+                invBadgeStatus = 'SENT';
+            }
+
+            let invBadge = '';
+            if (invBadgeStatus === 'SENT') {
+                invBadge = `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">SENT ✓</span>`;
+            } else if (invBadgeStatus === 'PARTIAL') {
+                invBadge = `<span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">PARTIAL</span>`;
+            } else {
+                invBadge = `<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">PENDING</span>`;
+            }
+
+            let rowBg = '#fee2e2'; // PENDING = RED
+            if (invBadgeStatus === 'SENT') rowBg = '#dcfce7'; // SENT = GREEN
+            else if (invBadgeStatus === 'PARTIAL') rowBg = '#ffedd5'; // PARTIAL = ORANGE
 
             const cs     = 'padding: 11px 13px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #0f172a;';
-            const invBadge = isInvoiceSent
-                ? `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">SENT ✓</span>`
-                : `<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:12px;font-size:0.68rem;font-weight:800;">PENDING</span>`;
+            
+            const fmtSrv = (amt, isInv, defaultColor) => {
+                if (amt <= 0) return '';
+                if (isInv) return `<span style="color:#2563eb;font-weight:900;" title="Invoice sent for this service">${fmtMoney(amt)} <i class="fas fa-check-circle" style="font-size:0.75rem;"></i></span>`;
+                return `<span style="color:${defaultColor};">${fmtMoney(amt)}</span>`;
+            };
+
+            const htmlYard = fmtSrv(totalYard, invoiced.includes('YARD'), '#f59e0b');
+            const htmlTrans = fmtSrv(totalTrans, invoiced.includes('TRANSPORT'), '#1e40af');
+            const htmlSales = fmtSrv(totalSales, invoiced.includes('SALES'), '#10b981');
+            const htmlStorage = fmtSrv(totalStorage, invoiced.includes('STORAGE'), '#e11d48');
+            const htmlRent = fmtSrv(totalRent, invoiced.includes('RENT'), '#7c3aed');
 
             // Validation badge (Guardian check)
             const validBadge = window.getInvoiceValidationBadge
@@ -500,8 +585,11 @@
             const reminderCount = parseInt(row[64]) || 0;
             let lastSentText = '—';
             if (lastSentDate) {
-                const daysSince = Math.floor((Date.now() - new Date(lastSentDate)) / 86400000);
-                lastSentText = daysSince === 0 ? 'Today' : `${daysSince}d ago`;
+                const dateObj = new Date(lastSentDate);
+                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const dd = String(dateObj.getDate()).padStart(2, '0');
+                const yyyy = dateObj.getFullYear();
+                lastSentText = `${mm}/${dd}/${yyyy}`;
                 if (reminderCount > 1) lastSentText += ` (×${reminderCount})`;
             }
 
@@ -524,16 +612,20 @@
                 <td style="${cs}">${city}</td>
                 <td style="${cs} white-space:normal; min-width:130px; text-align:left;">${place}</td>
                 <td style="display:none; ${cs}">${driverName}</td>
-                <td style="${cs} color:#f59e0b;">${totalYard > 0 ? fmtMoney(totalYard) : ''}</td>
-                <td style="${cs} color:#1e40af;">${totalTrans > 0 ? fmtMoney(totalTrans) : ''}</td>
-                <td style="${cs} color:#10b981;">${totalSales > 0 ? fmtMoney(totalSales) : ''}</td>
-                <td style="${cs} color:#e11d48;">${totalStorage > 0 ? fmtMoney(totalStorage) : ''}</td>
-                <td style="${cs} color:#7c3aed;">${totalRent > 0 ? fmtMoney(totalRent) : ''}</td>
+                <td style="${cs}">${htmlYard}</td>
+                <td style="${cs}">${htmlTrans}</td>
+                <td style="${cs}">${htmlSales}</td>
+                <td style="${cs}">${htmlStorage}</td>
+                <td style="${cs}">${htmlRent}</td>
                 <td style="${cs} font-size:1rem; font-weight:900; color:#1e293b;">${fmtMoney(grandTotal)}</td>
                 <td style="${cs}">${invBadge}</td>
                 <td style="${cs}">${validBadge}</td>
                 <td style="${cs} font-size:0.7rem; color:#475569;">${lastSentText}</td>
-
+                <td style="${cs} text-align:center;">
+                    <button onclick="previewSingleRowInvoice(${globalIdx})" title="Preview Invoice" style="background:#f1f5f9; border:none; border-radius:6px; padding:6px 10px; cursor:pointer; color:#0f4c8a; transition:background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
             `;
             fragment.appendChild(tr);
             visibleCount++;
@@ -1002,11 +1094,24 @@
             return;
         }
 
-        const customer = document.getElementById('bc-f-customer')?.value;
+        const globalCustomer = document.getElementById('bc-f-customer')?.value;
+        let customer = globalCustomer;
+        let isSinglePreview = false;
+
+        if (!customer && rows.length === 1) {
+            customer = rows[0][11] || 'Unknown Customer';
+            isSinglePreview = true;
+        }
+
         if (!customer) {
             alert('Debe seleccionar un cliente específico para generar un invoice.');
             return;
         }
+
+        const btnSend = document.getElementById('mb-btn-send-email');
+        const btnPdf = document.getElementById('mb-btn-download-pdf');
+        if (btnSend) btnSend.style.display = isSinglePreview ? 'none' : 'inline-flex';
+        if (btnPdf) btnPdf.style.display = isSinglePreview ? 'none' : 'inline-block';
 
         document.getElementById('mb-bill-to-name').textContent = customer;
         document.getElementById('mb-date-display').textContent = new Date().toLocaleDateString('en-US');
@@ -1033,6 +1138,20 @@
             if(periodContainer) periodContainer.style.display = 'block';
         } else {
             if(periodContainer) periodContainer.style.display = 'none';
+        }
+
+        const uniqueContainers = new Set();
+        rows.forEach(r => {
+            const containerNo = (r[3] && r[3] !== '---') ? r[3].toString().trim().toUpperCase() : '';
+            if (containerNo) uniqueContainers.add(containerNo);
+        });
+        const containersContainer = document.getElementById('mb-containers-container');
+        const containersDisplay = document.getElementById('mb-containers-display');
+        if (uniqueContainers.size > 0) {
+            if (containersDisplay) containersDisplay.textContent = uniqueContainers.size;
+            if (containersContainer) containersContainer.style.display = 'block';
+        } else {
+            if (containersContainer) containersContainer.style.display = 'none';
         }
 
         const custObj = (window.currentCustomers || []).find(c => c.name === customer);
@@ -1088,15 +1207,18 @@
             const orderNo = (r[5] || '').toString().toUpperCase();
             const bookingNo = (r[65] && r[65] !== '---') ? r[65].toString().trim() : '---';
             const containerNo = (r[3] && r[3] !== '---') ? r[3].toString().trim() : '---';
+            const size = (r[2] && r[2] !== '---') ? r[2].toString().trim() : '';
             
             const f = (r[7] && r[7] !== '---') ? r[7].toString().trim() : 'N/A';
             const t = (r[8] && r[8] !== '---') ? r[8].toString().trim() : 'PICK UP';
             const locHtml = !allSameLocations ? `<br><span style="font-size:0.8rem;color:#475569;font-weight:normal;">(From: ${f} - To: ${t})</span>` : '';
             
             let grpSalesTrans = bookingNo !== '---' ? `Booking: ${bookingNo}` : '';
+            if (size) grpSalesTrans += ` <span style="color:#64748b;">(${size})</span>`;
             grpSalesTrans += locHtml;
             
             let grpYardStorageRent = containerNo !== '---' ? `Container: ${containerNo}` : (orderNo ? `Order: ${orderNo}` : '');
+            if (size) grpYardStorageRent += ` <span style="color:#64748b;">(${size})</span>`;
             grpYardStorageRent += locHtml;
 
             const isYardStorageRow = orderNo.startsWith('YRD-');
@@ -1153,6 +1275,7 @@
             }
             if ((fService === '' || fService === 'YARD') && rYard > 0) {
                 let parsed = false;
+                const sizeHtml = size ? ` <span style="color:#64748b;">(${size})</span>` : '';
                 if (r[12] && r[12] !== '---') {
                     try {
                         const services = JSON.parse(r[12]);
@@ -1161,7 +1284,7 @@
                                 const baseDesc = (s.desc && s.desc.trim() !== '') ? s.desc.trim() : 'YARD SERVICE';
                                 const price = parseFloat(s.price) || 0;
                                 if (price > 0) {
-                                    addGroup('YARD', baseDesc + locHtml, price, rQty, price * rQty);
+                                    addGroup('YARD', baseDesc + sizeHtml + locHtml, price, rQty, price * rQty);
                                 }
                             });
                             parsed = true;
@@ -1173,7 +1296,7 @@
                 if (!parsed) {
                     const yardServiceName = (r[12] && r[12] !== '---') ? r[12].toString().trim() : 'YARD SERVICE';
                     const uCost = rYard / rQty;
-                    addGroup('YARD', yardServiceName + locHtml, uCost, rQty, rYard);
+                    addGroup('YARD', yardServiceName + sizeHtml + locHtml, uCost, rQty, rYard);
                 }
             }
             if ((fService === '' || fService === 'SALES') && rSales > 0 && r[43] === 'YES') {
@@ -1184,7 +1307,8 @@
                 addGroup('STORAGE', grpYardStorageRent, rStorage, 1, rStorage);
             }
             if ((fService === '' || fService === 'RENT') && rRent > 0) {
-                addGroup('RENT', 'CONTAINER RENTAL' + locHtml, rRent, 1, rRent);
+                const sizeHtml = size ? ` <span style="color:#64748b;">(${size})</span>` : '';
+                addGroup('RENT', 'CONTAINER RENTAL' + sizeHtml + locHtml, rRent, 1, rRent);
             }
         });
 
@@ -1199,18 +1323,25 @@
             // For jsPDF.html, table is the best block element to trigger page break
             const breakHtml = isFirst ? '' : '<div style="page-break-before: always; break-before: page; height:1px;"></div>';
             
+            const isYard = (srv === 'YARD');
+
+            let tableHeaderHtml = '';
+            tableHeaderHtml = `
+                <tr style="background:#1e293b;color:white; page-break-inside: avoid;">
+                    <th style="padding:12px 15px;text-align:left;font-size:0.75rem;text-transform:uppercase;">Description</th>
+                    <th style="padding:12px 15px;text-align:center;font-size:0.75rem;text-transform:uppercase;">SVC QTY</th>
+                    <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Unit Cost</th>
+                    <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Total</th>
+                </tr>
+                <tr style="background:#e2e8f0; page-break-inside: avoid;">
+                    <th colspan="4" style="padding:10px 15px;font-weight:900;color:#1e293b;text-align:center;text-transform:uppercase;">${title}</th>
+                </tr>
+            `;
+
             let tableHtml = breakHtml + `
                 <table style="width:100%;border-collapse:collapse;margin-bottom:15px; page-break-inside: auto;">
                     <thead>
-                        <tr style="background:#1e293b;color:white; page-break-inside: avoid;">
-                            <th style="padding:12px 15px;text-align:left;font-size:0.75rem;text-transform:uppercase;">Description</th>
-                            <th style="padding:12px 15px;text-align:center;font-size:0.75rem;text-transform:uppercase;">QTY</th>
-                            <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Unit Cost</th>
-                            <th style="padding:12px 15px;text-align:right;font-size:0.75rem;text-transform:uppercase;">Total</th>
-                        </tr>
-                        <tr style="background:#e2e8f0; page-break-inside: avoid;">
-                            <th colspan="4" style="padding:10px 15px;font-weight:900;color:#1e293b;text-align:center;text-transform:uppercase;">${title}</th>
-                        </tr>
+                        ${tableHeaderHtml}
                     </thead>
                     <tbody>
             `;
@@ -1404,6 +1535,42 @@
         } finally {
             btn.disabled = false;
             btn.innerHTML = origText;
+        }
+    };
+
+    window.previewSingleRowInvoice = function(idx) {
+        if (!window.combinedBillingTrips || !window.combinedBillingTrips[idx]) return;
+        const row = window.combinedBillingTrips[idx];
+        const oldBillingRows = window.billingRows;
+        window.billingRows = [row];
+        window.openMasterBillingModal(row);
+        window.billingRows = oldBillingRows;
+    };
+
+    window.generateMasterInvoiceBlob = async function() {
+        const container = document.getElementById('mb-invoice-preview');
+        if (!container) return null;
+
+        // Hide buttons temporarily
+        const actionsDiv = container.querySelector('div:last-child');
+        const origDisplay = actionsDiv ? actionsDiv.style.display : 'flex';
+        if (actionsDiv) actionsDiv.style.display = 'none';
+
+        await new Promise(r => setTimeout(r, 100));
+
+        try {
+            const opt = {
+                margin:       15,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'pt', format: 'letter', orientation: 'portrait' },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            const blob = await html2pdf().set(opt).from(container).output('blob');
+            return blob;
+        } finally {
+            if (actionsDiv) actionsDiv.style.display = origDisplay;
         }
     };
 

@@ -237,10 +237,25 @@
         const currentCount = parseInt(row[64]) || 0;
         const newCount = currentCount + 1;
 
+        const currentFilter = document.getElementById('bc-f-service')?.value || '';
+        let invoiced = row[75] ? row[75].split(',') : [];
+        if (!currentFilter || currentFilter === 'ALL') {
+            if (row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
+            if ((parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
+            if (row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
+            if ((parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
+            if ((parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+        } else {
+            if (!invoiced.includes(currentFilter)) invoiced.push(currentFilter);
+        }
+        invoiced = [...new Set(invoiced)].filter(Boolean);
+        const newInvoicedServices = invoiced.join(',');
+
         const updateData = {
             invoice_sent: 'YES',
             invoice_last_sent: now,
-            invoice_reminder_count: newCount
+            invoice_reminder_count: newCount,
+            invoiced_services: newInvoicedServices
         };
 
         try {
@@ -250,12 +265,14 @@
             row[57] = 'YES';
             row[63] = now;
             row[64] = newCount;
+            row[75] = newInvoicedServices;
 
             const ufRow = (window.allTripsUnfiltered || []).find(t => t[0] === tripId);
             if (ufRow) {
                 ufRow[57] = 'YES';
                 ufRow[63] = now;
                 ufRow[64] = newCount;
+                ufRow[75] = newInvoicedServices;
             }
         } catch (err) {
             console.warn('[AutoInvoice] Could not update tracking fields:', err);
@@ -465,21 +482,38 @@
             
             // Update tracking for all rows
             const nowIso = new Date().toISOString();
+            const currentFilter = document.getElementById('bc-f-service')?.value || '';
+            
             for (const row of rows) {
                 const tripId = row[0];
                 if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
                     const currentCount = parseInt(row[64]) || 0;
                     const newCount = currentCount + 1;
                     
+                    let invoiced = row[75] ? row[75].split(',') : [];
+                    if (!currentFilter || currentFilter === 'ALL') {
+                        if (row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
+                        if ((parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
+                        if (row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
+                        if ((parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
+                        if ((parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+                    } else {
+                        if (!invoiced.includes(currentFilter)) invoiced.push(currentFilter);
+                    }
+                    invoiced = [...new Set(invoiced)].filter(Boolean);
+                    const newInvoicedServices = invoiced.join(',');
+                    
                     await window.db.from('trips').update({
                         invoice_sent: 'YES',
                         invoice_last_sent: nowIso,
-                        invoice_reminder_count: newCount
+                        invoice_reminder_count: newCount,
+                        invoiced_services: newInvoicedServices
                     }).eq('trip_id', tripId);
                     
                     row[57] = 'YES';
                     row[63] = nowIso;
                     row[64] = newCount;
+                    row[75] = newInvoicedServices;
                     
                     if (window.allTripsUnfiltered) {
                         const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
@@ -487,6 +521,7 @@
                             ufRow[57] = 'YES';
                             ufRow[63] = nowIso;
                             ufRow[64] = newCount;
+                            ufRow[75] = newInvoicedServices;
                         }
                     }
                 }

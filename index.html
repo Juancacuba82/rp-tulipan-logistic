@@ -4398,27 +4398,17 @@
                                     <input type="date" id="bc-f-to" class="form-input" onchange="renderBillingTable()">
                                 </div>
                             </div>
+
                             <div class="attendance-input-group">
-                                <label><i class="fas fa-file-invoice"></i> INVOICE STATUS</label>
-                                <div class="attendance-field-with-icon">
-                                    <i class="fas fa-check-circle"></i>
-                                    <select id="bc-f-invoice" class="form-select" onchange="renderBillingTable()"
-                                        style="width:120px;font-weight:700;">
-                                        <option value="">All</option>
-                                        <option value="YES">Sent</option>
-                                        <option value="NO">Not Sent</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="attendance-input-group">
-                                <label><i class="fas fa-money-bill-wave"></i> PAYMENT STATUS</label>
+                                <label><i class="fas fa-money-bill-wave"></i> INVOICES</label>
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-filter"></i>
                                     <select id="bc-f-payment" class="form-select" autocomplete="off"
                                         onchange="renderBillingTable()" style="width:120px;font-weight:700;">
                                         <option value="all">All</option>
                                         <option value="pending" selected>Pending</option>
-                                        <option value="paid">Paid</option>
+                                        <option value="partial">Partial</option>
+                                        <option value="sent">Sent</option>
                                     </select>
                                 </div>
                             </div>
@@ -4467,6 +4457,8 @@
                                     title="Checks photos, signatures & email">DATA STATUS</th>
                                 <th style="padding:12px;background:#0f4c8a;color:#93c5fd;"
                                     title="Date of last invoice sent">LAST SENT</th>
+                                <th style="padding:12px;background:#0f4c8a;color:#93c5fd;text-align:center;"
+                                    title="Preview Invoice">VIEW</th>
                             </tr>
                         </thead>
                         <tbody id="billing-table-body">
@@ -4593,6 +4585,7 @@
                                 <div style="margin:0 0 5px;color:#000;font-size:0.85rem;font-weight:bold;">Date: <span id="mb-date-display" style="font-weight:normal;">---</span></div>
                                 <div style="margin:0 0 5px;color:#1e293b;font-size:1.1rem;font-weight:900;">Invoice #: <span id="mb-invoice-number">---</span></div>
                                 <div id="mb-period-container" style="margin:0 0 5px;color:#000;font-size:0.85rem;display:none;font-weight:bold;">Period: <span id="mb-period-display" style="font-weight:normal;">---</span></div>
+                                <div id="mb-containers-container" style="margin:0 0 5px;color:#000;font-size:0.85rem;display:none;font-weight:bold;">Total Containers: <span id="mb-containers-display" style="font-weight:normal;">0</span></div>
                                 <div style="margin:0;color:#000;font-size:0.85rem;font-weight:700;">Payment Term: NET 15</div>
                             </td>
                         </tr>
@@ -4642,11 +4635,11 @@
                     </div>
 
                     <!-- Actions -->
-                    <div data-html2canvas-ignore="true" style="display:flex;justify-content:flex-end;gap:15px;border-top:1px solid #e2e8f0;padding-top:30px;margin-top:30px;flex-wrap:wrap;">
-                        <button onclick="sendFilteredInvoiceEmail()" class="glossy-violet-btn">
+                    <div id="mb-actions-container" data-html2canvas-ignore="true" style="display:flex;justify-content:flex-end;gap:15px;border-top:1px solid #e2e8f0;padding-top:30px;margin-top:30px;flex-wrap:wrap;">
+                        <button id="mb-btn-send-email" onclick="sendFilteredInvoiceEmail()" class="glossy-violet-btn">
                             <i class="fas fa-paper-plane"></i> SEND EMAIL (3 PDFS)
                         </button>
-                        <button onclick="downloadFilteredInvoicePDF()" class="glossy-red-btn" style="background:linear-gradient(135deg, #e11d48, #be123c);color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;box-shadow:0 10px 20px rgba(225,29,72,0.3);">
+                        <button id="mb-btn-download-pdf" onclick="downloadFilteredInvoicePDF()" class="glossy-red-btn" style="background:linear-gradient(135deg, #e11d48, #be123c);color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;box-shadow:0 10px 20px rgba(225,29,72,0.3);">
                             <i class="fas fa-download"></i> DOWNLOAD INVOICE PDF
                         </button>
                         <button onclick="closeMasterBillingModal()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:14px 24px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;">
