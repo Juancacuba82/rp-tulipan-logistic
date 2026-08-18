@@ -4439,6 +4439,12 @@
                             <button id="btn-send-filtered-invoice" onclick="openMasterBillingModal()" class="glossy-dark-btn" style="display:none; margin-top:0;">
                                 <i class="fas fa-file-invoice-dollar"></i> Send Invoice
                             </button>
+                            <button id="btn-bulk-create" onclick="window.bulkCreateIndividualRecords()" class="glossy-green-btn" style="display:none; margin-top:0;">
+                                <i class="fas fa-database"></i> Bulk: Create Records
+                            </button>
+                            <button id="btn-bulk-send" onclick="window.bulkSendIndividualEmails()" class="glossy-blue-btn" style="display:none; margin-top:0;">
+                                <i class="fas fa-paper-plane"></i> Bulk: Send Emails
+                            </button>
 
                         </div>
                     </div>
@@ -9055,6 +9061,19 @@
             if (!label || label === '' || label.toLowerCase() === 'action' || label.toLowerCase() === 'delete' || label.toLowerCase() === 'edit') continue;
             
             if (textToCopy && textToCopy !== '---' && textToCopy !== 'TBA' && textToCopy !== '$0.00' && textToCopy !== '0.00' && textToCopy !== '') {
+                
+                // Special handling for Accounts Rec "INVOICE #" which contains the Order # in parentheses
+                if (label.toUpperCase() === 'INVOICE #' && textToCopy.includes('(') && textToCopy.endsWith(')')) {
+                    const match = textToCopy.match(/^(.*?)\((.*)\)$/);
+                    if (match && match.length === 3) {
+                        addMenuItem('INVOICE #', match[1].trim());
+                        addedCount++;
+                        addMenuItem('ORDER #', match[2].trim());
+                        addedCount++;
+                        continue;
+                    }
+                }
+                
                 addMenuItem(label, textToCopy);
                 addedCount++;
             }

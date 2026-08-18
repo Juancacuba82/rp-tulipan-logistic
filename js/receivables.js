@@ -20,6 +20,35 @@ async function loadReceivables() {
     }
 }
 
+function getOrderNumbersFromTripIds(tripIdsStr) {
+    if (!tripIdsStr) return '';
+    const ids = tripIdsStr.split(',').map(id => id.trim()).filter(Boolean);
+    if (ids.length === 0) return '';
+    
+    if (!window.combinedBillingTrips || window.combinedBillingTrips.length === 0) {
+        if (window.compileCombinedBillingTrips) window.compileCombinedBillingTrips();
+    }
+    
+    const combined = window.combinedBillingTrips || [];
+    const orders = [];
+    ids.forEach(id => {
+        const row = combined.find(r => String(r[0]) === String(id));
+        if (row && row[5] && row[5] !== '---') {
+            orders.push(row[5]);
+        }
+    });
+    
+    if (orders.length === 0) return '';
+    return [...new Set(orders)].join(', ');
+}
+
+window.resetReceivablesFilters = function() {
+    window.recvCustomerFilter = '';
+    window.recvServiceFilter = '';
+    window.recvOrderFilter = '';
+    window.renderReceivables();
+};
+
 window.renderReceivables = function () {
     const container = document.getElementById('receivables-module');
     if (!container) return;
@@ -47,6 +76,14 @@ window.renderReceivables = function () {
             }
         }
 
+        if (window.recvOrderFilter && window.recvOrderFilter.trim() !== '') {
+            const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids).toUpperCase();
+            const searchVal = window.recvOrderFilter.trim().toUpperCase();
+            if (!extractedOrders.includes(searchVal)) {
+                return;
+            }
+        }
+
         const custName = inv.customer_name || 'UNKNOWN';
         const groupKey = inv.status === 'Paid' ? 'history' : 'pending';
 
@@ -54,14 +91,44 @@ window.renderReceivables = function () {
         grouped[groupKey][custName].push(inv);
     });
 
+    let totalPendingDue = 0;
+    let totalPendingCount = 0;
+    for (const [custName, invoices] of Object.entries(grouped.pending)) {
+        if (window.recvCustomerFilter && custName !== window.recvCustomerFilter) continue;
+        invoices.forEach(inv => {
+            const amtPaid = parseFloat(inv.amount_paid || 0);
+            const totalAmt = parseFloat(inv.total_amount || 0);
+            totalPendingDue += (totalAmt - amtPaid);
+            totalPendingCount++;
+        });
+    }
+
     let html = `
     <div class="header-banner" style="margin-bottom: 20px;">
         <div>
             <h1><i class="fas fa-file-invoice-dollar" style="color:var(--primary-light);"></i> ACCOUNTS RECEIVABLE</h1>
             <p>Manage and track your customer invoices and payments</p>
         </div>
-        <div>
-            <button class="btn-reset-modern" onclick="initReceivables()"><i class="fas fa-sync-alt"></i> REFRESH</button>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <div class="filter-summary-card" style="margin-bottom: 0; border-color: #fca5a5; min-width: 200px;">
+                <div class="filter-summary-icon" style="background: #fef2f2; color: #ef4444;">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <div class="filter-summary-info">
+                    <span class="filter-summary-label">Total Due</span>
+                    <span class="filter-summary-value" style="color: #ef4444;">$${totalPendingDue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+            </div>
+            <div class="filter-summary-card" style="margin-bottom: 0; min-width: 150px;">
+                <div class="filter-summary-icon" style="background: #eff6ff; color: #3b82f6;">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <div class="filter-summary-info">
+                    <span class="filter-summary-label">Pending Invoices</span>
+                    <span class="filter-summary-value">${totalPendingCount}</span>
+                </div>
+            </div>
+            <button class="btn-reset-modern" onclick="window.resetReceivablesFilters()" style="margin-left: 15px;"><i class="fas fa-filter-circle-xmark"></i> Clear all filters</button>
         </div>
     </div>
     
@@ -78,6 +145,8 @@ window.renderReceivables = function () {
             <option value="">ALL SERVICES</option>
             ${servicesList.map(s => `<option value="${s}" ${window.recvServiceFilter === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
+
+        <input type="text" id="recv-order-filter" placeholder="Search Order #" oninput="window.recvOrderFilter = this.value; window.renderReceivables();" value="${window.recvOrderFilter || ''}" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: 10px; color:#0f172a; width: 160px;" autofocus>
     </div>
     
     <!-- PENDING TAB -->
@@ -113,12 +182,19 @@ window.renderReceivables = function () {
             invoices.forEach(inv => {
                 const d = inv.date_generated ? new Date(inv.date_generated).toLocaleDateString() : 'N/A';
                 const displayInvNo = inv.invoice_number ? inv.invoice_number.toString() : 'N/A';
+                
+                let orderNoExtracted = '';
+                const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids);
+                if (extractedOrders) {
+                    orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">(${extractedOrders})</span>`;
+                }
+
                 const amtPaid = parseFloat(inv.amount_paid || 0);
                 const totalAmt = parseFloat(inv.total_amount || 0);
                 const balance = totalAmt - amtPaid;
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700;">${displayInvNo}</td>
+                                <td style="padding:10px 0; font-weight:700;">${displayInvNo}${orderNoExtracted}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}</td>
                                 <td style="padding:10px 0; font-weight:700;">$${totalAmt.toFixed(2)}</td>
                                 <td style="padding:10px 0; font-weight:700; color:#10b981;">$${amtPaid.toFixed(2)}</td>
@@ -181,9 +257,16 @@ window.renderReceivables = function () {
             invoices.forEach(inv => {
                 const d = inv.paid_date ? new Date(inv.paid_date).toLocaleDateString() : 'N/A';
                 const displayInvNo = (inv.invoice_number || '---').toString();
+                
+                let orderNoExtracted = '';
+                const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids);
+                if (extractedOrders) {
+                    orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">(${extractedOrders})</span>`;
+                }
+
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del></td>
+                                <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del>${orderNoExtracted}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}</td>
                                 <td style="padding:10px 0;">
                                     <span style="background:#e0f2fe; color:#0284c7; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${inv.payment_method || 'N/A'}</span>
@@ -213,7 +296,22 @@ window.renderReceivables = function () {
     }
     html += `</div>`;
 
+    const activeEl = document.activeElement;
+    const isOrderFilterFocused = activeEl && activeEl.id === 'recv-order-filter';
+    let cursorPos = 0;
+    if (isOrderFilterFocused) {
+        cursorPos = activeEl.selectionStart;
+    }
+
     container.innerHTML = html;
+
+    if (isOrderFilterFocused) {
+        const newEl = document.getElementById('recv-order-filter');
+        if (newEl) {
+            newEl.focus();
+            newEl.setSelectionRange(cursorPos, cursorPos);
+        }
+    }
 };
 
 window.markReceivablePaid = function (id, balance, invoiceNumber, custName, totalAmount, amtPaid) {

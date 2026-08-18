@@ -677,11 +677,18 @@
         // Toggle Filtered Invoice Button
         const custInput = document.getElementById('bc-f-customer');
         const sendFilteredBtn = document.getElementById('btn-send-filtered-invoice');
+        const btnBulkCreate = document.getElementById('btn-bulk-create');
+        const btnBulkSend = document.getElementById('btn-bulk-send');
+        
         if (sendFilteredBtn) {
             if (custInput && custInput.value.trim() !== '') {
                 sendFilteredBtn.style.display = 'inline-flex';
+                if (btnBulkCreate) btnBulkCreate.style.display = 'inline-flex';
+                if (btnBulkSend) btnBulkSend.style.display = 'inline-flex';
             } else {
                 sendFilteredBtn.style.display = 'none';
+                if (btnBulkCreate) btnBulkCreate.style.display = 'none';
+                if (btnBulkSend) btnBulkSend.style.display = 'none';
             }
         }
 
@@ -1239,7 +1246,10 @@
             const t = (r[8] && r[8] !== '---') ? r[8].toString().trim() : 'PICK UP';
             const locHtml = !allSameLocations ? `<br><span style="font-size:0.8rem;color:#475569;font-weight:normal;">(From: ${f} - To: ${t})</span>` : '';
             
-            let grpSalesTrans = bookingNo !== '---' ? `Booking: ${bookingNo}` : '';
+            let grpSalesTrans = `Order: <strong style="color:#0f172a;">${orderNo}</strong>`;
+            if (bookingNo !== '---') {
+                grpSalesTrans += ` <span style="color:#64748b;margin:0 5px;">|</span> Booking: ${bookingNo}`;
+            }
             if (size) grpSalesTrans += ` <span style="color:#64748b;">(${size})</span>`;
             grpSalesTrans += locHtml;
             
@@ -1527,6 +1537,195 @@
         }
     };
 
+    // ── BULK INDIVIDUAL INVOICING ────────────────────────────
+
+    function getSelectedBillingRows() {
+        const checkboxes = document.querySelectorAll('.billing-row-checkbox:checked');
+        if (checkboxes.length === 0) return [];
+        const checkedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.globalIdx, 10));
+        return (window.combinedBillingTrips || []).filter((r, idx) => checkedIndices.includes(idx));
+    }
+
+    window.bulkCreateIndividualRecords = async function() {
+        const rows = getSelectedBillingRows();
+        if (rows.length === 0) {
+            alert("Seleccione al menos una orden para crear registros individuales.");
+            return;
+        }
+
+        const customer = document.getElementById('bc-f-customer')?.value;
+        if (!customer) {
+            alert("Debe seleccionar un cliente en el filtro superior para crear facturas.");
+            return;
+        }
+
+        if (!confirm(`¿Está seguro de crear ${rows.length} facturas individuales en Accounts Receivable?`)) return;
+
+        const btn = document.getElementById('btn-bulk-create');
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Creando 0 / ${rows.length}...`;
+        }
+
+        try {
+            for (let i = 0; i < rows.length; i++) {
+                if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Creando ${i + 1} / ${rows.length}...`;
+                const singleRow = rows[i];
+                
+                // Silently open the modal to generate the HTML
+                window.openMasterBillingModal([singleRow], null, customer);
+                
+                const invNo = window.currentMasterInvoiceNo;
+                const totalText = document.getElementById('mb-total')?.textContent || '0';
+                const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
+                const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
+                const tripIds = [singleRow[0]]; // Only this row
+                const svcFilter = document.getElementById('bc-f-service')?.value || '';
+
+                if (window.addInvoiceToReceivables) {
+                    await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                }
+
+                // Update row status locally
+                const nowIso = new Date().toISOString();
+                const tripId = singleRow[0];
+                if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    singleRow[57] = 'YES';
+                    singleRow[63] = nowIso;
+                    const currentCount = parseInt(singleRow[64]) || 0;
+                    singleRow[64] = currentCount + 1;
+                }
+            }
+            if (window.showToast) window.showToast(`Se crearon ${rows.length} registros exitosamente.`, 'success');
+            else alert(`Se crearon ${rows.length} registros exitosamente.`);
+            
+            window.closeMasterBillingModal();
+            window.renderBillingTable();
+        } catch (e) {
+            console.error(e);
+            alert("Ocurrió un error al crear los registros individuales.");
+            window.closeMasterBillingModal();
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+    };
+
+    window.bulkSendIndividualEmails = async function() {
+        const rows = getSelectedBillingRows();
+        if (rows.length === 0) {
+            alert("Seleccione al menos una orden para enviar correos individuales.");
+            return;
+        }
+
+        const customer = document.getElementById('bc-f-customer')?.value;
+        if (!customer) {
+            alert("Debe seleccionar un cliente en el filtro superior para enviar correos.");
+            return;
+        }
+
+        let customerEmail = document.getElementById('bd-email')?.value || rows[0][36] || '';
+        const testEmail = prompt(`Se enviarán ${rows.length} correos individuales.\nPor favor ingrese o confirme el correo del cliente:`, customerEmail);
+        if (!testEmail || !testEmail.includes('@')) {
+            alert("Envío masivo cancelado.");
+            return;
+        }
+        customerEmail = testEmail.trim();
+
+        const btn = document.getElementById('btn-bulk-send');
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Enviando 0 / ${rows.length}...`;
+        }
+
+        // Initialize EmailJS once
+        const serviceId = localStorage.getItem('ejs_service_id') || 'service_pwwi83e';
+        const templateId = localStorage.getItem('ejs_invoice_template_id') || localStorage.getItem('ejs_template_id') || 'template_v8a5z0d';
+        const publicKey = localStorage.getItem('ejs_public_key') || 'yIom8YvRj8_jD3W7r';
+        if (window.emailjs) window.emailjs.init(publicKey);
+
+        try {
+            for (let i = 0; i < rows.length; i++) {
+                if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Enviando ${i + 1} / ${rows.length}...`;
+                const singleRow = rows[i];
+                
+                // Silently open the modal to generate the HTML and layout
+                window.openMasterBillingModal([singleRow], null, customer);
+                
+                const invNo = window.currentMasterInvoiceNo;
+                const masterTitle = singleRow[65] && singleRow[65] !== '---' ? `BOOKING ${singleRow[65]}` : `ORDER ${singleRow[5] || ''}`;
+
+                if (!window.generateMasterInvoiceBlob) throw new Error('Master invoice generator not found');
+                const pdfBlob = await window.generateMasterInvoiceBlob();
+                if (!pdfBlob) throw new Error('Failed to generate PDF for ' + invNo);
+
+                const reader = new FileReader();
+                const b64Promise = new Promise(resolve => {
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(pdfBlob);
+                });
+                const b64Pdf = await b64Promise;
+
+                const gtDisplay = document.getElementById('mb-total');
+                const grandTotalStr = gtDisplay ? gtDisplay.textContent : '0.00';
+                
+                const templateParams = {
+                    to_email: customerEmail,
+                    customer_name: customer,
+                    order_number: masterTitle,
+                    grand_total: grandTotalStr,
+                    adjunto_invoice: b64Pdf,
+                    adjunto_fotos: ""
+                };
+                
+                // Send via EmailJS
+                await window.emailjs.send(serviceId, templateId, templateParams, publicKey);
+                
+                // Save to Receivables
+                if (window.addInvoiceToReceivables) {
+                    const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
+                    const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
+                    const tripIds = [singleRow[0]];
+                    const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                    await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                }
+
+                // Update locally
+                const nowIso = new Date().toISOString();
+                const tripId = singleRow[0];
+                if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    singleRow[57] = 'YES';
+                    singleRow[63] = nowIso;
+                    const currentCount = parseInt(singleRow[64]) || 0;
+                    singleRow[64] = currentCount + 1;
+                }
+
+                // Wait 3 seconds before sending the next one (unless it's the last one)
+                if (i < rows.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+            }
+            
+            if (window.showToast) window.showToast(`Se enviaron ${rows.length} correos exitosamente.`, 'success');
+            else alert(`Se enviaron ${rows.length} correos exitosamente.`);
+            
+            window.closeMasterBillingModal();
+            window.renderBillingTable();
+        } catch (e) {
+            console.error(e);
+            alert("Ocurrió un error al enviar los correos individuales.");
+            window.closeMasterBillingModal();
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+    };
 
     window.updateMasterBillingCompany = function() {
         const select = document.getElementById('mb-billing-company-select');
