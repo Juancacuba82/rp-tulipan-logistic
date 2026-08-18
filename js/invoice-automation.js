@@ -216,7 +216,6 @@
     /**
      * Sends the 3-PDF invoice package and updates tracking columns in Supabase.
      * @param {Array}  row  - trip data row
-     * @param {string} mode - 'auto-first' | 'auto-reminder' | 'manual'
      */
     async function sendInvoiceForRow(row, mode = 'manual') {
         if (!window.sendThreePDFEmail) throw new Error('Email service not loaded');
@@ -224,6 +223,12 @@
         const tripId = row[0];
         const isUUID = str => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
         if (!tripId || !isUUID(tripId)) throw new Error('Invalid trip ID');
+
+        // Capture AR info BEFORE any async operations that might close the modal
+        const invoiceNoToSave = window.currentMasterInvoiceNo;
+        const totalNumToSave = parseFloat((document.getElementById('mb-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0;
+        const detailsHtmlToSave = document.getElementById('mb-services-container')?.innerHTML || '';
+        const svcFilterToSave = document.getElementById('bc-f-service')?.value || '';
 
         // Open the billing detail modal silently (needed by generateMasterInvoiceBlob)
         // We render off-screen so we can capture the invoice PDF
@@ -281,11 +286,8 @@
         if (window.renderBillingTable) window.renderBillingTable();
 
         // ── Push to Accounts Receivable ───────────────────────────
-        if (window.addInvoiceToReceivables && window.currentMasterInvoiceNo) {
-            const totalNum = parseFloat((document.getElementById('mb-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0;
-            const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
-            const svcFilter = document.getElementById('bc-f-service')?.value || '';
-            window.addInvoiceToReceivables(row[11] || 'Customer', window.currentMasterInvoiceNo, totalNum, detailsHtml, [row[0]], svcFilter);
+        if (window.addInvoiceToReceivables && invoiceNoToSave) {
+            window.addInvoiceToReceivables(row[11] || 'Customer', invoiceNoToSave, totalNumToSave, detailsHtmlToSave, [row[0]], svcFilterToSave);
         }
     }
 
@@ -392,9 +394,16 @@
 
         const validation = window.validateInvoiceReadiness(row);
         if (!validation.ok) {
-            showValidationBlockModal(row, validation.reasons, async () => {
+            const force = await showValidationBlockModal(row, validation.reasons);
+            if (force) {
                 await executeManualSendProcess(row, btn);
-            });
+            } else {
+                if (btn) {
+                    btn.disabled = false;
+                    const isMaster = btn.id === 'mb-btn-send-email';
+                    btn.innerHTML = isMaster ? '<i class="fas fa-paper-plane"></i> SEND EMAIL (3 PDFS)' : '<i class="fas fa-paper-plane"></i> ENVIAR INVOICE';
+                }
+            }
             return;
         }
 
@@ -460,7 +469,7 @@
             const b64Pdf = await b64Promise;
             
             const serviceId = localStorage.getItem('ejs_service_id') || 'service_pwwi83e';
-            const templateId = localStorage.getItem('ejs_template_id') || 'template_v8a5z0d';
+            const templateId = localStorage.getItem('ejs_invoice_template_id') || localStorage.getItem('ejs_template_id') || 'template_v8a5z0d';
             const publicKey = localStorage.getItem('ejs_public_key') || 'yIom8YvRj8_jD3W7r';
             
             // Calculate grand total from the modal display
@@ -474,18 +483,11 @@
                 customer_name: rows[0][11] || 'Customer',
                 order_number: masterTitle,
                 grand_total: grandTotalStr,
-                pdf_1_b64: b64Pdf,
-                pdf_1_name: `${masterTitle.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`,
-                pdf_2_b64: "", // NO BOLs
-                pdf_2_name: "",
-                pdf_3_b64: "", // NO Proofs
-                pdf_3_name: "",
                 adjunto_invoice: b64Pdf, // For newer templates
-                adjunto_recibo: b64Pdf,  // For newer templates
                 adjunto_fotos: ""
             };
             
-            await emailjs.send(serviceId, templateId, templateParams);
+            await emailjs.send(serviceId, templateId, templateParams, publicKey);
             
             if (window.addInvoiceToReceivables) {
                 const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
@@ -598,33 +600,38 @@
     }
 
     // ── VALIDATION BLOCK MODAL ────────────────────────────────
-    function showValidationBlockModal(row, reasons, onForceSend) {
-        // Remove old if exists
-        const old = document.getElementById('invoice-blocked-modal');
-        if (old) old.remove();
+    function showValidationBlockModal(row, reasons) {
+        return new Promise((resolve) => {
+            // Remove old if exists
+            const old = document.getElementById('invoice-blocked-modal');
+            if (old) old.remove();
 
-        const orderNo = (row[5] || '').toString().toUpperCase();
-        const reasonItems = reasons.map(r =>
-            `<li style="padding:6px 0;border-bottom:1px solid #fde68a;color:#92400e;font-size:0.85rem;">
-                <i class="fas fa-exclamation-circle" style="color:#f59e0b;margin-right:8px;"></i>${r}
-            </li>`
-        ).join('');
+            const orderNo = (row[5] || '').toString().toUpperCase();
+            const reasonItems = reasons.map(r =>
+                `<li style="padding:6px 0;border-bottom:1px solid #fde68a;color:#92400e;font-size:0.85rem;">
+                    <i class="fas fa-exclamation-circle" style="color:#f59e0b;margin-right:8px;"></i>${r}
+                </li>`
+            ).join('');
 
-        const modal = document.createElement('div');
-        modal.id = 'invoice-blocked-modal';
-        modal.style.cssText = `
-            position: fixed; inset: 0; background: rgba(15,23,42,0.7);
-            z-index: 99999; display: flex; align-items: center; justify-content: center;
-            animation: fadeIn 0.2s ease;
-        `;
+            const modal = document.createElement('div');
+            modal.id = 'invoice-blocked-modal';
+            modal.style.cssText = `
+                position: fixed; inset: 0; background: rgba(15,23,42,0.7);
+                z-index: 99999; display: flex; align-items: center; justify-content: center;
+                animation: fadeIn 0.2s ease;
+            `;
 
-        // Expose callback globally so the button can call it
-        window.__forceSendInvoiceCallback = () => {
-            modal.remove();
-            if (onForceSend) onForceSend();
-        };
+            // Expose callbacks globally so the buttons can call them
+            window.__forceSendInvoiceCallback = () => {
+                modal.remove();
+                resolve(true);
+            };
+            window.__cancelInvoiceCallback = () => {
+                modal.remove();
+                resolve(false);
+            };
 
-        modal.innerHTML = `
+            modal.innerHTML = `
             <div style="background:white;border-radius:16px;max-width:500px;width:90%;padding:0;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.4);">
                 <div style="background:linear-gradient(135deg,#d97706,#b45309);padding:20px 25px;display:flex;align-items:center;gap:12px;">
                     <i class="fas fa-exclamation-triangle" style="color:white;font-size:1.5rem;"></i>
@@ -640,7 +647,7 @@
                     </ul>
                 </div>
                 <div style="padding:15px 25px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #f1f5f9;">
-                    <button onclick="document.getElementById('invoice-blocked-modal').remove()"
+                    <button onclick="window.__cancelInvoiceCallback()"
                         style="background:#f1f5f9;color:#334155;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85rem;">
                         Cancel
                     </button>
@@ -654,8 +661,9 @@
         `;
 
         // Close on backdrop click
-        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        modal.addEventListener('click', e => { if (e.target === modal) window.__cancelInvoiceCallback(); });
         document.body.appendChild(modal);
+        });
     }
 
     // ── VALIDATION STATUS BADGE HELPER ───────────────────────

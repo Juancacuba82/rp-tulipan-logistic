@@ -64,13 +64,13 @@
             }));
 
             const canvas = await html2canvas(container, {
-                scale: 1.2, // Increased for better quality
+                scale: 1.5, // High scale for clear text
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.6); // Increased for better quality
+            const imgData = canvas.toDataURL('image/jpeg', 0.85); // Increased for better quality
             const pdf = new jsPDF({ compress: true, orientation: 'p', unit: 'mm', format: 'a4' });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const imgWidth = pageWidth;
@@ -163,7 +163,7 @@
 
             // 4. Send Email via EmailJS
             const serviceId = localStorage.getItem('ejs_service_id');
-            const templateId = 'template_3pi4xzv' || localStorage.getItem('ejs_template_id');
+            const templateId = localStorage.getItem('ejs_template_id') || 'template_3pi4xzv';
             const publicKey = localStorage.getItem('ejs_public_key');
 
             if (!serviceId || !templateId || !publicKey) {
@@ -186,7 +186,7 @@
                     adjunto_fotos: base64Fotos
                 };
 
-                emailjs.send(serviceId, templateId, templateParams).then(response => {
+                emailjs.send(serviceId, templateId, templateParams, publicKey).then(response => {
                     if (window.showToast) window.showToast("Email sent with active links and attachments!", "success");
                     else alert("Email sent successfully!");
                     resolve(response);
@@ -324,11 +324,11 @@
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
-                // Resize to max width 600px for good quality but very small size
+                // Resize to max width 1200px for high quality
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                const maxWidth = 600;
+                const maxWidth = 1200;
                 if (width > maxWidth) {
                     height = (maxWidth / width) * height;
                     width = maxWidth;
@@ -337,9 +337,9 @@
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                // Aggressive compression
+                // High quality compression
                 resolve({ 
-                    data: canvas.toDataURL('image/jpeg', 0.6), 
+                    data: canvas.toDataURL('image/jpeg', 0.85), 
                     w: width, 
                     h: height,
                     ratio: height / width
@@ -526,11 +526,11 @@
             receipt_url:   receiptUrl,
             photos_url:    photosUrl,
             adjunto_invoice: base64Invoice, // Primary Invoice attached
-            adjunto_recibo: "",             // Omitted to save space (use receipt_url link instead)
+            adjunto_recibo: base64Recibo,   // Driver Receipt attached
             adjunto_fotos: base64Fotos      // Native photos attached
         };
 
-        const response = await emailjs.send(serviceId, templateId, templateParams);
+        const response = await emailjs.send(serviceId, templateId, templateParams, publicKey);
         console.log('[3-PDF] Email sent successfully:', response);
 
         // ── Auto-mark Invoice as SENT in Supabase ────────────

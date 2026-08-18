@@ -1093,6 +1093,8 @@
             alert('No hay órdenes para facturar en la vista actual.');
             return;
         }
+        
+        window.currentBillingOrderRows = rows;
 
         const globalCustomer = document.getElementById('bc-f-customer')?.value;
         let customer = globalCustomer;
@@ -1415,6 +1417,7 @@
             modal.style.display = 'none';
             document.body.style.overflow = '';
         }
+        window.currentMasterInvoiceNo = null;
     };
 
     window.sendFilteredInvoiceEmail = async function() {
@@ -1426,7 +1429,8 @@
         try {
             // Check if automation function is available, else simulate
             if (window.sendBillingEmailWithValidation) {
-                window.currentBillingOrderRows = window.billingRows;
+                // Ensure we use the exact rows that were rendered in the modal
+                // (currentBillingOrderRows is already correctly set by viewMasterBilling or previewSingleRowInvoice)
                 await window.sendBillingEmailWithValidation(btn);
             } else {
                 await new Promise(r => setTimeout(r, 1500));

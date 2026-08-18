@@ -158,13 +158,17 @@
             // 5. Cargar Transacciones Manuales (Cash Ledger)
             const pCashLedger = window.db.from('cash_ledger').select('*');
 
-            const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger] = await Promise.all([pTrips, pExpenses, pReleases, pSettlements, pCashLedger]);
+            // 6. Cargar Facturas Pagadas (para evitar duplicados)
+            const pInvoices = window.db.from('receivables_invoices').select('invoice_number, trip_ids, service_type').eq('status', 'Paid');
+
+            const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger, resInvoices] = await Promise.all([pTrips, pExpenses, pReleases, pSettlements, pCashLedger, pInvoices]);
 
             if (resTrips.error) console.error("Error trips:", resTrips.error);
             if (resExpenses.error) console.error("Error expenses:", resExpenses.error);
             if (resReleases.error) console.error("Error releases:", resReleases.error);
             if (resSettlements.error) console.error("Error settlements:", resSettlements.error);
             if (resCashLedger.error) console.error("Error cash_ledger:", resCashLedger.error);
+            if (resInvoices.error) console.error("Error invoices:", resInvoices.error);
 
             // Calcular Balance Real de Choferes
             let driverWalletActual = 0;
@@ -182,6 +186,33 @@
                 window.driverWalletMap = driverMap;
             }
             window.actualDriverWalletTotal = driverWalletActual;
+
+            // --- Deduplicación de Pagos por Invoices ---
+            // Si un servicio fue pagado via Accounts Receivable (invoice), ya está en cash_ledger como "Payment for Invoice..."
+            // Evitamos que se duplique aquí leyendo qué servicios de qué trips ya están cubiertos por un invoice pagado.
+            const cashLedgerRefs = new Set();
+            (resCashLedger.data || []).forEach(c => cashLedgerRefs.add(c.referencia));
+
+            const coveredServices = {};
+            (resInvoices.data || []).forEach(inv => {
+                if (cashLedgerRefs.has(inv.invoice_number)) {
+                    if (inv.trip_ids) {
+                        const tids = inv.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
+                        let sType = (inv.service_type || '').toUpperCase();
+                        
+                        tids.forEach(tid => {
+                            if (!coveredServices[tid]) coveredServices[tid] = new Set();
+                            if (sType === 'ALL' || sType === '') {
+                                coveredServices[tid].add('SALES');
+                                coveredServices[tid].add('TRANSPORT');
+                                coveredServices[tid].add('YARD');
+                            } else {
+                                coveredServices[tid].add(sType);
+                            }
+                        });
+                    }
+                }
+            });
 
             let unified = [];
 
@@ -214,8 +245,10 @@
                 const isRCash = (t.r_cash === true || t.r_cash === 'true');
                 const isYCash = (t.y_cash === true || t.y_cash === 'true');
 
+                const cov = coveredServices[t.trip_id] || new Set();
+
                 // A. Ventas
-                if (t.has_sales === 'YES' || t.has_sales === true) {
+                if (!cov.has('SALES') && (t.has_sales === 'YES' || t.has_sales === true)) {
                     const cAmt = parseFloat(t.sales_cash_amt) || 0;
                     const bAmt = parseFloat(t.sales_bank_amt) || 0;
                     if (cAmt > 0 || bAmt > 0) {
@@ -233,7 +266,7 @@
                 }
 
                 // B. Transporte
-                if (t.has_trans === 'YES' || t.has_trans === true) {
+                if (!cov.has('TRANSPORT') && (t.has_trans === 'YES' || t.has_trans === true)) {
                     const cAmt = parseFloat(t.trans_cash_amt) || 0;
                     const bAmt = parseFloat(t.trans_bank_amt) || 0;
                     if (cAmt > 0 || bAmt > 0) {
@@ -251,7 +284,7 @@
                 }
 
                 // C. Yarda
-                if (t.yard_services === 'YES' || t.yard_services === true) {
+                if (!cov.has('YARD') && (t.yard_services === 'YES' || t.yard_services === true)) {
                     const cAmt = parseFloat(t.yard_cash_amt) || 0;
                     const bAmt = parseFloat(t.yard_bank_amt) || 0;
                     if (cAmt > 0 || bAmt > 0) {
