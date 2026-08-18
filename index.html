@@ -24,6 +24,7 @@
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=11"></script>
     <script src="./js/data-mapping.js?v=11"></script>
+    <script src="./js/realtime-sync.js?v=1" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1700" defer></script>
     <script src="./js/delivery-calendar.js?v=1702" defer></script>
@@ -6397,6 +6398,9 @@
                     const success = await checkAuth();
                     if (success) {
                         window.checkGlobalTasks(); // Check for pending tasks
+                        if (typeof window.initRealtimeSubscriptions === 'function') {
+                            window.initRealtimeSubscriptions();
+                        }
                         const savedView = localStorage.getItem('activeSection') || 'hero';
                         showView(savedView);
                     } else {
@@ -7879,6 +7883,9 @@
             const authSuccess = await checkAuth();
             if (authSuccess) {
                 window.checkGlobalTasks(); // Check for pending tasks
+                if (typeof window.initRealtimeSubscriptions === 'function') {
+                    window.initRealtimeSubscriptions();
+                }
                 const savedView = localStorage.getItem('activeSection') || 'hero';
                 showView(savedView);
                 if (window.applyRoleVisibility) window.applyRoleVisibility();
