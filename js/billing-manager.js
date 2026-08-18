@@ -1108,7 +1108,7 @@
         });
     };
 
-    window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null) {
+    window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false) {
         let rows = overrideRows || window.billingRows || [];
         
         if (!overrideRows) {
@@ -1143,8 +1143,13 @@
 
         const btnSend = document.getElementById('mb-btn-send-email');
         const btnPdf = document.getElementById('mb-btn-download-pdf');
-        if (btnSend) btnSend.style.display = isSinglePreview ? 'none' : 'inline-flex';
-        if (btnPdf) btnPdf.style.display = isSinglePreview ? 'none' : 'inline-block';
+        const btnCreate = document.getElementById('mb-btn-create-record');
+        
+        const hideButtons = isSinglePreview || isPreviewOnly;
+        
+        if (btnSend) btnSend.style.display = hideButtons ? 'none' : 'inline-flex';
+        if (btnPdf) btnPdf.style.display = hideButtons ? 'none' : 'inline-block';
+        if (btnCreate) btnCreate.style.display = hideButtons ? 'none' : 'inline-block';
 
         document.getElementById('mb-bill-to-name').textContent = customer;
         document.getElementById('mb-date-display').textContent = new Date().toLocaleDateString('en-US');
@@ -1826,7 +1831,7 @@
         const row = window.combinedBillingTrips[idx];
         const oldBillingRows = window.billingRows;
         window.billingRows = [row];
-        window.openMasterBillingModal(row);
+        window.openMasterBillingModal([row], null, null, true);
         window.billingRows = oldBillingRows;
     };
 
