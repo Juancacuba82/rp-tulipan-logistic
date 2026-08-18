@@ -1101,14 +1101,16 @@
         });
     };
 
-    window.openMasterBillingModal = function() {
-        let rows = window.billingRows || [];
+    window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null) {
+        let rows = overrideRows || window.billingRows || [];
         
-        // Filter out unselected rows based on checkboxes
-        const checkboxes = document.querySelectorAll('.billing-row-checkbox');
-        if (checkboxes.length > 0) {
-            const checkedIndices = Array.from(document.querySelectorAll('.billing-row-checkbox:checked')).map(cb => parseInt(cb.dataset.globalIdx, 10));
-            rows = (window.combinedBillingTrips || []).filter((r, idx) => checkedIndices.includes(idx));
+        if (!overrideRows) {
+            // Filter out unselected rows based on checkboxes
+            const checkboxes = document.querySelectorAll('.billing-row-checkbox');
+            if (checkboxes.length > 0) {
+                const checkedIndices = Array.from(document.querySelectorAll('.billing-row-checkbox:checked')).map(cb => parseInt(cb.dataset.globalIdx, 10));
+                rows = (window.combinedBillingTrips || []).filter((r, idx) => checkedIndices.includes(idx));
+            }
         }
 
         if (rows.length === 0) {
@@ -1119,7 +1121,7 @@
         window.currentBillingOrderRows = rows;
 
         const globalCustomer = document.getElementById('bc-f-customer')?.value;
-        let customer = globalCustomer;
+        let customer = overrideCustomer || globalCustomer;
         let isSinglePreview = false;
 
         if (!customer && rows.length === 1) {
@@ -1421,7 +1423,7 @@
         }
 
         const uniqueNum = Math.floor(100000 + Math.random() * 900000);
-        const invoiceNo = `${prefix}-${uniqueNum}`;
+        const invoiceNo = overrideInvoiceNo || `${prefix}-${uniqueNum}`;
 
         const invoiceNoField = document.getElementById('mb-invoice-number');
         if (invoiceNoField) {

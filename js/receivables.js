@@ -24,6 +24,15 @@ window.renderReceivables = function () {
     const container = document.getElementById('receivables-module');
     if (!container) return;
 
+    // Extract unique services from invoice prefixes
+    const uniqueServices = new Set();
+    window.receivablesData.invoices.forEach(inv => {
+        if (inv.invoice_number && inv.invoice_number.toString().includes('-')) {
+            uniqueServices.add(inv.invoice_number.toString().split('-')[0].toUpperCase());
+        }
+    });
+    const servicesList = Array.from(uniqueServices).sort();
+
     // Group invoices by customer
     const grouped = {
         pending: {},
@@ -31,6 +40,13 @@ window.renderReceivables = function () {
     };
 
     window.receivablesData.invoices.forEach(inv => {
+        if (window.recvServiceFilter) {
+            const invNo = (inv.invoice_number || '').toString().toUpperCase();
+            if (!invNo.startsWith(window.recvServiceFilter + '-')) {
+                return;
+            }
+        }
+
         const custName = inv.customer_name || 'UNKNOWN';
         const groupKey = inv.status === 'Paid' ? 'history' : 'pending';
 
@@ -56,6 +72,11 @@ window.renderReceivables = function () {
         <select id="recv-customer-filter" onchange="window.recvCustomerFilter = this.value; window.renderReceivables();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: auto; color:#0f172a;">
             <option value="">ALL CUSTOMERS</option>
             ${Object.keys(grouped.pending).sort().map(c => `<option value="${c}" ${window.recvCustomerFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+
+        <select id="recv-service-filter" onchange="window.recvServiceFilter = this.value; window.renderReceivables();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: 10px; color:#0f172a;">
+            <option value="">ALL SERVICES</option>
+            ${servicesList.map(s => `<option value="${s}" ${window.recvServiceFilter === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
     </div>
     
@@ -638,7 +659,8 @@ window.openReceivablePreview = function (id) {
 
         ${paidInfo}
 
-        <div style="margin-top:30px; display:flex; justify-content:flex-end;">
+        <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:center;">
+            <button id="btn-resend-invoice" class="glossy-blue-btn" style="padding:10px 30px;"><i class="fas fa-paper-plane"></i> RESEND EMAIL</button>
             <button id="btn-close-preview" class="glossy-dark-btn" style="padding:10px 30px;">CLOSE</button>
         </div>
     `;
@@ -648,4 +670,39 @@ window.openReceivablePreview = function (id) {
     document.body.appendChild(overlay);
 
     document.getElementById('btn-close-preview').onclick = () => overlay.remove();
+
+    document.getElementById('btn-resend-invoice').onclick = () => {
+        if (!inv.trip_ids) {
+            alert('This invoice record does not have associated trip data and cannot be resent automatically from here. Please use the Billing module.');
+            return;
+        }
+
+        const tripIds = inv.trip_ids.split(',').map(id => id.trim());
+        
+        // Ensure combinedBillingTrips is available (usually loaded with billing)
+        if (!window.combinedBillingTrips || window.combinedBillingTrips.length === 0) {
+            if (window.compileCombinedBillingTrips) {
+                window.compileCombinedBillingTrips();
+            } else {
+                alert("Please open the BILLING tab first to initialize the billing data, then come back here.");
+                return;
+            }
+        }
+
+        const rows = (window.combinedBillingTrips || []).filter(r => tripIds.includes(r[0]));
+        if (rows.length === 0) {
+            alert("Could not find the original orders for this invoice. They might have been deleted.");
+            return;
+        }
+
+        // Close this preview modal
+        overlay.remove();
+
+        // Open the Master Billing Modal with the exact rows and original invoice number
+        if (window.openMasterBillingModal) {
+            window.openMasterBillingModal(rows, invoiceNumber, customerName);
+        } else {
+            alert("Billing module is not fully loaded.");
+        }
+    };
 };
