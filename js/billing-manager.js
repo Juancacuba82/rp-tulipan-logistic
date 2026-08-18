@@ -446,8 +446,8 @@
 
             // Compute totals for this single row
             let totalYard = parseFloat(row[13]) || 0;
-            let totalTrans = parseFloat(row[18]) || 0;
             const qty = parseInt(row[53]) || 1;
+            let totalTrans = (parseFloat(row[18]) || 0) * qty;
             let totalSales = (parseFloat(row[20]) || 0) * qty;
 
             // Storage calculation (Price per day * days, or Yard Stock flat fee)
@@ -1295,7 +1295,7 @@
             }
 
             if ((fService === '' || fService === 'TRANSPORT') && rTrans > 0 && r[42] === 'YES') {
-                addGroup('TRANSPORT', grpSalesTrans, rTrans, 1, rTrans);
+                addGroup('TRANSPORT', grpSalesTrans, rTrans, rQty, rTrans * rQty);
             }
             if ((fService === '' || fService === 'YARD') && rYard > 0) {
                 let parsed = false;
