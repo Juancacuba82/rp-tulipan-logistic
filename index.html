@@ -4408,6 +4408,18 @@
                             </div>
 
                             <div class="attendance-input-group">
+                                <label><i class="fas fa-hand-holding-usd"></i> DEBT STATUS</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-balance-scale"></i>
+                                    <select id="bc-f-debt" class="form-select" autocomplete="off"
+                                        onchange="renderBillingTable()" style="width:120px;font-weight:700;">
+                                        <option value="unpaid" selected>Owes Money</option>
+                                        <option value="all">Show All</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="attendance-input-group">
                                 <label><i class="fas fa-money-bill-wave"></i> INVOICES</label>
                                 <div class="attendance-field-with-icon">
                                     <i class="fas fa-filter"></i>
@@ -4591,7 +4603,14 @@
                             </td>
                             <td style="width:40%; vertical-align:top; text-align:right; padding:0 0 20px 0;">
                                 <div style="margin:0 0 5px;color:#000;font-size:0.85rem;font-weight:bold;">Date: <span id="mb-date-display" style="font-weight:normal;">---</span></div>
-                                <div style="margin:0 0 5px;color:#1e293b;font-size:1.1rem;font-weight:900;">Invoice #: <span id="mb-invoice-number">---</span></div>
+                                <div style="margin:0 0 5px;color:#1e293b;font-size:1.1rem;font-weight:900;display:flex;align-items:center;justify-content:flex-end;gap:5px;">
+                                    Invoice #: 
+                                    <span id="mb-invoice-number" 
+                                        contenteditable="true"
+                                        style="font-size:1.1rem;font-weight:900;color:#1e293b;border-bottom:1px dashed #94a3b8;min-width:150px;text-align:right;outline:none;padding:2px 5px;cursor:text;" 
+                                        onblur="window.currentMasterInvoiceNo = this.innerText.trim()"
+                                        oninput="window.currentMasterInvoiceNo = this.innerText.trim()">---</span>
+                                </div>
                                 <div id="mb-period-container" style="margin:0 0 5px;color:#000;font-size:0.85rem;display:none;font-weight:bold;">Period: <span id="mb-period-display" style="font-weight:normal;">---</span></div>
                                 <div id="mb-containers-container" style="margin:0 0 5px;color:#000;font-size:0.85rem;display:none;font-weight:bold;">Total Containers: <span id="mb-containers-display" style="font-weight:normal;">0</span></div>
                                 <div style="margin:0;color:#000;font-size:0.85rem;font-weight:700;">Payment Term: NET 15</div>
@@ -4649,6 +4668,9 @@
                         </button>
                         <button id="mb-btn-download-pdf" onclick="downloadFilteredInvoicePDF()" class="glossy-red-btn" style="background:linear-gradient(135deg, #e11d48, #be123c);color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;box-shadow:0 10px 20px rgba(225,29,72,0.3);">
                             <i class="fas fa-download"></i> DOWNLOAD INVOICE PDF
+                        </button>
+                        <button id="mb-btn-create-record" onclick="createMasterInvoiceRecordOnly(event)" class="glossy-dark-btn" style="background:linear-gradient(135deg, #1e293b, #0f172a);color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;">
+                            <i class="fas fa-database"></i> CREATE INVOICE RECORD
                         </button>
                         <button onclick="closeMasterBillingModal()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:14px 24px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;">
                             <i class="fas fa-times"></i> CLOSE

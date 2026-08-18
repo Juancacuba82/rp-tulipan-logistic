@@ -49,20 +49,26 @@ window.renderReceivables = function () {
         </div>
     </div>
     
-    <div class="tabs-container" style="display:flex; gap:10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px;">
+    <div class="tabs-container" style="display:flex; gap:10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px; align-items:center;">
         <button class="glossy-blue-btn" onclick="document.getElementById('recv-pending').style.display='block'; document.getElementById('recv-history').style.display='none';">Pending Invoices</button>
         <button class="glossy-dark-btn" onclick="document.getElementById('recv-pending').style.display='none'; document.getElementById('recv-history').style.display='block';">Payment History</button>
+        
+        <select id="recv-customer-filter" onchange="window.recvCustomerFilter = this.value; window.renderReceivables();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: auto; color:#0f172a;">
+            <option value="">ALL CUSTOMERS</option>
+            ${Object.keys(grouped.pending).sort().map(c => `<option value="${c}" ${window.recvCustomerFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
     </div>
     
     <!-- PENDING TAB -->
     <div id="recv-pending">
     `;
 
-    if (Object.keys(grouped.pending).length === 0) {
-        html += `<p style="color:#64748b; font-style:italic;">No pending invoices found.</p>`;
-    } else {
+    let pendingCount = 0;
+    if (Object.keys(grouped.pending).length > 0) {
         for (const [custName, invoices] of Object.entries(grouped.pending)) {
-            let totalPending = invoices.reduce((sum, i) => sum + parseFloat(i.total_amount || 0), 0);
+            if (window.recvCustomerFilter && custName !== window.recvCustomerFilter) continue;
+            pendingCount++;
+            let totalPending = invoices.reduce((sum, i) => sum + (parseFloat(i.total_amount || 0) - parseFloat(i.amount_paid || 0)), 0);
             html += `
             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow:hidden;">
                 <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
@@ -75,7 +81,9 @@ window.renderReceivables = function () {
                             <tr style="text-align:left; color:#64748b; font-size:0.8rem; border-bottom: 2px solid #e2e8f0;">
                                 <th style="padding:8px 0;">INVOICE #</th>
                                 <th style="padding:8px 0;">DATE</th>
-                                <th style="padding:8px 0;">AMOUNT</th>
+                                <th style="padding:8px 0;">TOTAL</th>
+                                <th style="padding:8px 0; color:#10b981;">PAID</th>
+                                <th style="padding:8px 0; color:#ef4444;">BALANCE</th>
                                 <th style="padding:8px 0; text-align:right;">ACTION</th>
                             </tr>
                         </thead>
@@ -84,17 +92,22 @@ window.renderReceivables = function () {
             invoices.forEach(inv => {
                 const d = inv.date_generated ? new Date(inv.date_generated).toLocaleDateString() : 'N/A';
                 const displayInvNo = inv.invoice_number ? inv.invoice_number.toString() : 'N/A';
+                const amtPaid = parseFloat(inv.amount_paid || 0);
+                const totalAmt = parseFloat(inv.total_amount || 0);
+                const balance = totalAmt - amtPaid;
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
                                 <td style="padding:10px 0; font-weight:700;">${displayInvNo}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}</td>
-                                <td style="padding:10px 0; font-weight:700;">$${parseFloat(inv.total_amount || 0).toFixed(2)}</td>
+                                <td style="padding:10px 0; font-weight:700;">$${totalAmt.toFixed(2)}</td>
+                                <td style="padding:10px 0; font-weight:700; color:#10b981;">$${amtPaid.toFixed(2)}</td>
+                                <td style="padding:10px 0; font-weight:700; color:#ef4444;">$${balance.toFixed(2)}</td>
                                 <td style="padding:10px 0; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}', ${inv.total_amount}, '${inv.invoice_number}', '${custName}')">
-                                        MARK PAID
+                                    <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}', ${balance.toFixed(2)}, '${inv.invoice_number}', '${custName}', ${totalAmt.toFixed(2)}, ${amtPaid.toFixed(2)})">
+                                        PAY
                                     </button>
                                     <button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
@@ -110,15 +123,20 @@ window.renderReceivables = function () {
             </div>`;
         }
     }
+    
+    if (pendingCount === 0) {
+        html += `<p style="color:#64748b; font-style:italic;">No pending invoices found for the selected filter.</p>`;
+    }
 
     html += `</div>`; // End pending tab
 
     // HISTORY TAB
     html += `<div id="recv-history" style="display:none;">`;
-    if (Object.keys(grouped.history).length === 0) {
-        html += `<p style="color:#64748b; font-style:italic;">No payment history found.</p>`;
-    } else {
+    let historyCount = 0;
+    if (Object.keys(grouped.history).length > 0) {
         for (const [custName, invoices] of Object.entries(grouped.history)) {
+            if (window.recvCustomerFilter && custName !== window.recvCustomerFilter) continue;
+            historyCount++;
             let totalPaid = invoices.reduce((sum, i) => sum + parseFloat(i.total_amount || 0), 0);
             html += `
             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow:hidden;">
@@ -168,13 +186,19 @@ window.renderReceivables = function () {
             </div>`;
         }
     }
+    
+    if (historyCount === 0) {
+        html += `<p style="color:#64748b; font-style:italic;">No payment history found for the selected filter.</p>`;
+    }
     html += `</div>`;
 
     container.innerHTML = html;
 };
 
-window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) {
-    totalAmount = parseFloat(totalAmount);
+window.markReceivablePaid = function (id, balance, invoiceNumber, custName, totalAmount, amtPaid) {
+    balance = parseFloat(balance) || 0;
+    totalAmount = parseFloat(totalAmount) || 0;
+    amtPaid = parseFloat(amtPaid) || 0;
 
     // Remove existing modal if any
     let existing = document.getElementById('receivables-payment-modal');
@@ -198,34 +222,62 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
     modal.style.backgroundColor = 'white';
     modal.style.borderRadius = '16px';
     modal.style.padding = '30px';
-    modal.style.width = '400px';
+    modal.style.width = '420px';
     modal.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
     modal.style.fontFamily = "'Outfit', sans-serif";
 
     let html = `
         <h2 style="margin: 0 0 10px 0; color: #0f172a; font-size: 1.5rem;"><i class="fas fa-money-check-alt" style="color: #3b82f6;"></i> Process Payment</h2>
-        <p style="margin: 0 0 20px 0; color: #64748b; font-size: 0.95rem;">Invoice: <strong>${invoiceNumber}</strong><br>Total Due: <strong style="color: #ef4444;">$${totalAmount.toFixed(2)}</strong></p>
+        <div style="background:#f8fafc; padding:15px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:20px;">
+            <p style="margin: 0 0 5px 0; color: #64748b; font-size: 0.95rem;">Invoice: <strong style="color:#0f172a;">${invoiceNumber}</strong></p>
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:0.85rem;">
+                <span style="color:#64748b;">Total Invoice:</span>
+                <span style="font-weight:700;">$${totalAmount.toFixed(2)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:0.85rem;">
+                <span style="color:#64748b;">Amount Paid:</span>
+                <span style="font-weight:700; color:#10b981;">$${amtPaid.toFixed(2)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:1.1rem; margin-top:10px; border-top:1px dashed #cbd5e1; padding-top:10px;">
+                <span style="color:#0f172a; font-weight:900;">Balance Due:</span>
+                <span style="font-weight:900; color:#ef4444;">$${balance.toFixed(2)}</span>
+            </div>
+        </div>
+
+        <div id="recv-step-1">
+            <p style="margin:0 0 10px 0; font-size: 0.95rem; color: #334155; font-weight:700;">Payment Amount:</p>
+            <div style="position: relative; margin-bottom:20px;">
+                <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-weight: 900; color: #64748b; font-size:1.2rem;">$</span>
+                <input type="number" id="recv-payment-amount" value="${balance.toFixed(2)}" max="${balance.toFixed(2)}" style="width: 100%; padding: 15px 15px 15px 35px; border: 2px solid #3b82f6; border-radius: 10px; font-size: 1.2rem; font-weight: 900; color:#0f172a; outline: none;">
+            </div>
+            <button id="btn-next-step" class="glossy-blue-btn" style="width: 100%; justify-content: center; font-size:1.1rem; padding:15px;">NEXT <i class="fas fa-arrow-right" style="margin-left:10px;"></i></button>
+        </div>
         
-        <div id="recv-method-selection" style="display: flex; flex-direction: column; gap: 10px;">
-            <button id="btn-pay-bank" class="glossy-blue-btn" style="width: 100%; justify-content: center;">ALL BANK</button>
-            <button id="btn-pay-cash" class="glossy-green-btn" style="width: 100%; justify-content: center;">ALL CASH</button>
-            <button id="btn-pay-split" class="glossy-dark-btn" style="width: 100%; justify-content: center;">SPLIT PAYMENT</button>
+        <div id="recv-step-2" style="display: none;">
+            <p style="margin:0 0 15px 0; font-size: 0.95rem; color: #334155; font-weight:700; text-align:center;">Select Payment Method for <span id="display-pay-amt" style="color:#3b82f6; font-size:1.2rem;">$0.00</span></p>
+            <div id="recv-method-selection" style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="btn-pay-bank" class="glossy-blue-btn" style="width: 100%; justify-content: center;">ALL BANK</button>
+                <button id="btn-pay-cash" class="glossy-green-btn" style="width: 100%; justify-content: center;">ALL CASH</button>
+                <button id="btn-pay-split" class="glossy-dark-btn" style="width: 100%; justify-content: center;">SPLIT PAYMENT</button>
+            </div>
+
+            <div id="recv-split-input" style="display: none; flex-direction: column; gap: 15px;">
+                <p style="margin:0; font-size: 0.9rem; color: #334155;">Enter the portion paid in <strong>CASH</strong>:</p>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-weight: 900; color: #64748b;">$</span>
+                    <input type="number" id="recv-cash-amount" placeholder="0.00" style="width: 100%; padding: 12px 15px 12px 30px; border: 2px solid #cbd5e1; border-radius: 10px; font-size: 1.1rem; font-weight: 700; outline: none;">
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:0.85rem; font-weight:700;">
+                    <span>Bank Portion:</span>
+                    <span id="recv-bank-portion">$0.00</span>
+                </div>
+                <button id="btn-confirm-split" class="glossy-red-btn" style="width: 100%; justify-content: center;">CONFIRM SPLIT</button>
+            </div>
+            
+            <button id="btn-back-step" style="margin-top: 15px; width: 100%; background: transparent; border: none; cursor: pointer; color: #64748b; font-weight: 700; text-decoration:underline;">Back</button>
         </div>
 
-        <div id="recv-split-input" style="display: none; flex-direction: column; gap: 15px;">
-            <p style="margin:0; font-size: 0.9rem; color: #334155;">Enter the portion paid in <strong>CASH</strong>:</p>
-            <div style="position: relative;">
-                <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-weight: 900; color: #64748b;">$</span>
-                <input type="number" id="recv-cash-amount" placeholder="0.00" style="width: 100%; padding: 12px 15px 12px 30px; border: 2px solid #cbd5e1; border-radius: 10px; font-size: 1.1rem; font-weight: 700; outline: none;">
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:0.85rem; font-weight:700;">
-                <span>Bank Portion:</span>
-                <span id="recv-bank-portion">$${totalAmount.toFixed(2)}</span>
-            </div>
-            <button id="btn-confirm-split" class="glossy-red-btn" style="width: 100%; justify-content: center;">CONFIRM SPLIT</button>
-        </div>
-
-        <button id="btn-cancel-payment" style="margin-top: 20px; width: 100%; background: transparent; border: 1px solid #cbd5e1; padding: 10px; border-radius: 10px; cursor: pointer; color: #64748b; font-weight: 700; transition: all 0.2s;">CANCEL</button>
+        <button id="btn-cancel-payment" style="margin-top: 15px; width: 100%; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; cursor: pointer; color: #475569; font-weight: 700; transition: all 0.2s;">CANCEL</button>
     `;
 
     modal.innerHTML = html;
@@ -234,8 +286,30 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
 
     const closeBtn = document.getElementById('btn-cancel-payment');
     closeBtn.onclick = () => overlay.remove();
-    closeBtn.onmouseover = () => closeBtn.style.background = '#f1f5f9';
-    closeBtn.onmouseout = () => closeBtn.style.background = 'transparent';
+    
+    let currentPaymentAmount = balance;
+
+    document.getElementById('btn-next-step').onclick = () => {
+        const inputVal = parseFloat(document.getElementById('recv-payment-amount').value);
+        if (!inputVal || inputVal <= 0) {
+            alert("Please enter a valid payment amount.");
+            return;
+        }
+        if (inputVal > balance + 0.01) {
+            alert(`Payment cannot exceed the balance due ($${balance.toFixed(2)}).`);
+            return;
+        }
+        currentPaymentAmount = inputVal;
+        document.getElementById('display-pay-amt').textContent = `$${currentPaymentAmount.toFixed(2)}`;
+        document.getElementById('recv-bank-portion').textContent = `$${currentPaymentAmount.toFixed(2)}`;
+        document.getElementById('recv-step-1').style.display = 'none';
+        document.getElementById('recv-step-2').style.display = 'block';
+    };
+
+    document.getElementById('btn-back-step').onclick = () => {
+        document.getElementById('recv-step-2').style.display = 'none';
+        document.getElementById('recv-step-1').style.display = 'block';
+    };
 
     const processPayment = async (cashAmount, bankAmount, label) => {
         const btnAllBank = document.getElementById('btn-pay-bank');
@@ -247,53 +321,65 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
         if (btnSplit) btnSplit.disabled = true;
         if (btnConfirmSplit) btnConfirmSplit.disabled = true;
 
+        const newAmountPaid = amtPaid + cashAmount + bankAmount;
+        // Consider it fully paid if the difference is less than 2 cents
+        const isFullyPaid = (totalAmount - newAmountPaid) <= 0.01;
+        const newStatus = isFullyPaid ? 'Paid' : 'Partial';
+
         try {
+            const updatePayload = {
+                amount_paid: newAmountPaid,
+                status: newStatus,
+                paid_date: new Date().toISOString()
+            };
+            if (isFullyPaid) {
+                updatePayload.payment_method = label; // Only label method if fully paid
+            }
+
             const { error: updateErr } = await window.db.from('receivables_invoices')
-                .update({
-                    status: 'Paid',
-                    payment_method: label,
-                    paid_date: new Date().toISOString()
-                })
+                .update(updatePayload)
                 .eq('id', id);
 
             if (updateErr) throw updateErr;
 
-            // ── Sync trip payment status in calendar ─────────────
-            const invoiceRecord = window.receivablesData.invoices.find(i => i.id === id);
-            if (invoiceRecord && invoiceRecord.trip_ids) {
-                const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
-                const svcType = (invoiceRecord.service_type || '').toUpperCase();
+            // ── Sync trip payment status in calendar (ONLY IF FULLY PAID) ─────────────
+            if (isFullyPaid) {
+                const invoiceRecord = window.receivablesData.invoices.find(i => i.id === id);
+                if (invoiceRecord && invoiceRecord.trip_ids) {
+                    const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
+                    const svcType = (invoiceRecord.service_type || '').toUpperCase();
 
-                // Map service type to the exact column(s) in the trips table
-                const serviceColumnMap = {
-                    'TRANSPORT': { st_rate: 'PAID' },
-                    'YARD':      { st_yard: 'PAID' },
-                    'SALES':     { st_sales: 'PAID' },
-                    'RENT':      { st_rent: 'PAID' },
-                    'STORAGE':   { st_amount: 'PAID' },
-                    'ALL':       { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' },
-                    '':          { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' }
-                };
-                const colsToUpdate = serviceColumnMap[svcType] || serviceColumnMap['ALL'];
+                    // Map service type to the exact column(s) in the trips table
+                    const serviceColumnMap = {
+                        'TRANSPORT': { st_rate: 'PAID' },
+                        'YARD':      { st_yard: 'PAID' },
+                        'SALES':     { st_sales: 'PAID' },
+                        'RENT':      { st_rent: 'PAID' },
+                        'STORAGE':   { st_amount: 'PAID' },
+                        'ALL':       { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' },
+                        '':          { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' }
+                    };
+                    const colsToUpdate = serviceColumnMap[svcType] || serviceColumnMap['ALL'];
 
-                if (tripIdList.length > 0 && Object.keys(colsToUpdate).length > 0) {
-                    await Promise.all(
-                        tripIdList.map(tid =>
-                            window.db.from('trips').update(colsToUpdate).eq('trip_id', tid)
-                        )
-                    );
-                    // Sync local cache so calendar reflects immediately
-                    tripIdList.forEach(tid => {
-                        const localRow = (window.currentTrips || []).find(t => t[0] === tid);
-                        if (localRow) {
-                            if (colsToUpdate.st_rate)   localRow[32] = 'PAID';
-                            if (colsToUpdate.st_yard)   localRow[30] = 'PAID';
-                            if (colsToUpdate.st_sales)  localRow[33] = 'PAID';
-                            if (colsToUpdate.st_rent)   localRow[31] = 'PAID';
-                            if (colsToUpdate.st_amount) localRow[34] = 'PAID';
-                        }
-                    });
-                    console.log(`[Receivables] Trip payment synced: ${tripIdList.join(',')} → ${JSON.stringify(colsToUpdate)}`);
+                    if (tripIdList.length > 0 && Object.keys(colsToUpdate).length > 0) {
+                        await Promise.all(
+                            tripIdList.map(tid =>
+                                window.db.from('trips').update(colsToUpdate).eq('trip_id', tid)
+                            )
+                        );
+                        // Sync local cache so calendar reflects immediately
+                        tripIdList.forEach(tid => {
+                            const localRow = (window.currentTrips || []).find(t => t[0] === tid);
+                            if (localRow) {
+                                if (colsToUpdate.st_rate)   localRow[32] = 'PAID';
+                                if (colsToUpdate.st_yard)   localRow[30] = 'PAID';
+                                if (colsToUpdate.st_sales)  localRow[33] = 'PAID';
+                                if (colsToUpdate.st_rent)   localRow[31] = 'PAID';
+                                if (colsToUpdate.st_amount) localRow[34] = 'PAID';
+                            }
+                        });
+                        console.log(`[Receivables] Trip payment synced: ${tripIdList.join(',')} → ${JSON.stringify(colsToUpdate)}`);
+                    }
                 }
             }
 
@@ -361,42 +447,38 @@ window.markReceivablePaid = function (id, totalAmount, invoiceNumber, custName) 
         }
     };
 
-    document.getElementById('btn-pay-bank').onclick = () => processPayment(0, totalAmount, 'Bank');
-    document.getElementById('btn-pay-cash').onclick = () => processPayment(totalAmount, 0, 'Cash');
+    document.getElementById('btn-pay-bank').onclick = () => processPayment(0, currentPaymentAmount, 'Bank');
+    document.getElementById('btn-pay-cash').onclick = () => processPayment(currentPaymentAmount, 0, 'Cash');
 
-    const methodSelection = document.getElementById('recv-method-selection');
     const splitInputDiv = document.getElementById('recv-split-input');
-    const cashInput = document.getElementById('recv-cash-amount');
-    const bankPortionLabel = document.getElementById('recv-bank-portion');
+    const methodSelectionDiv = document.getElementById('recv-method-selection');
 
     document.getElementById('btn-pay-split').onclick = () => {
-        methodSelection.style.display = 'none';
+        methodSelectionDiv.style.display = 'none';
         splitInputDiv.style.display = 'flex';
-        cashInput.focus();
+        document.getElementById('recv-cash-amount').focus();
     };
 
-    cashInput.oninput = () => {
-        let val = parseFloat(cashInput.value) || 0;
-        if (val > totalAmount) {
-            cashInput.value = totalAmount;
-            val = totalAmount;
-        } else if (val < 0) {
-            cashInput.value = 0;
-            val = 0;
+    const cashInput = document.getElementById('recv-cash-amount');
+    const bankPortionSpan = document.getElementById('recv-bank-portion');
+
+    cashInput.addEventListener('input', (e) => {
+        let val = parseFloat(e.target.value) || 0;
+        if (val > currentPaymentAmount) {
+            val = currentPaymentAmount;
+            e.target.value = val;
         }
-        let rem = totalAmount - val;
-        bankPortionLabel.textContent = '$' + rem.toFixed(2);
-    };
+        bankPortionSpan.textContent = '$' + (currentPaymentAmount - val).toFixed(2);
+    });
 
     document.getElementById('btn-confirm-split').onclick = () => {
-        let val = parseFloat(cashInput.value);
-        if (isNaN(val) || val <= 0 || val >= totalAmount) {
-            alert('Please enter a valid cash amount greater than 0 and less than the total.');
+        const cashAmount = parseFloat(cashInput.value) || 0;
+        const bankAmount = currentPaymentAmount - cashAmount;
+        if (cashAmount <= 0 && bankAmount <= 0) {
+            alert('Please enter a valid amount.');
             return;
         }
-        let rem = totalAmount - val;
-        let label = `Split (Cash: $${val.toFixed(2)}, Bank: $${rem.toFixed(2)})`;
-        processPayment(val, rem, label);
+        processPayment(cashAmount, bankAmount, 'Split');
     };
 };
 

@@ -232,10 +232,13 @@
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
         const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
+        const fDebt     = (document.getElementById('bc-f-debt')?.value || 'unpaid').toLowerCase();
 
         (window.combinedBillingTrips || []).forEach(row => {
             const status = (row[41] || '').toUpperCase();
             if (!(status === 'COMPLETE' || status === 'DELIVERED' || status === 'PAID')) return;
+
+            if (fDebt === 'unpaid' && !rowHasPendingPayment(row)) return;
 
             const isPending = rowHasPendingPayment(row);
             
@@ -362,12 +365,13 @@
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
         const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
+        const fDebt     = (document.getElementById('bc-f-debt')?.value || 'unpaid').toLowerCase();
 
         const filtered = (window.combinedBillingTrips || []).filter(row => {
             const status = (row[41] || '').toUpperCase();
             if (!(status === 'COMPLETE' || status === 'DELIVERED' || status === 'PAID')) return false;
-            
-            // Old payment check removed
+
+            if (fDebt === 'unpaid' && !rowHasPendingPayment(row)) return false;
 
             const orderNo  = (row[5]  || '').toString().toLowerCase();
             const city     = (row[6]  || '').toString().trim();
@@ -1400,7 +1404,11 @@
 
         const uniqueNum = Math.floor(100000 + Math.random() * 900000);
         const invoiceNo = `${prefix}-${uniqueNum}`;
-        document.getElementById('mb-invoice-number').textContent = invoiceNo;
+
+        const invoiceNoField = document.getElementById('mb-invoice-number');
+        if (invoiceNoField) {
+            invoiceNoField.textContent = invoiceNo;
+        }
         // Save the generated number globally so it can be retrieved if needed (e.g. for PDF)
         window.currentMasterInvoiceNo = invoiceNo;
 
@@ -1408,6 +1416,58 @@
         if (modal) {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
+        }
+    };
+
+    window.createMasterInvoiceRecordOnly = async function(event) {
+        if (!event) event = window.event;
+        const btn = event?.currentTarget;
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> CREANDO REGISTRO...';
+        }
+
+        try {
+            if (window.addInvoiceToReceivables) {
+                const customer = document.getElementById('bc-f-customer')?.value || 'Customer';
+                const invNo = window.currentMasterInvoiceNo || 'INV';
+                const totalText = document.getElementById('mb-total')?.textContent || '0';
+                const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
+                const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
+                const tripIds = (window.currentBillingOrderRows || []).map(r => r[0]).filter(Boolean);
+                const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                
+                await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                
+                // Actualizar contadores y status localmente para que se marque de verde sin necesidad de email
+                const nowIso = new Date().toISOString();
+                (window.currentBillingOrderRows || []).forEach(row => {
+                    const tripId = row[0];
+                    if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                        row[57] = 'YES';
+                        row[63] = nowIso;
+                        const currentCount = parseInt(row[64]) || 0;
+                        row[64] = currentCount + 1;
+                    }
+                });
+                
+                if (window.showToast) window.showToast('Registro de Invoice creado exitosamente', 'success');
+                else alert('Registro de Invoice creado exitosamente');
+                
+                if (window.closeMasterBillingModal) window.closeMasterBillingModal();
+                if (window.renderBillingTable) window.renderBillingTable();
+            } else {
+                alert("Módulo Accounts no cargado.");
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Error creando el registro.");
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
         }
     };
 
@@ -1524,15 +1584,6 @@
             };
 
             await html2pdf().set(opt).from(container).save();
-
-            if (window.addInvoiceToReceivables) {
-                const totalText = document.getElementById('mb-total')?.textContent || '0';
-                const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
-                const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
-                const tripIds = (window.currentBillingOrderRows || []).map(r => r[0]).filter(Boolean);
-                const svcFilter = document.getElementById('bc-f-service')?.value || '';
-                window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
-            }
 
             // Restore buttons
             actionsDiv.style.display = 'flex';
