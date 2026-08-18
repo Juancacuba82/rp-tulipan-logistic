@@ -42,26 +42,22 @@ window.initRealtimeSubscriptions = function() {
     
     // 6. YARD STOCK (INVENTORY)
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'yard_stock' }, payload => {
-        if (typeof window.loadYardStockData === 'function') window.loadYardStockData();
-        if (localStorage.getItem('activeSection') === 'yard' && typeof window.renderBothTable === 'function') {
-            window.renderBothTable();
-        }
+        if (typeof window.loadYardData === 'function') window.loadYardData(true);
     });
     
     // 7. EXPENSES
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, payload => {
-        if (typeof window.loadExpensesData === 'function') window.loadExpensesData();
-        // The render happens automatically in loadExpensesData or we can trigger it
+        if (typeof window.loadExpensesData === 'function') window.loadExpensesData(true);
     });
     
     // 8. RELEASES
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'releases' }, payload => {
-        if (typeof window.loadReleasesData === 'function') window.loadReleasesData();
+        if (typeof window.loadReleasesData === 'function') window.loadReleasesData(true);
     });
     
     // 9. RENTALS
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'rentals' }, payload => {
-        if (typeof window.loadRentalsData === 'function') window.loadRentalsData();
+        if (typeof window.loadRentalsData === 'function') window.loadRentalsData(true);
     });
     
     // 10. CALLS
