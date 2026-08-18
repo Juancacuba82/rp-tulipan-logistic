@@ -888,6 +888,19 @@ function subscribeToCallsRealtime() {
                 }
             }
         )
+        .on(
+            'postgres_changes',
+            { event: 'DELETE', schema: 'public', table: 'call_logs' },
+            (payload) => {
+                if (!payload.old) return;
+                const oldId = payload.old.id;
+                const idx = currentCalls.findIndex(c => c.id === oldId);
+                if (idx !== -1) {
+                    currentCalls.splice(idx, 1);
+                    renderCallsTable();
+                }
+            }
+        )
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 console.log('✅ Calls Realtime activo — cambios en vivo habilitados');

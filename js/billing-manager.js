@@ -607,6 +607,9 @@
             const globalIdx = (window.combinedBillingTrips || []).indexOf(row);
 
             tr.innerHTML = `
+                <td style="${cs} width:40px; text-align:center;">
+                    <input type="checkbox" class="billing-row-checkbox" checked data-global-idx="${globalIdx}" style="cursor:pointer; transform:scale(1.2);" onclick="event.stopPropagation();">
+                </td>
                 <td style="${cs}">${displayDate}</td>
                 <td style="${cs}">${orderNo}</td>
                 <td style="${cs}">${nCont}</td>
@@ -1091,10 +1094,25 @@
 
 
     // ── MASTER FILTERED INVOICE ───────────────────────────────
+    window.toggleAllBillingRows = function(sourceCheckbox) {
+        const checkboxes = document.querySelectorAll('.billing-row-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = sourceCheckbox.checked;
+        });
+    };
+
     window.openMasterBillingModal = function() {
-        const rows = window.billingRows || [];
+        let rows = window.billingRows || [];
+        
+        // Filter out unselected rows based on checkboxes
+        const checkboxes = document.querySelectorAll('.billing-row-checkbox');
+        if (checkboxes.length > 0) {
+            const checkedIndices = Array.from(document.querySelectorAll('.billing-row-checkbox:checked')).map(cb => parseInt(cb.dataset.globalIdx, 10));
+            rows = (window.combinedBillingTrips || []).filter((r, idx) => checkedIndices.includes(idx));
+        }
+
         if (rows.length === 0) {
-            alert('No hay órdenes para facturar en la vista actual.');
+            alert('No hay órdenes seleccionadas para facturar en la vista actual.');
             return;
         }
         
