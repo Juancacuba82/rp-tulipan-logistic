@@ -37,7 +37,7 @@
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1700" defer></script>
     <script src="./js/tasks.js?v=10" defer></script>
-    <script src="./js/billing-manager.js?v=18" defer></script>
+    <script src="./js/billing-manager.js?v=19" defer></script>
     <script src="./js/invoice-automation.js?v=18" defer></script>
     <script src="./js/attendance.js?v=1" defer></script>
     <script src="./js/accounting.js?v=100" defer></script>
@@ -4598,6 +4598,13 @@
                             <select id="mb-billing-company-select" class="form-select" onchange="updateMasterBillingCompany()" style="min-width:260px;font-weight:700;font-size:0.9rem;padding:8px 35px 8px 15px;border:2px solid #cbd5e1;border-radius:10px;">
                                 <option value="RP_TULIPAN">RP TULIPAN TRANSPORT INC</option>
                                 <option value="JR_SUPER_CRANE">JR SUPER CRANE</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:4px;margin-left:10px;">
+                            <label style="font-size:0.7rem;font-weight:800;color:#0ea5e9;text-transform:uppercase;">GROUP BY:</label>
+                            <select id="mb-group-by-select" class="form-select" onchange="window.openMasterBillingModal(window.currentBillingOrderRows, window.currentMasterInvoiceNo, null, true)" style="min-width:150px;font-weight:700;font-size:0.9rem;padding:8px 35px 8px 15px;border:2px solid #cbd5e1;border-radius:10px;">
+                                <option value="ORDER">Order Number</option>
+                                <option value="BOOKING">Booking Number</option>
                             </select>
                         </div>
                         <h3 style="margin:0;color:#1e293b;font-size:1.1rem;margin-left:15px;border-left:2px solid #e2e8f0;padding-left:15px;">

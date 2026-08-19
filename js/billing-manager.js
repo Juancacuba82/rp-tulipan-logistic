@@ -1241,6 +1241,9 @@
             serviceGroups[srv][key].total += total;
         };
 
+        const groupBySelect = document.getElementById('mb-group-by-select');
+        const groupBy = groupBySelect ? groupBySelect.value : 'ORDER';
+
         rows.forEach(r => {
             const orderNo = (r[5] || '').toString().toUpperCase();
             const bookingNo = (r[65] && r[65] !== '---') ? r[65].toString().trim() : '---';
@@ -1251,14 +1254,26 @@
             const t = (r[8] && r[8] !== '---') ? r[8].toString().trim() : 'PICK UP';
             const locHtml = !allSameLocations ? `<br><span style="font-size:0.8rem;color:#475569;font-weight:normal;">(From: ${f} - To: ${t})</span>` : '';
             
-            let grpSalesTrans = `Order: <strong style="color:#0f172a;">${orderNo}</strong>`;
-            if (bookingNo !== '---') {
-                grpSalesTrans += ` <span style="color:#64748b;margin:0 5px;">|</span> Booking: ${bookingNo}`;
+            let grpSalesTrans = '';
+            if (groupBy === 'BOOKING' && bookingNo !== '---') {
+                grpSalesTrans = `Booking: <strong style="color:#0f172a;">${bookingNo}</strong>`;
+            } else {
+                grpSalesTrans = `Order: <strong style="color:#0f172a;">${orderNo}</strong>`;
+                if (bookingNo !== '---') {
+                    grpSalesTrans += ` <span style="color:#64748b;margin:0 5px;">|</span> Booking: ${bookingNo}`;
+                }
             }
+            
             if (size) grpSalesTrans += ` <span style="color:#64748b;">(${size})</span>`;
             grpSalesTrans += locHtml;
             
-            let grpYardStorageRent = containerNo !== '---' ? `Container: ${containerNo}` : (orderNo ? `Order: ${orderNo}` : '');
+            let grpYardStorageRent = '';
+            if (groupBy === 'BOOKING' && bookingNo !== '---') {
+                grpYardStorageRent = `Booking: <strong style="color:#0f172a;">${bookingNo}</strong>`;
+            } else {
+                grpYardStorageRent = containerNo !== '---' ? `Container: ${containerNo}` : (orderNo ? `Order: ${orderNo}` : '');
+            }
+            
             if (size) grpYardStorageRent += ` <span style="color:#64748b;">(${size})</span>`;
             grpYardStorageRent += locHtml;
 
