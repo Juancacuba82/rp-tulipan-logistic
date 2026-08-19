@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./style.css?v=2">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -755,14 +755,41 @@
         }
 
         @media (max-width: 1024px) {
-            #docs-view .dashboard-split-container {
+            #docs-view .dashboard-split-container,
+            #fleet-view .dashboard-split-container {
                 display: flex !important;
                 flex-direction: column !important;
                 height: auto !important;
                 min-height: 100vh;
-                overflow: visible !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
             }
-
+            #fleet-view .dashboard-split-container > .entry-sidebar {
+                flex: none !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                min-width: 100% !important;
+                height: auto !important;
+                min-height: auto !important;
+                box-sizing: border-box !important;
+                padding: 10px !important;
+            }
+            #fleet-view .entry-sidebar > div {
+                max-width: 100% !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+            #fleet-view .table-area {
+                width: 100% !important;
+                max-width: 100vw !important;
+                padding: 10px !important;
+                box-sizing: border-box !important;
+                overflow-x: hidden !important;
+            }
+            #fleet-cards-container {
+                grid-template-columns: 1fr !important;
+            }
             .trip-selector-panel {
                 width: 100% !important;
                 height: 300px !important;
@@ -3062,10 +3089,10 @@
         <section id="fleet-view" class="view-section hidden">
             <div class="dashboard-split-container" style="display: flex; min-height: 100vh;">
                 <aside class="entry-sidebar primary-entry"
-                    style="flex: 0 0 320px; background: #242f42; min-height: 100vh; overflow: visible;">
+                    style="width: 100%; background: #242f42; min-height: 100vh; overflow: visible;">
                     <!-- DRIVER QUICK UPDATE (TOP PRIORITY) -->
                     <div
-                        style="background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+                        style="background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin: 15px auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-width: 95%; box-sizing: border-box;">
                         <h3
                             style="font-size: 0.9rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; color: #f8fafc;">
                             <i class="fas fa-truck-moving" style="color: #ef4444;"></i> DRIVER DAILY UPDATE
@@ -7035,7 +7062,7 @@
 
                         // Drivers keep Logout visible because they have space, but Clock In/Out are hidden for them
                         if (normalizedRole === 'driver') {
-                            if (btnLogout) btnLogout.style.display = 'inline-flex';
+                            if (btnLogout) btnLogout.style.display = 'none';
                             if (btnClockIn) btnClockIn.style.display = 'none';
                             if (btnClockOut) btnClockOut.style.display = 'none';
                         } else {

@@ -3689,3 +3689,28 @@ main {
     top: 6px;
     box-shadow: 0 0px 5px rgba(239, 68, 68, 0.3) !important;
 }
+
+/* Ultimate override for Fleet Sidebar */
+@media screen and (max-width: 1024px) {
+    #fleet-view .dashboard-split-container {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100vw !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+    #fleet-view .dashboard-split-container .entry-sidebar {
+        flex: none !important;
+        width: 100vw !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        box-sizing: border-box !important;
+        padding: 10px !important;
+        margin: 0 !important;
+    }
+    #fleet-view .dashboard-split-container .entry-sidebar > div {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+}
