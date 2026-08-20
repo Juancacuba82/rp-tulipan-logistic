@@ -55,7 +55,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
     window.calculateDynamicYardCosts = function(item, dateFrom, dateTo) {
         const entryDate = new Date(item.created_at || new Date());
-        const billingStartDate = item.last_billed_date ? new Date(item.last_billed_date) : entryDate;
+        // User requested to ALWAYS show total days regardless of billing history
+        const billingStartDate = entryDate;
         const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
         
         let calcStart = billingStartDate;
@@ -82,6 +83,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         let billedLiftsDisplay = 0;
         let liftCost = 0;
         
+        const totalLifts = parseInt(item.lifts) || 1;
+
         if (dateFrom || dateTo) {
             let periodLifts = 0;
             const eStr = item.created_at ? item.created_at.split('T')[0] : '';
@@ -90,15 +93,12 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             if (eStr && (!dateFrom || eStr >= dateFrom) && (!dateTo || eStr <= dateTo)) periodLifts++;
             if (xStr && (!dateFrom || xStr >= dateFrom) && (!dateTo || xStr <= dateTo)) periodLifts++;
             
-            periodLifts = Math.min(periodLifts, (parseInt(item.lifts) || 1));
+            periodLifts = Math.min(periodLifts, totalLifts);
             billedLiftsDisplay = periodLifts;
             liftCost = periodLifts * (parseFloat(item.lift_cost) || 0);
         } else {
-            const billedLifts = parseInt(item.billed_lifts) || 0;
-            const totalLifts = parseInt(item.lifts) || 1;
-            const unbilledLifts = Math.max(0, totalLifts - billedLifts);
-            billedLiftsDisplay = unbilledLifts;
-            liftCost = unbilledLifts * (parseFloat(item.lift_cost) || 0);
+            billedLiftsDisplay = totalLifts;
+            liftCost = totalLifts * (parseFloat(item.lift_cost) || 0);
         }
         
         const totalCost = accumStorage + liftCost;
@@ -255,9 +255,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>` : ''}
                     </div>
                 </td>
             `;
@@ -401,9 +398,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>` : ''}
                     </div>
                 </td>
             `;
@@ -548,9 +542,6 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                         <button onclick="editYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline" title="Edit" style="background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteYardItem('${item.id}'); event.stopPropagation();" class="btn-manage-inline btn-delete-yard" title="Delete" style="background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; padding: 6px; border-radius: 4px;">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>` : ''}
                     </div>
                 </td>
             `;
@@ -912,8 +903,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                                     <span style="font-size:0.85rem; color:#64748b;">Selecciona cómo te pagaron o te pagarán.</span>
                                 </div>
                                 <select id="ys-pay-method" style="padding:10px; border-radius:6px; border:1px solid #cbd5e1; font-weight:bold; font-size:0.95rem;">
-                                    <option value="cash">💵 Cash</option>
                                     <option value="bank">🏦 Bank</option>
+                                    <option value="cash">💵 Cash</option>
                                     <option value="split">✂️ Split</option>
                                 </select>
                             </div>
@@ -999,7 +990,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     const invoiceDate = dateTo ? dateTo : new Date().toISOString().split('T')[0];
                     const invDateObj = new Date(invoiceDate + 'T12:00:00');
                     const yyyymm = `${invDateObj.getFullYear()}${String(invDateObj.getMonth() + 1).padStart(2, '0')}`;
-                    const orderNo = `YRD-${yyyymm}`;
+                    const safeCustomer = (customerFilter || 'UNKN').replace(/[^a-zA-Z0-9]/g, '');
+                    const customerPrefix = safeCustomer.substring(0, 4).toUpperCase();
+                    const orderNo = `YRD-${customerPrefix}-${yyyymm}`;
 
                     const containerNos = itemsToInvoice.map(i => i.container_no || '').filter(Boolean).join(', ');
 
@@ -1075,59 +1068,93 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     }
 
                     if (window.db) {
-                        const { error: tripErr } = await window.db.from('trips').insert([tripObj]);
-                        if (tripErr) {
-                            console.error('Error creating billing record:', tripErr);
-                        } else {
-                            // Update last_billed_date on each invoiced yard item
-                            const newBilledDate = dateTo || new Date().toISOString().split('T')[0];
-                            for (const item of itemsToInvoice) {
-                                const newBilledLifts = parseInt(item.lifts) || 1;
-                                await window.db.from('yard_stock').update({
-                                    last_billed_date: newBilledDate,
-                                    billed_lifts: newBilledLifts,
-                                    invoice_sent: 'YES'
-                                }).eq('id', item.id);
-                                item.last_billed_date = newBilledDate;
-                                item.billed_lifts = newBilledLifts;
-                                item.invoice_sent = 'YES';
-                            }
+                        const newBilledDate = dateTo || new Date().toISOString().split('T')[0];
+                        
+                        // ── 1. UPDATE YARD STOCK STATUS ──
+                        for (const item of itemsToInvoice) {
+                            const newBilledLifts = parseInt(item.lifts) || 1;
+                            await window.db.from('yard_stock').update({
+                                last_billed_date: newBilledDate,
+                                billed_lifts: newBilledLifts,
+                                invoice_sent: 'YES'
+                            }).eq('id', item.id);
+                            item.last_billed_date = newBilledDate;
+                            item.billed_lifts = newBilledLifts;
+                            item.invoice_sent = 'YES';
 
-                            // ── INSTANT LOCAL UPDATE: push to currentTrips so Billing updates without refresh
-                            if (window.currentTrips) {
-                                // Build a minimal mapped row for immediate display in Billing
-                                const newRow = new Array(74).fill('');
-                                newRow[0]  = tripObj.trip_id;
-                                newRow[1]  = tripObj.date;
-                                newRow[3]  = tripObj.n_cont;
-                                newRow[4]  = '---';
-                                newRow[5]  = tripObj.order_no;
-                                newRow[6]  = '---';
-                                newRow[8]  = tripObj.delivery_place;
-                                newRow[11] = tripObj.customer;
-                                newRow[12] = tripObj.yard_services;
-                                newRow[13] = tripObj.yard_rate;
-                                newRow[17] = '---';
-                                newRow[18] = 0;
-                                newRow[20] = 0;
-                                newRow[30] = tripObj.st_yard;  // st_yard (PAID or PEND)
-                                newRow[32] = 'PAID';
-                                newRow[33] = 'PAID';
-                                newRow[41] = 'COMPLETE';
-                                newRow[42] = 'NO';
-                                newRow[43] = 'NO';
-                                newRow[49] = false;
-                                newRow[57] = 'YES';
-                                newRow[65] = '---';
-                                // NOTE: currentTrips and allTripsUnfiltered point to the SAME array,
-                                // so we only push once to avoid duplicates.
-                                window.currentTrips.push(newRow);
+                            // ── 2. INSERT YARD BILLING HISTORY ──
+                            try {
+                                const diffTime = Math.abs(new Date(newBilledDate) - new Date(dateFrom || item.created_at));
+                                const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                                await window.db.from('yard_billing').insert([{
+                                    yard_id: item.id,
+                                    start_date: dateFrom || item.created_at,
+                                    end_date: newBilledDate,
+                                    days_billed: diffDays,
+                                    lifts_billed: newBilledLifts,
+                                    amount: parseFloat(item.daily_rate * diffDays) + parseFloat(item.lift_cost * newBilledLifts),
+                                    is_paid: isPaidNow
+                                }]);
+                            } catch (err) {
+                                console.error('Error logging to yard_billing:', err);
                             }
-                            // Re-render Billing table immediately
-                            if (typeof window.renderBillingTable === 'function') {
-                                window.renderBillingTable();
+                        }
+
+                        // ── 3. ONLY INSERT TO TRIPS IF NOT PAID NOW ──
+                        if (!isPaidNow) {
+                            const { error: tripErr } = await window.db.from('trips').insert([tripObj]);
+                            if (tripErr) {
+                                console.error('Error creating billing record:', tripErr);
+                            } else {
+                                // ── 4. AUTO-CREATE ACCOUNTS RECEIVABLE RECORD ──
+                                if (window.addInvoiceToReceivables) {
+                                    try {
+                                        await window.addInvoiceToReceivables(
+                                            customerFilter, 
+                                            orderNo, 
+                                            finalGrandTotal, 
+                                            finalHtml, 
+                                            [tripObj.trip_id], 
+                                            'YARD STORAGE'
+                                        );
+                                    } catch (err) {
+                                        console.error('Error auto-creating Accounts Receivable:', err);
+                                    }
+                                }
+
+                                // ── INSTANT LOCAL UPDATE: push to currentTrips so Billing updates without refresh
+                                if (window.currentTrips) {
+                                    const newRow = new Array(74).fill('');
+                                    newRow[0]  = tripObj.trip_id;
+                                    newRow[1]  = tripObj.date;
+                                    newRow[3]  = tripObj.n_cont;
+                                    newRow[4]  = '---';
+                                    newRow[5]  = tripObj.order_no;
+                                    newRow[6]  = '---';
+                                    newRow[8]  = tripObj.delivery_place;
+                                    newRow[11] = tripObj.customer;
+                                    newRow[12] = tripObj.yard_services;
+                                    newRow[13] = tripObj.yard_rate;
+                                    newRow[17] = '---';
+                                    newRow[18] = 0;
+                                    newRow[20] = 0;
+                                    newRow[30] = tripObj.st_yard;
+                                    newRow[32] = 'PAID';
+                                    newRow[33] = 'PAID';
+                                    newRow[41] = 'COMPLETE';
+                                    newRow[42] = 'NO';
+                                    newRow[43] = 'NO';
+                                    newRow[49] = false;
+                                    newRow[57] = 'YES'; // Invoice sent
+                                    newRow[63] = new Date().toISOString(); // Sent date for Accounts integration
+                                    newRow[64] = 1; // Send count
+                                    newRow[65] = '---';
+                                    window.currentTrips.push(newRow);
+                                }
+                                if (typeof window.renderBillingTable === 'function') {
+                                    window.renderBillingTable();
+                                }
                             }
-                            // ── END INSTANT LOCAL UPDATE ──────────────────────────
                         }
                     }
                     // ── END STATIC BILLING RECORD ─────────────────────────────
@@ -1236,7 +1263,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (btn) {
             btn.textContent = "UPDATE CONTAINER";
             btn.classList.add('btn-update');
+            btn.style.display = 'block';
         }
+        const warningEl = document.getElementById('yard-creation-warning');
+        if (warningEl) warningEl.style.display = 'none';
+
         renderYardTable(); // Refresh selection
         renderStorageTable();
         if (window.renderBothTable) window.renderBothTable();
@@ -1306,7 +1337,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         if (btn) {
             btn.textContent = "SAVE TO YARD";
             btn.classList.remove('btn-update');
+            btn.style.display = 'none';
         }
+        const warningEl = document.getElementById('yard-creation-warning');
+        if (warningEl) warningEl.style.display = 'block';
+
         renderYardTable(); // Refresh selection
         renderStorageTable();
         if (window.renderBothTable) window.renderBothTable();
@@ -1683,379 +1718,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
     let pendingBillingData = [];
 
-    window.toggleMonthlyClosingSplit = function () {
-        const method = document.getElementById('monthly-closing-payment-method').value;
-        document.getElementById('monthly-closing-split-fields').style.display = (method === 'split') ? 'flex' : 'none';
-    };
 
-    window.openMonthlyClosingModal = function (yardType) {
-        let dynamicCustomers = currentYardStock.filter(item => {
-            const isStorage = (item.notes || '').includes('[Storage Yard]');
-            if (yardType === 'YARD' && isStorage) return false;
-            if (yardType === 'STORAGE' && !isStorage) return false;
-            return true;
-        }).map(item => item.customer_name).filter(n => n);
-
-        const allCustomers = [...new Set(dynamicCustomers)].sort();
-
-        const sel = document.getElementById('monthly-closing-customer');
-        sel.innerHTML = '<option value="">Selecciona Cliente...</option>';
-        allCustomers.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c;
-            opt.textContent = c;
-            sel.appendChild(opt);
-        });
-
-        document.getElementById('monthly-closing-date').value = '';
-        document.getElementById('monthly-closing-preview-body').innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Selecciona un cliente y fecha para previsualizar.</td></tr>';
-        document.getElementById('monthly-closing-total').textContent = '0.00';
-        document.getElementById('btn-process-monthly-closing').disabled = true;
-
-        const modal = document.getElementById('yard-monthly-closing-modal');
-        modal.style.display = 'block';
-        modal.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
-    window.previewMonthlyClosing = function () {
-        const customer = document.getElementById('monthly-closing-customer').value;
-        const closingDateStr = document.getElementById('monthly-closing-date').value;
-        const tbody = document.getElementById('monthly-closing-preview-body');
-        const btn = document.getElementById('btn-process-monthly-closing');
-
-        if (!customer || !closingDateStr) {
-            tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Selecciona un cliente y fecha para previsualizar.</td></tr>';
-            document.getElementById('monthly-closing-total').textContent = '0.00';
-            btn.disabled = true;
-            return;
-        }
-
-        const closingDate = new Date(closingDateStr + 'T23:59:59');
-        pendingBillingData = [];
-        let grandTotal = 0;
-
-        const filtered = currentYardStock.filter(i => i.customer_name === customer);
-
-        filtered.forEach(item => {
-            const entryDate = new Date(item.created_at);
-            const startDate = item.last_billed_date ? new Date(item.last_billed_date) : entryDate;
-
-            if (item.exit_date) {
-                const exitD = new Date(item.exit_date + 'T12:00:00');
-                if (exitD <= startDate) return; // already fully billed
-            }
-
-            let endDate = closingDate;
-            let isFinalBill = false;
-
-            if (item.exit_date) {
-                const exitD = new Date(item.exit_date + 'T12:00:00');
-                if (exitD <= closingDate) {
-                    endDate = exitD;
-                    isFinalBill = true;
-                }
-            }
-
-            if (startDate >= endDate) return; // Nothing to bill in this period
-
-            const d1 = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-            const days = Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)));
-
-            if (days === 0 && !isFinalBill && item.last_billed_date) return;
-
-            let liftsToBill = 0;
-            const billedLifts = item.billed_lifts || 0;
-            const totalLifts = item.lifts || 1;
-
-            if (!item.last_billed_date) {
-                liftsToBill = 1;
-            } else if (isFinalBill) {
-                liftsToBill = Math.max(0, totalLifts - billedLifts);
-            }
-
-            const accumStorage = (item.daily_rate || 0) * days;
-            const liftCost = liftsToBill * (item.lift_cost || 0);
-            const total = accumStorage + liftCost;
-
-            if (total > 0) {
-                grandTotal += total;
-                pendingBillingData.push({
-                    item: item,
-                    startStr: startDate.toISOString().split('T')[0],
-                    endStr: endDate.toISOString().split('T')[0],
-                    days: days,
-                    lifts: liftsToBill,
-                    amount: total,
-                    accumStorage,
-                    liftCost
-                });
-            }
-        });
-
-        if (pendingBillingData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">No hay cobros pendientes para este cliente en esta fecha.</td></tr>';
-            document.getElementById('monthly-closing-total').textContent = '0.00';
-            btn.disabled = true;
-            return;
-        }
-
-        tbody.innerHTML = '';
-        pendingBillingData.forEach(data => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #1e40af;">${data.item.container_no}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${data.startStr} al ${data.endStr}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center;">${data.days}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center;">${data.lifts}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold;">$${data.amount.toFixed(2)}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        document.getElementById('monthly-closing-total').textContent = grandTotal.toFixed(2);
-        btn.disabled = false;
-    };
-
-    window.processMonthlyClosing = async function () {
-        if (pendingBillingData.length === 0) return;
-
-        const btn = document.getElementById('btn-process-monthly-closing');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-        btn.disabled = true;
-
-        try {
-            const customer = document.getElementById('monthly-closing-customer').value;
-            const paymentMethod = document.getElementById('monthly-closing-payment-method').value;
-
-            let email = "";
-            if (window.yardCustomersList) {
-                const cust = window.yardCustomersList.find(c => c.name === customer);
-                if (cust && cust.email) email = cust.email;
-            }
-            if (!email) {
-                const emailRaw = prompt(`No se encontró correo guardado para ${customer}. Ingrese el correo para enviar la factura (o deje en blanco para no enviarla):`, "");
-                if (emailRaw && emailRaw.trim()) email = emailRaw.trim();
-            }
-
-            let b64Pdf = null;
-            let grandTotal = 0;
-            if (email) {
-                let invoiceHtml = `
-                <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; margin-bottom: 20px; font-size: 11px;">
-                    <thead>
-                        <tr style="background-color: #f1f5f9; color: #0f172a;">
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">N&deg; CONT</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">SIZE</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">TYPE</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">CONDITION</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE IN</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# IN</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">DATE OUT</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: left;">ORDER# OUT</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">LIFTS</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">DAYS</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">DAYS COST</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">LIFTS COST</th>
-                            <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; background-color: #e0f2fe;">TOTAL</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                `;
-
-                let totalDaysCost = 0;
-                let totalLiftsCost = 0;
-
-                for (let data of pendingBillingData) {
-                    const item = data.item;
-                    grandTotal += data.amount;
-                    totalDaysCost += (data.accumStorage || 0);
-                    totalLiftsCost += (data.liftCost || 0);
-
-                    invoiceHtml += `
-                        <tr>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; color: ${item.exit_date ? '#64748b' : '#1e40af'};">${item.container_no || '---'}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.size || '---'}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.type || 'DRY'}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.condition || 'USED'}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1;">${window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(item.created_at) : item.created_at.split('T')[0]}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.origin_release || '---'}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.exit_date ? (window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : item.exit_date) : '---'}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1;">${item.order_out || '---'}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${data.lifts}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">${data.days}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${(data.accumStorage || 0).toFixed(2)}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">${(data.liftCost || 0).toFixed(2)}</td>
-                            <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: #10b981; background-color: #f0fdf4;">${data.amount.toFixed(2)}</td>
-                        </tr>
-                    `;
-                }
-
-                invoiceHtml += `
-                    </tbody>
-                </table>
-                
-                <table style="width: 250px; margin-left: auto; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px;">
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3;">DAYS COST</td>
-                        <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right;">$${totalDaysCost.toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3;">LIFTS COST</td>
-                        <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right;">$${totalLiftsCost.toFixed(2)}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #fcece3;">TOTAL</td>
-                        <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right;">$${grandTotal.toFixed(2)}</td>
-                    </tr>
-                </table>
-
-                <div style="text-align: right; margin-top: 15px; font-family: Arial, sans-serif;">
-                    <span style="font-weight: bold; background-color: #fcece3; padding: 6px 10px; border: 1px solid #cbd5e1; display: inline-block;">TOTAL INVOICE</span>
-                    <span style="font-weight: bold; font-size: 16px; margin-left: 10px;">$${grandTotal.toFixed(2)}</span>
-                </div>
-                `;
-
-                if (typeof window.generateYardInvoiceBase64 === 'function') {
-                    b64Pdf = await window.generateYardInvoiceBase64(invoiceHtml, customer);
-                }
-            }
-
-            let cashSplit = 0;
-            let bankSplit = 0;
-            if (paymentMethod === 'split') {
-                cashSplit = parseFloat(document.getElementById('monthly-closing-split-cash').value) || 0;
-                bankSplit = parseFloat(document.getElementById('monthly-closing-split-bank').value) || 0;
-            }
-
-            const billingRecords = [];
-            const cashLedgerEntries = [];
-
-            for (let data of pendingBillingData) {
-                billingRecords.push({
-                    yard_id: data.item.id,
-                    start_date: data.startStr,
-                    end_date: data.endStr,
-                    days_billed: data.days,
-                    lifts_billed: data.lifts,
-                    amount: data.amount
-                });
-
-                const isStorage = (data.item.notes || '').includes('[Storage Yard]');
-                const yardLabel = isStorage ? '[Storage Yard]' : '[RP Tulipan Yard]';
-
-                // If it's not a split payment, record each container individually
-                if (paymentMethod !== 'split') {
-                    cashLedgerEntries.push({
-                        date: new Date().toISOString().split('T')[0],
-                        tipo: 'ingreso',
-                        metodo: paymentMethod,
-                        monto: data.amount,
-                        descripcion: `Cierre Mensual ${yardLabel} - Cont: ${data.item.container_no} (${data.startStr} a ${data.endStr})`,
-                        referencia: customer,
-                        chofer: ''
-                    });
-                }
-
-                const newBilledLifts = (data.item.billed_lifts || 0) + data.lifts;
-                const newBilledDate = data.endStr + 'T12:00:00.000Z';
-
-                await window.db.from('yard_stock')
-                    .update({
-                        last_billed_date: newBilledDate,
-                        billed_lifts: newBilledLifts
-                    })
-                    .eq('id', data.item.id);
-
-                data.item.last_billed_date = newBilledDate;
-                data.item.billed_lifts = newBilledLifts;
-            }
-
-            // If it IS a split payment, create aggregated entries for the batch
-            if (paymentMethod === 'split') {
-                const containerNumbers = pendingBillingData.map(d => d.item.container_no).join(', ');
-
-                let hasStorage = false;
-                let hasRPT = false;
-                for (let d of pendingBillingData) {
-                    if ((d.item.notes || '').includes('[Storage Yard]')) hasStorage = true;
-                    else hasRPT = true;
-                }
-                let yardLabel = (hasStorage && hasRPT) ? '[Global Yard]' : (hasStorage ? '[Storage Yard]' : '[RP Tulipan Yard]');
-
-                if (cashSplit > 0) {
-                    cashLedgerEntries.push({
-                        date: new Date().toISOString().split('T')[0],
-                        tipo: 'ingreso',
-                        metodo: 'cash',
-                        monto: cashSplit,
-                        descripcion: `Cierre Mensual ${yardLabel} (Split Cash) - Varios Cont.`,
-                        referencia: customer,
-                        chofer: ''
-                    });
-                }
-                if (bankSplit > 0) {
-                    cashLedgerEntries.push({
-                        date: new Date().toISOString().split('T')[0],
-                        tipo: 'ingreso',
-                        metodo: 'bank',
-                        monto: bankSplit,
-                        descripcion: `Cierre Mensual ${yardLabel} (Split Bank) - Varios Cont.`,
-                        referencia: customer,
-                        chofer: ''
-                    });
-                }
-            }
-
-            if (billingRecords.length > 0) {
-                const { error } = await window.db.from('yard_billing').insert(billingRecords);
-                if (error) throw error;
-            }
-
-            if (cashLedgerEntries.length > 0) {
-                const { error: ledgerError } = await window.db.from('cash_ledger').insert(cashLedgerEntries);
-                if (ledgerError) throw ledgerError;
-
-                if (window.loadAccountingData) {
-                    window.loadAccountingData();
-                }
-            }
-
-            if (email && b64Pdf) {
-                const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
-                const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
-                const templateParams = {
-                    to_email: email,
-                    customer_name: customer,
-                    invoice_html: "",
-                    grand_total: grandTotal.toFixed(2),
-                    pdf_attachment: b64Pdf
-                };
-
-                const publicKey = localStorage.getItem('ejs_public_key');
-                if (publicKey) {
-                    emailjs.init(publicKey);
-                    await emailjs.send(serviceId, templateId, templateParams);
-                } else {
-                    console.warn("EmailJS public key not found in local storage.");
-                }
-            }
-
-            alert(email ? '¡Cierre procesado y Factura enviada por correo!' : '¡Cierre mensual procesado correctamente!');
-            document.getElementById('yard-monthly-closing-modal').style.display = 'none';
-
-            renderYardTable();
-            renderStorageTable();
-            if (window.renderBothTable) window.renderBothTable();
-
-        } catch (err) {
-            console.error("Error processing monthly closing:", err);
-            alert("Hubo un error procesando el cierre. Revisa la consola.");
-        } finally {
-            btn.innerHTML = '<i class="fas fa-check-circle" style="margin-right: 8px;"></i> Procesar y Facturar';
-            btn.disabled = false;
-        }
-    };
 
 
 

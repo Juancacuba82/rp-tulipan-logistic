@@ -713,6 +713,110 @@
         }
         window.deletePickupAddress = deletePickupAddress;
 
+        // --- DELIVERY PLACE MANAGEMENT LOGIC ---
+        let currentDeliveryAddresses = [];
+        window.openDeliveryAddressManager = function () {
+            document.getElementById('delivery-address-manager-modal').style.display = 'flex';
+            renderDeliveryAddressManagerList();
+        }
+        window.closeDeliveryAddressManager = function () {
+            document.getElementById('delivery-address-manager-modal').style.display = 'none';
+        }
+
+        async function loadDeliveryAddressesData(force = false) {
+            if (!db) return;
+            if (!force && currentDeliveryAddresses && currentDeliveryAddresses.length > 0) {
+                refreshDeliveryAddressSelects();
+                return;
+            }
+            try {
+                const { data, error } = await db.from('delivery_addresses').select('*').order('name', { ascending: true });
+                if (error) throw error;
+
+                // Optionally seed if empty like other managers, but we'll leave it empty to start
+                currentDeliveryAddresses = data || [];
+                refreshDeliveryAddressSelects();
+            } catch (err) {
+                console.error("Error loading delivery addresses:", err);
+            }
+        }
+        window.loadDeliveryAddressesData = loadDeliveryAddressesData;
+
+        function refreshDeliveryAddressSelects() {
+            const deliverySel = document.getElementById('in-delivery-sel');
+            if (!deliverySel) return;
+            const currentVal = deliverySel.value;
+            deliverySel.innerHTML = `<option value="" disabled selected>Select Delivery Place</option>`;
+            currentDeliveryAddresses.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.name;
+                opt.textContent = a.name;
+                deliverySel.appendChild(opt);
+            });
+            if (currentVal) deliverySel.value = currentVal;
+        }
+
+        function renderDeliveryAddressManagerList() {
+            const container = document.getElementById('delivery-address-list-body');
+            if (!container) return;
+            container.innerHTML = '';
+            currentDeliveryAddresses.forEach(a => {
+                const item = document.createElement('div');
+                item.className = 'driver-item';
+                item.innerHTML = `
+                    <span>${a.name}</span>
+                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteDeliveryAddress('${a.id}')" class="btn-del-driver" title="Delete Address">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>` : ''}
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        async function addNewDeliveryAddress() {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert("Students cannot manage delivery addresses.");
+                return;
+            }
+            const input = document.getElementById('new-delivery-address-name');
+            const name = input.value.trim().toUpperCase();
+            if (!name) return;
+
+            try {
+                const { error } = await db.from('delivery_addresses').insert([{ name: name }]);
+                if (error) {
+                    if (error.code === '23505') alert("Address already exists!");
+                    else throw error;
+                }
+                input.value = '';
+                await loadDeliveryAddressesData(true);
+                renderDeliveryAddressManagerList();
+            } catch (err) {
+                console.error("Failed to add address:", err);
+                alert("Error adding address: " + (err.message || "Unknown error"));
+            }
+        }
+        window.addNewDeliveryAddress = addNewDeliveryAddress;
+
+        async function deleteDeliveryAddress(id) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
+                return;
+            }
+            if (!confirm("Are you sure you want to remove this address from the active list?")) return;
+            try {
+                const { error } = await db.from('delivery_addresses').delete().eq('id', id);
+                if (error) throw error;
+                await loadDeliveryAddressesData(true);
+                renderDeliveryAddressManagerList();
+            } catch (err) {
+                console.error("Failed to delete address:", err);
+            }
+        }
+        window.deleteDeliveryAddress = deleteDeliveryAddress;
+
         // --- DEPOT MANAGEMENT LOGIC ---
         let currentDepots = [];
         window.openDepotManager = function () {

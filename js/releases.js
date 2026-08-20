@@ -181,7 +181,30 @@
         }
         window.togglePickupAddressMode = togglePickupAddressMode;
 
-        window.togglePickupAddressMode = togglePickupAddressMode;
+        function toggleDeliveryAddressMode(forceMode) {
+            const sel = document.getElementById('in-delivery-sel');
+            const man = document.getElementById('in-delivery');
+            const icon = document.getElementById('toggle-icon-delivery');
+            
+            if (!sel || !man || !icon) return;
+
+            let isManual = man.style.display !== 'none';
+            if (forceMode === 'manual') isManual = false;
+            if (forceMode === 'list') isManual = true;
+
+            if (isManual) {
+                man.style.display = 'none';
+                sel.style.display = 'block';
+                icon.className = 'fas fa-edit';
+                man.value = '';
+            } else {
+                sel.style.display = 'none';
+                man.style.display = 'block';
+                icon.className = 'fas fa-list';
+                sel.selectedIndex = 0;
+            }
+        }
+        window.toggleDeliveryAddressMode = toggleDeliveryAddressMode;
 
         async function loadReleasesData(force = false) {
             if (!force && window.currentReleases && window.currentReleases.length > 0) {

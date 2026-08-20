@@ -170,6 +170,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const pickupMan = document.getElementById('in-pickup');
                 const selectedPickup = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
 
+                const deliverySel = document.getElementById('in-delivery-sel');
+                const deliveryMan = document.getElementById('in-delivery');
+                const selectedDelivery = (deliveryMan && deliveryMan.style.display !== 'none') ? deliveryMan.value : (deliverySel ? deliverySel.value : '');
+
                 const sizeSel = document.getElementById('in-size-sel');
                 const sizeMan = document.getElementById('in-size');
                 const selectedSize = (sizeMan && sizeMan.style.display !== 'none') ? sizeMan.value : (sizeSel ? sizeSel.value : '');
@@ -332,6 +336,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 baseValues[1] = selectedSize || '---';
                 baseValues[3] = selectedRelease || '---';
                 baseValues[6] = selectedPickup || '---';
+                baseValues[7] = selectedDelivery || '---';
                 baseValues[10] = selectedCustomer || '---';
 
                 let pending = 0;
@@ -430,8 +435,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
 
                 // --- MANUALLY SYNC YARD STOCK ---
-                // Create/update the yard record (removed isFinalized restriction to guarantee daily_rate syncs)
-                if (isMoveToYard) {
+                if (isMoveToYard && isFinalized) {
                     try {
                         let searchOrder = yardData.origin_release;
                         let searchCont = yardData.container_no;
@@ -548,13 +552,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             }
                         }
 
+                        const delSel = document.getElementById('in-delivery-sel');
+                        const delMan = document.getElementById('in-delivery');
+                        const delPlace = (delSel && delSel.style.display !== 'none' && delSel.value) ? delSel.value : (delMan ? delMan.value : '---');
+
                         const rentalPayload = {
                             container_no: yardData.container_no,
                             size: yardData.size,
                             release_no: yardData.origin_release,
                             customer_name: yardData.customer_name,
                             phone: yardData.customer_phone,
-                            delivery_place: document.getElementById('in-delivery')?.value || '---',
+                            delivery_place: delPlace,
                             start_date: calendarDate,
                             final_date: finalDateStr,
                             time_rent: 'monthly',
@@ -1470,6 +1478,22 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             sel.value = v;
                         } else {
                             togglePickupAddressMode('manual');
+                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                        }
+                    } else if (id === 'in-delivery') {
+                        // Hybrid Logic for Delivery Address
+                        const sel = document.getElementById('in-delivery-sel');
+                        let exists = false;
+                        if (sel) {
+                            for (let opt of sel.options) {
+                                if (opt.value === v) { exists = true; break; }
+                            }
+                        }
+                        if (exists && v !== '---' && v !== '') {
+                            if (typeof toggleDeliveryAddressMode === 'function') toggleDeliveryAddressMode('list');
+                            sel.value = v;
+                        } else {
+                            if (typeof toggleDeliveryAddressMode === 'function') toggleDeliveryAddressMode('manual');
                             el.value = (v === '---' || v === undefined || v === null) ? '' : v;
                         }
                     } else if (id === 'in-note') {
@@ -2946,8 +2970,8 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
     const orderNoForDel    = rowData[5] || '---';
     const containerNoForDel = (rowData[3] || '').trim().toUpperCase();
     const wasToYardForDel   = !!rowData[62];
-    if (wasFinalized && wasToYardForDel && orderNoForDel !== '---') {
-        console.log(`Auto-deleting Yard entry for COMPLETE order: ${orderNoForDel} / ${containerNoForDel}`);
+    if (wasToYardForDel && orderNoForDel !== '---') {
+        console.log(`Auto-deleting Yard entry for deleted order: ${orderNoForDel} / ${containerNoForDel}`);
         // Use origin_release + container_no — more reliable than the old notes-pattern search
         const yardDelQuery = containerNoForDel
             ? db.from('yard_stock').delete()
@@ -3059,3 +3083,106 @@ window.deleteSelectedOrders = async function() {
     }
 };
 
+window.openCalendarPdfModal = function() {
+    const table = document.getElementById('logistics-table');
+    if (!table) return alert('No table found');
+    
+    const ths = table.querySelectorAll('thead th');
+    if (ths.length === 0) return;
+    
+    let modalHtml = `
+        <div id="calendar-pdf-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.8); display:flex; align-items:center; justify-content:center; z-index:99999; font-family:'Outfit',sans-serif;">
+            <div style="background:white; border-radius:16px; padding:30px; width:450px; max-width:90vw; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #e2e8f0; padding-bottom:15px;">
+                    <h2 style="margin:0; font-size:1.5rem; color:#0f172a; font-weight:800;">Export Table to PDF</h2>
+                    <button onclick="document.getElementById('calendar-pdf-modal').remove()" style="background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:#64748b;">&times;</button>
+                </div>
+                <p style="margin-top:0; color:#475569; font-size:0.9rem;">Select the columns you want to include in the PDF:</p>
+                <div style="max-height:300px; overflow-y:auto; margin-bottom:20px; border:1px solid #e2e8f0; border-radius:8px; padding:10px;">
+    `;
+    
+    Array.from(ths).forEach((th, index) => {
+        const colName = th.innerText.trim();
+        if(!colName) return; 
+        
+        modalHtml += `
+            <label style="display:flex; align-items:center; gap:10px; margin-bottom:8px; cursor:pointer; font-size:0.9rem; color:#1e293b;">
+                <input type="checkbox" class="pdf-col-checkbox" value="${index}" checked style="width:16px; height:16px; accent-color:#0ea5e9; cursor:pointer;">
+                ${colName}
+            </label>
+        `;
+    });
+    
+    modalHtml += `
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button onclick="document.getElementById('calendar-pdf-modal').remove()" style="padding:10px 20px; border-radius:8px; border:none; background:#f1f5f9; color:#475569; font-weight:700; cursor:pointer;">Cancel</button>
+                    <button onclick="window.generateCalendarPdfFromModal()" style="padding:10px 20px; border-radius:8px; border:none; background:linear-gradient(135deg, #2563eb, #1d4ed8); color:white; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(37,99,235,0.3);">
+                        <i class="fas fa-file-pdf"></i> Generate PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+window.generateCalendarPdfFromModal = function() {
+    const checkboxes = document.querySelectorAll('.pdf-col-checkbox');
+    const selectedIndices = Array.from(checkboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+    
+    if (selectedIndices.length === 0) {
+        return alert("Please select at least one column.");
+    }
+    
+    const table = document.getElementById('logistics-table');
+    const ths = table.querySelectorAll('thead th');
+    const head = [selectedIndices.map(idx => ths[idx].innerText.trim())];
+    
+    const trs = table.querySelectorAll('tbody tr');
+    const body = [];
+    
+    trs.forEach(tr => {
+        if (tr.style.display === 'none') return;
+        const tds = tr.querySelectorAll('td, th');
+        
+        if (tds.length === 1 && tds[0].colSpan > 1) {
+             const content = tds[0].innerText.trim();
+             body.push([{ content: content, colSpan: selectedIndices.length, styles: { fontStyle: 'bold', fillColor: [226, 232, 240] } }]);
+             return;
+        }
+
+        const rowData = [];
+        if (tds.length >= Math.max(...selectedIndices)) {
+            selectedIndices.forEach(idx => {
+                if (tds[idx]) {
+                    rowData.push(tds[idx].innerText.trim());
+                } else {
+                    rowData.push("");
+                }
+            });
+            if (rowData.some(cell => cell !== "")) {
+                 body.push(rowData);
+            }
+        }
+    });
+    
+    const { jsPDF } = window.jspdf;
+    const orientation = selectedIndices.length > 8 ? 'l' : 'p';
+    const doc = new jsPDF(orientation, 'pt', 'a4');
+    
+    doc.text("Logistics Calendar Report", 40, 40);
+    
+    doc.autoTable({
+        head: head,
+        body: body,
+        startY: 60,
+        styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0] },
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+        theme: 'grid'
+    });
+    
+    doc.save('Calendar_Report.pdf');
+    document.getElementById('calendar-pdf-modal').remove();
+};

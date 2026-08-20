@@ -196,7 +196,7 @@
         const yardRate = !isYardStorage ? (parseFloat(row[13]) || 0) : 0;
         const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
         const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
-        const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
+        const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
 
         if (hasTrans && row[32] !== 'PAID') return true;
         if (hasSales && row[33] !== 'PAID') return true;
@@ -258,7 +258,7 @@
             const hasTrans = (parseFloat(row[18]) || 0) > 0.01;
             const hasSales = (parseFloat(row[20]) || 0) > 0.01;
             const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
-            const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
+            const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
             const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
             const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL') || row.isActiveRentalMerged !== undefined;
 
@@ -388,7 +388,7 @@
             const hasTrans = (parseFloat(row[18]) || 0) > 0.01;
             const hasSales = (parseFloat(row[20]) || 0) > 0.01;
             const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
-            const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : (parseFloat(row[14]) || 0) > 0.01;
+            const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
             const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
             const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL') || row.isActiveRentalMerged !== undefined;
 
@@ -456,15 +456,6 @@
             if (isYardStorageRow) {
                 totalStorage = totalYard;
                 totalYard = 0;
-            } else {
-                const ppd = parseFloat(row[14]) || 0;
-                if (ppd > 0) {
-                    const entryDate = new Date(row[1]); // Date In
-                    const exitDate = row[15] && row[15] !== '---' ? new Date(row[15]) : new Date(); // Date Out or Today
-                    const diffTime = Math.abs(exitDate - entryDate);
-                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                    totalStorage = ppd * diffDays;
-                }
             }
 
             // Rent calculation (Matches Rentals Total column exactly)
@@ -1108,6 +1099,121 @@
         });
     };
 
+    // ── YARD REPRINT LOGIC ──
+    window.openYardReprintModal = function(row, overrideCustomer, isPreviewOnly) {
+        const snapshotStr = row[12];
+        if (!snapshotStr) {
+            alert('No se encontró el snapshot de la factura de Yard.');
+            return;
+        }
+
+        let snapshot;
+        try {
+            snapshot = JSON.parse(snapshotStr);
+        } catch (e) {
+            alert('Error parseando el snapshot de Yard.');
+            return;
+        }
+
+        const customer = overrideCustomer || row[11] || 'Unknown Customer';
+        document.getElementById('yard-reprint-customer').textContent = 'CUSTOMER: ' + customer;
+        
+        let dateObj;
+        if (row[1] && row[1] !== '---') {
+            dateObj = new Date(row[1] + 'T12:00:00');
+        } else {
+            dateObj = new Date();
+        }
+        document.getElementById('yard-reprint-date').textContent = 'DATE: ' + window.formatDateMMDDYYYY(dateObj.toISOString());
+
+        document.getElementById('yard-reprint-title').textContent = 'Yard Statement Reprint - ' + row[5];
+
+        // Ensure generateYardInvoiceHTML is available
+        if (typeof window.generateYardInvoiceHTML !== 'function') {
+            alert('Error: Yard logic no está cargada. Asegúrese de que yard-stock.js esté inicializado.');
+            return;
+        }
+
+        const { html: interactiveHtml, total: finalGrandTotal } = window.generateYardInvoiceHTML(
+            snapshot.items || [], 
+            snapshot.dateFrom, 
+            snapshot.dateTo, 
+            true, // isPreview
+            (snapshot.items || []).map(i => i.id)
+        );
+
+        document.getElementById('yard-reprint-html-container').innerHTML = interactiveHtml;
+
+        const modal = document.getElementById('yard-reprint-modal');
+        const resendBtn = document.getElementById('btn-yard-reprint-resend');
+        
+        if (isPreviewOnly) {
+            resendBtn.style.display = 'none';
+            document.getElementById('yard-reprint-email').parentElement.parentElement.style.display = 'none';
+        } else {
+            resendBtn.style.display = 'flex';
+            document.getElementById('yard-reprint-email').parentElement.parentElement.style.display = 'flex';
+            
+            // Prefill email
+            const emailInput = document.getElementById('yard-reprint-email');
+            emailInput.value = '';
+            if (window.db) {
+                window.db.from('customers').select('email').eq('name', customer).then(({data}) => {
+                    if (data && data.length > 0 && data[0].email) {
+                        emailInput.value = data[0].email;
+                    }
+                });
+            }
+
+            // Resend action
+            resendBtn.onclick = async function() {
+                const targetEmail = emailInput.value.trim();
+                if (!targetEmail) {
+                    alert('Debe especificar un email.');
+                    return;
+                }
+
+                const sendOriginalText = resendBtn.innerHTML;
+                resendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ENVIANDO...';
+                resendBtn.disabled = true;
+
+                try {
+                    const { html: finalHtml } = window.generateYardInvoiceHTML(
+                        snapshot.items || [], 
+                        snapshot.dateFrom, 
+                        snapshot.dateTo, 
+                        false, // final print
+                        null
+                    );
+
+                    emailjs.init('iBpsYg-m4vWn5zP48'); // public key
+                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customer);
+                    const templateParams = {
+                        to_email: targetEmail,
+                        customer_name: customer,
+                        invoice_html: "", 
+                        grand_total: finalGrandTotal.toFixed(2),
+                        pdf_attachment: b64Pdf
+                    };
+
+                    await emailjs.send('service_rt414f5', 'template_5q0a0vj', templateParams);
+                    if (window.showToast) window.showToast('Factura de Yard reenviada exitosamente.', 'success');
+                    else alert('Factura enviada.');
+                    modal.style.display = 'none';
+                } catch (err) {
+                    console.error('Error reenviando Yard PDF:', err);
+                    alert("Error enviando email: " + (err.text || JSON.stringify(err)));
+                } finally {
+                    resendBtn.innerHTML = sendOriginalText;
+                    resendBtn.disabled = false;
+                }
+            };
+        }
+
+        modal.style.display = 'block';
+    };
+
+
     window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false) {
         let rows = overrideRows || window.billingRows || [];
         
@@ -1125,6 +1231,13 @@
             return;
         }
         
+        // --- YARD REPRINT INTERCEPTION ---
+        if (rows.length === 1 && rows[0][5] && rows[0][5].startsWith('YRD-')) {
+            window.openYardReprintModal(rows[0], overrideCustomer, isPreviewOnly);
+            return;
+        }
+        // --- END YARD REPRINT INTERCEPTION ---
+
         window.currentBillingOrderRows = rows;
 
         const globalCustomer = document.getElementById('bc-f-customer')?.value;
@@ -1196,6 +1309,11 @@
         const custAddress = custObj && custObj.address ? custObj.address : '';
         document.getElementById('mb-bill-to-address').textContent = custAddress;
 
+        const normStr = (str) => {
+            if (!str) return '';
+            return str.toString().toUpperCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
+        };
+
         let allSameLocations = true;
         let firstLocStr = null;
         let fromVal = 'N/A';
@@ -1204,7 +1322,7 @@
         rows.forEach(r => {
             const f = (r[7] && r[7] !== '---') ? r[7].toString().trim() : 'N/A';
             const t = (r[8] && r[8] !== '---') ? r[8].toString().trim() : 'PICK UP';
-            const locStr = `${f}_${t}`;
+            const locStr = `${normStr(f)}_${normStr(t)}`;
             if (firstLocStr === null) {
                 firstLocStr = locStr;
                 fromVal = f;
@@ -1232,8 +1350,8 @@
             RENT: {}
         };
 
-        const addGroup = (srv, booking, unitCost, qty, total) => {
-            const key = booking && booking !== '---' ? `B|${booking}|${unitCost}` : `NB|${unitCost}`;
+        const addGroup = (srv, booking, unitCost, qty, total, customGroupKey = null) => {
+            const key = customGroupKey ? `${customGroupKey}|${unitCost}` : (booking && booking !== '---' ? `B|${booking}|${unitCost}` : `NB|${unitCost}`);
             if (!serviceGroups[srv][key]) {
                 serviceGroups[srv][key] = { booking: booking && booking !== '---' ? booking : null, unitCost, qty: 0, total: 0 };
             }
@@ -1255,8 +1373,10 @@
             const locHtml = !allSameLocations ? `<br><span style="font-size:0.8rem;color:#475569;font-weight:normal;">(From: ${f} - To: ${t})</span>` : '';
             
             let grpSalesTrans = '';
+            let customKey = null;
             if (groupBy === 'BOOKING' && bookingNo !== '---') {
                 grpSalesTrans = `Booking: <strong style="color:#0f172a;">${bookingNo}</strong>`;
+                customKey = `BK_GRP|${bookingNo}|${normStr(f)}_${normStr(t)}`;
             } else {
                 grpSalesTrans = `Order: <strong style="color:#0f172a;">${orderNo}</strong>`;
                 if (bookingNo !== '---') {
@@ -1288,15 +1408,6 @@
             if (isYardStorageRow) {
                 rStorage = rYard;
                 rYard = 0;
-            } else {
-                const ppd = parseFloat(r[14]) || 0;
-                if (ppd > 0) {
-                    const entryDate = new Date(r[1]);
-                    const exitDate = r[15] && r[15] !== '---' ? new Date(r[15]) : new Date();
-                    const diffTime = Math.abs(exitDate - entryDate);
-                    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                    rStorage = ppd * diffDays;
-                }
             }
 
             let rRent = 0;
@@ -1327,7 +1438,7 @@
             }
 
             if ((fService === '' || fService === 'TRANSPORT') && rTrans > 0 && r[42] === 'YES') {
-                addGroup('TRANSPORT', grpSalesTrans, rTrans, rQty, rTrans * rQty);
+                addGroup('TRANSPORT', grpSalesTrans, rTrans, rQty, rTrans * rQty, customKey);
             }
             if ((fService === '' || fService === 'YARD') && rYard > 0) {
                 let parsed = false;
@@ -1340,7 +1451,8 @@
                                 const baseDesc = (s.desc && s.desc.trim() !== '') ? s.desc.trim() : 'YARD SERVICE';
                                 const price = parseFloat(s.price) || 0;
                                 if (price > 0) {
-                                    addGroup('YARD', baseDesc + sizeHtml + locHtml, price, rQty, price * rQty);
+                                    const yKey = customKey ? `${customKey}|${normStr(baseDesc)}` : null;
+                                    addGroup('YARD', baseDesc + sizeHtml + locHtml, price, rQty, price * rQty, yKey);
                                 }
                             });
                             parsed = true;
@@ -1352,19 +1464,21 @@
                 if (!parsed) {
                     const yardServiceName = (r[12] && r[12] !== '---') ? r[12].toString().trim() : 'YARD SERVICE';
                     const uCost = rYard / rQty;
-                    addGroup('YARD', yardServiceName + sizeHtml + locHtml, uCost, rQty, rYard);
+                    const yKey = customKey ? `${customKey}|${normStr(yardServiceName)}` : null;
+                    addGroup('YARD', yardServiceName + sizeHtml + locHtml, uCost, rQty, rYard, yKey);
                 }
             }
             if ((fService === '' || fService === 'SALES') && rSales > 0 && r[43] === 'YES') {
                 const uCost = rSales / rQty;
-                addGroup('SALES', grpSalesTrans, uCost, rQty, rSales);
+                addGroup('SALES', grpSalesTrans, uCost, rQty, rSales, customKey);
             }
             if ((fService === '' || fService === 'STORAGE') && rStorage > 0) {
-                addGroup('STORAGE', grpYardStorageRent, rStorage, 1, rStorage);
+                addGroup('STORAGE', grpYardStorageRent, rStorage, 1, rStorage, customKey);
             }
             if ((fService === '' || fService === 'RENT') && rRent > 0) {
                 const sizeHtml = size ? ` <span style="color:#64748b;">(${size})</span>` : '';
-                addGroup('RENT', 'CONTAINER RENTAL' + sizeHtml + locHtml, rRent, 1, rRent);
+                const rKey = customKey ? `${customKey}|CONTAINER_RENTAL` : null;
+                addGroup('RENT', 'CONTAINER RENTAL' + sizeHtml + locHtml, rRent, 1, rRent, rKey);
             }
         });
 
@@ -1573,6 +1687,12 @@
             return;
         }
 
+        const hasYardRows = rows.some(r => r[5] && r[5].startsWith('YRD-'));
+        if (hasYardRows) {
+            alert("Las facturas de YARD se inyectan automáticamente en Accounts Receivable desde Yard Stock. Por favor, deseleccione las órdenes YRD- para continuar con el resto.");
+            return;
+        }
+
         const customer = document.getElementById('bc-f-customer')?.value;
         if (!customer) {
             alert("Debe seleccionar un cliente en el filtro superior para crear facturas.");
@@ -1638,6 +1758,12 @@
         const rows = getSelectedBillingRows();
         if (rows.length === 0) {
             alert("Seleccione al menos una orden para enviar correos individuales.");
+            return;
+        }
+
+        const hasYardRows = rows.some(r => r[5] && r[5].startsWith('YRD-'));
+        if (hasYardRows) {
+            alert("Las facturas de YARD no se pueden enviar de forma masiva para proteger su formato original. Por favor, envíelas individualmente usando el botón de previsualización (ojo).");
             return;
         }
 

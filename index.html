@@ -1730,9 +1730,23 @@
                             </div>
                         </div>
 
-                        <div class="form-group" id="transport-delivery-group" style="display:none;"><label
-                                class="sidebar-label-btn sidebar-label-btn-blue">Delivery Place</label><input
-                                type="text" id="in-delivery" placeholder="Delivery"></div>
+                        <div class="form-group" id="transport-delivery-group" style="display:none;">
+                            <div
+                                style="display: flex; align-items: center; gap: 5px; flex: 0 0 145px; margin-right: 12px;">
+                                <label class="sidebar-label-btn sidebar-label-btn-blue" style="margin-right: 0 !important;">Delivery Place</label>
+                                <button onclick="openDeliveryAddressManager()" class="btn-manage-inline">Manage</button>
+                            </div>
+                            <div class="hybrid-input-wrapper">
+                                <select id="in-delivery-sel">
+                                    <option value="" disabled selected>Loading addresses...</option>
+                                </select>
+                                <input type="text" id="in-delivery" placeholder="Type Delivery..." style="display:none;">
+                                <button type="button" class="btn-toggle-input" onclick="toggleDeliveryAddressMode()"
+                                    title="Toggle Manual/List">
+                                    <i class="fas fa-edit" id="toggle-icon-delivery"></i>
+                                </button>
+                            </div>
+                        </div>
                         <div class="form-group" id="transport-doors-group" style="display:none;">
                             <label class="sidebar-label-btn sidebar-label-btn-blue">Doors Direction</label>
                             <select id="in-doors" required>
@@ -2312,6 +2326,10 @@
                                         <button onclick="resetAdvancedFilters()" class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 25px; height: 45px;">
                                             <i class="fas fa-undo"></i> Clear All Filters
+                                        </button>
+                                        <button onclick="openCalendarPdfModal()" class="btn-reset-modern"
+                                            style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(245,158,11,0.3); transition: all 0.2s;">
+                                            <i class="fas fa-file-pdf"></i> Download PDF
                                         </button>
                                         <button onclick="toggleCalendarSidebar()" class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 20px; height: 45px; background: #334155; color: white; border: none; border-radius: 10px; box-shadow: 0 4px 12px rgba(51,65,85,0.3); transition: all 0.2s;">
@@ -5472,18 +5490,18 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;"><i
                                     class="fas fa-calendar-alt"></i> ENTRY DATE</label>
-                            <input type="date" id="yard-entry-date"
-                                style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%;">
+                            <input type="date" id="yard-entry-date" readonly
+                                style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #ef4444 !important;">CONTAINER #</label>
-                            <input type="text" id="yard-container-no" placeholder="XXXX 123456-7"
-                                style="font-weight: 800; text-transform: uppercase; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                            <input type="text" id="yard-container-no" placeholder="XXXX 123456-7" readonly
+                                style="font-weight: 800; text-transform: uppercase; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;">SIZE</label>
-                            <select id="yard-size" class="form-select"
-                                style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;">
+                            <select id="yard-size" class="form-select" disabled
+                                style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                                 <option value="20' STD">20' STD</option>
                                 <option value="20' HC">20' HC</option>
                                 <option value="40' STD">40' STD</option>
@@ -5493,16 +5511,16 @@
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;">TYPE</label>
-                            <select id="yard-type" class="form-select"
-                                style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;">
+                            <select id="yard-type" class="form-select" disabled
+                                style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                                 <option value="DRY">DRY</option>
                                 <option value="REEFER">REEFER</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;">CONDITION</label>
-                            <select id="yard-condition" class="form-select"
-                                style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700;">
+                            <select id="yard-condition" class="form-select" disabled
+                                style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                                 <option value="USED">USED</option>
                                 <option value="NEW">NEW</option>
                             </select>
@@ -5517,8 +5535,8 @@
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #ef4444 !important;">ORDER# IN</label>
-                            <input type="text" id="yard-origin" placeholder="Release # (Optional)"
-                                style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                            <input type="text" id="yard-origin" placeholder="Release # (Optional)" readonly
+                                style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #f59e0b !important;">ORDER# OUT</label>
@@ -5554,17 +5572,15 @@
                             <label class="sidebar-label-btn" style="background: #0f172a !important;"><i
                                     class="fas fa-user" style="color: #3b82f6;"></i> CUSTOMER</label>
                             <div class="hybrid-input-wrapper" style="display: flex; gap: 8px; width: 100%;">
-                                <select id="yard-customer-sel" class="form-select"
-                                    style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; width: calc(100% - 53px) !important; flex: none !important; border-radius: 8px;">
+                                <select id="yard-customer-sel" class="form-select" disabled
+                                    style="border: 2px solid #e2e8f0; height: 45px; font-weight: 700; width: calc(100% - 53px) !important; flex: none !important; border-radius: 8px; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                                     <option value="" disabled selected>Select Customer...</option>
                                 </select>
-                                <input type="text" id="yard-customer" placeholder="Type Customer..."
-                                    style="display:none; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; width: calc(100% - 53px) !important; flex: none !important; box-sizing: border-box; height: 45px;">
+                                <input type="text" id="yard-customer" placeholder="Type Customer..." readonly
+                                    style="display:none; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; width: calc(100% - 53px) !important; flex: none !important; box-sizing: border-box; height: 45px; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                                 <!-- Add Customer Button Removed -->
-                                <button type="button" class="btn-toggle-input"
-                                    onclick="if(window.toggleYardCustomerMode) window.toggleYardCustomerMode()"
-                                    title="Toggle Manual/List"
-                                    style="height: 45px; width: 45px; border-radius: 8px; flex-shrink: 0; background: #e2e8f0; border: none; color: #475569; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                <button type="button" class="btn-toggle-input" disabled
+                                    style="height: 45px; width: 45px; border-radius: 8px; flex-shrink: 0; background: #e2e8f0; border: none; color: #94a3b8; cursor: not-allowed; display: flex; align-items: center; justify-content: center;">
                                     <i class="fas fa-edit" id="yard-toggle-icon-customer"></i>
                                 </button>
                             </div>
@@ -5572,15 +5588,18 @@
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;"><i
                                     class="fas fa-phone" style="color: #3b82f6;"></i> PHONE</label>
-                            <input type="tel" id="yard-phone" placeholder="786-000-0000"
-                                style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%; box-sizing: border-box; height: 45px;">
+                            <input type="tel" id="yard-phone" placeholder="786-000-0000" readonly
+                                style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; font-weight: 700; width: 100%; box-sizing: border-box; height: 45px; background-color:#e2e8f0; color:#64748b; cursor:not-allowed;">
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #0f172a !important;">NOTES</label>
                             <textarea id="yard-note" placeholder="Repair details, paint, etc..."
                                 style="height: 100px; border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px;"></textarea>
                         </div>
-                        <button onclick="saveYardContainer()" id="btn-save-yard" class="btn-3d-red">
+                        <div id="yard-creation-warning" style="background:#fef2f2; color:#b91c1c; padding:12px; border-radius:8px; border:1px solid #f87171; font-weight:700; font-size:0.9rem; text-align:center; margin-bottom:15px; display:block;">
+                            <i class="fas fa-exclamation-triangle" style="margin-right:5px;"></i> Nuevas órdenes deben crearse desde el Calendario.
+                        </div>
+                        <button onclick="saveYardContainer()" id="btn-save-yard" class="btn-3d-red" style="display:none;">
                             <i class="fas fa-save"></i> SAVE TO YARD
                         </button>
                     </div>
@@ -5739,11 +5758,6 @@
                                         <i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Statement
                                     </button>
 
-                                    <!-- Monthly Billing Button -->
-                                    <button id="btn-monthly-closing-yard" onclick="openMonthlyClosingModal('YARD')"
-                                        style="display: flex; align-items: center; justify-content: center; background: #f59e0b; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(245,158,11,0.2); font-size: 0.85rem; height: 38px;">
-                                        <i class="fas fa-calendar-check" style="margin-right: 8px;"></i> Cierre Mensual
-                                    </button>
 
                                     <!-- Refresh Button -->
                                     <button onclick="loadYardData(true)" class="btn-refresh-modern"
@@ -5951,12 +5965,6 @@
                                         <i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Statement
                                     </button>
 
-                                    <!-- Monthly Billing Button -->
-                                    <button id="btn-monthly-closing-storage"
-                                        onclick="openMonthlyClosingModal('STORAGE')"
-                                        style="display: flex; align-items: center; justify-content: center; background: #f59e0b; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(245,158,11,0.2); font-size: 0.85rem; height: 38px;">
-                                        <i class="fas fa-calendar-check" style="margin-right: 8px;"></i> Cierre Mensual
-                                    </button>
 
                                     <!-- Spacer element to align heights -->
                                     <div style="width: 38px; height: 38px;"></div>
@@ -6154,11 +6162,6 @@
                                     Statement
                                 </button>
 
-                                <!-- Monthly Billing Button -->
-                                <button id="btn-monthly-closing-both" onclick="openMonthlyClosingModal('BOTH')"
-                                    style="display: flex; align-items: center; justify-content: center; background: #f59e0b; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(245,158,11,0.2); font-size: 0.85rem; height: 38px;">
-                                    <i class="fas fa-calendar-check" style="margin-right: 8px;"></i> Cierre Mensual
-                                </button>
 
                                 <!-- Spacer element to align heights -->
                                 <div style="width: 38px; height: 38px;"></div>
@@ -6814,6 +6817,7 @@
             'drivers': () => typeof loadDriversData === 'function' && loadDriversData(),
             'customers': () => typeof loadCustomersData === 'function' && loadCustomersData(),
             'pickup_addresses': () => typeof loadPickupAddressesData === 'function' && loadPickupAddressesData(),
+            'delivery_addresses': () => typeof loadDeliveryAddressesData === 'function' && loadDeliveryAddressesData(),
             'companies': () => typeof loadCompaniesData === 'function' && loadCompaniesData(),
             'depots': () => typeof loadDepotsData === 'function' && loadDepotsData(),
             'sellers': () => typeof loadSellersData === 'function' && loadSellersData(),
@@ -7223,6 +7227,7 @@
                         if (window.loadDriversData) window.loadDriversData();
                         if (window.loadCustomersData) window.loadCustomersData();
                         if (window.loadPickupAddressesData) window.loadPickupAddressesData();
+                        if (window.loadDeliveryAddressesData) window.loadDeliveryAddressesData();
                         if (window.loadDepotsData) window.loadDepotsData();
                         if (window.loadSellersData) window.loadSellersData();
                         if (window.loadStaffProfiles) window.loadStaffProfiles();
@@ -8039,6 +8044,28 @@
                     <input type="text" id="new-pickup-address-name" placeholder="ENTER NEW ADDRESS...">
                     <button onclick="addNewPickupAddress()" class="btn-add-driver-confirm"
                         style="background: #10b981;">ADD</button>
+                </div>
+                <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting an address only removes it
+                    from future entries.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELIVERY ADDRESS MANAGEMENT MODAL -->
+    <div id="delivery-address-manager-modal" class="simple-modal">
+        <div class="modal-content" style="border-top-color: #8b5cf6;">
+            <div class="modal-header">
+                <h3>Manage Delivery Places</h3>
+                <button onclick="closeDeliveryAddressManager()" class="btn-close-modal">&times;</button>
+            </div>
+            <div id="delivery-address-list-body" class="driver-list-container">
+                <!-- Addresses will be listed here -->
+            </div>
+            <div class="modal-footer">
+                <div class="add-driver-input-row">
+                    <input type="text" id="new-delivery-address-name" placeholder="ENTER NEW DELIVERY PLACE...">
+                    <button onclick="addNewDeliveryAddress()" class="btn-add-driver-confirm"
+                        style="background: #8b5cf6;">ADD</button>
                 </div>
                 <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting an address only removes it
                     from future entries.</p>
@@ -8875,101 +8902,6 @@
     <!-- Add New Yard Customer Modal -->
     <!-- add-yard-customer-modal removed -->
 
-    <!-- Yard Monthly Closing Modal -->
-    <div id="yard-monthly-closing-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 900px; width: 95%; position: relative;">
-            <span class="close" onclick="document.getElementById('yard-monthly-closing-modal').style.display='none'"
-                style="color: #ef4444; font-size: 2.5rem; opacity: 1; position: absolute; top: 15px; right: 20px; line-height: 1;">&times;</span>
-            <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                <i class="fas fa-calendar-check" style="font-size: 1.8rem; color: #f59e0b; margin-right: 15px;"></i>
-                <h2 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 1.5rem;">Cierre Mensual de Yard Stock
-                </h2>
-            </div>
-
-            <div
-                style="display: flex; gap: 15px; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                <div style="flex: 1;">
-                    <label
-                        style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Cliente
-                        (Obligatorio)</label>
-                    <select id="monthly-closing-customer" onchange="previewMonthlyClosing()"
-                        style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-weight: 600;">
-                        <option value="">Selecciona Cliente...</option>
-                    </select>
-                </div>
-                <div style="flex: 1;">
-                    <label
-                        style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Fecha
-                        de Cierre (Fin de mes)</label>
-                    <input type="date" id="monthly-closing-date" onchange="previewMonthlyClosing()"
-                        style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-weight: 600;">
-                </div>
-                <div style="flex: 1;">
-                    <label
-                        style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Método
-                        de Pago</label>
-                    <select id="monthly-closing-payment-method" onchange="toggleMonthlyClosingSplit()"
-                        style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-weight: 600;">
-                        <option value="bank">Banco (Zelle/Transfer)</option>
-                        <option value="cash">Efectivo (Cash)</option>
-                        <option value="split">Split (Dividido)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="monthly-closing-split-fields"
-                style="display: none; gap: 15px; margin-bottom: 20px; background: #fffbeb; padding: 15px; border-radius: 12px; border: 1px solid #fde68a;">
-                <div style="flex: 1;">
-                    <label
-                        style="display: block; font-weight: 800; font-size: 0.8rem; color: #b45309; margin-bottom: 5px;">Monto
-                        Cash ($)</label>
-                    <input type="number" id="monthly-closing-split-cash" placeholder="0.00"
-                        style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #fcd34d; outline: none; font-weight: 600;">
-                </div>
-                <div style="flex: 1;">
-                    <label
-                        style="display: block; font-weight: 800; font-size: 0.8rem; color: #b45309; margin-bottom: 5px;">Monto
-                        Bank ($)</label>
-                    <input type="number" id="monthly-closing-split-bank" placeholder="0.00"
-                        style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #fcd34d; outline: none; font-weight: 600;">
-                </div>
-            </div>
-
-            <div
-                style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 20px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                    <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 10;">
-                        <tr>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Contenedor
-                            </th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Periodo a
-                                Cobrar</th>
-                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #cbd5e1;">Días</th>
-                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #cbd5e1;">Lifts</th>
-                            <th style="padding: 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Subtotal ($)
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="monthly-closing-preview-body">
-                        <tr>
-                            <td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Selecciona un
-                                cliente y fecha para previsualizar.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                <div style="font-size: 1.2rem; font-weight: 900; color: #0f172a;">Total a Facturar: $<span
-                        id="monthly-closing-total">0.00</span></div>
-                <button id="btn-process-monthly-closing" onclick="processMonthlyClosing()" disabled
-                    style="display: none; background: #10b981; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: all 0.3s ease;">
-                    <i class="fas fa-check-circle" style="margin-right: 8px;"></i> Procesar y Facturar
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Yard Billing History Modal -->
     <div id="yard-billing-history-modal" class="modal" style="display: none;">
@@ -9178,6 +9110,47 @@
         menu.style.top = `${y}px`;
     });
     </script>
+    
+    <!-- YARD REPRINT MODAL -->
+    <div id="yard-reprint-modal" class="simple-modal" style="display: none; z-index: 10005;">
+        <div class="modal-content" style="width: 900px; max-width: 95vw; display: flex; flex-direction: column; max-height: 90vh;">
+            <div class="modal-header">
+                <h3 id="yard-reprint-title">Yard Statement Reprint</h3>
+                <button class="btn-close-modal" onclick="document.getElementById('yard-reprint-modal').style.display='none'">&times;</button>
+            </div>
+            <div style="flex: 1; overflow-y: auto; background: #fff; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:15px;margin-bottom:20px;font-family:Arial,sans-serif;">
+                    <div>
+                        <h1 style="font-size:1.8rem;margin:0;font-weight:900;color:#1e293b;">STATEMENT OF ACCOUNT</h1>
+                        <p style="margin:5px 0;color:#64748b;font-weight:bold;">RP TULIPAN LOGISTIC</p>
+                    </div>
+                    <div style="text-align:right;">
+                        <p style="margin:0;font-weight:bold;color:#1e293b;" id="yard-reprint-customer">CUSTOMER: </p>
+                        <p style="margin:0;color:#64748b;" id="yard-reprint-date">DATE: </p>
+                    </div>
+                </div>
+                <div id="yard-reprint-html-container">
+                    <!-- HTML generated from snapshot goes here -->
+                </div>
+            </div>
+            <div class="modal-footer" style="flex-direction: column; align-items: stretch; margin-top: 20px; border-top: none;">
+                <div style="background:#f8fafc; padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:15px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <div>
+                            <p style="margin:0; font-weight:800; color:#64748b; font-size:0.9rem;">RE-SEND TO EMAIL</p>
+                            <input type="email" id="yard-reprint-email" placeholder="Customer email..." style="width: 300px; padding: 10px; border: 2px solid #cbd5e1; border-radius: 6px; font-weight: bold; margin-top: 5px;">
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:15px;">
+                    <button class="glossy-dark-btn" onclick="document.getElementById('yard-reprint-modal').style.display='none'">CANCEL</button>
+                    <button class="glossy-blue-btn" id="btn-yard-reprint-resend">
+                        <i class="fas fa-paper-plane"></i> RE-SEND STATEMENT
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <!-- CUSTOM RECEIPT MODAL -->
     <div id="custom-receipt-modal" class="simple-modal" style="display: none; z-index: 9999;">
