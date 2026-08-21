@@ -19,7 +19,7 @@
             const role = (window.currentUserRole || '').toLowerCase().trim();
             const email = (window.userEmail || '').toLowerCase().trim();
             
-            let query = db.from('tasks').select('*').eq('is_deleted', false);
+            let query = db.from('tasks').select('*').or('is_deleted.eq.false,is_deleted.is.null');
             
             // Only admin sees everything. Employees, students and others only see their assigned tasks or EVERYONE.
             if (role !== 'admin' && email) {

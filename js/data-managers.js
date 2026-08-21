@@ -108,7 +108,7 @@
                 return;
             }
             try {
-                const { data, error } = await db.from('drivers').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('drivers').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 if (error) throw error;
 
                 // One-time self-migration: If table is empty, seed from hardcoded list
@@ -339,7 +339,7 @@
                 return;
             }
             try {
-                const { data, error } = await db.from('customers').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('customers').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 if (error) throw error;
 
                 // One-time self-migration: If table is empty, seed from current static list
@@ -585,7 +585,7 @@
                 return;
             }
             try {
-                const { data, error } = await db.from('pickup_addresses').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('pickup_addresses').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 if (error) throw error;
 
                 // Seed if empty
@@ -733,7 +733,7 @@
                 return;
             }
             try {
-                const { data, error } = await db.from('delivery_addresses').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('delivery_addresses').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 if (error) throw error;
 
                 // Optionally seed if empty like other managers, but we'll leave it empty to start
@@ -838,7 +838,7 @@
                 return;
             }
             try {
-                const { data, error } = await db.from('depots').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('depots').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 if (error) throw error;
 
                 // One-time self-migration: Seed if empty
@@ -963,7 +963,7 @@
                 return;
             }
             try {
-                const { data, error } = await db.from('sellers').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('sellers').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 if (error) throw error;
 
                 // One-time self-migration: Seed if empty
@@ -1131,7 +1131,7 @@
         async function loadCompaniesData() {
             if (!db) return;
             try {
-                const { data, error } = await db.from('companies').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('companies').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 if (error) throw error;
 
                 // Seed if empty
@@ -1242,7 +1242,7 @@
                 // Hardcoded defaults to ensure the user never sees an empty list
                 const defaults = ["20' STD", "20' HC", "20' DD", "20' OS", "40' STD", "40' HC", "40' DD", "40' OS", "45' HC"];
                 
-                const { data, error } = await db.from('container_sizes').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('container_sizes').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
                 
                 if (error) {
                     console.error("Supabase error loading sizes:", error);
@@ -1359,7 +1359,7 @@
             if (!db) return;
             try {
                 // 1. Load current categories from Supabase
-                const { data, error } = await db.from('expense_categories').select('*').eq('is_deleted', false).order('name', { ascending: true });
+                const { data, error } = await db.from('expense_categories').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
 
                 if (error) {
                     console.error("Supabase error loading categories:", error);

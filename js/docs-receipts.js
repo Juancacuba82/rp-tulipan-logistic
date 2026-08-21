@@ -288,6 +288,24 @@
         }
 
         const files = Array.from(input.files);
+        
+        const currentPhotos = Array.isArray(window.currentDocTrip[55])
+            ? [...window.currentDocTrip[55]]
+            : [];
+            
+        if (currentPhotos.length + files.length !== 4) {
+            const needed = 4 - currentPhotos.length;
+            if (currentPhotos.length === 0) {
+                alert("Para archivar esta orden correctamente debe seleccionar 4 fotos exactamente.");
+            } else if (needed > 0) {
+                alert(`Para archivar esta orden correctamente debe tener exactamente 4 fotos. Actualmente tiene ${currentPhotos.length}, por lo que debe seleccionar exactamente ${needed} foto(s) más.`);
+            } else {
+                alert(`Ya tiene ${currentPhotos.length} foto(s). No puede exceder el límite de 4 fotos por orden.`);
+            }
+            input.value = '';
+            return;
+        }
+
         input.value = ''; // Reset so same file can be picked again
 
         // Show loading state on the button

@@ -30,7 +30,7 @@ async function loadCallsData(force = false) {
         sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
         const dateStr = sixMonthsAgo.toISOString().split('T')[0];
 
-        let query = db.from('call_logs').select('*').gte('date', dateStr).eq('is_deleted', false);
+        let query = db.from('call_logs').select('*').gte('date', dateStr).or('is_deleted.eq.false,is_deleted.is.null');
         // Todos los empleados ven todos los registros — visibilidad total del equipo
 
         const { data, error } = await query.order('date', { ascending: false }).limit(1000);

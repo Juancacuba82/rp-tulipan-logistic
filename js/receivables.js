@@ -14,8 +14,8 @@ async function loadReceivables() {
     try {
         const { data, error } = await window.db.from('receivables_invoices')
             .select('*')
-            .eq('is_deleted', false)
-            .order('created_at', { ascending: false });
+            .or('is_deleted.eq.false,is_deleted.is.null')
+            .order('date_generated', { ascending: false });
         if (error) throw error;
         window.receivablesData.invoices = data || [];
     } catch (err) {

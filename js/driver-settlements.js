@@ -361,7 +361,7 @@
             try {
                 const { data, error } = await db.from('settlement_history')
                     .select('*')
-                    .eq('is_deleted', false)
+                    .or('is_deleted.eq.false,is_deleted.is.null')
                     .order('created_at', { ascending: false })
                     .limit(500); // Optimization: Limit history load
 

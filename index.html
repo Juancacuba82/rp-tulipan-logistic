@@ -1205,7 +1205,7 @@
                         class="fas fa-file-signature"></i> RELEASES</button>
                 <button onclick="closeMenu(); showView('billing-center')" class="btn-calendar"
                     title="BILLING & INVOICES"><i class="fas fa-file-invoice-dollar"></i> BILLING</button>
-                <button onclick="closeMenu(); showView('receivables'); if(window.initReceivables) window.initReceivables();" class="btn-calendar"
+                <button onclick="closeMenu(); showView('receivables')" class="btn-calendar"
                     title="ACCOUNTS RECEIVABLE"><i class="fas fa-hand-holding-usd"></i> ACCOUNTS REC.</button>
                 <button onclick="closeMenu(); showView('docs')" class="btn-calendar" title="DOCS & RECEIPTS"><i
                         class="fas fa-receipt"></i> DOCS</button>
@@ -6529,7 +6529,7 @@
                 }
 
                 let query = window.db.from('tasks').select('*', { count: 'exact' })
-                    .eq('is_deleted', false)
+                    .or('is_deleted.eq.false,is_deleted.is.null')
                     .eq('status', 'PENDING')
                     .or(`assigned_to_email.eq.${email},assigned_to_email.eq.EVERYONE,assigned_to_email.eq.everyone`);
 
@@ -7241,6 +7241,8 @@
                         })();
                     } else if (viewId === 'tasks') {
                         if (window.loadTasksData) window.loadTasksData();
+                    } else if (viewId === 'receivables' || finalView === 'receivables') {
+                        if (window.initReceivables) window.initReceivables();
                     }
 
                     // Load data managers ONCE per session (not on every tab change)
