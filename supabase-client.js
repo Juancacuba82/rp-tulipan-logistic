@@ -72,6 +72,7 @@ async function getTrips() {
         let query = db
             .from('trips')
             .select('*')
+            .eq('is_deleted', false)
             .order('date', { ascending: false })
             .limit(300); // LÍMITE AÑADIDO PARA EVITAR ERROR 500 (TIMEOUT)
 
@@ -108,6 +109,7 @@ async function getAllTrips(dateFrom = null, dateTo = null) {
         let query = db
             .from('trips')
             .select('*')
+            .eq('is_deleted', false)
             .order('date', { ascending: false });
         if (dateFrom) query = query.gte('date', dateFrom);
         if (dateTo)   query = query.lte('date', dateTo);
@@ -143,6 +145,7 @@ async function getAllTripsForProfit(dateFrom, dateTo) {
         let query = db
             .from('trips')
             .select('date, status, sales_price, amount, yard_services, yard_rate, price_per_day, date_out, trans_pay, company, has_trans, has_sales, release_no, size, qty, take_tax, tax_percent, container_source, yard_item_id, n_cont, customer, phone_no')
+            .eq('is_deleted', false)
             .order('date', { ascending: false });
         if (dateFrom) query = query.gte('date', dateFrom);
         if (dateTo)   query = query.lte('date', dateTo);
@@ -161,6 +164,7 @@ async function getPendingBillingTrips() {
         let query = db
             .from('trips')
             .select('*')
+            .eq('is_deleted', false)
             .order('date', { ascending: false })
             .limit(2000); // Límite amplio para asegurar que traiga todas las deudas recientes sin timeout
 
@@ -209,7 +213,7 @@ async function updateTrip(tripId, updateData) {
 
 async function deleteTrip(tripId) {
     if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
-    const { error } = await db.from('trips').delete().eq('trip_id', tripId);
+    const { error } = await db.from('trips').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('trip_id', tripId);
     if (error) { console.error('Error deleting trip:', error); throw error; }
     if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Viaje ID: ${tripId}`);
 }
@@ -219,6 +223,7 @@ async function getReleases() {
     try {
         const { data, error } = await db.from('releases')
             .select('id, release_no, date, type, condition, depot, depot_address, city, qty_20, price_20, qty_40, price_40, qty_45, price_45, seller, total_stock, container_size, paid, is_cash, created_by, note')
+            .eq('is_deleted', false)
             .order('created_at', { ascending: false })
             .limit(250); // Reduced limit for faster IO performance
         if (error) throw error;
@@ -253,6 +258,7 @@ async function getExpenses() {
 
         const { data, error } = await db.from('expenses')
             .select('id, date, category, description, amount, note, payment_method')
+            .eq('is_deleted', false)
             .gte('date', dateStr)
             .order('date', { ascending: false });
         if (error) throw error;
@@ -272,14 +278,14 @@ async function addExpense(expenseData) {
 
 async function deleteExpense(expenseId) {
     if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
-    const { error } = await db.from('expenses').delete().eq('id', expenseId);
+    const { error } = await db.from('expenses').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', expenseId);
     if (error) { console.error('Error deleting expense:', error); throw error; }
     if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Gasto ID: ${expenseId}`);
 }
 
 // Helper for Fleet
 async function getFleet() {
-    const { data, error } = await db.from('fleet').select('*');
+    const { data, error } = await db.from('fleet').select('*').eq('is_deleted', false);
     if (error) { console.error('Error fetching fleet:', error); return []; }
     return data;
 }
@@ -293,7 +299,7 @@ async function saveFleet(fleetData) {
 
 async function supabaseDeleteFleetUnit(unitId) {
     if (!checkStudentPermission('fleet', 'delete')) return;
-    const { error } = await db.from('fleet').delete().eq('unit_id', unitId);
+    const { error } = await db.from('fleet').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('unit_id', unitId);
     if (error) { console.error('Error deleting unit:', error); throw error; }
     if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Equipo Flota ID: ${unitId}`);
 }
@@ -308,6 +314,7 @@ async function getRentals() {
 
         const { data, error } = await db.from('rentals')
             .select('*')
+            .eq('is_deleted', false)
             .or(`status.eq.ACTIVE,start_date.gte.${dateStr}`)
             .order('start_date', { ascending: false });
         if (error) throw error;
@@ -344,7 +351,7 @@ async function updateRentalsBatch(ids, updateData) {
 
 async function deleteRental(id) {
     if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
-    const { error, data } = await db.from('rentals').delete().eq('id', id).select();
+    const { error, data } = await db.from('rentals').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', id).select();
     if (error) { console.error('Error deleting rental:', error); throw error; }
     if (!data || data.length === 0) {
         throw new Error("El registro no se pudo eliminar en la base de datos (0 filas afectadas). Esto puede deberse a un problema de permisos en Supabase o a que el registro ya no existe.");

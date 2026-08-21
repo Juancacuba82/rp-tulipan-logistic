@@ -12,7 +12,10 @@ window.initReceivables = async function () {
 
 async function loadReceivables() {
     try {
-        const { data, error } = await window.db.from('receivables_invoices').select('*').order('date_generated', { ascending: false });
+        const { data, error } = await window.db.from('receivables_invoices')
+            .select('*')
+            .eq('is_deleted', false)
+            .order('created_at', { ascending: false });
         if (error) throw error;
         window.receivablesData.invoices = data || [];
     } catch (err) {
@@ -647,7 +650,7 @@ window.deleteReceivable = async function (id) {
     }
     if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
     try {
-        const { error } = await window.db.from('receivables_invoices').delete().eq('id', id);
+        const { error } = await window.db.from('receivables_invoices').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', id);
         if (error) throw error;
 
         console.log(`[Receivables] Invoice ${id} deleted.`);

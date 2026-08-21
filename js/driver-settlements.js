@@ -359,11 +359,11 @@
             }
             console.log("Attempting to fetch history from Supabase...");
             try {
-                const { data, error } = await db
-                    .from('settlement_history')
+                const { data, error } = await db.from('settlement_history')
                     .select('*')
+                    .eq('is_deleted', false)
                     .order('created_at', { ascending: false })
-                    .limit(200); // Optimization: Limit history load
+                    .limit(500); // Optimization: Limit history load
 
                 if (error) {
                     console.error("DB Error fetching history:", error.message);
@@ -947,7 +947,7 @@
             }
             if (!confirm("Are you sure you want to delete this historical record?")) return;
             try {
-                const { error } = await db.from('settlement_history').delete().eq('id', id);
+                const { error } = await db.from('settlement_history').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', id);
                 if (error) throw error;
                 if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Settlement/Liquidación ID: ${id}`);
                 fetchHistory(true);

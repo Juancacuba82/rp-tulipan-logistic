@@ -514,8 +514,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
 
                         const yardDelQuery = searchCont && searchCont !== '---'
-                            ? db.from('yard_stock').delete().eq('origin_release', searchOrder).eq('container_no', searchCont)
-                            : db.from('yard_stock').delete().eq('origin_release', searchOrder);
+                            ? db.from('yard_stock').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('origin_release', searchOrder).eq('container_no', searchCont)
+                            : db.from('yard_stock').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('origin_release', searchOrder);
                             
                         await yardDelQuery;
                         if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Yard Stock auto (Status -> Pending). Order: ${searchOrder}, Cont: ${searchCont}`);
@@ -2998,7 +2998,7 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
                 return false;
             });
             for (const r of rentalsToDelete) {
-                await db.from('rentals').delete().eq('id', r.id);
+                await db.from('rentals').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', r.id);
                 if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Rental ID: ${r.id}`);
                 window.currentRentals = window.currentRentals.filter(curr => curr.id !== r.id);
             }
@@ -3008,8 +3008,8 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
         } else {
             // Fallback DB-only delete if cache is empty
             const rentalsDelQuery = containerNoForDel
-                ? db.from('rentals').delete().eq('release_no', orderNoForDel).eq('container_no', containerNoForDel)
-                : db.from('rentals').delete().eq('release_no', orderNoForDel);
+                ? db.from('rentals').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('release_no', orderNoForDel).eq('container_no', containerNoForDel)
+                : db.from('rentals').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('release_no', orderNoForDel);
             await rentalsDelQuery;
             if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Rental Fallback. Order: ${orderNoForDel}, Cont: ${containerNoForDel}`);
         }

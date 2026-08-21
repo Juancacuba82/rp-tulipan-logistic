@@ -456,7 +456,7 @@
             if (!confirm(`¿Estás seguro de que quieres eliminar el Release #${relNo}? Esta acción no se puede deshacer.`)) return;
 
             try {
-                const { error } = await db.from('releases').delete().eq('id', id);
+                const { error } = await db.from('releases').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', id);
                 if (error) throw error;
                 if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Release #${relNo} (ID: ${id})`);
 

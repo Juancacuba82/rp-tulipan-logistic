@@ -47,6 +47,7 @@
     <script src="./js/csv-import.js?v=1" defer></script>
 
     <!-- PDF & Email Service Libraries -->
+    <script src="./js/recycle-bin.js?v=1" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" defer></script>
@@ -1343,6 +1344,10 @@
                     <button onclick="showView('tasks')" class="dash-card">
                         <i class="fas fa-tasks"></i>
                         <span>TASKS & TO-DO</span>
+                    </button>
+                    <button onclick="window.openRecycleBin()" class="dash-card" id="card-recycle-bin" style="display: none;">
+                        <i class="fas fa-trash-restore" style="color: #ef4444;"></i>
+                        <span style="color: #ef4444;">RECYCLE BIN</span>
                     </button>
                     <button onclick="showView('attendance')" class="dash-card" id="card-attendance"
                         style="display: none;">
@@ -6598,6 +6603,9 @@
             const isEmployee = role === 'employee' || role === 'staff';
             const isDriver = role === 'driver';
             const isStudent = role === 'student';
+            
+            const rbCard = document.getElementById('card-recycle-bin');
+            if (rbCard) rbCard.style.display = isAdmin ? 'flex' : 'none';
             
             // Exclusive access for juancathalia1@gmail.com
             const csvImportBtn = document.getElementById('btn-import-csv');
