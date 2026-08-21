@@ -32,12 +32,12 @@ window.initRealtimeSubscriptions = function() {
     
     // 4. FLEET (TRUCKS)
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'trucks' }, payload => {
-        if (typeof window.loadFleetData === 'function') window.loadFleetData(); 
+        if (typeof window.loadFleetData === 'function') window.loadFleetData(true); 
     });
     
     // 5. DRIVERS
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, payload => {
-        if (typeof window.loadDriversData === 'function') window.loadDriversData();
+        if (typeof window.loadDriversData === 'function') window.loadDriversData(true);
     });
     
     // 6. YARD STOCK (INVENTORY)
@@ -84,7 +84,7 @@ function handleRealtimeTrips(payload) {
         
         if (payload.eventType === 'INSERT') {
             const newArr = window.mapTripToArray ? window.mapTripToArray(payload.new) : null;
-            if (newArr) {
+            if (newArr && payload.new.is_deleted !== true) {
                 // Prevent duplicates
                 if (!cacheArray.find(t => t[0] === payload.new.trip_id)) {
                     cacheArray.unshift(newArr);
@@ -92,12 +92,24 @@ function handleRealtimeTrips(payload) {
                 }
             }
         } else if (payload.eventType === 'UPDATE') {
+            const isSoftDeleted = payload.new.is_deleted === true;
             const updatedArr = window.mapTripToArray ? window.mapTripToArray(payload.new) : null;
+            
             if (updatedArr) {
                 const idx = cacheArray.findIndex(t => t[0] === payload.new.trip_id);
-                if (idx !== -1) {
-                    cacheArray[idx] = updatedArr;
-                    modified = true;
+                if (isSoftDeleted) {
+                    if (idx !== -1) {
+                        cacheArray.splice(idx, 1); // Remove from cache
+                        modified = true;
+                    }
+                } else {
+                    if (idx !== -1) {
+                        cacheArray[idx] = updatedArr; // Update existing
+                        modified = true;
+                    } else {
+                        cacheArray.unshift(updatedArr); // Treat as INSERT (restored)
+                        modified = true;
+                    }
                 }
             }
         }
@@ -156,15 +168,27 @@ function handleRealtimeReceivables(payload) {
     let modified = false;
 
     if (payload.eventType === 'INSERT') {
-        if (!cache.find(i => i.id === payload.new.id)) {
+        if (!cache.find(i => i.id === payload.new.id) && payload.new.is_deleted !== true) {
             cache.unshift(payload.new);
             modified = true;
         }
     } else if (payload.eventType === 'UPDATE') {
+        const isSoftDeleted = payload.new.is_deleted === true;
         const idx = cache.findIndex(i => i.id === payload.new.id);
-        if (idx !== -1) {
-            cache[idx] = payload.new;
-            modified = true;
+        
+        if (isSoftDeleted) {
+            if (idx !== -1) {
+                cache.splice(idx, 1);
+                modified = true;
+            }
+        } else {
+            if (idx !== -1) {
+                cache[idx] = payload.new;
+                modified = true;
+            } else {
+                cache.unshift(payload.new);
+                modified = true;
+            }
         }
     } else if (payload.eventType === 'DELETE') {
         window.receivablesData.invoices = cache.filter(i => i.id !== payload.old.id);

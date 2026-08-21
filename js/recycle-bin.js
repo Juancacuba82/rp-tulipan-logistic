@@ -32,6 +32,7 @@ window.openRecycleBin = async function() {
                         <option value="fleet">Fleet (Equipos)</option>
                         <option value="drivers">Drivers (Choferes)</option>
                         <option value="customers">Customers (Clientes)</option>
+                        <option value="call_logs">Calls (Llamadas)</option>
                     </select>
                     <button class="glossy-blue-btn" onclick="loadRecycleBin()" style="padding:0 15px; height:35px;"><i class="fas fa-sync-alt"></i> Refresh</button>
                 </div>
@@ -136,6 +137,27 @@ window.restoreRecord = async function(table, idValue) {
         
         alert("¡Registro restaurado exitosamente!");
         loadRecycleBin(); // Refresh list
+        
+        // Force manual UI refresh for the specific module to guarantee it appears instantly
+        if (table === 'trips' && typeof window.loadTableData === 'function') {
+             window.loadTableData(null, true);
+        } else if (table === 'receivables_invoices' && typeof window.renderReceivables === 'function') {
+             if (window.receivablesData) window.receivablesData.invoices = null;
+             window.renderReceivables();
+        } else if (table === 'fleet' && typeof window.loadFleetData === 'function') {
+             window.loadFleetData(true);
+        } else if (table === 'drivers' && typeof window.loadDriversData === 'function') {
+             window.loadDriversData(true);
+        } else if (table === 'expenses' && typeof window.loadExpensesData === 'function') {
+             window.loadExpensesData(true);
+        } else if (table === 'releases' && typeof window.loadReleasesData === 'function') {
+             window.loadReleasesData(true);
+        } else if (table === 'rentals' && typeof window.loadRentalsData === 'function') {
+             window.loadRentalsData(true);
+        } else if (table === 'call_logs' && typeof window.loadCallsData === 'function') {
+             window.loadCallsData(true);
+        }
+        
     } catch (err) {
         console.error("Error restoring:", err);
         alert("Error al restaurar: " + err.message);

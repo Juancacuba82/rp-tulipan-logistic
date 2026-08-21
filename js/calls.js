@@ -30,7 +30,7 @@ async function loadCallsData(force = false) {
         sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
         const dateStr = sixMonthsAgo.toISOString().split('T')[0];
 
-        let query = db.from('call_logs').select('*').gte('date', dateStr);
+        let query = db.from('call_logs').select('*').gte('date', dateStr).eq('is_deleted', false);
         // Todos los empleados ven todos los registros — visibilidad total del equipo
 
         const { data, error } = await query.order('date', { ascending: false }).limit(1000);
@@ -400,7 +400,7 @@ async function saveCallLog() {
 
             if (editingCallId) {
                 // Remove from call_logs since it's now in the calendar
-                const { error: delErr } = await db.from('call_logs').delete().eq('id', editingCallId);
+                const { error: delErr } = await db.from('call_logs').update({is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail || 'unknown'}).eq('id', editingCallId);
                 if (delErr) console.warn("Note: Transferred to calendar but failed to remove from call logs:", delErr);
 
                 // Remove from local state
@@ -515,7 +515,7 @@ async function deleteCallLog(id) {
     if (!confirm("Are you sure you want to delete this lead?")) return;
 
     try {
-        const { error } = await db.from('call_logs').delete().eq('id', id);
+        const { error } = await db.from('call_logs').update({is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail || 'unknown'}).eq('id', id);
         if (error) throw error;
 
         // Remove from in-memory array immediately so the UI updates without a full reload
@@ -860,9 +860,18 @@ function subscribeToCallsRealtime() {
             (payload) => {
                 if (!payload.new) return;
                 const idx = currentCalls.findIndex(c => c.id === payload.new.id);
-                if (idx !== -1) {
-                    // Merge updated fields into local state
-                    currentCalls[idx] = { ...currentCalls[idx], ...payload.new };
+                
+                if (payload.new.is_deleted === true) {
+                    if (idx !== -1) {
+                        currentCalls.splice(idx, 1);
+                        renderCallsTable();
+                    }
+                } else {
+                    if (idx !== -1) {
+                        currentCalls[idx] = { ...currentCalls[idx], ...payload.new };
+                    } else {
+                        currentCalls.unshift(payload.new);
+                    }
                     renderCallsTable();
                 }
             }
