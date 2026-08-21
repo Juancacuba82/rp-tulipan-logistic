@@ -312,6 +312,7 @@
             try {
                 const { error } = await db.from('drivers').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Chofer ID: ${id}`);
                 await loadDriversData(true);
                 renderDriverManagerList();
             } catch (err) {
@@ -555,6 +556,7 @@
             try {
                 const { data, error } = await db.from('customers').delete().eq('name', name).select();
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Cliente: ${name}`);
                 if (!data || data.length === 0) {
                      alert("El cliente no se pudo eliminar. Revise las políticas de DELETE (RLS) en Supabase.");
                 }
@@ -705,6 +707,7 @@
             try {
                 const { error } = await db.from('pickup_addresses').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Pickup Address ID: ${id}`);
                 await loadPickupAddressesData(true);
                 renderPickupAddressManagerList();
             } catch (err) {
@@ -809,6 +812,7 @@
             try {
                 const { error } = await db.from('delivery_addresses').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Delivery Address ID: ${id}`);
                 await loadDeliveryAddressesData(true);
                 renderDeliveryAddressManagerList();
             } catch (err) {
@@ -932,6 +936,7 @@
             try {
                 const { error } = await db.from('depots').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Depot ID: ${id}`);
                 await loadDepotsData(true);
                 renderDepotManagerList();
             } catch (err) {
@@ -1103,6 +1108,7 @@
             try {
                 const { error } = await db.from('sellers').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Seller ID: ${id}`);
                 await loadSellersData(true);
                 renderSellerManagerList();
             } catch (err) {
@@ -1219,6 +1225,7 @@
             try {
                 const { error } = await db.from('companies').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Company ID: ${id}`);
                 await loadCompaniesData();
                 renderCompanyManagerList();
             } catch (err) {
@@ -1338,6 +1345,7 @@
             try {
                 const { error } = await db.from('container_sizes').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Container Size ID: ${id}`);
                 await loadContainerSizesData();
                 renderSizeManagerList();
             } catch (err) {
@@ -1495,6 +1503,7 @@
             try {
                 const { error } = await db.from('expense_categories').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Expense Category ID: ${id}`);
                 await loadExpenseCategoriesData();
                 renderExpenseCategoryManagerList();
             } catch (err) {

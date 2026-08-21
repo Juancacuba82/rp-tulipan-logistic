@@ -53,6 +53,8 @@ window.renderReceivables = function () {
     const container = document.getElementById('receivables-module');
     if (!container) return;
 
+    const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+
     // Extract unique services from invoice prefixes
     const uniqueServices = new Set();
     window.receivablesData.invoices.forEach(inv => {
@@ -206,9 +208,9 @@ window.renderReceivables = function () {
                                     <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}', ${balance.toFixed(2)}, '${inv.invoice_number}', '${custName}', ${totalAmt.toFixed(2)}, ${amtPaid.toFixed(2)})">
                                         PAY
                                     </button>
-                                    <button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
+                                    ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
-                                    </button>
+                                    </button>` : ''}
                                 </td>
                             </tr>
                 `;
@@ -276,9 +278,9 @@ window.renderReceivables = function () {
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    <button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
+                                    ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
-                                    </button>
+                                    </button>` : ''}
                                 </td>
                             </tr>
                 `;
@@ -460,6 +462,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                 .eq('id', id);
 
             if (updateErr) throw updateErr;
+            if (window.logActivity) window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Actualizó Pago en Accounts Receivable ID: ${id}. Pagado: $${newAmountPaid}`);
 
             // ── Sync trip payment status in calendar (ONLY IF FULLY PAID) ─────────────
             if (isFullyPaid) {
@@ -637,6 +640,11 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
 };
 
 window.deleteReceivable = async function (id) {
+    const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+    if (!isAdmin) {
+        alert("Acceso denegado: Solo los administradores pueden eliminar registros.");
+        return;
+    }
     if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
     try {
         const { error } = await window.db.from('receivables_invoices').delete().eq('id', id);

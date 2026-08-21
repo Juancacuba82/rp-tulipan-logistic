@@ -6667,6 +6667,20 @@
                     const els = document.querySelectorAll(sel);
                     els.forEach(el => el.style.display = 'none');
                 });
+                
+                // Allow specific user to see receivables
+                if (window.userEmail === 'garridoyariselis@gmail.com') {
+                    const receivablesSelectors = [
+                        'button[onclick*="receivables"]',
+                        '.dash-card[onclick*="receivables"]',
+                        '#nav-actions-container button[onclick*="receivables"]'
+                    ];
+                    receivablesSelectors.forEach(sel => {
+                        const els = document.querySelectorAll(sel);
+                        els.forEach(el => el.style.display = '');
+                    });
+                }
+
                 staffOnlySelectors.forEach(sel => {
                     const els = document.querySelectorAll(sel);
                     els.forEach(el => el.style.display = '');

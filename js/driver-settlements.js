@@ -949,6 +949,7 @@
             try {
                 const { error } = await db.from('settlement_history').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Settlement/Liquidación ID: ${id}`);
                 fetchHistory(true);
             } catch (err) {
                 alert("Delete failed: " + err.message);

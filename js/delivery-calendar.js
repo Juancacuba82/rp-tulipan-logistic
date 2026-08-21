@@ -518,6 +518,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             : db.from('yard_stock').delete().eq('origin_release', searchOrder);
                             
                         await yardDelQuery;
+                        if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Yard Stock auto (Status -> Pending). Order: ${searchOrder}, Cont: ${searchCont}`);
                     } catch(err) {
                         console.error("Failed to remove yard stock on status change to pending", err);
                     }
@@ -2998,6 +2999,7 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
             });
             for (const r of rentalsToDelete) {
                 await db.from('rentals').delete().eq('id', r.id);
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Rental ID: ${r.id}`);
                 window.currentRentals = window.currentRentals.filter(curr => curr.id !== r.id);
             }
             if (rentalsToDelete.length > 0 && typeof window.renderRentalsTable === 'function') {
@@ -3009,6 +3011,7 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
                 ? db.from('rentals').delete().eq('release_no', orderNoForDel).eq('container_no', containerNoForDel)
                 : db.from('rentals').delete().eq('release_no', orderNoForDel);
             await rentalsDelQuery;
+            if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Rental Fallback. Order: ${orderNoForDel}, Cont: ${containerNoForDel}`);
         }
     }
 

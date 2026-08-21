@@ -203,6 +203,7 @@ async function updateTrip(tripId, updateData) {
     if (!checkStudentPermission('calendar', 'update')) return null;
     const { data, error } = await db.from('trips').update(updateData).eq('trip_id', tripId);
     if (error) { console.error('Error updating trip:', error); throw error; }
+    if (window.logActivity) window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Modificó Viaje ID: ${tripId}`);
     return data;
 }
 
@@ -210,6 +211,7 @@ async function deleteTrip(tripId) {
     if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
     const { error } = await db.from('trips').delete().eq('trip_id', tripId);
     if (error) { console.error('Error deleting trip:', error); throw error; }
+    if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Viaje ID: ${tripId}`);
 }
 
 // Helper for Releases
@@ -238,6 +240,7 @@ async function updateRelease(id, updateData) {
     if (!checkStudentPermission('releases', 'update')) return null;
     const { data, error } = await db.from('releases').update(updateData).eq('id', id).select();
     if (error) { console.error('Error updating release:', error); throw error; }
+    if (window.logActivity) window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Modificó Release ID: ${id}`);
     return data;
 }
 
@@ -271,6 +274,7 @@ async function deleteExpense(expenseId) {
     if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
     const { error } = await db.from('expenses').delete().eq('id', expenseId);
     if (error) { console.error('Error deleting expense:', error); throw error; }
+    if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Gasto ID: ${expenseId}`);
 }
 
 // Helper for Fleet
@@ -291,6 +295,7 @@ async function supabaseDeleteFleetUnit(unitId) {
     if (!checkStudentPermission('fleet', 'delete')) return;
     const { error } = await db.from('fleet').delete().eq('unit_id', unitId);
     if (error) { console.error('Error deleting unit:', error); throw error; }
+    if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Equipo Flota ID: ${unitId}`);
 }
 window.supabaseDeleteFleetUnit = supabaseDeleteFleetUnit;
 
@@ -324,6 +329,7 @@ async function updateRental(id, updateData) {
     if (!checkStudentPermission('rentals', 'update')) return null;
     const { data, error } = await db.from('rentals').update(updateData).eq('id', id).select();
     if (error) { console.error('Error updating rental:', error); throw error; }
+    if (window.logActivity) window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Modificó Rental ID: ${id}`);
     return data;
 }
 
@@ -332,6 +338,7 @@ async function updateRentalsBatch(ids, updateData) {
     if (!ids || ids.length === 0) return;
     const { data, error } = await db.from('rentals').update(updateData).in('id', ids).select();
     if (error) { console.error('Error updating rentals batch:', error); throw error; }
+    if (window.logActivity) window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Modificó Rentals Batch IDs: ${ids.join(',')}`);
     return data;
 }
 
@@ -342,6 +349,7 @@ async function deleteRental(id) {
     if (!data || data.length === 0) {
         throw new Error("El registro no se pudo eliminar en la base de datos (0 filas afectadas). Esto puede deberse a un problema de permisos en Supabase o a que el registro ya no existe.");
     }
+    if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Rental ID: ${id}`);
 }
 
 // MIGRATION TOOL: Help move data from LocalStorage to Supabase

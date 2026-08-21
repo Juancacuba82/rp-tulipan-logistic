@@ -458,6 +458,7 @@
             try {
                 const { error } = await db.from('releases').delete().eq('id', id);
                 if (error) throw error;
+                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Release #${relNo} (ID: ${id})`);
 
                 // Update local memory
                 if (window.currentReleases) {
