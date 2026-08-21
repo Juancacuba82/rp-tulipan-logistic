@@ -3723,9 +3723,10 @@
                             <label class="sidebar-label-btn"
                                 style="background: #1e40af !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">CATEGORY</label>
                             <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                                <select id="exp-category" onchange="toggleOtherExpense()" style="flex: 1; margin: 0;">
-                                    <option value="" disabled selected>Loading categories...</option>
-                                </select>
+                                <input type="text" id="exp-category" list="exp-category-list" onchange="toggleOtherExpense()" style="flex: 1; margin: 0;" placeholder="Select or type category..." autocomplete="off">
+                                <datalist id="exp-category-list">
+                                    <option value="Loading categories..."></option>
+                                </datalist>
                                 <button onclick="openExpenseCategoryManager()" class="btn-manage-inline"
                                     style="flex: 0 0 auto; height: 32px; display: flex; align-items: center; justify-content: center;">
                                     Manage

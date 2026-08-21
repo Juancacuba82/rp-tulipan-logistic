@@ -1,6 +1,7 @@
         async function loadExpensesData(force = false) {
             if (!force && window.currentExpenses && window.currentExpenses.length > 0) {
                 renderExpensesHistory();
+                if (typeof window.refreshExpenseCategorySelects === 'function') window.refreshExpenseCategorySelects();
                 return;
             }
             try {
@@ -8,6 +9,7 @@
                 const mappedData = data.map(mapExpenseToArray);
                 window.currentExpenses = mappedData; // Sync global cache
                 renderExpensesHistory();
+                if (typeof window.refreshExpenseCategorySelects === 'function') window.refreshExpenseCategorySelects();
             } catch (err) {
                 console.error("Error loading expenses:", err);
             }
@@ -242,20 +244,10 @@
             const sel = document.getElementById('exp-category');
             
             // Handle Category Selection
-            let catFound = false;
-            for (let opt of sel.options) {
-                if (opt.value === cat) {
-                    sel.value = cat;
-                    catFound = true;
-                    break;
-                }
-            }
-
-            if (!catFound) {
-                sel.value = 'Other';
-            }
+            if (sel) sel.value = cat || '';
+            
             document.getElementById('exp-other-desc').value = rowData[2] || '';
-            window.toggleOtherExpense();
+            if (typeof window.toggleOtherExpense === 'function') window.toggleOtherExpense();
 
             const amountStr = (rowData[3] || '0').replace('$', '').replace(/,/g, '');
             document.getElementById('exp-amount').value = parseFloat(amountStr) || 0;

@@ -1418,26 +1418,52 @@
 
 
 
-        function refreshExpenseCategorySelects() {
-            const expSel = document.getElementById('exp-category');
+        window.refreshExpenseCategorySelects = function() {
+            const expList = document.getElementById('exp-category-list');
             const expFilt = document.getElementById('exp-filter-category');
             
-            const populate = (sel, isFilter) => {
-                if (!sel) return;
-                const currentVal = sel.value;
-                sel.innerHTML = isFilter ? '<option value="">All Categories</option>' : '<option value="" disabled selected>Select Category...</option>';
-                currentExpenseCategories.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.name;
-                    opt.textContent = s.name;
-                    sel.appendChild(opt);
+            // Generate unique categories from both currentExpenseCategories and existing expenses
+            const uniqueCategories = new Set();
+            if (currentExpenseCategories) {
+                currentExpenseCategories.forEach(c => uniqueCategories.add(c.name));
+            }
+            if (window.currentExpenses) {
+                window.currentExpenses.forEach(row => {
+                    const cat = row[1];
+                    if (cat && cat !== '---' && cat.trim() !== '') {
+                        uniqueCategories.add(cat.trim());
+                    }
                 });
-                if (currentVal) sel.value = currentVal;
-            };
+            }
 
-            populate(expSel, false);
-            populate(expFilt, true);
-        }
+            // Convert to array and sort alphabetically
+            const sortedCategories = Array.from(uniqueCategories).sort((a, b) => a.localeCompare(b));
+            
+            // Populate datalist
+            if (expList) {
+                expList.innerHTML = '';
+                sortedCategories.forEach(catName => {
+                    const opt = document.createElement('option');
+                    opt.value = catName;
+                    expList.appendChild(opt);
+                });
+            }
+
+            // Populate filter select
+            if (expFilt) {
+                const currentVal = expFilt.value;
+                expFilt.innerHTML = '<option value="">All Categories</option>';
+                sortedCategories.forEach(catName => {
+                    const opt = document.createElement('option');
+                    opt.value = catName;
+                    opt.textContent = catName;
+                    expFilt.appendChild(opt);
+                });
+                if (currentVal) expFilt.value = currentVal;
+            }
+        };
+
+        const refreshExpenseCategorySelects = window.refreshExpenseCategorySelects;
 
         window.openExpenseCategoryManager = function () {
             document.getElementById('expense-category-manager-modal').style.display = 'flex';
