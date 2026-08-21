@@ -479,7 +479,7 @@ window.saveSelectedCsvExpenses = async function() {
         const expenseObj = {
             date: todayStr, // Always use today's date instead of the bank statement date
             category: finalCategory,
-            other_description: rowData.description.substring(0, 50), // Bank description
+            description: rowData.description.substring(0, 50), // Bank description
             amount: rowData.amount,
             note: expenseNote,
             payment_method: 'bank'
