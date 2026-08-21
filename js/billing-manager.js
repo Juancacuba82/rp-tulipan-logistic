@@ -1215,6 +1215,11 @@
 
 
     window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false) {
+        if (isPreviewOnly === 'RETAIN') {
+            isPreviewOnly = window.currentMasterBillingIsPreview || false;
+        } else {
+            window.currentMasterBillingIsPreview = isPreviewOnly;
+        }
         let rows = overrideRows || window.billingRows || [];
         
         if (!overrideRows) {
@@ -1617,17 +1622,54 @@
                 
                 await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
                 
-                // Actualizar contadores y status localmente para que se marque de verde sin necesidad de email
+                // Actualizar contadores y status localmente y en la base de datos para que se marque el check azul
                 const nowIso = new Date().toISOString();
-                (window.currentBillingOrderRows || []).forEach(row => {
+                
+                const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
+                const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
+                const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
+                const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
+                const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
+
+                for (const row of (window.currentBillingOrderRows || [])) {
                     const tripId = row[0];
                     if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                        const currentCount = parseInt(row[64]) || 0;
+                        const newCount = currentCount + 1;
+
+                        let invoiced = row[75] ? row[75].split(',') : [];
+                        if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
+                        if (incYard && (parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
+                        if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
+                        if (incRent && (parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
+                        if (incStorage && (parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+                        
+                        invoiced = [...new Set(invoiced)].filter(Boolean);
+                        const newInvoicedServices = invoiced.join(',');
+
+                        await window.db.from('trips').update({
+                            invoice_sent: 'YES',
+                            invoice_last_sent: nowIso,
+                            invoice_reminder_count: newCount,
+                            invoiced_services: newInvoicedServices
+                        }).eq('trip_id', tripId);
+
                         row[57] = 'YES';
                         row[63] = nowIso;
-                        const currentCount = parseInt(row[64]) || 0;
-                        row[64] = currentCount + 1;
+                        row[64] = newCount;
+                        row[75] = newInvoicedServices;
+
+                        if (window.allTripsUnfiltered) {
+                            const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                            if (ufRow) {
+                                ufRow[57] = 'YES';
+                                ufRow[63] = nowIso;
+                                ufRow[64] = newCount;
+                                ufRow[75] = newInvoicedServices;
+                            }
+                        }
                     }
-                });
+                }
                 
                 if (window.showToast) window.showToast('Registro de Invoice creado exitosamente', 'success');
                 else alert('Registro de Invoice creado exitosamente');
@@ -1740,14 +1782,50 @@
                     await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
                 }
 
-                // Update row status locally
+                // Update row status locally and in DB
                 const nowIso = new Date().toISOString();
                 const tripId = singleRow[0];
                 if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    const currentCount = parseInt(singleRow[64]) || 0;
+                    const newCount = currentCount + 1;
+                    
+                    let invoiced = singleRow[75] ? singleRow[75].split(',') : [];
+                    // Here we assume it invoices everything since it's a bulk creation. Wait, we should probably check what the current filter is!
+                    // Wait, they asked for the same behavior. If they click "bulk create", they didn't even open the modal. So we should use the main table filter.
+                    const currentFilter = document.getElementById('bc-f-service')?.value || '';
+                    if (!currentFilter || currentFilter === 'ALL') {
+                        if (singleRow[42] === 'YES' && (parseFloat(singleRow[18]) || 0) > 0) invoiced.push('TRANSPORT');
+                        if ((parseFloat(singleRow[13]) || 0) > 0) invoiced.push('YARD');
+                        if (singleRow[43] === 'YES' && (parseFloat(singleRow[20]) || 0) > 0) invoiced.push('SALES');
+                        if ((parseFloat(singleRow[27]) || 0) > 0) invoiced.push('RENT');
+                        if ((parseFloat(singleRow[14]) || 0) > 0) invoiced.push('STORAGE');
+                    } else {
+                        if (!invoiced.includes(currentFilter)) invoiced.push(currentFilter);
+                    }
+                    invoiced = [...new Set(invoiced)].filter(Boolean);
+                    const newInvoicedServices = invoiced.join(',');
+
+                    await window.db.from('trips').update({
+                        invoice_sent: 'YES',
+                        invoice_last_sent: nowIso,
+                        invoice_reminder_count: newCount,
+                        invoiced_services: newInvoicedServices
+                    }).eq('trip_id', tripId);
+
                     singleRow[57] = 'YES';
                     singleRow[63] = nowIso;
-                    const currentCount = parseInt(singleRow[64]) || 0;
-                    singleRow[64] = currentCount + 1;
+                    singleRow[64] = newCount;
+                    singleRow[75] = newInvoicedServices;
+
+                    if (window.allTripsUnfiltered) {
+                        const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
+                        if (ufRow) {
+                            ufRow[57] = 'YES';
+                            ufRow[63] = nowIso;
+                            ufRow[64] = newCount;
+                            ufRow[75] = newInvoicedServices;
+                        }
+                    }
                 }
             }
             if (window.showToast) window.showToast(`Se crearon ${rows.length} registros exitosamente.`, 'success');

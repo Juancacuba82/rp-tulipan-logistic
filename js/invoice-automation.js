@@ -242,17 +242,20 @@
         const currentCount = parseInt(row[64]) || 0;
         const newCount = currentCount + 1;
 
-        const currentFilter = document.getElementById('bc-f-service')?.value || '';
+        const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
+        const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
+        const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
+        const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
+        const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
+
         let invoiced = row[75] ? row[75].split(',') : [];
-        if (!currentFilter || currentFilter === 'ALL') {
-            if (row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
-            if ((parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
-            if (row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
-            if ((parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
-            if ((parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
-        } else {
-            if (!invoiced.includes(currentFilter)) invoiced.push(currentFilter);
-        }
+        
+        if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
+        if (incYard && (parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
+        if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
+        if (incRent && (parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
+        if (incStorage && (parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+        
         invoiced = [...new Set(invoiced)].filter(Boolean);
         const newInvoicedServices = invoiced.join(',');
 
@@ -499,7 +502,11 @@
 
             // Update tracking for all rows
             const nowIso = new Date().toISOString();
-            const currentFilter = document.getElementById('bc-f-service')?.value || '';
+            const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
+            const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
+            const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
+            const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
+            const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
             
             for (const row of rows) {
                 const tripId = row[0];
@@ -508,15 +515,13 @@
                     const newCount = currentCount + 1;
                     
                     let invoiced = row[75] ? row[75].split(',') : [];
-                    if (!currentFilter || currentFilter === 'ALL') {
-                        if (row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
-                        if ((parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
-                        if (row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
-                        if ((parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
-                        if ((parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
-                    } else {
-                        if (!invoiced.includes(currentFilter)) invoiced.push(currentFilter);
-                    }
+                    
+                    if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
+                    if (incYard && (parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
+                    if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
+                    if (incRent && (parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
+                    if (incStorage && (parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+                    
                     invoiced = [...new Set(invoiced)].filter(Boolean);
                     const newInvoicedServices = invoiced.join(',');
                     
