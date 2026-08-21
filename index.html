@@ -4662,6 +4662,16 @@
                                 <option value="BOOKING">Booking Number</option>
                             </select>
                         </div>
+                        <div style="display:flex;flex-direction:column;gap:4px;margin-left:10px;border-left:2px solid #e2e8f0;padding-left:15px;">
+                            <label style="font-size:0.7rem;font-weight:800;color:#0ea5e9;text-transform:uppercase;">INCLUDE SERVICES:</label>
+                            <div style="display:flex; gap:10px; align-items:center; height:36px;">
+                                <label style="display:flex;align-items:center;gap:4px;font-weight:700;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="mb-svc-transport" checked onchange="window.openMasterBillingModal(window.currentBillingOrderRows, window.currentMasterInvoiceNo, null, true)"> Transport</label>
+                                <label style="display:flex;align-items:center;gap:4px;font-weight:700;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="mb-svc-rent" checked onchange="window.openMasterBillingModal(window.currentBillingOrderRows, window.currentMasterInvoiceNo, null, true)"> Rent</label>
+                                <label style="display:flex;align-items:center;gap:4px;font-weight:700;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="mb-svc-sales" checked onchange="window.openMasterBillingModal(window.currentBillingOrderRows, window.currentMasterInvoiceNo, null, true)"> Sales</label>
+                                <label style="display:flex;align-items:center;gap:4px;font-weight:700;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="mb-svc-storage" checked onchange="window.openMasterBillingModal(window.currentBillingOrderRows, window.currentMasterInvoiceNo, null, true)"> Storage</label>
+                                <label style="display:flex;align-items:center;gap:4px;font-weight:700;font-size:0.85rem;cursor:pointer;"><input type="checkbox" id="mb-svc-yard" checked onchange="window.openMasterBillingModal(window.currentBillingOrderRows, window.currentMasterInvoiceNo, null, true)"> Yard</label>
+                            </div>
+                        </div>
                         <h3 style="margin:0;color:#1e293b;font-size:1.1rem;margin-left:15px;border-left:2px solid #e2e8f0;padding-left:15px;">
                             <i class="fas fa-file-invoice-dollar" style="color:#1e40af;margin-right:8px;"></i>Invoice Preview
                         </h3>

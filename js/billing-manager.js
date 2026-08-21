@@ -1363,6 +1363,12 @@
         const groupBySelect = document.getElementById('mb-group-by-select');
         const groupBy = groupBySelect ? groupBySelect.value : 'ORDER';
 
+        const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
+        const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
+        const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
+        const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
+        const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
+
         rows.forEach(r => {
             const orderNo = (r[5] || '').toString().toUpperCase();
             const bookingNo = (r[65] && r[65] !== '---') ? r[65].toString().trim().toUpperCase() : '---';
@@ -1438,10 +1444,10 @@
                 }
             }
 
-            if ((fService === '' || fService === 'TRANSPORT') && rTrans > 0 && r[42] === 'YES') {
+            if (incTrans && (fService === '' || fService === 'TRANSPORT') && rTrans > 0 && r[42] === 'YES') {
                 addGroup('TRANSPORT', grpSalesTrans, rTrans, rQty, rTrans * rQty, customKey);
             }
-            if ((fService === '' || fService === 'YARD') && rYard > 0) {
+            if (incYard && (fService === '' || fService === 'YARD') && rYard > 0) {
                 let parsed = false;
                 const sizeHtml = size ? ` <span style="color:#64748b;">(${size})</span>` : '';
                 if (r[12] && r[12] !== '---') {
@@ -1469,14 +1475,14 @@
                     addGroup('YARD', yardServiceName + sizeHtml + locHtml, uCost, rQty, rYard, yKey);
                 }
             }
-            if ((fService === '' || fService === 'SALES') && rSales > 0 && r[43] === 'YES') {
+            if (incSales && (fService === '' || fService === 'SALES') && rSales > 0 && r[43] === 'YES') {
                 const uCost = rSales / rQty;
                 addGroup('SALES', grpSalesTrans, uCost, rQty, rSales, customKey);
             }
-            if ((fService === '' || fService === 'STORAGE') && rStorage > 0) {
+            if (incStorage && (fService === '' || fService === 'STORAGE') && rStorage > 0) {
                 addGroup('STORAGE', grpYardStorageRent, rStorage, 1, rStorage, customKey);
             }
-            if ((fService === '' || fService === 'RENT') && rRent > 0) {
+            if (incRent && (fService === '' || fService === 'RENT') && rRent > 0) {
                 const sizeHtml = size ? ` <span style="color:#64748b;">(${size})</span>` : '';
                 const rKey = customKey ? `${customKey}|CONTAINER_RENTAL` : null;
                 addGroup('RENT', 'CONTAINER RENTAL' + sizeHtml + locHtml, rRent, 1, rRent, rKey);
