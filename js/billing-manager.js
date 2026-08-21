@@ -1311,7 +1311,7 @@
 
         const normStr = (str) => {
             if (!str) return '';
-            return str.toString().toUpperCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
+            return str.toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
         };
 
         let allSameLocations = true;
@@ -1351,7 +1351,8 @@
         };
 
         const addGroup = (srv, booking, unitCost, qty, total, customGroupKey = null) => {
-            const key = customGroupKey ? `${customGroupKey}|${unitCost}` : (booking && booking !== '---' ? `B|${booking}|${unitCost}` : `NB|${unitCost}`);
+            const costStr = Number(unitCost).toFixed(2);
+            const key = customGroupKey ? `${customGroupKey}|${costStr}` : (booking && booking !== '---' ? `B|${booking}|${costStr}` : `NB|${costStr}`);
             if (!serviceGroups[srv][key]) {
                 serviceGroups[srv][key] = { booking: booking && booking !== '---' ? booking : null, unitCost, qty: 0, total: 0 };
             }
@@ -1364,7 +1365,7 @@
 
         rows.forEach(r => {
             const orderNo = (r[5] || '').toString().toUpperCase();
-            const bookingNo = (r[65] && r[65] !== '---') ? r[65].toString().trim() : '---';
+            const bookingNo = (r[65] && r[65] !== '---') ? r[65].toString().trim().toUpperCase() : '---';
             const containerNo = (r[3] && r[3] !== '---') ? r[3].toString().trim() : '---';
             const size = (r[2] && r[2] !== '---') ? r[2].toString().trim() : '';
             
@@ -1483,7 +1484,13 @@
         });
 
         const renderService = (srv, title, prefixKey) => {
-            const keys = Object.keys(serviceGroups[srv]);
+            const keys = Object.keys(serviceGroups[srv]).sort((a, b) => {
+                const grpA = serviceGroups[srv][a];
+                const grpB = serviceGroups[srv][b];
+                const descA = grpA.booking ? grpA.booking.toString() : '';
+                const descB = grpB.booking ? grpB.booking.toString() : '';
+                return descA.localeCompare(descB);
+            });
             if (keys.length === 0) return;
             
             const isFirst = (activeServices === 0);
