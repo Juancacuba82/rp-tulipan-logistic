@@ -1214,12 +1214,53 @@
     };
 
 
-    window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false) {
+    window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false, preselectedServices = null, isReadOnly = false, preselectedGroupBy = null) {
         if (isPreviewOnly === 'RETAIN') {
             isPreviewOnly = window.currentMasterBillingIsPreview || false;
         } else {
             window.currentMasterBillingIsPreview = isPreviewOnly;
+            
+            const cbTrans = document.getElementById('mb-svc-transport');
+            const cbRent = document.getElementById('mb-svc-rent');
+            const cbSales = document.getElementById('mb-svc-sales');
+            const cbStorage = document.getElementById('mb-svc-storage');
+            const cbYard = document.getElementById('mb-svc-yard');
+
+            if (preselectedServices) {
+                const s = preselectedServices.toUpperCase();
+                if (cbTrans) cbTrans.checked = s.includes('TRANSPORT');
+                if (cbRent) cbRent.checked = s.includes('RENT');
+                if (cbSales) cbSales.checked = s.includes('SALES');
+                if (cbStorage) cbStorage.checked = s.includes('STORAGE');
+                if (cbYard) cbYard.checked = s.includes('YARD');
+            } else if (isPreviewOnly !== 'BULK') {
+                if (cbTrans) cbTrans.checked = false;
+                if (cbRent) cbRent.checked = false;
+                if (cbSales) cbSales.checked = false;
+                if (cbStorage) cbStorage.checked = false;
+                if (cbYard) cbYard.checked = false;
+            }
+
+            const groupBySelect = document.getElementById('mb-group-by-select');
+
+            if (preselectedGroupBy && groupBySelect) {
+                groupBySelect.value = preselectedGroupBy;
+            } else if (isPreviewOnly !== 'BULK' && groupBySelect) {
+                groupBySelect.value = 'ORDER'; // Default to order for fresh opens
+            }
+
+            if (cbTrans) cbTrans.disabled = isReadOnly;
+            if (cbRent) cbRent.disabled = isReadOnly;
+            if (cbSales) cbSales.disabled = isReadOnly;
+            if (cbStorage) cbStorage.disabled = isReadOnly;
+            if (cbYard) cbYard.disabled = isReadOnly;
+            
+            if (groupBySelect) {
+                groupBySelect.disabled = isReadOnly;
+                groupBySelect.style.backgroundColor = isReadOnly ? '#f1f5f9' : 'white';
+            }
         }
+
         let rows = overrideRows || window.billingRows || [];
         
         if (!overrideRows) {
@@ -1618,7 +1659,16 @@
                 const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
                 const tripIds = (window.currentBillingOrderRows || []).map(r => r[0]).filter(Boolean);
-                const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                
+                const selectedServices = [];
+                if (document.getElementById('mb-svc-transport')?.checked) selectedServices.push('TRANSPORT');
+                if (document.getElementById('mb-svc-rent')?.checked) selectedServices.push('RENT');
+                if (document.getElementById('mb-svc-sales')?.checked) selectedServices.push('SALES');
+                if (document.getElementById('mb-svc-storage')?.checked) selectedServices.push('STORAGE');
+                if (document.getElementById('mb-svc-yard')?.checked) selectedServices.push('YARD');
+                const groupByVal = document.getElementById('mb-group-by-select')?.value || 'ORDER';
+                let svcFilter = selectedServices.join(',') || (document.getElementById('bc-f-service')?.value || '');
+                svcFilter += `|GROUP:${groupByVal}`;
                 
                 await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
                 
@@ -1769,14 +1819,15 @@
                 const singleRow = rows[i];
                 
                 // Silently open the modal to generate the HTML
-                window.openMasterBillingModal([singleRow], null, customer);
+                window.openMasterBillingModal([singleRow], null, customer, 'BULK');
                 
                 const invNo = window.currentMasterInvoiceNo;
                 const totalText = document.getElementById('mb-total')?.textContent || '0';
                 const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
                 const tripIds = [singleRow[0]]; // Only this row
-                const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                let svcFilter = document.getElementById('bc-f-service')?.value || '';
+                svcFilter += '|GROUP:ORDER';
 
                 if (window.addInvoiceToReceivables) {
                     await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
@@ -1891,7 +1942,7 @@
                 const singleRow = rows[i];
                 
                 // Silently open the modal to generate the HTML and layout
-                window.openMasterBillingModal([singleRow], null, customer);
+                window.openMasterBillingModal([singleRow], null, customer, 'BULK');
                 
                 const invNo = window.currentMasterInvoiceNo;
                 const masterTitle = singleRow[65] && singleRow[65] !== '---' ? `BOOKING ${singleRow[65]}` : `ORDER ${singleRow[5] || ''}`;
@@ -1927,7 +1978,8 @@
                     const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
                     const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
                     const tripIds = [singleRow[0]];
-                    const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                    let svcFilter = document.getElementById('bc-f-service')?.value || '';
+                    svcFilter += '|GROUP:ORDER';
                     await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
                 }
 

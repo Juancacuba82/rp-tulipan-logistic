@@ -190,7 +190,7 @@ window.renderReceivables = function () {
                 
                 let orderNoExtracted = '';
                 const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids);
-                if (extractedOrders) {
+                if (extractedOrders && !extractedOrders.includes(',')) {
                     orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">(${extractedOrders})</span>`;
                 }
 
@@ -265,7 +265,7 @@ window.renderReceivables = function () {
                 
                 let orderNoExtracted = '';
                 const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids);
-                if (extractedOrders) {
+                if (extractedOrders && !extractedOrders.includes(',')) {
                     orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">(${extractedOrders})</span>`;
                 }
 
@@ -668,150 +668,46 @@ window.openReceivablePreview = function (id) {
 
     const invoiceNumber = inv.invoice_number;
     const customerName = inv.customer_name;
-    const totalAmount = inv.total_amount;
-    const date = inv.date_generated ? new Date(inv.date_generated).toLocaleDateString() : 'N/A';
-    const status = inv.status;
-    const paymentMethod = inv.payment_method || '';
-    const paidDate = inv.paid_date || '';
 
-    let detailsContent = inv.details_html || `
-        <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
-            <thead>
-                <tr style="border-bottom:2px solid #e2e8f0; color:#64748b; font-size:0.8rem; text-transform:uppercase;">
-                    <th style="text-align:left; padding:10px 0;">Description</th>
-                    <th style="text-align:right; padding:10px 0;">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr style="border-bottom:1px solid #f1f5f9;">
-                    <td style="padding:15px 0; color:#0f172a; font-weight:700;">Balance Forward / Services Rendered</td>
-                    <td style="padding:15px 0; color:#0f172a; font-weight:900; text-align:right;">$${parseFloat(totalAmount).toFixed(2)}</td>
-                </tr>
-            </tbody>
-        </table>
-    `;
-
-    let existing = document.getElementById('recv-preview-modal');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'recv-preview-modal';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.7)';
-    overlay.style.backdropFilter = 'blur(4px)';
-    overlay.style.zIndex = '9999';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-
-    const modal = document.createElement('div');
-    modal.style.backgroundColor = 'white';
-    modal.style.borderRadius = '16px';
-    modal.style.padding = '40px';
-    modal.style.width = '700px';
-    modal.style.maxWidth = '90vw';
-    modal.style.maxHeight = '90vh';
-    modal.style.overflowY = 'auto';
-    modal.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
-    modal.style.fontFamily = "'Outfit', sans-serif";
-
-    let paidInfo = '';
-    if (status === 'Paid') {
-        const pd = paidDate ? new Date(paidDate).toLocaleDateString() : 'N/A';
-        paidInfo = `
-            <div style="background:#ecfdf5; padding:15px; border-radius:10px; margin-top:20px; border:1px solid #10b981; display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <h4 style="margin:0; color:#065f46; font-size:0.9rem;">PAYMENT RECEIVED</h4>
-                    <p style="margin:5px 0 0; color:#047857; font-size:0.8rem;">Method: <strong>${paymentMethod}</strong> | Date: <strong>${pd}</strong></p>
-                </div>
-                <i class="fas fa-check-circle" style="color:#10b981; font-size:2rem;"></i>
-            </div>
-        `;
+    if (!inv.trip_ids) {
+        alert('This invoice record does not have associated trip data and cannot be opened in the main billing modal. Please use the Billing module.');
+        return;
     }
 
-    let html = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #e2e8f0; padding-bottom:20px; margin-bottom:20px;">
-            <div>
-                <h1 style="margin:0; color:#0f172a; font-size:1.8rem; font-weight:900;">INVOICE PREVIEW</h1>
-                <p style="margin:5px 0 0; color:#64748b; font-size:0.95rem;">Invoice #: <strong style="color:#0f172a;">${invoiceNumber}</strong></p>
-            </div>
-            <div style="text-align:right;">
-                <h3 style="margin:0; color:#64748b; font-size:0.8rem; text-transform:uppercase;">Status</h3>
-                <span style="display:inline-block; margin-top:5px; padding:5px 12px; border-radius:20px; font-weight:900; font-size:0.8rem; 
-                    ${status === 'Paid' ? 'background:#ecfdf5; color:#10b981;' : 'background:#fef2f2; color:#ef4444;'}">
-                    ${status}
-                </span>
-            </div>
-        </div>
-
-        <div style="margin-bottom:30px;">
-            <h4 style="margin:0 0 10px; color:#64748b; font-size:0.8rem; text-transform:uppercase;">Bill To</h4>
-            <p style="margin:0; font-size:1.2rem; font-weight:900; color:#0f172a;">${customerName}</p>
-            <p style="margin:5px 0 0; color:#64748b; font-size:0.9rem;">Date Generated: ${date}</p>
-        </div>
-
-        <div style="background:#f8fafc; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #e2e8f0;">
-            <h4 style="margin:0 0 15px; color:#0f172a; font-size:1rem; border-bottom:1px solid #cbd5e1; padding-bottom:10px;">SERVICES BILLED</h4>
-            <div class="billing-details-wrapper" style="font-size:0.9rem;">
-                ${detailsContent}
-            </div>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:20px; border-radius:10px; color:white;">
-            <span style="font-weight:900; font-size:1.2rem;">GRAND TOTAL</span>
-            <span style="font-weight:900; color:#38bdf8; font-size:1.5rem;">$${parseFloat(totalAmount).toFixed(2)}</span>
-        </div>
-
-        ${paidInfo}
-
-        <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:center;">
-            <button id="btn-resend-invoice" class="glossy-blue-btn" style="padding:10px 30px;"><i class="fas fa-paper-plane"></i> RESEND EMAIL</button>
-            <button id="btn-close-preview" class="glossy-dark-btn" style="padding:10px 30px;">CLOSE</button>
-        </div>
-    `;
-
-    modal.innerHTML = html;
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    document.getElementById('btn-close-preview').onclick = () => overlay.remove();
-
-    document.getElementById('btn-resend-invoice').onclick = () => {
-        if (!inv.trip_ids) {
-            alert('This invoice record does not have associated trip data and cannot be resent automatically from here. Please use the Billing module.');
+    const tripIds = inv.trip_ids.split(',').map(id => id.trim());
+    
+    // Ensure combinedBillingTrips is available (usually loaded with billing)
+    if (!window.combinedBillingTrips || window.combinedBillingTrips.length === 0) {
+        if (window.compileCombinedBillingTrips) {
+            window.compileCombinedBillingTrips();
+        } else {
+            alert("Please open the BILLING tab first to initialize the billing data, then come back here.");
             return;
         }
+    }
 
-        const tripIds = inv.trip_ids.split(',').map(id => id.trim());
-        
-        // Ensure combinedBillingTrips is available (usually loaded with billing)
-        if (!window.combinedBillingTrips || window.combinedBillingTrips.length === 0) {
-            if (window.compileCombinedBillingTrips) {
-                window.compileCombinedBillingTrips();
+    const rows = (window.combinedBillingTrips || []).filter(r => tripIds.includes(r[0]));
+    if (rows.length === 0) {
+        alert("Could not find the original orders for this invoice. They might have been deleted.");
+        return;
+    }
+
+    // Open the Master Billing Modal with the exact rows and original invoice number
+    if (window.openMasterBillingModal) {
+        let preselected = 'TRANSPORT,RENT,SALES,STORAGE,YARD';
+        let groupBy = 'ORDER';
+        const svcType = inv.service_type || '';
+        if (svcType) {
+            if (svcType.includes('|GROUP:')) {
+                const parts = svcType.split('|GROUP:');
+                preselected = parts[0] || preselected;
+                groupBy = parts[1] || 'ORDER';
             } else {
-                alert("Please open the BILLING tab first to initialize the billing data, then come back here.");
-                return;
+                preselected = svcType;
             }
         }
-
-        const rows = (window.combinedBillingTrips || []).filter(r => tripIds.includes(r[0]));
-        if (rows.length === 0) {
-            alert("Could not find the original orders for this invoice. They might have been deleted.");
-            return;
-        }
-
-        // Close this preview modal
-        overlay.remove();
-
-        // Open the Master Billing Modal with the exact rows and original invoice number
-        if (window.openMasterBillingModal) {
-            window.openMasterBillingModal(rows, invoiceNumber, customerName);
-        } else {
-            alert("Billing module is not fully loaded.");
-        }
-    };
+        window.openMasterBillingModal(rows, invoiceNumber, customerName, false, preselected, true, groupBy);
+    } else {
+        alert("Billing module is not fully loaded.");
+    }
 };
