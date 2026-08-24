@@ -3110,7 +3110,7 @@ window.openCalendarPdfModal = function() {
         
         modalHtml += `
             <label style="display:flex; align-items:center; gap:10px; margin-bottom:8px; cursor:pointer; font-size:0.9rem; color:#1e293b;">
-                <input type="checkbox" class="pdf-col-checkbox" value="${index}" checked style="width:16px; height:16px; accent-color:#0ea5e9; cursor:pointer;">
+                <input type="checkbox" class="pdf-col-checkbox" value="${index}" style="width:16px; height:16px; accent-color:#0ea5e9; cursor:pointer;">
                 ${colName}
             </label>
         `;
