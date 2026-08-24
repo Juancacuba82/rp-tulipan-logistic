@@ -1760,7 +1760,8 @@
             if (window.sendBillingEmailWithValidation) {
                 // Ensure we use the exact rows that were rendered in the modal
                 // (currentBillingOrderRows is already correctly set by viewMasterBilling or previewSingleRowInvoice)
-                await window.sendBillingEmailWithValidation(btn);
+                const numPDFs = parseInt(document.getElementById('mb-pdf-count-select')?.value || '3', 10);
+                await window.sendBillingEmailWithValidation(btn, numPDFs);
             } else {
                 await new Promise(r => setTimeout(r, 1500));
                 if (window.showToast) window.showToast('Factura enviada exitosamente!', 'success');
@@ -2031,11 +2032,11 @@
         const bZelle = document.getElementById('mb-bank-zelle');
 
         if (companyId === 'JR_SUPER_CRANE') {
-            nameEl.textContent = 'JR SUPER CRANE TRANSPORT INC';
+            nameEl.textContent = 'JR SUPER CRANE INC';
             addrEl.textContent = '9804 NW 80th Ave, Hialeah Gardens FL 33016';
             bName.textContent = 'Bank Of America';
-            bCompany.textContent = 'JR SUPER CRANE TRANSPORT INC';
-            bAccount.textContent = '898111245429';
+            bCompany.textContent = 'JR SUPER CRANE INC';
+            bAccount.textContent = '898150886519';
             bRouting.textContent = '063100277';
             bSwift.textContent = 'BOFAUS3N';
             bAddr.textContent = '900 W 49 ST, Hialeah, FL 33012';

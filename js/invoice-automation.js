@@ -217,7 +217,7 @@
      * Sends the 3-PDF invoice package and updates tracking columns in Supabase.
      * @param {Array}  row  - trip data row
      */
-    async function sendInvoiceForRow(row, mode = 'manual') {
+    async function sendInvoiceForRow(row, mode = 'manual', numPDFs = 3) {
         if (!window.sendThreePDFEmail) throw new Error('Email service not loaded');
 
         const tripId = row[0];
@@ -234,8 +234,8 @@
         // We render off-screen so we can capture the invoice PDF
         await prepareInvoicePreviewForRow(row);
 
-        // Send the 3 PDFs
-        await window.sendThreePDFEmail([row]);
+        // Send the requested number of PDFs
+        await window.sendThreePDFEmail([row], numPDFs);
 
         // Update tracking fields
         const now = new Date().toISOString();
@@ -331,7 +331,7 @@
      * Wraps the existing sendBillingEmail to add validation + clock reset.
      * Called from the SEND EMAIL button inside the detail modal.
      */
-    window.sendBillingEmailWithValidation = async function (externalBtn = null) {
+    window.sendBillingEmailWithValidation = async function (externalBtn = null, numPDFs = 3) {
         const rows = window.currentBillingOrderRows;
         if (!rows || rows.length === 0) return;
 
@@ -391,7 +391,7 @@
         const isMasterInvoice = rows.length > 1;
         
         if (isMasterInvoice) {
-            await executeMasterInvoiceSendProcess(rows, btn);
+            await executeMasterInvoiceSendProcess(rows, btn, numPDFs);
             return;
         }
 
@@ -399,7 +399,7 @@
         if (!validation.ok) {
             const force = await showValidationBlockModal(row, validation.reasons);
             if (force) {
-                await executeManualSendProcess(row, btn);
+                await executeManualSendProcess(row, btn, numPDFs);
             } else {
                 if (btn) {
                     btn.disabled = false;
@@ -410,10 +410,10 @@
             return;
         }
 
-        await executeManualSendProcess(row, btn);
+        await executeManualSendProcess(row, btn, numPDFs);
     };
 
-    async function executeMasterInvoiceSendProcess(rows, btn) {
+    async function executeMasterInvoiceSendProcess(rows, btn, numPDFs = 3) {
         let customerEmail = document.getElementById('bd-email')?.value || rows[0][36] || '';
         if (!customerEmail || !customerEmail.includes('@')) {
             alert('Please enter a valid email address in the detail window.');
@@ -459,17 +459,21 @@
 
         try {
 
-            // Generate Master PDF
-            if (!window.generateMasterInvoiceBlob) throw new Error('Master invoice generator not found');
-            const pdfBlob = await window.generateMasterInvoiceBlob();
-            if (!pdfBlob) throw new Error('Failed to generate PDF');
+            // 1. Master Invoice PDF
+            let b64Pdf = "";
+            let invoiceBlob = null;
+            if (numPDFs !== 4) {
+                if (!window.generateMasterInvoiceBlob) throw new Error('Master invoice generator not found');
+                invoiceBlob = await window.generateMasterInvoiceBlob();
+                if (!invoiceBlob) throw new Error('Failed to generate PDF');
 
-            const reader = new FileReader();
-            const b64Promise = new Promise(resolve => {
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.readAsDataURL(pdfBlob);
-            });
-            const b64Pdf = await b64Promise;
+                const reader = new FileReader();
+                const b64Promise = new Promise(resolve => {
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(invoiceBlob);
+                });
+                b64Pdf = await b64Promise;
+            }
             
             const serviceId = localStorage.getItem('ejs_service_id') || 'service_pwwi83e';
             const templateId = localStorage.getItem('ejs_invoice_template_id') || localStorage.getItem('ejs_template_id') || 'template_v8a5z0d';
@@ -481,13 +485,49 @@
             
             emailjs.init(publicKey);
             
+            // 2. Receipt PDF
+            let base64Recibo = "";
+            if (numPDFs >= 2 && window.htmlToPDFBlob && window.getTripReceiptContent) {
+                const selectedCompany = (document.getElementById('mb-billing-company-select')?.value || 'RP TULIPAN TRANSPORT INC');
+                const companyOverrideOpts = { companyOverride: selectedCompany };
+                let combinedReceiptHtml = '';
+                for (let i = 0; i < rows.length; i++) {
+                    if (i > 0) combinedReceiptHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
+                    combinedReceiptHtml += window.getTripReceiptContent(rows[i], { excludePhotos: true, ...companyOverrideOpts });
+                }
+                const receiptBlob = await window.htmlToPDFBlob(combinedReceiptHtml, 'p');
+                if (receiptBlob) {
+                    const rReader = new FileReader();
+                    base64Recibo = await new Promise(resolve => {
+                        rReader.onloadend = () => resolve(rReader.result.split(',')[1]);
+                        rReader.readAsDataURL(receiptBlob);
+                    });
+                }
+            }
+
+            // 3. Photos PDF
+            let base64Fotos = "";
+            if (numPDFs >= 3 && window.generateNativePhotosPDFBlob) {
+                const selectedCompany = (document.getElementById('mb-billing-company-select')?.value || 'RP TULIPAN TRANSPORT INC');
+                const companyOverrideOpts = { companyOverride: selectedCompany };
+                const photosBlob = await window.generateNativePhotosPDFBlob(rows, companyOverrideOpts);
+                if (photosBlob) {
+                    const pReader = new FileReader();
+                    base64Fotos = await new Promise(resolve => {
+                        pReader.onloadend = () => resolve(pReader.result.split(',')[1]);
+                        pReader.readAsDataURL(photosBlob);
+                    });
+                }
+            }
+            
             const templateParams = {
                 to_email: customerEmail,
                 customer_name: rows[0][11] || 'Customer',
                 order_number: masterTitle,
                 grand_total: grandTotalStr,
                 adjunto_invoice: b64Pdf, // For newer templates
-                adjunto_fotos: ""
+                adjunto_recibo: base64Recibo,
+                adjunto_fotos: base64Fotos
             };
             
             await emailjs.send(serviceId, templateId, templateParams, publicKey);
@@ -561,7 +601,7 @@
         }
     }
 
-    async function executeManualSendProcess(row, btn) {
+    async function executeManualSendProcess(row, btn, numPDFs = 3) {
         // ── 2. Confirm send ──────────────────────────────────
         const customerEmail = row[36];
         const orderNo = (row[5] || 'N/A').toString();
@@ -590,7 +630,7 @@
         row[36] = targetEmail;
 
         try {
-            await sendInvoiceForRow(row, 'manual');
+            await sendInvoiceForRow(row, 'manual', numPDFs);
             
             if (window.showToast) window.showToast('✅ Invoice sent & tracking updated!', 'success');
             else alert(`Invoice package sent to ${customerEmail}!`);

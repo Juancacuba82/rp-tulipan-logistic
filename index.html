@@ -4755,9 +4755,17 @@
 
                     <!-- Actions -->
                     <div id="mb-actions-container" data-html2canvas-ignore="true" style="display:flex;justify-content:flex-end;gap:15px;border-top:1px solid #e2e8f0;padding-top:30px;margin-top:30px;flex-wrap:wrap;">
-                        <button id="mb-btn-send-email" onclick="sendFilteredInvoiceEmail()" class="glossy-violet-btn">
-                            <i class="fas fa-paper-plane"></i> SEND EMAIL (3 PDFS)
-                        </button>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <select id="mb-pdf-count-select" style="padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: Outfit; font-weight: 700; outline: none; cursor: pointer; color: #1e293b; font-size: 0.9rem;">
+                                <option value="3" selected>3 PDFs (Factura + Recibo + Fotos)</option>
+                                <option value="2">2 PDFs (Factura + Recibo)</option>
+                                <option value="1">1 PDF (Solo Factura)</option>
+                                <option value="4">2 PDFs (Solo Recibo + Fotos)</option>
+                            </select>
+                            <button id="mb-btn-send-email" onclick="sendFilteredInvoiceEmail()" class="glossy-violet-btn">
+                                <i class="fas fa-paper-plane"></i> ENVIAR INVOICE
+                            </button>
+                        </div>
                         <button id="mb-btn-download-pdf" onclick="downloadFilteredInvoicePDF()" class="glossy-red-btn" style="background:linear-gradient(135deg, #e11d48, #be123c);color:white;border:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;box-shadow:0 10px 20px rgba(225,29,72,0.3);">
                             <i class="fas fa-download"></i> DOWNLOAD INVOICE PDF
                         </button>

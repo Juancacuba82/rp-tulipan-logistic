@@ -313,7 +313,7 @@
         if (options.companyOverride === 'JR SUPER CRANE' || options.companyOverride === 'JR_SUPER_CRANE') {
             isJrSuperCrane = true;
         }
-        const companyName = isJrSuperCrane ? 'JR SUPER CRANE TRANSPORT INC' : 'RP TULIPAN TRANSPORT INC';
+        const companyName = isJrSuperCrane ? 'JR SUPER CRANE INC' : 'RP TULIPAN TRANSPORT INC';
         
         const pw = pdf.internal.pageSize.getWidth();
         const ph = pdf.internal.pageSize.getHeight();
@@ -439,7 +439,7 @@
      *   3. Photos-only document
      * @param {Array[]} rows - Array of trip rows for the same order
      */
-    window.sendThreePDFEmail = async function (rows) {
+    window.sendThreePDFEmail = async function (rows, numPDFs = 3) {
         if (!rows || rows.length === 0) throw new Error('No row data provided');
 
         const mainRow = rows[0];
@@ -448,47 +448,61 @@
         const ts      = Date.now();
 
         // Read the selected billing company from the UI selector
-        const selectedCompany = (document.getElementById('bm-company-selector')?.value || 'RP TULIPAN TRANSPORT INC');
+        const selectedCompany = (document.getElementById('mb-billing-company-select')?.value || 'RP TULIPAN TRANSPORT INC');
         const companyOverrideOpts = { companyOverride: selectedCompany };
 
         // ── 1. Master Invoice PDF ─────────────────────────────
-        console.log('[3-PDF] Generating Master Invoice PDF...');
-        const invoiceBlob = await window.generateMasterInvoiceBlob();
-        if (!invoiceBlob) throw new Error('Could not generate Master Invoice PDF');
+        let invoiceBlob = null;
+        if (numPDFs !== 4) {
+            console.log('[3-PDF] Generating Master Invoice PDF...');
+            invoiceBlob = await window.generateMasterInvoiceBlob();
+            if (!invoiceBlob) throw new Error('Could not generate Master Invoice PDF');
+        }
 
         // ── 2. Receipt (no photos) PDF ────────────────────────
-        console.log('[3-PDF] Generating Receipt (no photos) PDF...');
         let receiptBlob = null;
-        if (window.getTripReceiptContent) {
-            let combinedReceiptHtml = '';
-            for (let i = 0; i < rows.length; i++) {
-                if (i > 0) {
-                    combinedReceiptHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
+        if (numPDFs >= 2) {
+            console.log('[3-PDF] Generating Receipt (no photos) PDF...');
+            if (window.getTripReceiptContent) {
+                let combinedReceiptHtml = '';
+                for (let i = 0; i < rows.length; i++) {
+                    if (i > 0) {
+                        combinedReceiptHtml += '<div style="height: 40px; background: #f1f5f9; margin: 40px 0; border-top: 2px dashed #94a3b8; border-bottom: 2px dashed #94a3b8; text-align: center; line-height: 40px; font-weight: bold; color: #64748b; font-family: sans-serif;">--- NEXT CONTAINER ---</div>';
+                    }
+                    combinedReceiptHtml += window.getTripReceiptContent(rows[i], { excludePhotos: true, ...companyOverrideOpts });
                 }
-                combinedReceiptHtml += window.getTripReceiptContent(rows[i], { excludePhotos: true, ...companyOverrideOpts });
+                receiptBlob = await htmlToPDFBlob(combinedReceiptHtml, 'p');
+            } else {
+                // Fallback: use the standard PDF generator with no-photos flag
+                receiptBlob = await window.generatePDFFromData(mainRow, { excludePhotos: true });
             }
-            receiptBlob = await htmlToPDFBlob(combinedReceiptHtml, 'p');
-        } else {
-            // Fallback: use the standard PDF generator with no-photos flag
-            receiptBlob = await window.generatePDFFromData(mainRow, { excludePhotos: true });
+            if (!receiptBlob) throw new Error('Could not generate Receipt PDF');
         }
-        if (!receiptBlob) throw new Error('Could not generate Receipt PDF');
 
         // ── 3. Photos-only PDF ────────────────────────────────
-        console.log('[3-PDF] Generating Photos PDF (native)...');
-        let photosBlob = await generateNativePhotosPDFBlob(rows, companyOverrideOpts);
-        
-        if (!photosBlob) {
-            console.log('No photos found for these orders, skipping photos PDF');
+        let photosBlob = null;
+        if (numPDFs >= 3) {
+            console.log('[3-PDF] Generating Photos PDF (native)...');
+            photosBlob = await generateNativePhotosPDFBlob(rows, companyOverrideOpts);
+            
+            if (!photosBlob) {
+                console.log('No photos found for these orders, skipping photos PDF');
+            }
         }
 
-        // ── Upload all 3 to Supabase ──────────────────────────
+        // ── Upload all to Supabase ──────────────────────────
         console.log('[3-PDF] Uploading to Supabase...');
-        const [invoiceUrl, receiptUrl, photosUrl] = await Promise.all([
-            uploadPDFToSupabase(invoiceBlob,  `invoice_${orderNo}_${tripId}_${ts}.pdf`),
-            uploadPDFToSupabase(receiptBlob,  `receipt_${orderNo}_${tripId}_${ts}.pdf`),
-            uploadPDFToSupabase(photosBlob,   `photos_${orderNo}_${tripId}_${ts}.pdf`)
-        ]);
+        const uploadPromises = [];
+        if (invoiceBlob) uploadPromises.push(uploadPDFToSupabase(invoiceBlob,  `invoice_${orderNo}_${tripId}_${ts}.pdf`));
+        else uploadPromises.push(Promise.resolve(null));
+        
+        if (receiptBlob) uploadPromises.push(uploadPDFToSupabase(receiptBlob,  `receipt_${orderNo}_${tripId}_${ts}.pdf`));
+        else uploadPromises.push(Promise.resolve(null));
+        
+        if (photosBlob) uploadPromises.push(uploadPDFToSupabase(photosBlob,   `photos_${orderNo}_${tripId}_${ts}.pdf`));
+        else uploadPromises.push(Promise.resolve(null));
+
+        const [invoiceUrl, receiptUrl, photosUrl] = await Promise.all(uploadPromises);
 
         console.log('[3-PDF] Upload complete.', { invoiceUrl, receiptUrl, photosUrl });
 
@@ -502,7 +516,7 @@
         });
 
         const base64Invoice = await blobToBase64(invoiceBlob);
-        const base64Recibo = await blobToBase64(receiptBlob);
+        const base64Recibo = receiptBlob ? await blobToBase64(receiptBlob) : '';
         const base64Fotos = photosBlob ? await blobToBase64(photosBlob) : '';
 
         // ── Send via EmailJS ──────────────────────────────────
