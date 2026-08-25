@@ -354,27 +354,11 @@
             let logisticsData = [];
             if (window.getAllTripsForProfit) {
                 const financialData = await window.getAllTripsForProfit(dateFrom, dateTo);
-                logisticsData = financialData.map(t => {
-                    const row = new Array(63).fill('---');
-                    row[1]  = t.date || '---';
-                    row[41] = t.status || 'PENDING_PAYMENT';
-                    row[53] = t.qty || 1;
-                    row[20] = t.sales_price || 0;
-                    row[12] = t.yard_services || 'NO';
-                    row[13] = t.yard_rate || 0;
-                    row[14] = t.price_per_day || 0;
-                    row[15] = t.date_out || '---';
-                    row[18] = t.trans_pay || 0;
-                    row[16] = t.company || '---';
-                    row[42] = (t.has_trans === 'YES' || t.has_trans === true) ? 'YES' : 'NO';
-                    row[43] = (t.has_sales === 'YES' || t.has_sales === true) ? 'YES' : 'NO';
-                    row[4]  = t.release_no || '---';
-                    row[2]  = t.size || '---';
-                    row[49] = t.take_tax || false;
-                    row[58] = t.container_source || 'RELEASE';
-                    row[59] = t.yard_item_id || '';
-                    return row;
-                });
+                if (typeof window.mapTripToArray === 'function') {
+                    logisticsData = financialData.map(window.mapTripToArray);
+                } else {
+                    console.error("mapTripToArray not found!");
+                }
             } else {
                 logisticsData = tripsData || window.currentTrips || [];
             }
@@ -422,11 +406,32 @@
 
                 // Date filter
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
-                    const serviceMode = (row[60] || '').toString().toUpperCase();
+                    const serviceMode = (row[26] || '').toString().toUpperCase();
                     if (serviceMode === 'RENTAL INVOICE') {
                         const rentVal = parseFloat(row[27]) || 0;
                         totals.rentals += rentVal;
                         return; // Skip standard processing
+                    }
+                    if (serviceMode === 'YARD INVOICE') {
+                        try {
+                            const yardServicesStr = row[12];
+                            if (yardServicesStr && yardServicesStr !== '---') {
+                                const snapshot = JSON.parse(yardServicesStr);
+                                if (snapshot && snapshot.items) {
+                                    snapshot.items.forEach(item => {
+                                        const itemTotal = parseFloat(item.item_total) || 0;
+                                        if (item.yard_type === 'STORAGE') {
+                                            totals.storageYard += itemTotal;
+                                        } else {
+                                            totals.storageTulipan += itemTotal;
+                                        }
+                                    });
+                                }
+                            }
+                        } catch (e) {
+                            console.warn("Could not parse YARD INVOICE snapshot", e);
+                        }
+                        return; // Skip standard processing since all revenue is in the snapshot
                     }
                     
                     const qty        = parseInt(row[53]) || 1;  // index 53: qty
@@ -533,69 +538,8 @@
                 }
             });
 
-            // 2.5 Process Yard Stock Storage Costs
-            let storageTulipanTotal = 0;
-            let storageYardTotal = 0;
-            if (window.db) {
-                try {
-                    const { data: yardStockData, error: yErr } = await window.db
-                        .from('yard_stock')
-                        .select('*');
-                    
-                    if (!yErr && yardStockData) {
-                        let dFromUTC = dateFrom ? Date.UTC(parseInt(dateFrom.split('-')[0]), parseInt(dateFrom.split('-')[1]) - 1, parseInt(dateFrom.split('-')[2])) : null;
-                        let dToUTC = dateTo ? Date.UTC(parseInt(dateTo.split('-')[0]), parseInt(dateTo.split('-')[1]) - 1, parseInt(dateTo.split('-')[2])) : null;
-
-                        yardStockData.forEach(item => {
-                            const parsed = parseYardNotes(item.notes);
-                            const entryDate = new Date(item.created_at || new Date());
-                            const endDate = item.exit_date ? new Date(item.exit_date + 'T12:00:00') : new Date();
-                            
-                            const d1 = Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-                            const d2 = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-                            
-                            // Intersection for Storage Days
-                            let overlapStart = d1;
-                            let overlapEnd = d2;
-                            
-                            if (dFromUTC && overlapStart < dFromUTC) overlapStart = dFromUTC;
-                            if (dToUTC && overlapEnd > dToUTC) overlapEnd = dToUTC;
-                            
-                            let overlapDays = 0;
-                            if (overlapStart <= overlapEnd) {
-                                overlapDays = Math.max(0, Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)));
-                            }
-                            
-                            const accumStorage = (item.daily_rate || 0) * overlapDays;
-                            
-                            // For One-Time Fees (entry_fee, lift_cost), we check if the entry date falls within the filter
-                            let oneTimeFees = 0;
-                            let isInFilter = true;
-                            if (dFromUTC && d1 < dFromUTC) isInFilter = false;
-                            if (dToUTC && d1 > dToUTC) isInFilter = false;
-                            
-                            if (isInFilter) {
-                                oneTimeFees += (item.entry_fee || 0);
-                                oneTimeFees += ((item.lifts || 1) * (item.lift_cost || 0));
-                            }
-                            
-                            const totalCost = accumStorage + oneTimeFees;
-                            
-                            if (totalCost > 0) {
-                                if (parsed.isStorage) {
-                                    storageYardTotal += totalCost;
-                                } else {
-                                    storageTulipanTotal += totalCost;
-                                }
-                            }
-                        });
-                    }
-                } catch (err) {
-                    console.error("Error fetching yard stock for profit report:", err);
-                }
-            }
-            totals.storageTulipan = storageTulipanTotal;
-            totals.storageYard = storageYardTotal;
+            // 2.5 Process Yard Stock Storage Costs - REMOVED
+            // Yard Stock is now calculated directly from YARD INVOICE trips (Accounts Receivable) in step 1 above.
 
             // 3. Final Summaries
             const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0);

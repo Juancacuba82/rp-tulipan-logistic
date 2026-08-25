@@ -1010,23 +1010,29 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
                     // Snapshot items so the PDF can be rebuilt from Billing + Store payment intent
                     const invoiceSnapshot = JSON.stringify({
-                        items: itemsToInvoice.map(i => ({
-                            id: i.id,
-                            container_no: i.container_no,
-                            size: i.size,
-                            type: i.type,
-                            condition: i.condition,
-                            created_at: i.created_at,
-                            exit_date: i.exit_date,
-                            origin_release: i.origin_release,
-                            order_out: i.order_out,
-                            daily_rate: i.daily_rate,
-                            lift_cost: i.lift_cost,
-                            lifts: i.lifts,
-                            last_billed_date: i.last_billed_date,
-                            billed_lifts: i.billed_lifts,
-                            customer_name: i.customer_name
-                        })),
+                        items: itemsToInvoice.map(i => {
+                            const isStorage = (i.notes || '').includes('[Storage Yard]');
+                            const costs = window.calculateDynamicYardCosts(i, dateFrom, dateTo);
+                            return {
+                                id: i.id,
+                                container_no: i.container_no,
+                                size: i.size,
+                                type: i.type,
+                                condition: i.condition,
+                                created_at: i.created_at,
+                                exit_date: i.exit_date,
+                                origin_release: i.origin_release,
+                                order_out: i.order_out,
+                                daily_rate: i.daily_rate,
+                                lift_cost: i.lift_cost,
+                                lifts: i.lifts,
+                                last_billed_date: i.last_billed_date,
+                                billed_lifts: i.billed_lifts,
+                                customer_name: i.customer_name,
+                                yard_type: isStorage ? 'STORAGE' : 'RPTULIPAN',
+                                item_total: costs.totalCost
+                            };
+                        }),
                         dateFrom: dateFrom,
                         dateTo: dateTo,
                         total: finalGrandTotal,
