@@ -1152,6 +1152,18 @@
 
 
     window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false, preselectedServices = null, isReadOnly = false, preselectedGroupBy = null) {
+        
+        let rows = overrideRows || window.billingRows || [];
+        
+        if (!overrideRows) {
+            // Filter out unselected rows based on checkboxes
+            const checkboxes = document.querySelectorAll('.billing-row-checkbox');
+            if (checkboxes.length > 0) {
+                const checkedIndices = Array.from(document.querySelectorAll('.billing-row-checkbox:checked')).map(cb => parseInt(cb.dataset.globalIdx, 10));
+                rows = (window.combinedBillingTrips || []).filter((r, idx) => checkedIndices.includes(idx));
+            }
+        }
+
         if (isPreviewOnly === 'RETAIN') {
             isPreviewOnly = window.currentMasterBillingIsPreview || false;
         } else {
@@ -1165,47 +1177,83 @@
 
             if (preselectedServices) {
                 const s = preselectedServices.toUpperCase();
-                if (cbTrans) cbTrans.checked = s.includes('TRANSPORT');
-                if (cbRent) cbRent.checked = s.includes('RENT');
-                if (cbSales) cbSales.checked = s.includes('SALES');
-                if (cbStorage) cbStorage.checked = s.includes('STORAGE');
-                if (cbYard) cbYard.checked = s.includes('YARD');
+                if (cbTrans) { cbTrans.checked = s.includes('TRANSPORT'); cbTrans.disabled = false; }
+                if (cbRent) { cbRent.checked = s.includes('RENT'); cbRent.disabled = false; }
+                if (cbSales) { cbSales.checked = s.includes('SALES'); cbSales.disabled = false; }
+                if (cbStorage) { cbStorage.checked = s.includes('STORAGE'); cbStorage.disabled = false; }
+                if (cbYard) { cbYard.checked = s.includes('YARD'); cbYard.disabled = false; }
             } else if (isPreviewOnly !== 'BULK') {
-                if (cbTrans) cbTrans.checked = false;
-                if (cbRent) cbRent.checked = false;
-                if (cbSales) cbSales.checked = false;
-                if (cbStorage) cbStorage.checked = false;
-                if (cbYard) cbYard.checked = false;
+                const fService = (document.getElementById('bc-f-service')?.value || '').trim();
+
+                let hasTrans = false, hasRent = false, hasSales = false, hasStorage = false, hasYard = false;
+                rows.forEach(r => {
+                    const orderNo = (r[5] && r[5] !== '---') ? r[5].toString().toUpperCase() : '';
+                    const isYardStorageRow = orderNo.startsWith('YRD-');
+                    let rYard = parseFloat(r[13]) || 0;
+                    let rTrans = parseFloat(r[18]) || 0;
+                    const rQty = parseInt(r[53]) || 1;
+                    let rSales = (parseFloat(r[20]) || 0) * rQty;
+                    let rStorage = 0;
+                    if (isYardStorageRow) { rStorage = rYard; rYard = 0; }
+                    let mrate = parseFloat(r[27]) || 0;
+                    let rRent = ((r[26] || '').toString().toUpperCase() === 'RENTAL INVOICE' && mrate > 0) ? mrate : 0;
+                    
+                    if (rTrans > 0 && r[42] === 'YES') hasTrans = true;
+                    if (rYard > 0) hasYard = true;
+                    if (rSales > 0 && r[43] === 'YES') hasSales = true;
+                    if (rStorage > 0) hasStorage = true;
+                    if (rRent > 0) hasRent = true;
+                });
+
+                if (fService !== '') {
+                    if (cbTrans) { cbTrans.checked = (fService === 'TRANSPORT'); cbTrans.disabled = true; }
+                    if (cbRent) { cbRent.checked = (fService === 'RENT'); cbRent.disabled = true; }
+                    if (cbSales) { cbSales.checked = (fService === 'SALES'); cbSales.disabled = true; }
+                    if (cbStorage) { cbStorage.checked = (fService === 'STORAGE'); cbStorage.disabled = true; }
+                    if (cbYard) { cbYard.checked = (fService === 'YARD'); cbYard.disabled = true; }
+                } else {
+                    const countPresent = [hasTrans, hasRent, hasSales, hasStorage, hasYard].filter(v => v).length;
+                    if (countPresent <= 1) {
+                        if (cbTrans) { cbTrans.checked = hasTrans; cbTrans.disabled = true; }
+                        if (cbRent) { cbRent.checked = hasRent; cbRent.disabled = true; }
+                        if (cbSales) { cbSales.checked = hasSales; cbSales.disabled = true; }
+                        if (cbStorage) { cbStorage.checked = hasStorage; cbStorage.disabled = true; }
+                        if (cbYard) { cbYard.checked = hasYard; cbYard.disabled = true; }
+                    } else {
+                        if (cbTrans) { cbTrans.checked = hasTrans; cbTrans.disabled = !hasTrans; }
+                        if (cbRent) { cbRent.checked = hasRent; cbRent.disabled = !hasRent; }
+                        if (cbSales) { cbSales.checked = hasSales; cbSales.disabled = !hasSales; }
+                        if (cbStorage) { cbStorage.checked = hasStorage; cbStorage.disabled = !hasStorage; }
+                        if (cbYard) { cbYard.checked = hasYard; cbYard.disabled = !hasYard; }
+                    }
+                }
             }
 
             const groupBySelect = document.getElementById('mb-group-by-select');
-
             if (preselectedGroupBy && groupBySelect) {
                 groupBySelect.value = preselectedGroupBy;
             } else if (isPreviewOnly !== 'BULK' && groupBySelect) {
-                groupBySelect.value = 'ORDER'; // Default to order for fresh opens
+                groupBySelect.value = 'ORDER'; 
+            }
+            const companySelect = document.getElementById('mb-billing-company-select');
+            
+            if (isReadOnly) {
+                if (cbTrans) cbTrans.disabled = true;
+                if (cbRent) cbRent.disabled = true;
+                if (cbSales) cbSales.disabled = true;
+                if (cbStorage) cbStorage.disabled = true;
+                if (cbYard) cbYard.disabled = true;
+                if (companySelect) companySelect.disabled = true;
+            } else {
+                if (companySelect) companySelect.disabled = false;
             }
 
-            if (cbTrans) cbTrans.disabled = isReadOnly;
-            if (cbRent) cbRent.disabled = isReadOnly;
-            if (cbSales) cbSales.disabled = isReadOnly;
-            if (cbStorage) cbStorage.disabled = isReadOnly;
-            if (cbYard) cbYard.disabled = isReadOnly;
-            
             if (groupBySelect) {
                 groupBySelect.disabled = isReadOnly;
                 groupBySelect.style.backgroundColor = isReadOnly ? '#f1f5f9' : 'white';
             }
-        }
-
-        let rows = overrideRows || window.billingRows || [];
-        
-        if (!overrideRows) {
-            // Filter out unselected rows based on checkboxes
-            const checkboxes = document.querySelectorAll('.billing-row-checkbox');
-            if (checkboxes.length > 0) {
-                const checkedIndices = Array.from(document.querySelectorAll('.billing-row-checkbox:checked')).map(cb => parseInt(cb.dataset.globalIdx, 10));
-                rows = (window.combinedBillingTrips || []).filter((r, idx) => checkedIndices.includes(idx));
+            if (companySelect) {
+                companySelect.style.backgroundColor = isReadOnly ? '#f1f5f9' : 'white';
             }
         }
 
