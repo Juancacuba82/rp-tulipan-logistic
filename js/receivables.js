@@ -485,6 +485,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                     const serviceColumnMap = {
                         'TRANSPORT': { st_rate: 'PAID' },
                         'YARD':      { st_yard: 'PAID' },
+                        'YARD STORAGE': { st_yard: 'PAID' },
                         'SALES':     { st_sales: 'PAID' },
                         'RENT':      { st_rent: 'PAID' },
                         'RENTAL':    { st_rent: 'PAID' }, // Fix missing RENTAL mapping
@@ -519,6 +520,36 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                                     }
                                 }
                             } catch (e) { console.warn('Could not sync original trip rent status', e); }
+                        }
+
+                        // Also mark original trip's yard storage as PAID visually
+                        if (svcType === 'YARD STORAGE' || svcType === 'YARD') {
+                            try {
+                                const { data: ghostTrips } = await window.db.from('trips').select('yard_services').in('trip_id', normalTrips);
+                                const originalOrderNos = new Set();
+                                (ghostTrips || []).forEach(t => {
+                                    if (t.yard_services) {
+                                        try {
+                                            const snap = JSON.parse(t.yard_services);
+                                            (snap.items || []).forEach(item => {
+                                                if (item.origin_release) originalOrderNos.add(item.origin_release);
+                                            });
+                                        } catch (e) {}
+                                    }
+                                });
+                                
+                                if (originalOrderNos.size > 0) {
+                                    const orders = Array.from(originalOrderNos);
+                                    await window.db.from('trips').update({ st_yard: 'PAID' }).in('order_no', orders);
+                                    
+                                    // Sync local cache for original trips
+                                    if (window.currentTrips) {
+                                        window.currentTrips.forEach(t => {
+                                            if (orders.includes(t[5])) t[30] = 'PAID'; // st_yard is index 30
+                                        });
+                                    }
+                                }
+                            } catch (e) { console.warn('Could not sync original trip yard status', e); }
                         }
 
                         // Sync local cache so calendar reflects immediately
