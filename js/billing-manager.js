@@ -1299,7 +1299,7 @@
         
         if (btnSend) btnSend.style.display = hideButtons ? 'none' : 'inline-flex';
         if (btnPdf) btnPdf.style.display = hideButtons ? 'none' : 'inline-block';
-        if (btnCreate) btnCreate.style.display = hideButtons ? 'none' : 'inline-block';
+        if (btnCreate) btnCreate.style.display = (hideButtons || window.isMasterBillingReadOnly) ? 'none' : 'inline-block';
 
         document.getElementById('mb-bill-to-name').textContent = customer;
         document.getElementById('mb-date-display').textContent = new Date().toLocaleDateString('en-US');
