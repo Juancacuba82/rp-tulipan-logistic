@@ -1244,9 +1244,15 @@
                 if (cbStorage) cbStorage.disabled = true;
                 if (cbYard) cbYard.disabled = true;
                 if (companySelect) companySelect.disabled = true;
+                const btnCreate = document.getElementById('mb-btn-create-record');
+                if (btnCreate) btnCreate.style.display = 'none';
             } else {
                 if (companySelect) companySelect.disabled = false;
+                const btnCreate = document.getElementById('mb-btn-create-record');
+                if (btnCreate) btnCreate.style.display = 'inline-block';
             }
+            
+            window.isMasterBillingReadOnly = isReadOnly;
 
             if (groupBySelect) {
                 groupBySelect.disabled = isReadOnly;

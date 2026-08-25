@@ -5356,10 +5356,7 @@
 
                         <div style="margin-top: 20px;">
 
-                            <button id="btn-generate-invoice" onclick="generateRentalInvoice()" class="btn-add-sidebar"
-                                style="display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); border: none; color: white;">
-                                <i class="fas fa-file-invoice-dollar"></i> GENERATE INVOICE
-                            </button>
+
                             <button id="btn-save-rental" onclick="saveRentalData()" class="btn-add-sidebar"
                                 style="display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: #0f172a; border: 1px solid #334155;">UPDATE
                                 RENTAL RECORD</button>
@@ -5484,7 +5481,7 @@
                                         <th>CUSTOMER</th>
                                         <th>PHONE</th>
                                         <th>AMOUNT</th>
-                                        <th>DAYS</th>
+                                        <th>CYCLES</th>
                                         <th>TOTAL</th>
                                         <th>STATUS</th>
                                         <th>PAYMENT</th>
@@ -8014,6 +8011,13 @@
                 if (typeof loadDocTrips === 'function') {
                     loadDocTrips();
                 }
+
+                // Preload billing data silently in the background
+                setTimeout(() => {
+                    if (typeof window.initBillingCenter === 'function') {
+                        window.initBillingCenter();
+                    }
+                }, 2500);
             } else {
                 showView('auth');
             }

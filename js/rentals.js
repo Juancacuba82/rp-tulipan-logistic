@@ -310,12 +310,11 @@
     }
 
     function calculateRentalCost(startDateStr, finalDateStr, basePrice, dailyRate, status, timeRent, dateFrom = null, dateTo = null) {
-        if (!startDateStr) return { total: 0, days: 0, overlapDays: 0 };
+        if (!startDateStr) return { total: 0, days: 0, overlapDays: 0, cycles: 0, cycleLabel: '0 days', actualStart: null, actualEnd: null };
         const start = new Date(startDateStr); start.setHours(0, 0, 0, 0);
         let endDate = (status === 'FINISHED' && finalDateStr) ? new Date(finalDateStr) : new Date();
         endDate.setHours(0, 0, 0, 0);
         
-        // Calculate the effective start and end dates based on filters
         let effectiveStart = start;
         let effectiveEnd = endDate;
         
@@ -326,7 +325,6 @@
             
             const fEnd = dateTo ? new Date(dateTo + 'T00:00:00') : new Date('2099-12-31T00:00:00');
             if (dateTo) {
-                // Advance by 1 day so that dateTo is fully included up to midnight of the next day
                 fEnd.setDate(fEnd.getDate() + 1);
                 fEnd.setHours(0, 0, 0, 0);
             }
@@ -342,28 +340,41 @@
         
         const bPrice = parseFloat(basePrice) || 0;
         
-        // Calculate EXACT theoretical total cost directly on the EFFECTIVE range
-        let finalTotal = 0;
-        if (overlapDays > 0) {
-            if (timeRent === 'monthly') {
-                const totalMonths = Math.ceil(overlapDays / 30.0) || 1;
-                finalTotal = Math.max(0, totalMonths * bPrice);
-            } else if (timeRent === 'weekly') {
-                const totalWeeks = Math.ceil(overlapDays / 7.0) || 1;
-                finalTotal = Math.max(0, totalWeeks * bPrice);
-            } else {
-                finalTotal = Math.max(0, overlapDays * bPrice);
+        let cycles = 1;
+        let cycleLabel = '1 Month';
+        const trStr = (timeRent || '').toLowerCase();
+        
+        if (trStr === 'monthly') {
+            let months = (endDate.getFullYear() - start.getFullYear()) * 12;
+            months -= start.getMonth();
+            months += endDate.getMonth();
+            
+            if (endDate.getDate() >= start.getDate() && (endDate.getTime() > start.getTime())) {
+                months += 1; 
             }
+            cycles = Math.max(1, months);
+            cycleLabel = cycles === 1 ? '1 Month' : `${cycles} Months`;
+        } else if (trStr === 'weekly') {
+            const diffTime = Math.abs(endDate.getTime() - start.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            cycles = Math.max(1, Math.floor(diffDays / 7) + 1);
+            cycleLabel = cycles === 1 ? '1 Week' : `${cycles} Weeks`;
+        } else {
+            const diffTime = Math.abs(endDate.getTime() - start.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            cycles = Math.max(1, diffDays);
+            cycleLabel = cycles === 1 ? '1 day' : `${cycles} days`;
         }
         
-        // Real total elapsed days of the entire rental (for absolute duration)
-        const totalRealDays = Math.ceil((endDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        const finalDaysPassed = Math.max(0, totalRealDays);
+        const finalTotal = cycles * bPrice;
         
         return { 
             total: finalTotal, 
-            days: finalDaysPassed, 
-            overlapDays: Math.ceil(Math.max(0, overlapDays)) 
+            overlapDays: Math.ceil(Math.max(0, overlapDays)),
+            cycles: cycles,
+            cycleLabel: cycleLabel,
+            actualStart: start,
+            actualEnd: endDate 
         };
     }
 
@@ -467,7 +478,7 @@
             }
 
             const displayCost = costInfo.total;
-            const displayDays = Math.ceil(costInfo.overlapDays);
+            const displayDays = costInfo.cycleLabel;
             const balanceDue = displayCost;
             
             const cNum = (row.container_no || '').toString().trim().toUpperCase();
@@ -486,8 +497,8 @@
 
             tr.innerHTML = `
                 <td style="color: #000000; font-weight: 700;">${formatDate(row.start_date)}</td>
-                <td style="font-weight: 700; color: ${isExpired ? '#ef4444' : '#000000'};">
-                    ${formatDate(row.final_date)} 
+                <td style="font-weight: 700; color: ${isExpired ? '#ef4444' : '#000000'}; font-size: 0.85rem; line-height: 1.2;">
+                    ${formatDate(row.start_date)}<br>a ${formatDate(row.final_date)} 
                     ${isExpired ? '<i class="fas fa-exclamation-triangle" title="Rental Expired"></i>' : ''}
                 </td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.release_no || '---'}</td>
@@ -499,7 +510,7 @@
                 <td style="font-weight: 700; color: #000000;">${row.customer_name || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">${window.formatUSPhone(row.phone) || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">$${parseFloat(row.base_price).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                <td style="font-weight: 800; color: #000000;">${displayDays} days</td>
+                <td style="font-weight: 800; color: #000000;">${displayDays}</td>
                 <td style="font-weight: 900; color: ${balanceDue > 0 ? (isExpired ? '#ef4444' : '#000000') : '#10b981'}; font-size: 1rem;">$${balanceDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td>
                     <span class="status-badge" style="background: ${row.status === 'FINISHED' ? '#64748b' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">

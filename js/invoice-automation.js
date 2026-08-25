@@ -241,9 +241,10 @@
         // Send the requested number of PDFs
         await window.sendThreePDFEmail([row], numPDFs);
 
-        // Update tracking fields
-        const now = new Date().toISOString();
-        const currentCount = parseInt(row[64]) || 0;
+        if (!window.isMasterBillingReadOnly) {
+            // Update tracking fields
+            const now = new Date().toISOString();
+            const currentCount = parseInt(row[64]) || 0;
         const newCount = currentCount + 1;
 
         const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
@@ -292,9 +293,10 @@
 
         if (window.renderBillingTable) window.renderBillingTable();
 
-        // ── Push to Accounts Receivable ───────────────────────────
-        if (window.addInvoiceToReceivables && invoiceNoToSave) {
-            window.addInvoiceToReceivables(row[11] || 'Customer', invoiceNoToSave, totalNumToSave, detailsHtmlToSave, [row[0]], svcFilterToSave);
+            // ── Push to Accounts Receivable ───────────────────────────
+            if (window.addInvoiceToReceivables && invoiceNoToSave) {
+                window.addInvoiceToReceivables(row[11] || 'Customer', invoiceNoToSave, totalNumToSave, detailsHtmlToSave, [row[0]], svcFilterToSave);
+            }
         }
     }
 
@@ -344,10 +346,14 @@
 
         //  YARD STOCK BIFURCATION
         if (row.isYardRecord) {
-            const customerEmail = document.getElementById('bd-email')?.value || '';
+            let customerEmail = document.getElementById('bd-email')?.value || '';
             if (!customerEmail || !customerEmail.includes('@')) {
-                alert('Please enter a valid email address in the detail window.');
-                return;
+                const promptedEmail = prompt("Este cliente no tiene un email guardado.\nPor favor, ingresa el email al que deseas enviar la factura:");
+                if (!promptedEmail || !promptedEmail.includes('@')) {
+                    alert("Envío cancelado o email inválido.");
+                    return;
+                }
+                customerEmail = promptedEmail.trim();
             }
             if (!confirm(`Send Yard Stock invoice to ${customerEmail}?`)) return;
             
@@ -420,8 +426,12 @@
     async function executeMasterInvoiceSendProcess(rows, btn, numPDFs = 3) {
         let customerEmail = document.getElementById('bd-email')?.value || rows[0][36] || '';
         if (!customerEmail || !customerEmail.includes('@')) {
-            alert('Please enter a valid email address in the detail window.');
-            return;
+            const promptedEmail = prompt("Este cliente no tiene un email guardado.\nPor favor, ingresa el email al que deseas enviar la factura:");
+            if (!promptedEmail || !promptedEmail.includes('@')) {
+                alert("Envío cancelado o email inválido.");
+                return;
+            }
+            customerEmail = promptedEmail.trim();
         }
         
         // Find if they all share the same booking number
@@ -536,7 +546,7 @@
             
             await emailjs.send(serviceId, templateId, templateParams, publicKey);
             
-            if (window.addInvoiceToReceivables) {
+            if (window.addInvoiceToReceivables && !window.isMasterBillingReadOnly) {
                 const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
                 const masterTripIds = rows.map(r => r[0]).filter(Boolean);
@@ -545,8 +555,9 @@
             }
 
             // Update tracking for all rows
-            const nowIso = new Date().toISOString();
-            const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
+            if (!window.isMasterBillingReadOnly) {
+                const nowIso = new Date().toISOString();
+                const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
             const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
             const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
             const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
@@ -591,6 +602,7 @@
                         }
                     }
                 }
+                }
             }
 
             if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
@@ -607,7 +619,15 @@
 
     async function executeManualSendProcess(row, btn, numPDFs = 3) {
         // ── 2. Confirm send ──────────────────────────────────
-        const customerEmail = row[36];
+        let customerEmail = row[36] || '';
+        if (!customerEmail || !customerEmail.includes('@')) {
+            const promptedEmail = prompt("Este cliente no tiene un email guardado.\nPor favor, ingresa el email al que deseas enviar la factura:");
+            if (!promptedEmail || !promptedEmail.includes('@')) {
+                alert("Envío cancelado o email inválido.");
+                return;
+            }
+            customerEmail = promptedEmail.trim();
+        }
         const orderNo = (row[5] || 'N/A').toString();
         const lastSentDate = row[63];
         const reminderCount = parseInt(row[64]) || 0;

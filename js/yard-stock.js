@@ -1100,8 +1100,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                             }
                         }
 
-                        // ── 3. ONLY INSERT TO TRIPS IF NOT PAID NOW ──
-                        if (!isPaidNow) {
+                        // ── 3. ALWAYS INSERT TO TRIPS AND ACCOUNTS RECEIVABLE ──
+                        if (true) {
                             const { error: tripErr } = await window.db.from('trips').insert([tripObj]);
                             if (tripErr) {
                                 console.error('Error creating billing record:', tripErr);
@@ -1109,13 +1109,17 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                                 // ── 4. AUTO-CREATE ACCOUNTS RECEIVABLE RECORD ──
                                 if (window.addInvoiceToReceivables) {
                                     try {
+                                        const amtPaid = isPaidNow ? finalGrandTotal : 0;
+                                        const payMethodStr = isPaidNow ? pMethod : '';
                                         await window.addInvoiceToReceivables(
                                             customerFilter, 
                                             orderNo, 
                                             finalGrandTotal, 
                                             finalHtml, 
                                             [tripObj.trip_id], 
-                                            'YARD STORAGE'
+                                            'YARD STORAGE',
+                                            amtPaid,
+                                            payMethodStr
                                         );
                                     } catch (err) {
                                         console.error('Error auto-creating Accounts Receivable:', err);

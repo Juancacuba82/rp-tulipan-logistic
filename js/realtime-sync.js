@@ -68,6 +68,21 @@ window.initRealtimeSubscriptions = function() {
         }
     });
 
+    // 11. CUSTOMERS
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, payload => {
+        if (typeof window.loadCustomersData === 'function') window.loadCustomersData(true);
+    });
+
+    // 12. COMPANIES
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, payload => {
+        if (typeof window.loadCompaniesData === 'function') window.loadCompaniesData();
+    });
+
+    // 13. DELIVERY ADDRESSES
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_addresses' }, payload => {
+        if (typeof window.loadDeliveryAddressesData === 'function') window.loadDeliveryAddressesData(true);
+    });
+
     channel.subscribe((status) => {
         console.log('[Realtime] Status:', status);
     });

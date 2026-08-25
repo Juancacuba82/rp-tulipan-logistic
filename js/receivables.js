@@ -197,10 +197,13 @@ window.renderReceivables = function () {
                 const amtPaid = parseFloat(inv.amount_paid || 0);
                 const totalAmt = parseFloat(inv.total_amount || 0);
                 const balance = totalAmt - amtPaid;
+                
+                const createdBy = inv.created_by ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:2px; font-weight:600;"><i class="fas fa-user" style="margin-right:3px;"></i>${inv.created_by}</div>` : '';
+                
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
                                 <td style="padding:10px 0; font-weight:700;">${displayInvNo}${orderNoExtracted}</td>
-                                <td style="padding:10px 0; color:#64748b;">${d}</td>
+                                <td style="padding:10px 0; color:#64748b;">${d}${createdBy}</td>
                                 <td style="padding:10px 0; font-weight:700;">$${totalAmt.toFixed(2)}</td>
                                 <td style="padding:10px 0; font-weight:700; color:#10b981;">$${amtPaid.toFixed(2)}</td>
                                 <td style="padding:10px 0; font-weight:700; color:#ef4444;">$${balance.toFixed(2)}</td>
@@ -269,10 +272,13 @@ window.renderReceivables = function () {
                     orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">(${extractedOrders})</span>`;
                 }
 
+                const createdBy = inv.created_by ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:4px; font-weight:600;"><i class="fas fa-magic" style="margin-right:3px;"></i>Created: ${inv.created_by}</div>` : '';
+                const paidBy = inv.paid_by ? `<div style="font-size:0.65rem; color:#10b981; margin-top:2px; font-weight:600;"><i class="fas fa-check-circle" style="margin-right:3px;"></i>Paid: ${inv.paid_by}</div>` : '';
+
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
                                 <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del>${orderNoExtracted}</td>
-                                <td style="padding:10px 0; color:#64748b;">${d}</td>
+                                <td style="padding:10px 0; color:#64748b;">${d}${createdBy}${paidBy}</td>
                                 <td style="padding:10px 0;">
                                     <span style="background:#e0f2fe; color:#0284c7; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${inv.payment_method || 'N/A'}</span>
                                 </td>
@@ -458,6 +464,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             };
             if (isFullyPaid) {
                 updatePayload.payment_method = label; // Only label method if fully paid
+                updatePayload.paid_by = window.userEmail || window.userName || 'Unknown';
             }
 
             const { error: updateErr } = await window.db.from('receivables_invoices')
@@ -661,7 +668,8 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
             trip_ids: tripIdsStr || null,
             service_type: svcType || null,
             status: 'PENDING',
-            amount_paid: 0
+            amount_paid: 0,
+            created_by: window.userEmail || window.userName || 'Unknown'
         };
 
         const amt = parseFloat(amountPaid) || 0;
@@ -672,6 +680,9 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
             insertPayload.paid_date = new Date().toISOString();
             insertPayload.payment_method = paymentMethod;
             insertPayload.status = (amt >= tot) ? 'Paid' : 'Partial';
+            if (amt >= tot) {
+                insertPayload.paid_by = window.userEmail || window.userName || 'Unknown';
+            }
         }
 
         const { error } = await window.db.from('receivables_invoices').insert([insertPayload]);
