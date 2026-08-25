@@ -480,6 +480,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                         'YARD':      { st_yard: 'PAID' },
                         'SALES':     { st_sales: 'PAID' },
                         'RENT':      { st_rent: 'PAID' },
+                        'RENTAL':    { st_rent: 'PAID' }, // Fix missing RENTAL mapping
                         'STORAGE':   { st_amount: 'PAID' },
                         'ALL':       { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' },
                         '':          { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' }
@@ -487,13 +488,34 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                     const colsToUpdate = serviceColumnMap[svcType] || serviceColumnMap['ALL'];
 
                     if (tripIdList.length > 0 && Object.keys(colsToUpdate).length > 0) {
-                        await Promise.all(
-                            tripIdList.map(tid =>
-                                window.db.from('trips').update(colsToUpdate).eq('trip_id', tid)
-                            )
-                        );
+                        const normalTrips = tripIdList.filter(t => !t.startsWith('RENTAL_ID:'));
+                        const rentalIds = tripIdList.filter(t => t.startsWith('RENTAL_ID:')).map(t => t.replace('RENTAL_ID:', ''));
+
+                        await Promise.all([
+                            ...normalTrips.map(tid => window.db.from('trips').update(colsToUpdate).eq('trip_id', tid)),
+                            ...rentalIds.map(rid => window.db.from('rentals').update({ payment_status: 'PAID' }).eq('id', rid))
+                        ]);
+                        
+                        // Also mark original trip's rent as PAID visually (if it's a rental)
+                        if (svcType === 'RENTAL' || svcType === 'RENT') {
+                            try {
+                                const { data: ghostTrips } = await window.db.from('trips').select('order_no').in('trip_id', normalTrips);
+                                const orderNos = (ghostTrips || []).map(t => t.order_no).filter(Boolean);
+                                if (orderNos.length > 0) {
+                                    await window.db.from('trips').update({ st_rent: 'PAID' }).in('order_no', orderNos);
+                                    
+                                    // Sync local cache for original trips
+                                    if (window.currentTrips) {
+                                        window.currentTrips.forEach(t => {
+                                            if (orderNos.includes(t[5])) t[31] = 'PAID'; // st_rent is index 31
+                                        });
+                                    }
+                                }
+                            } catch (e) { console.warn('Could not sync original trip rent status', e); }
+                        }
+
                         // Sync local cache so calendar reflects immediately
-                        tripIdList.forEach(tid => {
+                        normalTrips.forEach(tid => {
                             const localRow = (window.currentTrips || []).find(t => t[0] === tid);
                             if (localRow) {
                                 if (colsToUpdate.st_rate)   localRow[32] = 'PAID';
@@ -503,7 +525,12 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                                 if (colsToUpdate.st_amount) localRow[34] = 'PAID';
                             }
                         });
-                        console.log(`[Receivables] Trip payment synced: ${tripIdList.join(',')} → ${JSON.stringify(colsToUpdate)}`);
+                        rentalIds.forEach(rid => {
+                            const localRental = (window.currentRentals || []).find(r => String(r.id) === String(rid));
+                            if (localRental) localRental.payment_status = 'PAID';
+                            if (window.renderRentalsTable) window.renderRentalsTable();
+                        });
+                        console.log(`[Receivables] Trip/Rental payment synced: ${tripIdList.join(',')}   ${JSON.stringify(colsToUpdate)}`);
                     }
                 }
             }
@@ -607,7 +634,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     };
 };
 
-window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '', tripIds = [], serviceType = '') {
+window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '', tripIds = [], serviceType = '', amountPaid = 0, paymentMethod = '') {
     if (!customerName || !invoiceNumber || !totalAmount) return;
     try {
         const customerUpper = customerName.trim().toUpperCase();
@@ -626,14 +653,28 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
         const tripIdsStr = Array.isArray(tripIds) ? tripIds.filter(Boolean).join(',') : (tripIds || '');
         const svcType = (serviceType || '').toString().toUpperCase().trim();
 
-        const { error } = await window.db.from('receivables_invoices').insert([{
+        const insertPayload = {
             customer_name: customerUpper,
             invoice_number: invoiceNumber,
             total_amount: parseFloat(totalAmount),
             details_html: detailsHtml,
             trip_ids: tripIdsStr || null,
-            service_type: svcType || null
-        }]);
+            service_type: svcType || null,
+            status: 'PENDING',
+            amount_paid: 0
+        };
+
+        const amt = parseFloat(amountPaid) || 0;
+        const tot = parseFloat(totalAmount) || 0;
+
+        if (amt > 0) {
+            insertPayload.amount_paid = amt;
+            insertPayload.paid_date = new Date().toISOString();
+            insertPayload.payment_method = paymentMethod;
+            insertPayload.status = (amt >= tot) ? 'Paid' : 'Partial';
+        }
+
+        const { error } = await window.db.from('receivables_invoices').insert([insertPayload]);
         if (error) throw error;
         console.log(`[Receivables] Invoice ${invoiceNumber} added to AR. Trips: ${tripIdsStr}, Service: ${svcType}`);
     } catch (err) {
@@ -650,8 +691,21 @@ window.deleteReceivable = async function (id) {
     }
     if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
     try {
+        const inv = window.receivablesData.invoices.find(i => i.id === id);
         const { error } = await window.db.from('receivables_invoices').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', id);
         if (error) throw error;
+
+        // Delete ghost trips associated with RENTAL invoices
+        if (inv && inv.service_type === 'RENTAL' && inv.trip_ids) {
+            const tripIds = inv.trip_ids.split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
+            if (tripIds.length > 0) {
+                await window.db.from('trips').delete().in('trip_id', tripIds);
+                if (window.currentTrips) {
+                    window.currentTrips = window.currentTrips.filter(t => !tripIds.includes(t[0]));
+                }
+                if (typeof window.applyAdvancedFilters === 'function') window.applyAdvancedFilters();
+            }
+        }
 
         console.log(`[Receivables] Invoice ${id} deleted.`);
         await loadReceivables();

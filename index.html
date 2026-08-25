@@ -1544,7 +1544,7 @@
                                         </select>
                                         <div style="display: flex; align-items: center; gap: 8px; margin-left: 5px;">
                                             <input type="checkbox" id="in-move-to-rentals"
-                                                onchange="const m = document.getElementById('in-mode'); if(m) m.value = this.checked ? 'RENT' : 'SALE'; if(this.checked){ const s=document.getElementById('in-flag3'); if(s && s.checked){s.checked=false; if(typeof toggleSalesPrice==='function') toggleSalesPrice();} }"
+                                                onchange="const m = document.getElementById('in-mode'); if(m) m.value = this.checked ? 'RENT' : 'SALE'; if(this.checked){ const s=document.getElementById('in-flag3'); if(s && s.checked){s.checked=false; if(typeof toggleSalesPrice==='function') toggleSalesPrice();} } document.getElementById('rent-price-group').style.display = this.checked ? 'block' : 'none';"
                                                 style="width: 18px; height: 18px; accent-color: #7c3aed;">
                                             <span
                                                 style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">Rent</span>
@@ -1944,6 +1944,18 @@
                         </div>
 
 
+                        <div class="form-group" id="rent-price-group" style="display:none;">
+                            <label class="sidebar-label-btn" style="background-color: #7c3aed !important; border-color: #7c3aed !important;">Rent Price & Period</label>
+                            <div style="display: flex; gap: 5px;">
+                                <input type="number" id="in-rent-price" placeholder="150.00" style="flex: 1; min-width: 0;">
+                                <select id="in-time-rent" class="form-select" style="flex: 1; min-width: 0; padding: 6px; border: 2px solid #cbd5e1; border-radius: 4px; font-weight: 700; font-size: 0.8rem; color: #475569;">
+                                    <option value="monthly">Monthly</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="daily">Daily</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label class="sidebar-label-btn">Amount</label>
                             <div style="display: flex; flex-direction: column;">
@@ -1976,6 +1988,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="form-group">
                             <label class="sidebar-label-btn">Show Tax (%?)</label>
                             <div
@@ -5342,15 +5355,15 @@
                         </div>
 
                         <div style="margin-top: 20px;">
-                            <button id="btn-register-payment" onclick="registerRentalPayment()" class="btn-add-sidebar"
-                                style="display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: linear-gradient(135deg, #10b981, #059669); border: none; color: white;">
-                                <i class="fas fa-hand-holding-usd"></i> REGISTER RENEWAL / PAYMENT
+
+                            <button id="btn-generate-invoice" onclick="generateRentalInvoice()" class="btn-add-sidebar"
+                                style="display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); border: none; color: white;">
+                                <i class="fas fa-file-invoice-dollar"></i> GENERATE INVOICE
                             </button>
                             <button id="btn-save-rental" onclick="saveRentalData()" class="btn-add-sidebar"
-                                style="width: 100%; padding: 12px; margin-bottom: 10px; background: #0f172a; border: 1px solid #334155;">SAVE
+                                style="display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: #0f172a; border: 1px solid #334155;">UPDATE
                                 RENTAL RECORD</button>
-                            <button onclick="resetRentalForm()" class="btn-cancel" style="width: 100%;">RESET
-                                FORM</button>
+                            <button id="btn-reset-rental" onclick="resetRentalForm()" class="btn-cancel" style="display: none; width: 100%;">CLOSE EDIT MODE</button>
                         </div>
                     </div>
                 </aside>
@@ -5397,7 +5410,7 @@
                             <div
                                 style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                                 <div
-                                    style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 0 15px; border-radius: 10px; border: 1px dashed #cbd5e1; height: 45px; flex-wrap: wrap;">
+                                    style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 10px 15px; border-radius: 10px; border: 1px dashed #cbd5e1; min-height: 45px; flex-wrap: wrap;">
                                     <div style="display: flex; align-items: center; gap: 8px;">
                                         <label
                                             style="font-size: 0.75rem; font-weight: 800; color: #475569;">FROM:</label>
@@ -5443,20 +5456,9 @@
                                             All (Inc. Finished)</label>
                                     </div>
                                     <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
+                                    <button id="btn-combined-invoice" onclick="window.generateCombinedRentalInvoice()" style="display: none; background: #2563eb; color: white; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Generate Invoice</button>
                                     <button onclick="clearRentalFilters()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #ef4444; font-weight: 800; font-size: 0.75rem;">
                                         <i class="fas fa-times-circle"></i> Clear
-                                    </button>
-                                </div>
-
-                                <div style="display: flex; gap: 10px;">
-                                    <button id="btn-bulk-pay" onclick="registerBulkRentalPayment()" class="btn-calendar"
-                                        style="display: none; background: #10b981; color: white; border: none; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.75rem; height: 45px; align-items: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);">
-                                        <i class="fas fa-money-bill-wave"></i> BULK PAY
-                                    </button>
-                                    <button id="btn-delete-rental-global" onclick="removeSelectedRental()"
-                                        class="btn-calendar"
-                                        style="display: none; background: #ffffff; color: #ef4444; border: 1px solid #ef4444; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.75rem; height: 45px; align-items: center; gap: 8px; transition: all 0.2s ease;">
-                                        <i class="fas fa-trash-alt"></i> DELETE RECORD
                                     </button>
                                 </div>
                             </div>

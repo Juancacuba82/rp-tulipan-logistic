@@ -30,24 +30,28 @@
      */
     window.validateInvoiceReadiness = function (row) {
         const reasons = [];
+        
+        const isRentalInvoice = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL');
 
         // 1. Photos: need at least MIN_PHOTOS
-        const photos = row[55];
-        const photoCount = Array.isArray(photos) ? photos.length : 0;
-        if (photoCount < MIN_PHOTOS) {
-            reasons.push(`Only ${photoCount} photo(s) uploaded (minimum ${MIN_PHOTOS} required)`);
-        }
+        if (!isRentalInvoice) {
+            const photos = row[55];
+            const photoCount = Array.isArray(photos) ? photos.length : 0;
+            if (photoCount < MIN_PHOTOS) {
+                reasons.push(`Only ${photoCount} photo(s) uploaded (minimum ${MIN_PHOTOS} required)`);
+            }
 
-        // 2. Client signature
-        const clientSig = row[54];
-        if (!clientSig || clientSig === '' || clientSig === null) {
-            reasons.push('Missing client signature');
-        }
+            // 2. Client signature
+            const clientSig = row[54];
+            if (!clientSig || clientSig === '' || clientSig === null) {
+                reasons.push('Missing client signature');
+            }
 
-        // 3. Driver signature
-        const driverSig = row[56];
-        if (!driverSig || driverSig === '' || driverSig === null) {
-            reasons.push('Missing driver signature');
+            // 3. Driver signature
+            const driverSig = row[56];
+            if (!driverSig || driverSig === '' || driverSig === null) {
+                reasons.push('Missing driver signature');
+            }
         }
 
         // 4. Customer email

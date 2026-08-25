@@ -154,7 +154,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                     'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                     'in-paiddriver', 'in-note',
-                    'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
+                    'in-mode', 'in-rent-price', 'in-sdaterent', 'in-nextdue', 'in-qty',
                     'in-invoice-sent', 'in-seller'
                 ];
 
@@ -547,9 +547,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         if (existingRental && existingRental.length > 0) {
                             finalBasePrice = existingRental[0].base_price || 0;
                         } else {
-                            const rentInput = prompt(`This order includes RENT.\nPlease enter the Monthly Rent price for container ${searchCont}:`, "150.00");
-                            if (rentInput !== null) {
+                            const rentInput = document.getElementById('in-rent-price')?.value;
+                            if (rentInput !== undefined && rentInput !== '') {
                                 finalBasePrice = parseFloat(rentInput) || 0;
+                            } else {
+                                finalBasePrice = 150.00; // Default
                             }
                         }
 
@@ -557,6 +559,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const delMan = document.getElementById('in-delivery');
                         const delPlace = (delSel && delSel.style.display !== 'none' && delSel.value) ? delSel.value : (delMan ? delMan.value : '---');
 
+                        const timeRentVal = document.getElementById('in-time-rent')?.value || 'monthly';
+                        
                         const rentalPayload = {
                             container_no: yardData.container_no,
                             size: yardData.size,
@@ -566,7 +570,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             delivery_place: delPlace,
                             start_date: calendarDate,
                             final_date: finalDateStr,
-                            time_rent: 'monthly',
+                            time_rent: timeRentVal,
                             base_price: finalBasePrice,
                             daily_rate: 0,
                             status: 'ACTIVE',
@@ -754,7 +758,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const fieldsToClear = [
                 'in-ncont', 'in-release', 'in-order', 'in-delivery', 'in-miles',
                 'in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount',
-                'in-phone', 'in-note', 'in-mrate', 'in-taxpercent', 'in-paiddriver',
+                'in-phone', 'in-note', 'in-rent-price', 'in-taxpercent', 'in-paiddriver',
                 'in-pickup', 'in-customer', 'in-email', 'in-qty', 'in-size',
                 'in-yard', 'in-collect', 'in-mode', 'in-income', 'in-booking'
             ];
@@ -768,7 +772,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         el.value = '1';
                     } else if (id === 'in-mode') {
                         el.value = 'SALE';
-                    } else if (['in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount', 'in-miles', 'in-paiddriver', 'in-mrate'].includes(id)) {
+                    } else if (['in-yardrate', 'in-priceperday', 'in-rate', 'in-sales', 'in-amount', 'in-miles', 'in-paiddriver', 'in-rent-price'].includes(id)) {
                         el.value = '';
                     } else {
                         el.value = '';
@@ -781,7 +785,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-size-sel', 'in-rel-type', 'in-rel-condition', 'in-city', 
                 'in-pickup-sel', 'in-customer-sel', 'in-doors', 'in-company', 
                 'in-driver', 'in-paytype', 'in-release-sel', 'in-status-toggle',
-                'in-invoice-sent', 'in-receipt-company'
+                'in-invoice-sent', 'in-receipt-company', 'in-time-rent'
             ];
             selectsToReset.forEach(id => {
                 const el = document.getElementById(id);
@@ -837,6 +841,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             if (typeof toggleToYardDestSelect === 'function') toggleToYardDestSelect();
             else if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
+
+            if (document.getElementById('rent-price-group')) {
+                document.getElementById('rent-price-group').style.display = 'none';
+            }
 
             if (typeof updateStatusColor === 'function') updateStatusColor('PEND');
             else if (window.updateStatusColor) window.updateStatusColor('PEND');
@@ -1391,7 +1399,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-yard', 'in-yardrate', 'in-priceperday', 'in-dateout', 'in-company', 'in-driver',
                 'in-rate', 'in-paytype', 'in-sales', 'in-collect', 'in-amount', 'in-phone',
                 'in-paiddriver', 'in-note',
-                'in-mode', 'in-mrate', 'in-sdaterent', 'in-nextdue', 'in-qty',
+                'in-mode', 'in-rent-price', 'in-sdaterent', 'in-nextdue', 'in-qty',
                 'in-invoice-sent', 'in-seller'
             ];
 
@@ -1699,11 +1707,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
 
             let isRentalChecked = (rowData[26] === 'RENT');
+            let activeRental = null;
             if (!isRentalChecked && window.currentRentals) {
                 const searchOrder = (rowData[5] || rowData[4] || '').trim().toLowerCase();
                 const searchCont = (rowData[3] || '').trim().toLowerCase();
                 if (searchCont && searchCont !== '---') {
-                    isRentalChecked = window.currentRentals.some(r => {
+                    activeRental = window.currentRentals.find(r => {
                         const rCont = (r.container_no || '').trim().toLowerCase();
                         if (rCont !== searchCont) return false;
                         
@@ -1714,9 +1723,29 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         
                         return false;
                     });
+                    if (activeRental) isRentalChecked = true;
+                }
+            } else if (isRentalChecked && window.currentRentals) {
+                const searchOrder = (rowData[5] || rowData[4] || '').trim().toLowerCase();
+                const searchCont = (rowData[3] || '').trim().toLowerCase();
+                activeRental = window.currentRentals.find(r => {
+                    const rCont = (r.container_no || '').trim().toLowerCase();
+                    if (rCont !== searchCont) return false;
+                    const rOrder = (r.order_number || r.release_no || '').trim().toLowerCase();
+                    if (rOrder === searchOrder) return true;
+                    if (searchOrder.startsWith('ord-') && (rOrder === '' || rOrder === '---')) return true;
+                    return false;
+                });
+            }
+            if (document.getElementById('in-move-to-rentals')) {
+                document.getElementById('in-move-to-rentals').checked = isRentalChecked;
+                if (isRentalChecked && document.getElementById('rent-price-group')) {
+                    document.getElementById('rent-price-group').style.display = 'block';
                 }
             }
-            if (document.getElementById('in-move-to-rentals')) document.getElementById('in-move-to-rentals').checked = isRentalChecked;
+            if (document.getElementById('in-time-rent')) {
+                document.getElementById('in-time-rent').value = (activeRental && activeRental.time_rent) ? activeRental.time_rent : 'monthly';
+            }
 
             if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
             const destSel = document.getElementById('in-to-yard-dest');
@@ -1835,6 +1864,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 logisticsBody.innerHTML = '';
                 
                 let renderedTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
+                renderedTrips = renderedTrips.filter(t => (t[26] || '').toString().toUpperCase() !== 'RENTAL INVOICE');
 
                 // Update currentTrips unconditionally so applyAdvancedFilters can read the rows
                 window.currentTrips = renderedTrips;

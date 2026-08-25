@@ -422,6 +422,13 @@
 
                 // Date filter
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
+                    const serviceMode = (row[60] || '').toString().toUpperCase();
+                    if (serviceMode === 'RENTAL INVOICE') {
+                        const rentVal = parseFloat(row[27]) || 0;
+                        totals.rentals += rentVal;
+                        return; // Skip standard processing
+                    }
+                    
                     const qty        = parseInt(row[53]) || 1;  // index 53: qty
                     const salesPrice = parseFloat(row[20]) || 0; // index 20: sales_price
                     const yardVal    = parseFloat(row[13]) || 0;
@@ -513,13 +520,9 @@
                         else if (company === 'CONTRACTOR')  totals.contractor += totalTrans;
                     }
                 }
-            });            // 1.5 Process Rentals Independently (Accumulated Total)
-            if (window.currentRentals && window.calculateRentalCost) {
-                window.currentRentals.forEach(row => {
-                    const costInfo = window.calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent, dateFrom, dateTo);
-                    totals.rentals += costInfo.total;
-                });
-            }
+            });
+            // 1.5 Process Rentals Independently (Accumulated Total) - REMOVED
+            // Rentals are now calculated via RENTAL INVOICE trips
             // 2. Process Business Expenses
             expensesData.forEach(row => {
                 const rowDate = row[0];

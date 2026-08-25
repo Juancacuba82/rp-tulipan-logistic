@@ -12,84 +12,9 @@
     window.billingDataLoaded = false;    // Flag to prevent redundant fetches
 
     window.injectVirtualRentals = function(trips) {
-        if (!window.currentRentals) return trips;
-        
-        const newVirtualTrips = [];
-        
-        window.currentRentals.forEach(rental => {
-            if (rental.status === 'ACTIVE') {
-                const rentDebt = parseFloat(rental.base_price) || 0;
-                if (rentDebt > 0) {
-                    const rRel = (rental.order_number || rental.release_no || '').trim().toLowerCase();
-                    const rCont = (rental.container_no || '').trim().toLowerCase();
-                    
-                    let dynStatus = (rental.payment_status || 'PEND').trim().toUpperCase();
-                    if (rental.final_date) {
-                        const today = new Date();
-                        today.setHours(0,0,0,0);
-                        const finalDateObj = new Date(rental.final_date);
-                        finalDateObj.setHours(0,0,0,0);
-                        if (dynStatus === 'PAID' && today >= finalDateObj) {
-                            dynStatus = 'PEND';
-                        }
-                    } else {
-                        dynStatus = 'PEND';
-                    }
-                    
-                    let origTrip = null;
-                    if (rCont && rCont !== '---') {
-                        origTrip = trips.find(t => {
-                            const tCont = (t[3] || '').trim().toLowerCase();
-                            if (tCont !== rCont) return false;
-                            const tOrder = (t[5] || t[4] || '').trim().toLowerCase();
-                            if (tOrder === rRel) return true;
-                            if (tOrder.startsWith('ord-') && (rRel === '' || rRel === '---')) return true;
-                            return false;
-                        });
-                    }
-                    
-                    if (origTrip) {
-                        origTrip[27] = rentDebt.toFixed(2);
-                        origTrip[31] = dynStatus === 'PAID' ? 'PAID' : 'PEND';
-                        origTrip.isActiveRentalMerged = rental.id;
-                    } else {
-                        const virtualRow = new Array(80).fill('');
-                        virtualRow[0] = 'VIRTUAL_RENTAL_' + rental.id;
-                        virtualRow[1] = rental.final_date && rental.final_date !== '---' ? rental.final_date : rental.start_date;
-                        virtualRow[2] = rental.size;
-                        virtualRow[3] = rental.container_no;
-                        virtualRow[4] = '---'; // Leave Releases blank to avoid confusion
-                        virtualRow[5] = rental.release_no && rental.release_no !== '---' ? rental.release_no : ('RENTAL-' + (rental.container_no || '---'));
-                        virtualRow[6] = '---';
-                        virtualRow[8] = rental.delivery_place || '---';
-                        virtualRow[11] = rental.customer_name;
-                        virtualRow[27] = rentDebt.toFixed(2);
-                        virtualRow[31] = dynStatus === 'PAID' ? 'PAID' : 'PEND';
-                        virtualRow[41] = 'COMPLETE';
-                        virtualRow[57] = 'NO';
-                        
-                        let fullOrigTrip = null;
-                        if (window.currentTrips && rCont && rCont !== '---') {
-                            fullOrigTrip = window.currentTrips.find(t => {
-                                const tCont = (t[3] || '').trim().toLowerCase();
-                                if (tCont !== rCont) return false;
-                                const tOrder = (t[5] || t[4] || '').trim().toLowerCase();
-                                if (tOrder === rRel) return true;
-                                if (tOrder.startsWith('ord-') && (rRel === '' || rRel === '---')) return true;
-                                return false;
-                            });
-                        }
-                        if (fullOrigTrip) {
-                            virtualRow[65] = fullOrigTrip[65] || '---';
-                            virtualRow[17] = fullOrigTrip[17] || '---';
-                        }
-                        
-                        newVirtualTrips.push(virtualRow);
-                    }
-                }
-            }
-        });
-        return trips.concat(newVirtualTrips);
+        // Virtual rentals are no longer injected. 
+        // Billing now relies entirely on manually generated RENTAL INVOICE trips.
+        return trips;
     };
 
     window.initBillingCenter = async function() {
@@ -259,7 +184,7 @@
             const hasSales = (parseFloat(row[20]) || 0) > 0.01;
             const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
             const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
-            const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
+            const hasRent  = ((row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE') && (parseFloat(row[27]) || 0) > 0.01;
             const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL') || row.isActiveRentalMerged !== undefined;
 
             let activeServicesFilter = [];
@@ -389,7 +314,7 @@
             const hasSales = (parseFloat(row[20]) || 0) > 0.01;
             const hasYard  = !isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
             const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
-            const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
+            const hasRent  = ((row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE') && (parseFloat(row[27]) || 0) > 0.01;
             const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT') || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL') || row.isActiveRentalMerged !== undefined;
 
             if (fOrder    && !orderNo.includes(fOrder))    return false;
@@ -460,7 +385,8 @@
 
             // Rent calculation (Matches Rentals Total column exactly)
             let totalRent = 0;
-            const mrate = parseFloat(row[27]) || 0;
+            let mrate = parseFloat(row[27]) || 0;
+            if ((row[26] || '').toString().toUpperCase() !== 'RENTAL INVOICE') mrate = 0;
             if (mrate > 0) {
                 const tripId = row[0] || '';
                 let rentalId = null;
@@ -513,6 +439,8 @@
             }
 
             const grandTotal = totalTrans + totalSales + totalYard + totalStorage + totalRent;
+            if (grandTotal <= 0) return; // Hide trips that have zero billable balance
+            
             const displayDate = fmtDate(row[1]);
             const customer    = row[11] || '---';
             const city        = row[6]  || '---';
@@ -690,12 +618,21 @@
     };
 
     // ── RESET FILTERS ─────────────────────────────────────────
-    window.resetBillingFilters = function () {
+    window.resetBillingFilters = async function () {
         ['bc-f-order','bc-f-booking','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-service','bc-f-release','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
         if (fPayment) fPayment.value = 'all';
-        window.renderBillingTable();
+        
+        const tbody = document.getElementById('billing-table-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; padding: 20px; font-weight: bold; color: #1e40af;"><i class="fas fa-spinner fa-spin"></i> Recargando datos...</td></tr>';
+        
+        window.billingDataLoaded = false;
+        if (typeof window.initBillingCenter === 'function') {
+            await window.initBillingCenter();
+        } else {
+            window.renderBillingTable();
+        }
     };
 
     window.recalculateInvoiceTotals = function() {
@@ -1318,8 +1255,21 @@
         const periodContainer = document.getElementById('mb-period-container');
         const periodDisplay = document.getElementById('mb-period-display');
         
-        if (fromDateStr || toDateStr) {
-            let pStr = '';
+        let pStr = '';
+        let hasRentalPeriod = false;
+
+        // Check if any selected row is a RENTAL INVOICE with a period stored in its notes
+        rows.forEach(r => {
+            if ((r[26] || '').toString().toUpperCase() === 'RENTAL INVOICE' && r[25] && r[25] !== '---') {
+                pStr = r[25];
+                hasRentalPeriod = true;
+            }
+        });
+
+        if (hasRentalPeriod) {
+            if(periodDisplay) periodDisplay.textContent = pStr;
+            if(periodContainer) periodContainer.style.display = 'block';
+        } else if (fromDateStr || toDateStr) {
             if (fromDateStr && toDateStr) {
                 const fD = new Date(fromDateStr + 'T00:00:00');
                 const tD = new Date(toDateStr + 'T00:00:00');
@@ -1464,7 +1414,8 @@
             }
 
             let rRent = 0;
-            const mrate = parseFloat(r[27]) || 0;
+            let mrate = parseFloat(r[27]) || 0;
+            if ((r[26] || '').toString().toUpperCase() !== 'RENTAL INVOICE') mrate = 0;
             if (mrate > 0) {
                 const tripId = r[0] || '';
                 let rentalId = null;
