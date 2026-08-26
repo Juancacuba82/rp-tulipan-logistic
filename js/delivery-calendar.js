@@ -492,7 +492,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     created_at: createdAtStr,
                                     status: 'AVAILABLE',
                                     entry_fee: 0,
-                                    daily_rate: 0,
                                     lifts: 1
                                 }]);
                         }
@@ -1864,7 +1863,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 logisticsBody.innerHTML = '';
                 
                 let renderedTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
-                renderedTrips = renderedTrips.filter(t => (t[26] || '').toString().toUpperCase() !== 'RENTAL INVOICE');
+                renderedTrips = renderedTrips.filter(t => {
+                    const smode = (t[26] || '').toString().toUpperCase();
+                    return smode !== 'RENTAL INVOICE' && smode !== 'YARD INVOICE';
+                });
 
                 // Update currentTrips unconditionally so applyAdvancedFilters can read the rows
                 window.currentTrips = renderedTrips;

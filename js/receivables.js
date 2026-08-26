@@ -680,7 +680,8 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
         // Anti-Duplicado por Número de Factura Exacto (Double-click protection)
         const { data: dupInvNo } = await window.db.from('receivables_invoices')
             .select('id')
-            .eq('invoice_number', invoiceNumber);
+            .eq('invoice_number', invoiceNumber)
+            .or('is_deleted.eq.false,is_deleted.is.null');
 
         if (dupInvNo && dupInvNo.length > 0) {
             console.log(`[Receivables] Anti-duplicate: Invoice ${invoiceNumber} is already recorded.`);
@@ -737,8 +738,8 @@ window.deleteReceivable = async function (id) {
         const { error } = await window.db.from('receivables_invoices').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', id);
         if (error) throw error;
 
-        // Delete ghost trips associated with RENTAL invoices
-        if (inv && inv.service_type === 'RENTAL' && inv.trip_ids) {
+        // Delete ghost trips associated with RENTAL or YARD STORAGE invoices
+        if (inv && (inv.service_type === 'RENTAL' || inv.service_type === 'YARD STORAGE') && inv.trip_ids) {
             const tripIds = inv.trip_ids.split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
             if (tripIds.length > 0) {
                 await window.db.from('trips').delete().in('trip_id', tripIds);
