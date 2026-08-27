@@ -43,13 +43,16 @@
                     const rCont = (r[3] || '').toString();
                     const rOrder = (r[5] || '').toString();
 
-                    const rStatus = r[41];
+                    const rStatus = (r[41] || '').toUpperCase();
 
                     const matchesSearch = !searchTerm || rDriver.toLowerCase().trim() === searchTerm.trim()
                         || rCont.toLowerCase().includes(searchTerm)
                         || rOrder.toLowerCase().includes(searchTerm);
                     const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
-                    const isComplete = (rStatus === 'PAID' || rStatus === 'COMPLETE' || rStatus === 'PENDING_PAYMENT');
+                    
+                    // Asegurarnos de que no filtre "PENDING"
+                    // BUG FIX: PENDING_PAYMENT es el estado guardado cuando la orden sigue en "Pending" en el UI.
+                    const isComplete = (rStatus === 'PAID' || rStatus === 'COMPLETE');
 
                     return matchesSearch && matchesDate && isComplete;
                 });

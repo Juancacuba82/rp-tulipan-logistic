@@ -185,6 +185,48 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');
                 const globalStatus = isFinalized ? 'COMPLETE' : 'PENDING_PAYMENT';
 
+                // --- VALIDATION FOR COMPLETE ORDERS (Photos & Signatures) ---
+                if (isFinalized && editingTripDbId) {
+                    try {
+                        const { data: docCheck, error: docErr } = await db
+                            .from('trips')
+                            .select('photos, signature, signature_driver')
+                            .eq('trip_id', editingTripDbId)
+                            .single();
+                            
+                        if (!docErr && docCheck) {
+                            let photosArr = [];
+                            try {
+                                if (typeof docCheck.photos === 'string') {
+                                    photosArr = JSON.parse(docCheck.photos) || [];
+                                } else if (Array.isArray(docCheck.photos)) {
+                                    photosArr = docCheck.photos;
+                                }
+                            } catch (e) {
+                                photosArr = [];
+                            }
+                            
+                            const hasPhotos = photosArr.length >= 4;
+                            const hasSigClient = !!docCheck.signature;
+                            const hasSigDriver = !!docCheck.signature_driver;
+                            
+                            if (!hasPhotos || !hasSigClient || !hasSigDriver) {
+                                const confirmMsg = "¡Atención! A esta orden le faltan fotos o firmas de entrega (se requieren 4 fotos y ambas firmas).\n\n¿Estás seguro de que quieres forzarla a Completada?";
+                                if (!confirm(confirmMsg)) {
+                                    isSaving = false;
+                                    restoreTripArchiveButtonUI();
+                                    return; // Abort save
+                                }
+                            }
+                        }
+                    } catch (checkErr) {
+                        console.error("Error validando documentos:", checkErr);
+                        // Proceder si hay error de red para no bloquear el sistema por completo
+                    }
+                }
+                // -----------------------------------------------------------
+
+
                 const containerSource = document.getElementById('in-container-source')?.value || 'RELEASE';
                 const yardItemId = document.getElementById('in-yard-item-id')?.value;
                 const isYardSource = containerSource === 'YARD' || containerSource === 'STORAGE';
