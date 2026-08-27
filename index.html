@@ -26,7 +26,7 @@
     <script src="./js/data-mapping.js?v=11"></script>
     <script src="./js/realtime-sync.js?v=2" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1700" defer></script>
+    <script src="./js/data-managers.js?v=1701" defer></script>
     <script src="./js/delivery-calendar.js?v=1702" defer></script>
     <script src="./js/driver-settlements.js?v=1700" defer></script>
     <script src="./js/releases.js?v=1700" defer></script>
@@ -44,7 +44,7 @@
     <script src="./js/receivables.js?v=18" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
-    <script src="./js/csv-import.js?v=1" defer></script>
+    <script src="./js/csv-import.js?v=4" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="./js/recycle-bin.js?v=1" defer></script>
@@ -3736,10 +3736,9 @@
                             <label class="sidebar-label-btn"
                                 style="background: #1e40af !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">CATEGORY</label>
                             <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                                <input type="text" id="exp-category" list="exp-category-list" onchange="toggleOtherExpense()" style="flex: 1; margin: 0;" placeholder="Select or type category..." autocomplete="off">
-                                <datalist id="exp-category-list">
-                                    <option value="Loading categories..."></option>
-                                </datalist>
+                                <select id="exp-category" onchange="toggleOtherExpense()" style="flex: 1; margin: 0; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white;">
+                                    <option value="">Select category...</option>
+                                </select>
                                 <button onclick="openExpenseCategoryManager()" class="btn-manage-inline"
                                     style="flex: 0 0 auto; height: 32px; display: flex; align-items: center; justify-content: center;">
                                     Manage

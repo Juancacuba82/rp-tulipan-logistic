@@ -32,34 +32,54 @@ document.getElementById('csv-file-input')?.addEventListener('change', function(e
     const file = e.target.files[0];
     if (!file) return;
 
-    Papa.parse(file, {
+    if (typeof Papa === 'undefined') {
+        alert("ERROR CRÍTICO: La librería PapaParse no se cargó. Esto suele suceder si no hay conexión a internet o el servidor bloquea la descarga de la librería.");
+        return;
+    }
+
+    alert("El archivo ha sido seleccionado y el código se está ejecutando. Nombre: " + file.name);
+
+    let parseConfig = {
         complete: function(results) {
             processBankCsv(results.data);
         },
+        error: function(error) {
+            alert("Error en PapaParse: " + error.message);
+        },
         skipEmptyLines: true
-    });
+    };
+
+    // If it's a .dat or .tsv file, explicitly tell the parser to use tabs as delimiters
+    if (file.name.toLowerCase().endsWith('.dat') || file.name.toLowerCase().endsWith('.tsv')) {
+        parseConfig.delimiter = '\t';
+    }
+
+    Papa.parse(file, parseConfig);
 });
 
 function processBankCsv(rawData) {
-    window.csvParsedData = [];
-    
-    // BofA CSVs usually have [Date, Description, Amount, Running Balance]
-    // Sometimes there's a header row, sometimes not.
-    // We'll iterate and try to find valid rows.
-    
-    let tempParsed = [];
-    
-    rawData.forEach((row, index) => {
-        // Skip obvious header rows
-        if (row.length < 3) return;
-        const col0 = (row[0] || '').toString().trim();
-        const col1 = (row[1] || '').toString().trim();
-        let col2 = (row[2] || '').toString().trim();
+    try {
+        window.csvParsedData = [];
+        let tempParsed = [];
+        window.csvDebugRows = [];
         
-        if (col0.toLowerCase().includes('date') || col1.toLowerCase().includes('description')) {
-            hasHeader = true;
+        if (!rawData || !Array.isArray(rawData)) {
+            alert("Error: rawData is not an array. Value: " + JSON.stringify(rawData));
             return;
         }
+
+        rawData.forEach((row, index) => {
+            if (index < 5) window.csvDebugRows.push(JSON.stringify(row));
+            
+            // Skip obvious header rows
+            if (!row || row.length < 3) return;
+            const col0 = (row[0] || '').toString().trim();
+            const col1 = (row[1] || '').toString().trim();
+            let col2 = (row[2] || '').toString().trim();
+            
+            if (col0.toLowerCase().includes('date') || col1.toLowerCase().includes('description')) {
+                return;
+            }
 
         // Validate date (looks like MM/DD/YYYY)
         const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
@@ -191,6 +211,10 @@ function processBankCsv(rawData) {
     
     applyHistoricalMemory();
     renderCsvPreview();
+    
+    } catch (err) {
+        alert("Ocurrió un error inesperado al procesar el archivo: " + err.message + "\n\n" + err.stack);
+    }
 }
 
 function applyHistoricalMemory() {
@@ -334,7 +358,7 @@ function renderCsvPreview() {
     const tbody = document.getElementById('csv-preview-body');
     
     if (window.csvParsedData.length === 0) {
-        alert("No valid expenses found in this file. Please ensure it's a Bank of America CSV.");
+        alert("No valid expenses found. Debug info:\n" + (window.csvDebugRows || []).join('\n'));
         return;
     }
     
@@ -343,10 +367,16 @@ function renderCsvPreview() {
     
     // Get unique categories for the dropdown
     const catSelect = document.getElementById('exp-category');
+    const catList = document.getElementById('exp-category-list');
     let categoryOptions = '';
-    if (catSelect) {
+    
+    if (catList && catList.options) {
+        Array.from(catList.options).forEach(opt => {
+            if (opt.value) categoryOptions += `<option value="${opt.value}">${opt.value}</option>`;
+        });
+    } else if (catSelect && catSelect.options) {
         Array.from(catSelect.options).forEach(opt => {
-            if (opt.value) categoryOptions += `<option value="${opt.value}">${opt.text}</option>`;
+            if (opt.value) categoryOptions += `<option value="${opt.value}">${opt.text || opt.value}</option>`;
         });
     } else {
         categoryOptions = `<option value="Other">Other</option>`;

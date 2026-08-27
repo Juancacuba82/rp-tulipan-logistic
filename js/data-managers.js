@@ -1439,14 +1439,21 @@
             // Convert to array and sort alphabetically
             const sortedCategories = Array.from(uniqueCategories).sort((a, b) => a.localeCompare(b));
             
-            // Populate datalist
-            if (expList) {
-                expList.innerHTML = '';
+            // Populate select
+            const expSelect = document.getElementById('exp-category');
+            if (expSelect) {
+                const currentValue = expSelect.value;
+                expSelect.innerHTML = '<option value="">Select category...</option>';
                 sortedCategories.forEach(catName => {
                     const opt = document.createElement('option');
                     opt.value = catName;
-                    expList.appendChild(opt);
+                    opt.textContent = catName;
+                    expSelect.appendChild(opt);
                 });
+                // Restore selection if it still exists
+                if (uniqueCategories.has(currentValue)) {
+                    expSelect.value = currentValue;
+                }
             }
 
             // Populate filter select
