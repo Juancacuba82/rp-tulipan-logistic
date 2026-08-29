@@ -133,6 +133,9 @@ function handleRealtimeTrips(payload) {
 
     let needsRender = false;
     
+    const isRentalInvoice = ((payload.new && payload.new.service_mode) || '').toString().toUpperCase() === 'RENTAL INVOICE'
+        || ((payload.old && payload.old.service_mode) || '').toString().toUpperCase() === 'RENTAL INVOICE';
+
     if (payload.eventType === 'DELETE') {
         if (window.currentTrips) {
             window.currentTrips = window.currentTrips.filter(t => t[0] !== payload.old.trip_id);
@@ -141,10 +144,19 @@ function handleRealtimeTrips(payload) {
         if (window.allTripsUnfiltered) {
             window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => t[0] !== payload.old.trip_id);
         }
+        if (window.rentalInvoiceTrips) {
+            const before = window.rentalInvoiceTrips.length;
+            window.rentalInvoiceTrips = window.rentalInvoiceTrips.filter(t => t[0] !== payload.old.trip_id);
+            if (window.rentalInvoiceTrips.length !== before) needsRender = true;
+        }
     } else {
         const mod1 = applyToCache(window.currentTrips);
         const mod2 = applyToCache(window.allTripsUnfiltered);
-        needsRender = mod1 || mod2;
+        if (isRentalInvoice) {
+            if (!window.rentalInvoiceTrips) window.rentalInvoiceTrips = [];
+            applyToCache(window.rentalInvoiceTrips);
+        }
+        needsRender = mod1 || mod2 || isRentalInvoice;
     }
     
     if (!needsRender) return;

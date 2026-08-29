@@ -1315,7 +1315,7 @@
         // Check if any selected row is a RENTAL INVOICE with a period stored in its notes
         rows.forEach(r => {
             if ((r[26] || '').toString().toUpperCase() === 'RENTAL INVOICE' && r[25] && r[25] !== '---') {
-                pStr = r[25];
+                pStr = typeof window.stripRentalIdFromNote === 'function' ? window.stripRentalIdFromNote(r[25]) : r[25];
                 hasRentalPeriod = true;
             }
         });

@@ -1,12 +1,157 @@
 (function() {
     window.currentRentals = [];
+    window.rentalInvoiceTrips = window.rentalInvoiceTrips || [];
     let editingRentalId = null;
     let originalRentalState = null;
 
+    function parseLocalDate(str) {
+        if (!str || str === '---') return null;
+        const s = str.toString().trim();
+        if (s.includes('-')) {
+            const [y, m, d] = s.split('-').map(Number);
+            if (!y || !m || !d) return null;
+            return new Date(y, m - 1, d);
+        }
+        if (s.includes('/')) {
+            const [m, d, y] = s.split('/').map(Number);
+            if (!y || !m || !d) return null;
+            return new Date(y, m - 1, d);
+        }
+        return null;
+    }
+
+    function stripRentalIdFromNote(note) {
+        return (note || '').toString().replace(/\s*\|\s*RID:.*/i, '').trim();
+    }
+
+    function extractRentalIdFromNote(note) {
+        const m = (note || '').toString().match(/\|\s*RID:([^\s|]+)/i);
+        return m ? m[1] : '';
+    }
+
+    function formatRentalInvoiceNote(periodLabel, rentalId) {
+        const period = (periodLabel || '').toString().trim();
+        return rentalId ? `${period} | RID:${rentalId}` : period;
+    }
+
+    function rememberRentalInvoiceTrip(tripArr) {
+        if (!tripArr || !tripArr[0]) return;
+        if (!window.rentalInvoiceTrips) window.rentalInvoiceTrips = [];
+        const idx = window.rentalInvoiceTrips.findIndex(t => t[0] === tripArr[0]);
+        if (idx !== -1) window.rentalInvoiceTrips[idx] = tripArr;
+        else window.rentalInvoiceTrips.unshift(tripArr);
+    }
+
+    function getRentalInvoiceTrips() {
+        const byId = new Map();
+        const add = (arr) => {
+            if (!arr || !arr.length) return;
+            arr.forEach(t => {
+                if (!t || !t[0]) return;
+                if ((t[26] || '').toString().toUpperCase() === 'RENTAL INVOICE') {
+                    byId.set(t[0], t);
+                }
+            });
+        };
+        add(window.rentalInvoiceTrips);
+        add(window.currentTrips);
+        add(window.combinedBillingTrips);
+        add(window.allTripsUnfiltered);
+        return [...byId.values()];
+    }
+
+    function getInvoicePeriod(trip) {
+        let start = parseLocalDate(trip[28] && trip[28] !== '---' ? trip[28] : '');
+        let end = parseLocalDate(trip[29] && trip[29] !== '---' ? trip[29] : '');
+        if (!start || !end) {
+            const period = stripRentalIdFromNote(trip[25]);
+            const m = period.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/);
+            if (m) {
+                start = start || parseLocalDate(m[1]);
+                end = end || parseLocalDate(m[2]);
+            }
+        }
+        return { start, end };
+    }
+
+    function periodsOverlap(aStart, aEnd, bStart, bEnd) {
+        if (!aStart || !aEnd || !bStart || !bEnd) return true;
+        return aStart.getTime() <= bEnd.getTime() && aEnd.getTime() >= bStart.getTime();
+    }
+
+    function findMatchingRentalInvoice(row, filterStartStr, filterEndStr) {
+        const trips = getRentalInvoiceTrips();
+        if (!trips.length || !row) return null;
+
+        const rid = row.id != null ? String(row.id) : '';
+        const cont = (row.container_no || '').toString().trim().toUpperCase();
+        const fStart = parseLocalDate(filterStartStr);
+        const fEnd = parseLocalDate(filterEndStr);
+        const hasFilter = !!(fStart || fEnd);
+        const rangeStart = fStart || parseLocalDate(row.start_date);
+        const rangeEnd = fEnd || parseLocalDate(row.final_date) || new Date();
+        if (rangeEnd) rangeEnd.setHours(0, 0, 0, 0);
+
+        const byRid = [];
+        const byCont = [];
+        trips.forEach(t => {
+            const noteRid = extractRentalIdFromNote(t[25]);
+            if (rid && noteRid && String(noteRid) === rid) {
+                byRid.push(t);
+                return;
+            }
+            const tCont = (t[3] || '').toString().trim().toUpperCase();
+            if (cont && tCont === cont && tCont !== '---' && tCont !== 'TBA') {
+                byCont.push(t);
+            }
+        });
+
+        const pool = byRid.length ? byRid : byCont;
+        const matched = pool.filter(t => {
+            const { start, end } = getInvoicePeriod(t);
+            if (hasFilter) {
+                const rs = rangeStart || new Date(2000, 0, 1);
+                const re = rangeEnd || new Date(2099, 11, 31);
+                return periodsOverlap(start, end, rs, re);
+            }
+            if (byRid.length) return true;
+            const rentalStart = parseLocalDate(row.start_date);
+            const rentalEnd = parseLocalDate(row.final_date) || new Date();
+            if (rentalEnd) rentalEnd.setHours(0, 0, 0, 0);
+            if (start && end && rentalStart) {
+                return periodsOverlap(start, end, rentalStart, rentalEnd);
+            }
+            return true;
+        });
+
+        if (!matched.length) return null;
+        return matched.find(t => (t[31] || '').toString().trim().toUpperCase() === 'PAID') || matched[0];
+    }
+
+    async function loadRentalInvoiceTrips(force = false) {
+        if (!force && window.rentalInvoiceTrips && window.rentalInvoiceTrips.length > 0) return;
+        const sc = window.db || (typeof db !== 'undefined' ? db : null);
+        if (!sc) return;
+        try {
+            const { data, error } = await sc.from('trips')
+                .select('*')
+                .eq('service_mode', 'RENTAL INVOICE')
+                .or('is_deleted.eq.false,is_deleted.is.null')
+                .order('date', { ascending: false })
+                .limit(1000);
+            if (error) throw error;
+            window.rentalInvoiceTrips = (data || [])
+                .map(t => (typeof window.mapTripToArray === 'function' ? window.mapTripToArray(t) : null))
+                .filter(Boolean);
+        } catch (err) {
+            console.warn('Could not load rental invoice trips:', err);
+            if (!window.rentalInvoiceTrips) window.rentalInvoiceTrips = [];
+        }
+    }
+
     async function loadRentalsData(force = false) {
         if (!force && window.currentRentals && window.currentRentals.length > 0) {
-            // If we have data but want to ensure we have the full 1-year range, we could check a flag
-            // For now, let's just render what we have.
+            await loadRentalInvoiceTrips(false);
             renderRentalsTable();
             return;
         }
@@ -65,6 +210,7 @@
                 await window.loadReleasesData();
             }
             populateAllRentalSelects();
+            await loadRentalInvoiceTrips(true);
             renderRentalsTable();
         } catch (err) { console.error("Error loading rentals:", err); }
     }
@@ -440,29 +586,14 @@
             row._calculatedCost = costInfo.total; // Store for generateRentalInvoice
             row._calculatedStart = startDateFilter || row.start_date;
             row._calculatedEnd = endDateFilter || row.final_date || new Date().toISOString().split('T')[0];
-            
-            const fmt = (s) => { const p = s.split('-'); return `${p[1]}/${p[2]}/${p[0]}`; };
-            const periodLabel = `${fmt(row._calculatedStart)} - ${fmt(row._calculatedEnd)}`;
-            
+
             let dynamicPaymentStatus = 'UNBILLED';
             let isExpired = false;
-            
-            if (window.currentTrips && window.currentTrips.length > 0) {
-                // Find ghost trips for this container (service_mode is at index 26)
-                const ghostTrips = window.currentTrips.filter(t => t[3] === row.container_no && t[26] === 'RENTAL INVOICE');
-                
-                // Match by checking if the note includes the start date of the period (so combined invoices still match)
-                const startFmt = fmt(row._calculatedStart);
-                const matchingTrip = ghostTrips.find(t => (t[25] || '').includes(startFmt));
-                
-                if (matchingTrip) {
-                    const stRent = (matchingTrip[31] || '').trim().toUpperCase();
-                    if (stRent === 'PAID') {
-                        dynamicPaymentStatus = 'PAID';
-                    } else {
-                        dynamicPaymentStatus = 'PENDING';
-                    }
-                }
+
+            const matchingTrip = findMatchingRentalInvoice(row, startDateFilter, endDateFilter);
+            if (matchingTrip) {
+                const stRent = (matchingTrip[31] || '').toString().trim().toUpperCase();
+                dynamicPaymentStatus = (stRent === 'PAID') ? 'PAID' : 'PENDING';
             }
             
             // Highlight row in red if status is UNBILLED or PENDING, AND the evaluated end date has already passed
@@ -999,7 +1130,7 @@
                 customer: row.customer_name,
                 pickup_address: baseTrip ? baseTrip[7] : '',
                 delivery_place: baseTrip ? baseTrip[8] : '',
-                note: periodLabel,
+                note: formatRentalInvoiceNote(periodLabel, row.id),
                 n_cont: row.container_no,
                 yard_rate: 0, 
                 monthly_rate: rentAmount, // This maps to row[27] which is the RENT column in billing
@@ -1014,12 +1145,17 @@
                 has_sales: 'NO',
                 invoice_sent: 'YES',
                 paid: isFullyPaid,
-                email: baseTrip ? (baseTrip[36] === '---' ? '' : baseTrip[36]) : ''
+                email: baseTrip ? (baseTrip[36] === '---' ? '' : baseTrip[36]) : '',
+                start_date_rent: start,
+                next_due: end
             };
 
             try {
                 const { error: insertError } = await window.db.from('trips').insert([tripObj]);
                 if (insertError) throw insertError;
+                if (typeof window.mapTripToArray === 'function') {
+                    rememberRentalInvoiceTrip(window.mapTripToArray(tripObj));
+                }
                 
                 if (isPaidNow && paymentSplit && window.logCashTransaction) {
                     const desc = `Pago Factura Renta - ${orderNo}`;
@@ -1263,7 +1399,7 @@
                         customer: row.customer_name,
                         pickup_address: baseTrip ? baseTrip[7] : '',
                         delivery_place: baseTrip ? baseTrip[8] : '',
-                        note: periodLabel,
+                        note: formatRentalInvoiceNote(periodLabel, row.id),
                         n_cont: row.container_no,
                         yard_rate: 0, 
                         monthly_rate: rAmount, 
@@ -1278,11 +1414,16 @@
                         has_sales: 'NO',
                         invoice_sent: 'YES',
                         paid: isFullyPaid,
-                        email: baseTrip ? (baseTrip[36] === '---' ? '' : baseTrip[36]) : ''
+                        email: baseTrip ? (baseTrip[36] === '---' ? '' : baseTrip[36]) : '',
+                        start_date_rent: start,
+                        next_due: end
                     };
                     
                     const { error: insertError } = await window.db.from('trips').insert([tripObj]);
                     if (insertError) throw insertError;
+                    if (typeof window.mapTripToArray === 'function') {
+                        rememberRentalInvoiceTrip(window.mapTripToArray(tripObj));
+                    }
                 }
                 
                 detailsHtml += '</div>';
@@ -1337,6 +1478,9 @@
 
     window.renderRentalsTable = renderRentalsTable;
     window.loadRentalsData = loadRentalsData;
+    window.loadRentalInvoiceTrips = loadRentalInvoiceTrips;
+    window.rememberRentalInvoiceTrip = rememberRentalInvoiceTrip;
+    window.stripRentalIdFromNote = stripRentalIdFromNote;
     window.saveRentalData = saveRentalData;
     window.editRental = editRental;
     window.removeRental = removeRental;

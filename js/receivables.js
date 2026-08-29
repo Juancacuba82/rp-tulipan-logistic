@@ -553,15 +553,18 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                         }
 
                         // Sync local cache so calendar reflects immediately
+                        const applyPaidCols = (localRow) => {
+                            if (!localRow) return;
+                            if (colsToUpdate.st_rate)   localRow[32] = 'PAID';
+                            if (colsToUpdate.st_yard)   localRow[30] = 'PAID';
+                            if (colsToUpdate.st_sales)  localRow[33] = 'PAID';
+                            if (colsToUpdate.st_rent)   localRow[31] = 'PAID';
+                            if (colsToUpdate.st_amount) localRow[34] = 'PAID';
+                        };
                         normalTrips.forEach(tid => {
-                            const localRow = (window.currentTrips || []).find(t => t[0] === tid);
-                            if (localRow) {
-                                if (colsToUpdate.st_rate)   localRow[32] = 'PAID';
-                                if (colsToUpdate.st_yard)   localRow[30] = 'PAID';
-                                if (colsToUpdate.st_sales)  localRow[33] = 'PAID';
-                                if (colsToUpdate.st_rent)   localRow[31] = 'PAID';
-                                if (colsToUpdate.st_amount) localRow[34] = 'PAID';
-                            }
+                            applyPaidCols((window.currentTrips || []).find(t => t[0] === tid));
+                            applyPaidCols((window.rentalInvoiceTrips || []).find(t => t[0] === tid));
+                            applyPaidCols((window.combinedBillingTrips || []).find(t => t[0] === tid));
                         });
                         rentalIds.forEach(rid => {
                             const localRental = (window.currentRentals || []).find(r => String(r.id) === String(rid));
