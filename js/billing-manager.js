@@ -1095,7 +1095,7 @@
             const emailInput = document.getElementById('yard-reprint-email');
             emailInput.value = '';
             if (window.db) {
-                window.db.from('customers').select('email').eq('name', customer).then(({data}) => {
+                window.db.from('customers').select('email').eq('name', customer).or('is_deleted.eq.false,is_deleted.is.null').then(({data}) => {
                     if (data && data.length > 0 && data[0].email) {
                         emailInput.value = data[0].email;
                     }

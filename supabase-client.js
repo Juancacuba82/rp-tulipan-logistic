@@ -506,7 +506,8 @@ async function getTripDetails(tripId) {
             .from('trips')
             .select('*')
             .eq('trip_id', tripId)
-            .single();
+            .or('is_deleted.eq.false,is_deleted.is.null')
+            .maybeSingle();
         if (error) throw error;
         return data;
     } catch (err) {

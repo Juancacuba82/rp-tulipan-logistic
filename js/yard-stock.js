@@ -36,6 +36,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             const { data, error } = await window.db
                 .from('yard_stock')
                 .select('*')
+                .or('is_deleted.eq.false,is_deleted.is.null')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;

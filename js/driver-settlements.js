@@ -837,7 +837,8 @@
                         .select('id')
                         .eq('driver_name', driverNameFinal)
                         .eq('start_date', val_inicio)
-                        .eq('end_date', val_final);
+                        .eq('end_date', val_final)
+                        .or('is_deleted.eq.false,is_deleted.is.null');
 
                     if (checkError) throw checkError;
                     
@@ -1202,7 +1203,8 @@
                     const { data, error } = await window.db.from('trips')
                         .select('*')
                         .gte('date', dateFrom)
-                        .lte('date', dateTo);
+                        .lte('date', dateTo)
+                        .or('is_deleted.eq.false,is_deleted.is.null');
                         
                     if (error) throw error;
                     

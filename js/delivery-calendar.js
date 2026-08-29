@@ -495,6 +495,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             .select('id, lift_cost')
                             .eq('origin_release', searchOrder)
                             .eq('container_no', searchCont)
+                            .or('is_deleted.eq.false,is_deleted.is.null')
                             .limit(1);
 
                         const calendarDate = document.getElementById('in-date')?.value;
@@ -575,6 +576,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             .select('id, base_price')
                             .eq('release_no', searchOrder)
                             .eq('container_no', searchCont)
+                            .or('is_deleted.eq.false,is_deleted.is.null')
                             .limit(1);
 
                         const calendarDate = document.getElementById('in-date')?.value || new Date().toISOString().split('T')[0];
@@ -1738,6 +1740,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         .select('lift_cost')
                         .ilike('origin_release', searchOrder)
                         .eq('container_no', searchCont)
+                        .or('is_deleted.eq.false,is_deleted.is.null')
                         .limit(1)
                         .then(({data, error}) => {
                             if (!error && data && data.length > 0 && document.getElementById('in-liftcost')) {

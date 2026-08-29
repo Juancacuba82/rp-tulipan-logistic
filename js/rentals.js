@@ -392,6 +392,7 @@
             const { data, error } = await sc.from('releases')
                 .select('id, total_stock')
                 .eq('release_no', cleanRelNo)
+                .or('is_deleted.eq.false,is_deleted.is.null')
                 .maybeSingle();
             
             if (data) {
@@ -1113,6 +1114,7 @@
                     const { data: dbTrips, error: dbErr } = await window.db.from('trips')
                         .select('*')
                         .eq('n_cont', row.container_no)
+                        .or('is_deleted.eq.false,is_deleted.is.null')
                         .order('date', { ascending: false })
                         .limit(1);
                     if (!dbErr && dbTrips && dbTrips.length > 0 && typeof window.mapTripToArray === 'function') {
@@ -1374,7 +1376,7 @@
                     }
                     if (!baseTrip) {
                         try {
-                            const { data: dbTrips } = await window.db.from('trips').select('*').eq('n_cont', row.container_no).order('date', { ascending: false }).limit(1);
+                            const { data: dbTrips } = await window.db.from('trips').select('*').eq('n_cont', row.container_no).or('is_deleted.eq.false,is_deleted.is.null').order('date', { ascending: false }).limit(1);
                             if (dbTrips && dbTrips.length > 0 && typeof window.mapTripToArray === 'function') {
                                 baseTrip = window.mapTripToArray(dbTrips[0]);
                             }

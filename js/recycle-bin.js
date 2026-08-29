@@ -33,6 +33,7 @@ window.openRecycleBin = async function() {
                         <option value="drivers">Drivers (Choferes)</option>
                         <option value="customers">Customers (Clientes)</option>
                         <option value="call_logs">Calls (Llamadas)</option>
+                        <option value="yard_stock">Yard Stock</option>
                     </select>
                     <button class="glossy-blue-btn" onclick="loadRecycleBin()" style="padding:0 15px; height:35px;"><i class="fas fa-sync-alt"></i> Refresh</button>
                 </div>
@@ -63,18 +64,39 @@ window.openRecycleBin = async function() {
     loadRecycleBin();
 };
 
+function rbIsMissingRpc(error, fnName) {
+    if (!error) return false;
+    const code = String(error.code || '');
+    const msg = String(error.message || '').toLowerCase();
+    return code === 'PGRST202' || code === '42883' || msg.includes(fnName) || msg.includes('could not find the function');
+}
+
+function rbRecordId(table, item) {
+    if (table === 'trips') return item.trip_id;
+    if (table === 'fleet') return item.unit_id;
+    return item.id;
+}
+
+async function rbFetchDeleted(table) {
+    const { data, error } = await window.db.rpc('admin_list_deleted', { p_table: table });
+    if (!error) return Array.isArray(data) ? data : [];
+    if (!rbIsMissingRpc(error, 'admin_list_deleted')) throw error;
+
+    const fallback = await window.db.from(table)
+        .select('*')
+        .eq('is_deleted', true)
+        .order('deleted_at', { ascending: false });
+    if (fallback.error) throw fallback.error;
+    return fallback.data || [];
+}
+
 window.loadRecycleBin = async function() {
     const table = document.getElementById('rb-table-select').value;
     const tbody = document.getElementById('rb-tbody');
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Cargando registros eliminados...</td></tr>';
     
     try {
-        const { data, error } = await window.db.from(table)
-            .select('*')
-            .eq('is_deleted', true)
-            .order('deleted_at', { ascending: false });
-            
-        if (error) throw error;
+        const data = await rbFetchDeleted(table);
         
         if (!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:#94a3b8;"><i class="fas fa-box-open" style="font-size:2rem; margin-bottom:10px; display:block;"></i>No hay registros en la papelera para esta tabla.</td></tr>';
@@ -93,6 +115,7 @@ window.loadRecycleBin = async function() {
             else if (table === 'releases') details = `<strong>Release:</strong> ${item.release_no} | ${item.depot}`;
             else if (table === 'rentals') details = `<strong>Rental:</strong> ${item.release_no} | ${item.container_no}`;
             else if (table === 'settlement_history') details = `<strong>Settlement:</strong> ${item.driver_name} ($${item.gross_amount})`;
+            else if (table === 'yard_stock') details = `<strong>Yard:</strong> ${item.container_no || ''} | ${item.origin_release || ''} | ${item.customer_name || ''}`;
 
             const deletedAt = item.deleted_at ? new Date(item.deleted_at).toLocaleString() : 'Desconocido';
             const deletedBy = item.deleted_by || 'Desconocido';
@@ -103,10 +126,10 @@ window.loadRecycleBin = async function() {
                     <td style="padding:12px 15px; font-size:0.85rem; color:#64748b;">${deletedBy}</td>
                     <td style="padding:12px 15px; font-size:0.85rem; color:#64748b;">${deletedAt}</td>
                     <td style="padding:12px 15px; text-align:right; display:flex; justify-content:flex-end; gap:8px;">
-                        <button onclick="restoreRecord('${table}', '${item.id || item.trip_id || item.unit_id}')" class="glossy-blue-btn" style="height:30px; padding:0 12px; font-size:0.75rem;" title="Restaurar">
+                        <button onclick="restoreRecord('${table}', '${rbRecordId(table, item)}')" class="glossy-blue-btn" style="height:30px; padding:0 12px; font-size:0.75rem;" title="Restaurar">
                             <i class="fas fa-undo"></i> Restaurar
                         </button>
-                        <button onclick="hardDeleteRecord('${table}', '${item.id || item.trip_id || item.unit_id}')" class="glossy-red-btn" style="height:30px; padding:0 12px; font-size:0.75rem; background:#ef4444;" title="Borrar Permanente">
+                        <button onclick="hardDeleteRecord('${table}', '${rbRecordId(table, item)}')" class="glossy-red-btn" style="height:30px; padding:0 12px; font-size:0.75rem; background:#ef4444;" title="Borrar Permanente">
                             <i class="fas fa-times"></i> Destruir
                         </button>
                     </td>
@@ -124,13 +147,17 @@ window.loadRecycleBin = async function() {
 window.restoreRecord = async function(table, idValue) {
     if (!confirm(`¿Estás seguro de que quieres RESTAURAR este registro? Volverá a aparecer en el sistema.`)) return;
     try {
-        const idCol = table === 'trips' ? 'trip_id' : (table === 'fleet' ? 'unit_id' : 'id');
-        const { error } = await window.db.from(table).update({
-            is_deleted: false,
-            deleted_at: null,
-            deleted_by: null
-        }).eq(idCol, idValue);
-        
+        const rpc = await window.db.rpc('admin_restore_record', { p_table: table, p_id: String(idValue) });
+        let error = rpc.error;
+        if (error && rbIsMissingRpc(error, 'admin_restore_record')) {
+            const idCol = table === 'trips' ? 'trip_id' : (table === 'fleet' ? 'unit_id' : 'id');
+            const fallback = await window.db.from(table).update({
+                is_deleted: false,
+                deleted_at: null,
+                deleted_by: null
+            }).eq(idCol, idValue);
+            error = fallback.error;
+        }
         if (error) throw error;
         
         if (window.logActivity) window.logActivity("RESTORED_RECORD", `[${new Date().toLocaleString()}] Restauró registro en ${table} ID: ${idValue}`);
@@ -156,6 +183,8 @@ window.restoreRecord = async function(table, idValue) {
              window.loadRentalsData(true);
         } else if (table === 'call_logs' && typeof window.loadCallsData === 'function') {
              window.loadCallsData(true);
+        } else if (table === 'yard_stock' && typeof window.loadYardData === 'function') {
+             window.loadYardData(true);
         }
         
     } catch (err) {
@@ -167,9 +196,13 @@ window.restoreRecord = async function(table, idValue) {
 window.hardDeleteRecord = async function(table, idValue) {
     if (!confirm(`¡ADVERTENCIA CRÍTICA!\n\nEstás a punto de borrar este registro PERMANENTEMENTE de la base de datos. Esta acción NO se puede deshacer.\n\n¿Estás absolutamente seguro?`)) return;
     try {
-        const idCol = table === 'trips' ? 'trip_id' : (table === 'fleet' ? 'unit_id' : 'id');
-        const { error } = await window.db.from(table).delete().eq(idCol, idValue);
-        
+        const rpc = await window.db.rpc('admin_hard_delete', { p_table: table, p_id: String(idValue) });
+        let error = rpc.error;
+        if (error && rbIsMissingRpc(error, 'admin_hard_delete')) {
+            const idCol = table === 'trips' ? 'trip_id' : (table === 'fleet' ? 'unit_id' : 'id');
+            const fallback = await window.db.from(table).delete().eq(idCol, idValue);
+            error = fallback.error;
+        }
         if (error) throw error;
         
         if (window.logActivity) window.logActivity("HARD_DELETED_RECORD", `[${new Date().toLocaleString()}] Destruyó permanentemente registro en ${table} ID: ${idValue}`);

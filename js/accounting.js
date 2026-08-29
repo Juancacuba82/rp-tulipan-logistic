@@ -140,26 +140,29 @@
 
             // 1. Cargar Ingresos (Trips)
             const pTrips = window.db.from('trips')
-                .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt');
+                .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt')
+                .or('is_deleted.eq.false,is_deleted.is.null');
 
             // 2. Cargar Egresos (Expenses)
-            const pExpenses = window.db.from('expenses').select('*');
+            const pExpenses = window.db.from('expenses').select('*').or('is_deleted.eq.false,is_deleted.is.null');
 
             // 3. Cargar Egresos (Releases pagados)
             const pReleases = window.db.from('releases')
                 .select('*')
-                .eq('paid', true);
+                .eq('paid', true)
+                .or('is_deleted.eq.false,is_deleted.is.null');
 
             // 4. Cargar Balances Reales de Choferes (Settlements)
             const pSettlements = window.db.from('settlement_history')
                 .select('driver_name, cash_balance, end_date')
+                .or('is_deleted.eq.false,is_deleted.is.null')
                 .order('end_date', { ascending: false });
 
             // 5. Cargar Transacciones Manuales (Cash Ledger)
             const pCashLedger = window.db.from('cash_ledger').select('*');
 
             // 6. Cargar Facturas Pagadas (para evitar duplicados)
-            const pInvoices = window.db.from('receivables_invoices').select('invoice_number, trip_ids, service_type').eq('status', 'Paid');
+            const pInvoices = window.db.from('receivables_invoices').select('invoice_number, trip_ids, service_type').eq('status', 'Paid').or('is_deleted.eq.false,is_deleted.is.null');
 
             const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger, resInvoices] = await Promise.all([pTrips, pExpenses, pReleases, pSettlements, pCashLedger, pInvoices]);
 
@@ -805,8 +808,9 @@
                     updates.y_cash = (newMethod === 'cash');
                 } else if (tx.sub_type.endsWith('_c') || tx.sub_type.endsWith('_b')) {
                     // It's a split payment, we are moving the amount from cash to bank or viceversa
-                    const { data: tripData, error: fetchErr } = await window.db.from('trips').select('*').eq('trip_id', tx.orig_id).single();
+                    const { data: tripData, error: fetchErr } = await window.db.from('trips').select('*').eq('trip_id', tx.orig_id).or('is_deleted.eq.false,is_deleted.is.null').maybeSingle();
                     if (fetchErr) throw fetchErr;
+                    if (!tripData) throw new Error('Trip not found or deleted');
                     
                     let cCol, bCol;
                     if (tx.sub_type.startsWith('sales')) { cCol = 'sales_cash_amt'; bCol = 'sales_bank_amt'; }
