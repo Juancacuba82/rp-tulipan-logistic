@@ -140,6 +140,89 @@
         return false;
     }
 
+    function getBillingRowActiveServices(row) {
+        const orderNoUpper = (row[5] || '---').toString().toUpperCase();
+        const isYardStorage = orderNoUpper.startsWith('YRD-');
+        const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0.01;
+        const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0.01;
+        const hasYard = !isYardStorage && (parseFloat(row[13]) || 0) > 0.01;
+        const hasStorage = isYardStorage && (parseFloat(row[13]) || 0) > 0.01;
+        const hasRent = ((row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE') && (parseFloat(row[27]) || 0) > 0.01;
+        const isRentService = (row[26] || '').toString().toUpperCase().includes('RENT')
+            || (row[0] || '').toString().startsWith('VIRTUAL_RENTAL')
+            || row.isActiveRentalMerged !== undefined;
+
+        const active = [];
+        if (hasTrans) active.push('TRANSPORT');
+        if (hasYard) active.push('YARD');
+        if (hasSales) active.push('SALES');
+        if (hasStorage) active.push('STORAGE');
+        if (hasRent && isRentService) active.push('RENT');
+        return active;
+    }
+
+    function getBillingRowInvoicedServices(row) {
+        let invoiced = row[75]
+            ? String(row[75]).split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+            : [];
+        if ((row[57] || '').toString().toUpperCase() === 'YES' && invoiced.length === 0) {
+            invoiced = getBillingRowActiveServices(row);
+        }
+        return invoiced;
+    }
+
+    function getSelectedBillingServices() {
+        const selected = [];
+        if (document.getElementById('mb-svc-transport')?.checked) selected.push('TRANSPORT');
+        if (document.getElementById('mb-svc-rent')?.checked) selected.push('RENT');
+        if (document.getElementById('mb-svc-sales')?.checked) selected.push('SALES');
+        if (document.getElementById('mb-svc-storage')?.checked) selected.push('STORAGE');
+        if (document.getElementById('mb-svc-yard')?.checked) selected.push('YARD');
+        if (selected.length) return selected;
+        const fService = (document.getElementById('bc-f-service')?.value || '').trim().toUpperCase();
+        if (fService && fService !== 'ALL') return [fService];
+        return [];
+    }
+
+    function findAlreadyInvoicedBillingRows(rows, selectedServices) {
+        const already = [];
+        (rows || []).forEach(row => {
+            const active = getBillingRowActiveServices(row);
+            const invoiced = getBillingRowInvoicedServices(row);
+            const toBill = selectedServices.length
+                ? (active.length ? selectedServices.filter(s => active.includes(s)) : selectedServices)
+                : active;
+            if (toBill.length === 0) return;
+            const overlap = toBill.filter(s => invoiced.includes(s));
+            if (overlap.length) {
+                already.push({
+                    orderNo: (row[5] || '---').toString(),
+                    overlap
+                });
+            }
+        });
+        return already;
+    }
+
+    window.confirmBillingNotAlreadyInvoiced = function (rows, selectedServices) {
+        const list = rows || window.currentBillingOrderRows || [];
+        const services = selectedServices || getSelectedBillingServices();
+        const already = findAlreadyInvoicedBillingRows(list, services);
+        if (already.length === 0) return true;
+
+        const examples = already.slice(0, 8).map(a => `• ${a.orderNo} (${a.overlap.join(', ')})`).join('\n');
+        const extra = already.length > 8 ? `\n... y ${already.length - 8} más` : '';
+        const header = already.length === list.length
+            ? `Cuidado: TODAS las ${list.length} órdenes de esta factura YA fueron facturadas.`
+            : `Cuidado: ${already.length} de ${list.length} órdenes de esta factura YA fueron facturadas.`;
+
+        return confirm(
+            `${header}\n\n${examples}${extra}\n\n` +
+            `Si cancelas, vuelve a Billing y pon el filtro INVOICES en "Pending" para ver solo las que todavía no se enviaron.\n\n` +
+            `¿Quieres continuar de todos modos?`
+        );
+    };
+
     // ── POPULATE FILTERS ──────────────────────────────────────
     window.populateBillingFilters = function () {
         // We no longer overwrite window.combinedBillingTrips here!
@@ -1649,6 +1732,11 @@
 
     window.createMasterInvoiceRecordOnly = async function(event) {
         if (!event) event = window.event;
+        const pendingRows = window.currentBillingOrderRows || [];
+        if (!window.confirmBillingNotAlreadyInvoiced(pendingRows)) {
+            if (window.closeMasterBillingModal) window.closeMasterBillingModal();
+            return;
+        }
         const btn = event?.currentTarget;
         const origText = btn ? btn.innerHTML : '';
         if (btn) {
@@ -1755,6 +1843,11 @@
     };
 
     window.sendFilteredInvoiceEmail = async function() {
+        const pendingRows = window.currentBillingOrderRows || [];
+        if (!window.confirmBillingNotAlreadyInvoiced(pendingRows)) {
+            if (window.closeMasterBillingModal) window.closeMasterBillingModal();
+            return;
+        }
         const btn = event.currentTarget;
         const origText = btn.innerHTML;
         btn.disabled = true;
@@ -1809,6 +1902,8 @@
             alert("Debe seleccionar un cliente en el filtro superior para crear facturas.");
             return;
         }
+
+        if (!window.confirmBillingNotAlreadyInvoiced(rows)) return;
 
         if (!confirm(`¿Está seguro de crear ${rows.length} facturas individuales en Accounts Receivable?`)) return;
 
@@ -1920,6 +2015,8 @@
             alert("Debe seleccionar un cliente en el filtro superior para enviar correos.");
             return;
         }
+
+        if (!window.confirmBillingNotAlreadyInvoiced(rows)) return;
 
         let customerEmail = document.getElementById('bd-email')?.value || rows[0][36] || '';
         const testEmail = prompt(`Se enviarán ${rows.length} correos individuales.\nPor favor ingrese o confirme el correo del cliente:`, customerEmail);
