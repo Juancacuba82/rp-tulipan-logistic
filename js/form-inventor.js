@@ -431,4 +431,13 @@
         window.closeInventoryDetail = function() {
             const modal = document.getElementById('inventory-detail-modal');
             if (modal) modal.style.display = 'none';
-        }
+        };
+
+        window.refreshInventoryModule = async function() {
+            await window.withRefreshButton('btn-refresh-inventory', async () => {
+                window.inventoryDataCache = null;
+                window.profitDataCache = null;
+                if (typeof window.loadReleasesData === 'function') await window.loadReleasesData(true);
+                if (typeof window.renderInventorTable === 'function') await window.renderInventorTable();
+            }, 'inventory');
+        };

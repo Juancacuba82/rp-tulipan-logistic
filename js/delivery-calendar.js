@@ -3266,3 +3266,11 @@ window.generateCalendarPdfFromModal = function() {
     doc.save('Calendar_Report.pdf');
     document.getElementById('calendar-pdf-modal').remove();
 };
+
+window.refreshCalendarModule = async function () {
+    await window.withRefreshButton('btn-refresh-calendar', async () => {
+        if (typeof window.loadTableData === 'function') {
+            await window.loadTableData(null, true);
+        }
+    }, 'calendar');
+};

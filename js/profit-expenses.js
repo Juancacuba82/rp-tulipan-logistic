@@ -16,6 +16,20 @@
         }
         window.loadExpensesData = loadExpensesData;
 
+        window.refreshExpensesModule = async function() {
+            await window.withRefreshButton('btn-refresh-expenses', async () => {
+                await loadExpensesData(true);
+            }, 'expenses');
+        };
+
+        window.refreshProfitModule = async function() {
+            await window.withRefreshButton('btn-refresh-profit', async () => {
+                await loadExpensesData(true);
+                if (typeof window.loadReleasesData === 'function') await window.loadReleasesData(true);
+                if (typeof window.renderProfitReport === 'function') await window.renderProfitReport();
+            }, 'profit');
+        };
+
         window.updateExpenseDescriptionHistory = function() {
             const datalist = document.getElementById('expense-descriptions-list');
             if (!datalist) return;

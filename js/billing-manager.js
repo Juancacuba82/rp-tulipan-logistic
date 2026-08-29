@@ -17,8 +17,8 @@
         return trips;
     };
 
-    window.initBillingCenter = async function() {
-        if (window.billingDataLoaded && window.combinedBillingTrips.length > 0) {
+    window.initBillingCenter = async function(force = false) {
+        if (!force && window.billingDataLoaded && window.combinedBillingTrips.length > 0) {
             // Already loaded, just render from memory
             if (typeof window.renderBillingTable === 'function') {
                 window.renderBillingTable();
@@ -73,9 +73,16 @@
         }
         
         // Run the invoice automation engine (banner + auto-send + reminders)
-        if (typeof window.runInvoiceAutomation === 'function') {
+        if (!force && typeof window.runInvoiceAutomation === 'function') {
             setTimeout(() => window.runInvoiceAutomation(), 800);
         }
+    };
+
+    window.refreshBillingModule = async function() {
+        await window.withRefreshButton('btn-refresh-billing', async () => {
+            window.billingDataLoaded = false;
+            await window.initBillingCenter(true);
+        }, 'billing');
     };
 
     window.buildCombinedBillingTrips = function() {
@@ -617,22 +624,15 @@
         }
     };
 
-    // ── RESET FILTERS ─────────────────────────────────────────
-    window.resetBillingFilters = async function () {
+    // ── CLEAR FILTERS (local only — Refresh is the one that hits Supabase) ──
+    window.resetBillingFilters = function () {
         ['bc-f-order','bc-f-booking','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-service','bc-f-release','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
         if (fPayment) fPayment.value = 'all';
-        
-        const tbody = document.getElementById('billing-table-body');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; padding: 20px; font-weight: bold; color: #1e40af;"><i class="fas fa-spinner fa-spin"></i> Recargando datos...</td></tr>';
-        
-        window.billingDataLoaded = false;
-        if (typeof window.initBillingCenter === 'function') {
-            await window.initBillingCenter();
-        } else {
-            window.renderBillingTable();
-        }
+        const fDebt = document.getElementById('bc-f-debt');
+        if (fDebt) fDebt.value = 'unpaid';
+        if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
     };
 
     window.recalculateInvoiceTotals = function() {

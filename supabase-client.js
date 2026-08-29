@@ -516,6 +516,23 @@ async function getTripDetails(tripId) {
     }
 }
 
+window.withRefreshButton = async function (btnOrId, workFn, errorLabel) {
+    const btn = typeof btnOrId === 'string' ? document.getElementById(btnOrId) : (btnOrId || null);
+    const icon = btn ? btn.querySelector('i') : null;
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add('fa-spin');
+    try {
+        await workFn();
+    } catch (err) {
+        const label = errorLabel || 'module';
+        console.error('Error refreshing ' + label + ':', err);
+        alert('Error refreshing ' + label + ': ' + (err.message || err));
+    } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('fa-spin');
+    }
+};
+
 // Global Exports
 window.getTripDetails = getTripDetails;
 window.getTrips = getTrips;

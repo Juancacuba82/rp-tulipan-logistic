@@ -562,6 +562,12 @@
             applyReleasesFilters();
         };
         window.loadReleasesData = loadReleasesData; // Expose globally
+
+        window.refreshReleasesModule = async function() {
+            await window.withRefreshButton('btn-refresh-releases', async () => {
+                await loadReleasesData(true);
+            }, 'releases');
+        };
         // Mobile menu behavior is handled by global toggleMobileMenu and closeMenu functions.
 
         // EXPENSE MANAGEMENT LOGIC

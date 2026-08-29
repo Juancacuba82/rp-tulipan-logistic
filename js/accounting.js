@@ -401,6 +401,12 @@
     }
     window.loadAccountingData = loadAccountingData;
 
+    window.refreshAccountingModule = async function () {
+        await window.withRefreshButton('btn-refresh-accounting', async () => {
+            await loadAccountingData(true);
+        }, 'ledger');
+    };
+
     // =========================================================================
     // FILTRO DE VISTA
     // =========================================================================

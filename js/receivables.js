@@ -10,6 +10,13 @@ window.initReceivables = async function () {
     renderReceivables();
 };
 
+window.refreshReceivablesModule = async function () {
+    await window.withRefreshButton('btn-refresh-receivables', async () => {
+        await loadReceivables();
+        renderReceivables();
+    }, 'accounts receivable');
+};
+
 async function loadReceivables() {
     try {
         const { data, error } = await window.db.from('receivables_invoices')
@@ -133,7 +140,8 @@ window.renderReceivables = function () {
                     <span class="filter-summary-value">${totalPendingCount}</span>
                 </div>
             </div>
-            <button class="btn-reset-modern" onclick="window.resetReceivablesFilters()" style="margin-left: 15px;"><i class="fas fa-filter-circle-xmark"></i> Clear all filters</button>
+            <button type="button" id="btn-refresh-receivables" class="btn-module-refresh" onclick="window.refreshReceivablesModule()" title="Refresh Accounts Receivable from database"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn-reset-modern" onclick="window.resetReceivablesFilters()" style="margin-left: 15px;"><i class="fas fa-undo"></i> Clear All Filters</button>
         </div>
     </div>
     

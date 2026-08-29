@@ -17,37 +17,37 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=2">
+    <link rel="stylesheet" href="./style.css?v=3">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
-    <script src="./supabase-client.js?v=12"></script>
+    <script src="./supabase-client.js?v=13"></script>
     <script src="./js/data-mapping.js?v=11"></script>
     <script src="./js/realtime-sync.js?v=3" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1701" defer></script>
-    <script src="./js/delivery-calendar.js?v=1703" defer></script>
-    <script src="./js/driver-settlements.js?v=1701" defer></script>
-    <script src="./js/releases.js?v=1700" defer></script>
-    <script src="./js/profit-expenses.js?v=1700" defer></script>
+    <script src="./js/delivery-calendar.js?v=1704" defer></script>
+    <script src="./js/driver-settlements.js?v=1702" defer></script>
+    <script src="./js/releases.js?v=1701" defer></script>
+    <script src="./js/profit-expenses.js?v=1701" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1700" defer></script>
+    <script src="./js/docs-receipts.js?v=1701" defer></script>
     <script src="./js/custom-receipts.js?v=3" defer></script>
     <script src="./js/email-service.js?v=10" defer></script>
-    <script src="./js/fleet.js?v=1700" defer></script>
-    <script src="./js/tasks.js?v=10" defer></script>
-    <script src="./js/billing-manager.js?v=21" defer></script>
+    <script src="./js/fleet.js?v=1701" defer></script>
+    <script src="./js/tasks.js?v=11" defer></script>
+    <script src="./js/billing-manager.js?v=22" defer></script>
     <script src="./js/invoice-automation.js?v=18" defer></script>
-    <script src="./js/attendance.js?v=1" defer></script>
-    <script src="./js/accounting.js?v=101" defer></script>
-    <script src="./js/receivables.js?v=19" defer></script>
+    <script src="./js/attendance.js?v=2" defer></script>
+    <script src="./js/accounting.js?v=102" defer></script>
+    <script src="./js/receivables.js?v=20" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
     <script src="./js/csv-import.js?v=4" defer></script>
 
     <!-- PDF & Email Service Libraries -->
-    <script src="./js/recycle-bin.js?v=2" defer></script>
+    <script src="./js/recycle-bin.js?v=3" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" defer></script>
@@ -1401,8 +1401,11 @@
                             </div>
                         </div>
 
+                        <button type="button" id="btn-refresh-attendance" class="btn-module-refresh" onclick="window.refreshAttendanceModule()" title="Refresh Attendance from database">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
                         <button onclick="resetAttendanceFilters()" class="btn-reset-modern">
-                            <i class="fas fa-sync-alt"></i> RESET
+                            <i class="fas fa-undo"></i> Clear All Filters
                         </button>
                     </div>
                 </div>
@@ -2331,6 +2334,9 @@
                                     </div>
 
                                     <div style="display: flex; gap: 10px; align-items: center;">
+                                        <button type="button" id="btn-refresh-calendar" class="btn-module-refresh" style="height:45px;" onclick="window.refreshCalendarModule()" title="Refresh Calendar from database">
+                                            <i class="fas fa-sync-alt"></i> Refresh
+                                        </button>
                                         <button onclick="deleteSelectedOrders()" id="btn-delete-selected"
                                             class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: none; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(239,68,68,0.3); transition: all 0.2s;">
@@ -2562,8 +2568,11 @@
 
 
 
+                            <button type="button" id="btn-refresh-docs" class="btn-module-refresh" onclick="window.refreshDocsModule()" title="Refresh Docs from database">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
                             <button onclick="clearDocsFilters()" class="btn-clear-docs">
-                                <i class="fas fa-times-circle"></i> CLEAR
+                                <i class="fas fa-undo"></i> Clear All Filters
                             </button>
                         </div>
                     </div>
@@ -3073,9 +3082,12 @@
                                     </div>
                                 </div>
 
+                                <button type="button" id="btn-refresh-releases" class="btn-module-refresh" onclick="window.refreshReleasesModule()" title="Refresh Releases from database">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
                                 <button onclick="resetReleasesFilters()" class="btn-reset-modern"
                                     style="margin-top: 0;">
-                                    <i class="fas fa-undo"></i> Reset
+                                    <i class="fas fa-undo"></i> Clear All Filters
                                 </button>
                             </div>
                         </div>
@@ -3299,6 +3311,12 @@
                                     <option value="ALL">All Active Units</option>
                                 </select>
                             </label>
+                            <button type="button" id="btn-refresh-fleet" class="btn-module-refresh" onclick="window.refreshFleetModule()" title="Refresh Fleet from database">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                            <button type="button" onclick="window.clearFleetFilters()" class="btn-reset-modern" style="margin-top: 0; height: 38px;">
+                                <i class="fas fa-undo"></i> Clear All Filters
+                            </button>
                         </div>
                     </div>
 
@@ -3432,8 +3450,11 @@
                                         onchange="if(window.handleDriverDateChange) window.handleDriverDateChange();">
                                 </div>
                             </div>
+                            <button type="button" id="btn-refresh-drivers" class="btn-module-refresh" onclick="window.refreshDriversModule()" title="Refresh Drivers from database">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
                             <button onclick="resetReportFilters()" class="btn-reset-modern">
-                                <i class="fas fa-undo"></i> Reset Filters
+                                <i class="fas fa-undo"></i> Clear All Filters
                             </button>
                         </div>
 
@@ -3870,8 +3891,11 @@
                                     </div>
                                 </div>
 
+                                <button type="button" id="btn-refresh-expenses" class="btn-module-refresh" onclick="window.refreshExpensesModule()" title="Refresh Expenses from database">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
                                 <button onclick="resetExpenseFilters()" class="btn-reset-modern" style="margin-top: 0;">
-                                    <i class="fas fa-undo"></i> Reset
+                                    <i class="fas fa-undo"></i> Clear All Filters
                                 </button>
                             </div>
                         </div>
@@ -3923,8 +3947,11 @@
                                     onchange="renderProfitReport()">
                             </div>
                         </div>
+                        <button type="button" id="btn-refresh-profit" class="btn-module-refresh" onclick="window.refreshProfitModule()" title="Refresh Profit from database">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
                         <button onclick="resetProfitFilters()" class="btn-reset-modern">
-                            <i class="fas fa-undo"></i> Reset Filters
+                            <i class="fas fa-undo"></i> Clear All Filters
                         </button>
                     </div>
                 </div>
@@ -4264,8 +4291,11 @@
                                 </div>
                             </div>
 
+                            <button type="button" id="btn-refresh-inventory" class="btn-module-refresh" onclick="window.refreshInventoryModule()" title="Refresh Inventory from database">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
                             <button onclick="resetInventorFilters()" class="btn-reset-modern" style="margin-top: 0;">
-                                <i class="fas fa-undo"></i> Reset Filters
+                                <i class="fas fa-undo"></i> Clear All Filters
                             </button>
                         </div>
                     </div>
@@ -4510,8 +4540,11 @@
                                     </select>
                                 </div>
                             </div>
+                            <button type="button" id="btn-refresh-billing" class="btn-module-refresh" onclick="window.refreshBillingModule()" title="Refresh Billing from database">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
                             <button onclick="resetBillingFilters()" class="btn-reset-modern" style="margin-top:0;">
-                                <i class="fas fa-undo"></i> Reset
+                                <i class="fas fa-undo"></i> Clear All Filters
                             </button>
                             <button id="btn-send-filtered-invoice" onclick="openMasterBillingModal()" class="glossy-dark-btn" style="display:none; margin-top:0;">
                                 <i class="fas fa-file-invoice-dollar"></i> Send Invoice
@@ -4905,7 +4938,7 @@
                             </div>
 
                             <button onclick="resetCustInvoiceFilters()" class="btn-reset-modern" style="margin-top: 0;">
-                                <i class="fas fa-undo"></i> Reset
+                                <i class="fas fa-undo"></i> Clear All Filters
                             </button>
                         </div>
                     </div>
@@ -4917,7 +4950,7 @@
                     <i class="fas fa-paper-plane"></i> SEND BY EMAIL
                 </button>
                 <button onclick="resetCustInvoiceFilters()" class="btn-reset-report"
-                    style="background: #64748b; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Reset</button>
+                    style="background: #64748b; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;"><i class="fas fa-undo"></i> Clear All Filters</button>
             </div>
             </div>
 
@@ -5103,9 +5136,12 @@
                                     disabled>
                                     <i class="fas fa-trash"></i> DELETE
                                 </button>
+                                <button type="button" id="btn-refresh-calls" class="btn-module-refresh" style="height:45px;" onclick="window.refreshCallsModule()" title="Refresh Calls from database">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
                                 <button onclick="resetCallFilters()" class="btn-reset-modern"
                                     style="margin-top: 0; height: 45px;">
-                                    <i class="fas fa-undo"></i> Reset Filters
+                                    <i class="fas fa-undo"></i> Clear All Filters
                                 </button>
                             </div>
                         </div>
@@ -5453,11 +5489,11 @@
                                     </div>
                                     <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
                                     <button id="btn-combined-invoice" onclick="window.generateCombinedRentalInvoice()" style="display: none; background: #2563eb; color: white; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Generate Invoice</button>
-                                    <button id="btn-refresh-rentals" onclick="window.refreshRentalsModule()" title="Refresh Rentals from database" style="background: #0f172a; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                    <button type="button" id="btn-refresh-rentals" class="btn-module-refresh" onclick="window.refreshRentalsModule()" title="Refresh Rentals from database">
                                         <i class="fas fa-sync-alt"></i> Refresh
                                     </button>
-                                    <button onclick="clearRentalFilters()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #ef4444; font-weight: 800; font-size: 0.75rem;">
-                                        <i class="fas fa-times-circle"></i> Clear
+                                    <button onclick="clearRentalFilters()" class="btn-reset-modern" style="margin-top: 0; height: 38px; padding: 0 12px;">
+                                        <i class="fas fa-undo"></i> Clear All Filters
                                     </button>
                                 </div>
                             </div>
@@ -5785,9 +5821,11 @@
 
 
                                     <!-- Refresh Button -->
-                                    <button onclick="loadYardData(true)" class="btn-refresh-modern"
-                                        style="height: 38px; width: 38px; background: #0f172a; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                                        <i class="fas fa-sync-alt"></i>
+                                    <button type="button" id="btn-refresh-yard" class="btn-module-refresh" onclick="window.refreshYardModule(event)" title="Refresh Yard from database">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
+                                    <button type="button" onclick="window.clearYardFilters()" class="btn-reset-modern" style="margin-top: 0; height: 38px;">
+                                        <i class="fas fa-undo"></i> Clear All Filters
                                     </button>
                                 </div>
                             </div>
@@ -5991,8 +6029,12 @@
                                     </button>
 
 
-                                    <!-- Spacer element to align heights -->
-                                    <div style="width: 38px; height: 38px;"></div>
+                                    <button type="button" id="btn-refresh-yard-storage" class="btn-module-refresh" onclick="window.refreshYardModule(event)" title="Refresh Yard from database">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
+                                    <button type="button" onclick="window.clearYardFilters()" class="btn-reset-modern" style="margin-top: 0; height: 38px;">
+                                        <i class="fas fa-undo"></i> Clear All Filters
+                                    </button>
                                 </div>
                             </div>
 
@@ -6188,8 +6230,12 @@
                                 </button>
 
 
-                                <!-- Spacer element to align heights -->
-                                <div style="width: 38px; height: 38px;"></div>
+                                <button type="button" id="btn-refresh-yard-both" class="btn-module-refresh" onclick="window.refreshYardModule(event)" title="Refresh Yard from database">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button type="button" onclick="window.clearYardFilters()" class="btn-reset-modern" style="margin-top: 0; height: 38px;">
+                                    <i class="fas fa-undo"></i> Clear All Filters
+                                </button>
                             </div>
                         </div>
 
@@ -6373,9 +6419,11 @@
                                         </div>
                                     </div>
 
-                                    <button onclick="applyTaskFilters()" class="btn-reset-modern"
-                                        style="margin-top: 0; background: #1e293b; border-color: #1e293b; color: white;">
-                                        <i class="fas fa-sync-alt"></i> Refresh Data
+                                    <button type="button" id="btn-refresh-tasks" class="btn-module-refresh" onclick="window.refreshTasksModule()" title="Refresh Tasks from database">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
+                                    <button type="button" onclick="window.clearTaskFilters()" class="btn-reset-modern" style="margin-top: 0;">
+                                        <i class="fas fa-undo"></i> Clear All Filters
                                     </button>
                                 </div>
                             </div>
@@ -8298,12 +8346,12 @@
         </div>
     </div>
 
-    <script src="./js/fleet.js?v=10"></script>
-    <script src="./js/form-inventor.js?v=16"></script>
+    <script src="./js/fleet.js?v=11"></script>
+    <script src="./js/form-inventor.js?v=17"></script>
     <script src="./js/cust-invoice.js?v=20"></script>
-    <script src="./js/calls.js?v=11"></script>
-    <script src="./js/rentals.js?v=103"></script>
-    <script src="./js/yard-stock.js?v=113"></script>
+    <script src="./js/calls.js?v=12"></script>
+    <script src="./js/rentals.js?v=104"></script>
+    <script src="./js/yard-stock.js?v=114"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>
@@ -8725,11 +8773,11 @@
                         <i class="fas fa-receipt" style="margin-right:6px;"></i>
                         <span id="acct-tx-count">0</span> TRANSACCIONES
                     </span>
-                    <button onclick="window.loadAccountingData(true)"
-                        style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#ffffff; padding:8px 16px; border-radius:8px; font-weight:700; font-size:0.75rem; cursor:pointer; font-family:'Outfit',sans-serif; display:inline-flex; align-items:center; gap:6px;"
+                    <button type="button" id="btn-refresh-accounting" class="btn-module-refresh" onclick="window.refreshAccountingModule()" title="Refresh Ledger from database"
+                        style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#ffffff; box-shadow:none;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
                         onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-                        <i class="fas fa-sync-alt"></i> REFRESH
+                        <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 </div>
             </div>
@@ -8919,7 +8967,7 @@
                     style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem; width: 110px;">
                 <button onclick="window.resetAccountingFilters()"
                     style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; padding:6px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:600;"><i
-                        class="fas fa-times"></i> Clear</button>
+                        class="fas fa-undo"></i> Clear All Filters</button>
             </div>
             <div class="acct-table-scroll">
                 <table id="acct-table">

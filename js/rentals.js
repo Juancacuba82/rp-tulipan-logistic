@@ -1479,11 +1479,7 @@
     };
 
     window.refreshRentalsModule = async function() {
-        const btn = document.getElementById('btn-refresh-rentals');
-        const icon = btn ? btn.querySelector('i') : null;
-        if (btn) btn.disabled = true;
-        if (icon) icon.classList.add('fa-spin');
-        try {
+        await window.withRefreshButton('btn-refresh-rentals', async () => {
             const data = await getRentals();
             window.currentRentals = data || [];
             await loadRentalInvoiceTrips(true);
@@ -1491,13 +1487,7 @@
             populateRentalFilterSizeSelect();
             populateRentalFilterContainerList();
             renderRentalsTable();
-        } catch (err) {
-            console.error('Error refreshing rentals:', err);
-            alert('Error refreshing rentals: ' + (err.message || err));
-        } finally {
-            if (btn) btn.disabled = false;
-            if (icon) icon.classList.remove('fa-spin');
-        }
+        }, 'rentals');
     };
 
     window.renderRentalsTable = renderRentalsTable;

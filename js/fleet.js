@@ -446,6 +446,20 @@
         }
         window.loadFleetData = loadFleetData;
 
+        window.refreshFleetModule = async function() {
+            await window.withRefreshButton('btn-refresh-fleet', async () => {
+                await loadFleetData(true);
+            }, 'fleet');
+        };
+
+        window.clearFleetFilters = function() {
+            const alerts = document.getElementById('filter-alerts-only');
+            if (alerts) alerts.checked = false;
+            const unit = document.getElementById('filter-fleet-unit');
+            if (unit) unit.value = 'ALL';
+            renderFleetCards();
+        };
+
         function refreshQuickFleetSelect() {
             const sel = document.getElementById('quick-truck-sel');
             if (!sel) return;

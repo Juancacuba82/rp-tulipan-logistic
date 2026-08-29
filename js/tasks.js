@@ -391,4 +391,18 @@
         }
     }
 
+    window.refreshTasksModule = async function() {
+        await window.withRefreshButton('btn-refresh-tasks', async () => {
+            await window.loadTasksData(true);
+        }, 'tasks');
+    };
+
+    window.clearTaskFilters = function() {
+        const email = document.getElementById('task-filter-email');
+        const status = document.getElementById('task-filter-status');
+        if (email) email.value = '';
+        if (status) status.value = '';
+        applyTaskFilters();
+    };
+
 })();

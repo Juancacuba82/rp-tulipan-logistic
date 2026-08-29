@@ -16,7 +16,7 @@
 
     window.currentDocTrip = null;
 
-    window.loadDocTrips = async function () {
+    window.loadDocTrips = async function (force = false) {
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(today.getDate() + 1);
@@ -80,11 +80,18 @@
             return;
         }
 
-        // Ensure data is available
-        if (!window.currentTrips || window.currentTrips.length === 0) {
+        let sourceTrips = window.docsTripsCache || window.currentTrips || [];
+        if (force || !sourceTrips.length) {
             try {
-                const data = await getTrips();
-                window.currentTrips = data.map(mapTripToArray);
+                const fetchFn = (fromDate || toDate) && typeof getAllTrips === 'function'
+                    ? getAllTrips(fromDate || null, toDate || null)
+                    : getTrips();
+                const data = await fetchFn;
+                sourceTrips = (data || []).map(mapTripToArray);
+                window.docsTripsCache = sourceTrips;
+                if (!window.currentTrips || window.currentTrips.length === 0) {
+                    window.currentTrips = sourceTrips;
+                }
             } catch (e) {
                 console.error("Failed to load trips for Docs:", e);
                 return;
@@ -94,7 +101,7 @@
         list.innerHTML = '';
 
         // Custom sorting for drivers: based on numeric prefix in Notes (index 25)
-        const sortedTrips = [...(window.currentTrips || [])].sort((a, b) => {
+        const sortedTrips = [...(sourceTrips || [])].sort((a, b) => {
             const getOrder = (trip) => {
                 const note = trip[25] || '';
                 const match = note.trim().match(/^(\d+)\./);
@@ -641,6 +648,12 @@
 
         window.loadDocTrips();
     }
+
+    window.refreshDocsModule = async function () {
+        await window.withRefreshButton('btn-refresh-docs', async () => {
+            await window.loadDocTrips(true);
+        }, 'docs');
+    };
 
     // ============================================================
     // PRINT LOGIC

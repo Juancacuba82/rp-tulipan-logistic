@@ -640,10 +640,18 @@ function populateCityFilter() {
 
 // Update loadCallsData to also populate the city filter
 const originalLoadCallsData = loadCallsData;
-loadCallsData = async function () {
-    await originalLoadCallsData();
+loadCallsData = async function (force = false) {
+    await originalLoadCallsData(force);
     populateCityFilter();
-}
+};
+window.loadCallsData = loadCallsData;
+window.renderCallsTable = renderCallsTable;
+
+window.refreshCallsModule = async function () {
+    await window.withRefreshButton('btn-refresh-calls', async () => {
+        await loadCallsData(true);
+    }, 'calls');
+};
 
 function toggleCallSizeMode() {
     const sel = document.getElementById('call-size-sel');

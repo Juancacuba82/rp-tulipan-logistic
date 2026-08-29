@@ -54,6 +54,30 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
     }
     window.loadYardData = loadYardData;
 
+    window.refreshYardModule = async function (event) {
+        const btn = (event && event.currentTarget) || document.getElementById('btn-refresh-yard');
+        await window.withRefreshButton(btn, async () => {
+            await loadYardData(true);
+        }, 'yard');
+    };
+
+    window.clearYardFilters = function () {
+        const defaults = {
+            'yf-state': 'ALL', 'sf-state': 'ALL', 'both-state': 'ALL'
+        };
+        ['yf-state', 'yf-size', 'yf-customer', 'yf-date-from', 'yf-date-to',
+         'sf-state', 'sf-size', 'sf-customer', 'sf-date-from', 'sf-date-to',
+         'both-state', 'both-size', 'both-customer', 'both-date-from', 'both-date-to']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.value = defaults[id] != null ? defaults[id] : '';
+            });
+        renderYardTable();
+        renderStorageTable();
+        if (window.renderBothTable) window.renderBothTable();
+    };
+
     window.calculateDynamicYardCosts = function(item, dateFrom, dateTo) {
         const entryDate = new Date(item.created_at || new Date());
         // User requested to ALWAYS show total days regardless of billing history

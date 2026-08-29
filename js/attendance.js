@@ -1054,6 +1054,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Default range REMOVED as per user request to see all records by default
     const startInput = document.getElementById('att-start-date');
     const endInput = document.getElementById('att-end-date');
+    window.refreshAttendanceModule = async function() {
+        await window.withRefreshButton('btn-refresh-attendance', async () => {
+            await window.loadAttendanceData(true);
+        }, 'attendance');
+    };
+
     if (startInput && endInput) {
         startInput.value = '';
         endInput.value = '';

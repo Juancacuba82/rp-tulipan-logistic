@@ -1228,3 +1228,20 @@
             if (window.fetchHistory) window.fetchHistory();
         };
 
+        window.refreshDriversModule = async function() {
+            await window.withRefreshButton('btn-refresh-drivers', async () => {
+                const dateFrom = document.getElementById('filter-from')?.value;
+                const dateTo = document.getElementById('filter-to')?.value;
+                if (dateFrom && dateTo && typeof window.fetchTripsForDriverReport === 'function') {
+                    await window.fetchTripsForDriverReport();
+                } else if (typeof window.getTrips === 'function' && typeof window.mapTripToArray === 'function') {
+                    const data = await window.getTrips();
+                    window.currentTrips = (data || []).map(window.mapTripToArray);
+                    window.driverReportTrips = null;
+                }
+                if (typeof window.fetchHistory === 'function') await window.fetchHistory(true);
+                if (typeof window.updateAvailableDriversForReport === 'function') window.updateAvailableDriversForReport();
+                if (typeof window.renderDriverLog === 'function') window.renderDriverLog();
+            }, 'drivers');
+        };
+

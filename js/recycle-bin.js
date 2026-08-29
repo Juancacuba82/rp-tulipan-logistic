@@ -1,65 +1,58 @@
 // recycle-bin.js
 
 window.openRecycleBin = async function() {
-    // Restrict access to Admins only
     if (!isAdmin()) {
         alert("Acceso denegado: Solo los administradores pueden ver la papelera de reciclaje.");
         return;
     }
 
-    // Inject modal if it doesn't exist
-    if (!document.getElementById('recycle-bin-modal')) {
-        const modalHtml = `
+    const existing = document.getElementById('recycle-bin-modal');
+    if (existing) existing.remove();
+
+    const modalHtml = `
         <div id="recycle-bin-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
-            <div style="background:#fff; width:95%; max-width:900px; height:85vh; border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="background:#fff; width:96%; max-width:1100px; height:88vh; border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
                 
-                <div style="padding:20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <div style="padding:18px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <i class="fas fa-trash-restore" style="font-size:1.5rem; color:#ef4444;"></i>
-                        <h2 style="margin:0; font-size:1.25rem; color:#0f172a;">Papelera de Reciclaje (Soft Deleted)</h2>
+                        <i class="fas fa-trash-restore" style="font-size:1.4rem; color:#ef4444;"></i>
+                        <div>
+                            <h2 style="margin:0; font-size:1.2rem; color:#0f172a;">Papelera de Reciclaje</h2>
+                            <div id="rb-count" style="font-size:0.75rem; color:#64748b; margin-top:2px;">Registros eliminados — no aparecen en el resto del sistema</div>
+                        </div>
                     </div>
                     <button onclick="document.getElementById('recycle-bin-modal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#64748b;">&times;</button>
                 </div>
 
-                <div style="padding:15px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; gap:10px; flex-wrap:wrap;">
-                    <select id="rb-table-select" style="padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" onchange="loadRecycleBin()">
-                        <option value="trips">Trips (Viajes)</option>
+                <div style="padding:12px 16px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <select id="rb-table-select" style="padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; outline:none;" onchange="document.getElementById('rb-search').value=''; loadRecycleBin()">
+                        <option value="trips">Viajes</option>
                         <option value="rentals">Rentals</option>
                         <option value="releases">Releases</option>
-                        <option value="expenses">Expenses (Gastos)</option>
-                        <option value="receivables_invoices">Receivables (Facturas)</option>
-                        <option value="settlement_history">Settlements (Liquidaciones)</option>
-                        <option value="fleet">Fleet (Equipos)</option>
-                        <option value="drivers">Drivers (Choferes)</option>
-                        <option value="customers">Customers (Clientes)</option>
-                        <option value="call_logs">Calls (Llamadas)</option>
+                        <option value="expenses">Gastos</option>
+                        <option value="receivables_invoices">Facturas</option>
+                        <option value="settlement_history">Liquidaciones</option>
+                        <option value="fleet">Flota</option>
+                        <option value="drivers">Choferes</option>
+                        <option value="customers">Clientes</option>
+                        <option value="call_logs">Llamadas</option>
                         <option value="yard_stock">Yard Stock</option>
                     </select>
+                    <input id="rb-search" type="search" placeholder="Buscar cliente, orden, contenedor..."
+                        oninput="rbApplySearch()"
+                        style="flex:1; min-width:220px; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; outline:none;">
                     <button class="glossy-blue-btn" onclick="loadRecycleBin()" style="padding:0 15px; height:35px;"><i class="fas fa-sync-alt"></i> Refresh</button>
                 </div>
 
-                <div style="flex:1; overflow:auto; padding:0; background:#f1f5f9;">
-                    <table style="width:100%; border-collapse:collapse; background:#fff;">
-                        <thead style="position:sticky; top:0; background:#f8fafc; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-                            <tr>
-                                <th style="padding:12px 15px; text-align:left; font-size:0.8rem; color:#64748b; font-weight:600; border-bottom:1px solid #e2e8f0;">DETALLES PRINCIPALES</th>
-                                <th style="padding:12px 15px; text-align:left; font-size:0.8rem; color:#64748b; font-weight:600; border-bottom:1px solid #e2e8f0;">ELIMINADO POR</th>
-                                <th style="padding:12px 15px; text-align:left; font-size:0.8rem; color:#64748b; font-weight:600; border-bottom:1px solid #e2e8f0;">FECHA (DELETED_AT)</th>
-                                <th style="padding:12px 15px; text-align:right; font-size:0.8rem; color:#64748b; font-weight:600; border-bottom:1px solid #e2e8f0;">ACCIONES</th>
-                            </tr>
-                        </thead>
-                        <tbody id="rb-tbody">
-                            <tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">Loading...</td></tr>
-                        </tbody>
-                    </table>
+                <div style="flex:1; overflow:auto; padding:12px 16px; background:#f1f5f9;">
+                    <div id="rb-list"></div>
                 </div>
 
             </div>
         </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
-    
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
     document.getElementById('recycle-bin-modal').style.display = 'flex';
     loadRecycleBin();
 };
@@ -77,6 +70,143 @@ function rbRecordId(table, item) {
     return item.id;
 }
 
+function rbEsc(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function rbClean(val) {
+    if (val === null || val === undefined) return '';
+    const s = String(val).trim();
+    if (!s || s === '---' || s === 'null' || s === 'undefined') return '';
+    return s;
+}
+
+function rbFmtDay(val) {
+    const s = rbClean(val);
+    if (!s) return '';
+    const d = new Date(s.includes('T') ? s : s + 'T12:00:00');
+    if (isNaN(d.getTime())) return s;
+    return d.toLocaleDateString('es-US', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function rbFmtWhen(val) {
+    const s = rbClean(val);
+    if (!s) return 'Fecha desconocida';
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    return d.toLocaleString('es-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function rbFmtMoney(val) {
+    const n = parseFloat(val);
+    if (!Number.isFinite(n) || n === 0) return '';
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function rbWho(email) {
+    const s = rbClean(email);
+    if (!s) return { name: 'Desconocido', title: '' };
+    const name = s.includes('@') ? s.split('@')[0] : s;
+    return { name, title: s };
+}
+
+function rbChip(label, value) {
+    const v = rbClean(value);
+    if (!v) return '';
+    return `<span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:3px 8px; font-size:0.75rem; color:#334155;">
+        <span style="font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.03em; font-size:0.65rem;">${rbEsc(label)}</span>
+        ${rbEsc(v)}
+    </span>`;
+}
+
+function rbBuildCard(table, item) {
+    let title = 'Registro';
+    let subtitle = '';
+    const chips = [];
+
+    if (table === 'trips') {
+        title = rbClean(item.customer) || 'Viaje sin cliente';
+        const parts = [rbFmtDay(item.date), rbClean(item.order_no) ? 'Orden ' + rbClean(item.order_no) : '', rbClean(item.n_cont) ? 'Cont. ' + rbClean(item.n_cont) : ''].filter(Boolean);
+        subtitle = parts.join('  ·  ');
+        const from = rbClean(item.pickup_address);
+        const to = rbClean(item.delivery_place);
+        if (from || to) chips.push(rbChip('Ruta', (from || '—') + '  →  ' + (to || '—')));
+        chips.push(rbChip('Chofer', item.driver));
+        chips.push(rbChip('Servicio', item.service_mode));
+        chips.push(rbChip('Release', item.release_no));
+        chips.push(rbChip('Monto', rbFmtMoney(item.amount)));
+    } else if (table === 'rentals') {
+        title = rbClean(item.customer_name) || 'Rental sin cliente';
+        subtitle = [rbClean(item.container_no) ? 'Cont. ' + rbClean(item.container_no) : '', rbClean(item.release_no) ? 'Release ' + rbClean(item.release_no) : ''].filter(Boolean).join('  ·  ');
+        const range = [rbFmtDay(item.start_date), rbFmtDay(item.final_date || item.end_date)].filter(Boolean).join(' → ');
+        chips.push(rbChip('Periodo', range));
+        chips.push(rbChip('Estado', item.status));
+        chips.push(rbChip('Pago', item.payment_status));
+        chips.push(rbChip('Precio', rbFmtMoney(item.base_price)));
+    } else if (table === 'releases') {
+        title = rbClean(item.release_no) ? 'Release ' + rbClean(item.release_no) : 'Release';
+        subtitle = [rbFmtDay(item.date), rbClean(item.depot)].filter(Boolean).join('  ·  ');
+        chips.push(rbChip('Tipo', item.type));
+        chips.push(rbChip('Condición', item.condition));
+        chips.push(rbChip('Seller', item.seller));
+        chips.push(rbChip('Stock', item.total_stock));
+    } else if (table === 'expenses') {
+        title = rbClean(item.description) || 'Gasto';
+        subtitle = [rbFmtDay(item.date), rbClean(item.category)].filter(Boolean).join('  ·  ');
+        chips.push(rbChip('Monto', rbFmtMoney(item.amount)));
+        chips.push(rbChip('Pago', item.payment_method));
+        chips.push(rbChip('Nota', item.note));
+    } else if (table === 'receivables_invoices') {
+        title = rbClean(item.invoice_number) ? 'Factura ' + rbClean(item.invoice_number) : 'Factura';
+        subtitle = [rbClean(item.customer_name || item.customer), rbFmtDay(item.date_generated || item.date)].filter(Boolean).join('  ·  ');
+        chips.push(rbChip('Total', rbFmtMoney(item.total_amount)));
+        chips.push(rbChip('Estado', item.status));
+        chips.push(rbChip('Servicio', item.service_type));
+    } else if (table === 'settlement_history') {
+        title = rbClean(item.driver_name) || 'Liquidación';
+        const range = [rbFmtDay(item.start_date), rbFmtDay(item.end_date)].filter(Boolean).join(' → ');
+        subtitle = range;
+        chips.push(rbChip('Bruto', rbFmtMoney(item.gross_amount)));
+        chips.push(rbChip('Cash', rbFmtMoney(item.cash_balance)));
+    } else if (table === 'fleet') {
+        title = rbClean(item.num) ? 'Unidad #' + rbClean(item.num) : (rbClean(item.unit_id) || 'Equipo');
+        subtitle = [rbClean(item.type), rbClean(item.plate) ? 'Placa ' + rbClean(item.plate) : ''].filter(Boolean).join('  ·  ');
+        chips.push(rbChip('VIN', item.vin));
+        chips.push(rbChip('Año', item.year));
+    } else if (table === 'drivers') {
+        title = rbClean(item.name) || 'Chofer';
+        chips.push(rbChip('Teléfono', item.phone || item.phone_no));
+        chips.push(rbChip('Email', item.email));
+    } else if (table === 'customers') {
+        title = rbClean(item.name) || 'Cliente';
+        chips.push(rbChip('Email', item.email));
+        chips.push(rbChip('Dirección', item.address));
+        chips.push(rbChip('Teléfono', item.phone || item.phone_no));
+    } else if (table === 'call_logs') {
+        title = rbClean(item.customer) || 'Llamada';
+        subtitle = [rbFmtDay(item.date), rbClean(item.city), rbClean(item.status)].filter(Boolean).join('  ·  ');
+        chips.push(rbChip('Teléfono', item.phone));
+        chips.push(rbChip('Servicio', item.service_type));
+        chips.push(rbChip('Monto', rbFmtMoney(item.amount)));
+        chips.push(rbChip('Asignado', item.created_by));
+    } else if (table === 'yard_stock') {
+        title = rbClean(item.container_no) ? 'Contenedor ' + rbClean(item.container_no) : 'Yard stock';
+        subtitle = [rbClean(item.customer_name), rbClean(item.origin_release) ? 'Release ' + rbClean(item.origin_release) : ''].filter(Boolean).join('  ·  ');
+        chips.push(rbChip('Size', item.size));
+        chips.push(rbChip('Estado', item.status));
+        chips.push(rbChip('Tipo', item.type));
+    } else {
+        title = 'ID ' + rbClean(item.id || item.trip_id || item.unit_id);
+    }
+
+    const searchText = [title, subtitle, ...chips.map(c => c.replace(/<[^>]+>/g, ' '))].join(' ').toLowerCase();
+    return { title, subtitle, chips: chips.filter(Boolean), searchText };
+}
+
 async function rbFetchDeleted(table) {
     const { data, error } = await window.db.rpc('admin_list_deleted', { p_table: table });
     if (!error) return Array.isArray(data) ? data : [];
@@ -90,57 +220,78 @@ async function rbFetchDeleted(table) {
     return fallback.data || [];
 }
 
-window.loadRecycleBin = async function() {
-    const table = document.getElementById('rb-table-select').value;
-    const tbody = document.getElementById('rb-tbody');
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Cargando registros eliminados...</td></tr>';
-    
-    try {
-        const data = await rbFetchDeleted(table);
-        
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:#94a3b8;"><i class="fas fa-box-open" style="font-size:2rem; margin-bottom:10px; display:block;"></i>No hay registros en la papelera para esta tabla.</td></tr>';
-            return;
-        }
+function rbRenderRows(rows) {
+    const list = document.getElementById('rb-list');
+    const table = window._rbLastTable;
+    const countEl = document.getElementById('rb-count');
+    const total = (window._rbLastRows || []).length;
 
-        let html = '';
-        data.forEach(item => {
-            let details = 'ID: ' + (item.id || item.trip_id || item.unit_id);
-            
-            // Generate readable details based on table
-            if (table === 'trips') details = `<strong>TRIP:</strong> ${item.trip_id} | ${item.customer} | ${item.pickup_address} -> ${item.delivery_place}`;
-            else if (table === 'customers' || table === 'drivers') details = `<strong>Nombre:</strong> ${item.name}`;
-            else if (table === 'expenses') details = `<strong>Gasto:</strong> $${item.amount} | ${item.category} | ${item.description}`;
-            else if (table === 'receivables_invoices') details = `<strong>Factura:</strong> ${item.invoice_number} | $${item.total_amount}`;
-            else if (table === 'releases') details = `<strong>Release:</strong> ${item.release_no} | ${item.depot}`;
-            else if (table === 'rentals') details = `<strong>Rental:</strong> ${item.release_no} | ${item.container_no}`;
-            else if (table === 'settlement_history') details = `<strong>Settlement:</strong> ${item.driver_name} ($${item.gross_amount})`;
-            else if (table === 'yard_stock') details = `<strong>Yard:</strong> ${item.container_no || ''} | ${item.origin_release || ''} | ${item.customer_name || ''}`;
+    if (countEl) {
+        countEl.textContent = rows.length === total
+            ? `${total} registro${total === 1 ? '' : 's'} eliminado${total === 1 ? '' : 's'}`
+            : `${rows.length} de ${total} registros`;
+    }
 
-            const deletedAt = item.deleted_at ? new Date(item.deleted_at).toLocaleString() : 'Desconocido';
-            const deletedBy = item.deleted_by || 'Desconocido';
+    if (!rows.length) {
+        list.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#94a3b8;"><i class="fas fa-box-open" style="font-size:2rem; margin-bottom:10px; display:block;"></i>No hay registros en la papelera para esta tabla.</div>';
+        return;
+    }
 
-            html += `
-                <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.2s;">
-                    <td style="padding:12px 15px; font-size:0.85rem; color:#334155;">${details}</td>
-                    <td style="padding:12px 15px; font-size:0.85rem; color:#64748b;">${deletedBy}</td>
-                    <td style="padding:12px 15px; font-size:0.85rem; color:#64748b;">${deletedAt}</td>
-                    <td style="padding:12px 15px; text-align:right; display:flex; justify-content:flex-end; gap:8px;">
-                        <button onclick="restoreRecord('${table}', '${rbRecordId(table, item)}')" class="glossy-blue-btn" style="height:30px; padding:0 12px; font-size:0.75rem;" title="Restaurar">
+    list.innerHTML = rows.map(item => {
+        const card = rbBuildCard(table, item);
+        const who = rbWho(item.deleted_by);
+        const idVal = rbRecordId(table, item);
+        const chipsHtml = card.chips.join('');
+
+        return `
+            <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; margin-bottom:10px; display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;">
+                <div style="flex:1; min-width:260px;">
+                    <div style="font-weight:700; font-size:0.95rem; color:#0f172a; margin-bottom:2px;">${rbEsc(card.title)}</div>
+                    ${card.subtitle ? `<div style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">${rbEsc(card.subtitle)}</div>` : '<div style="height:8px;"></div>'}
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">${chipsHtml}</div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:180px;">
+                    <div style="text-align:right; font-size:0.75rem; color:#64748b; line-height:1.35;">
+                        <div>Eliminado por <strong style="color:#334155;" title="${rbEsc(who.title)}">${rbEsc(who.name)}</strong></div>
+                        <div>${rbEsc(rbFmtWhen(item.deleted_at))}</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button onclick="restoreRecord('${table}', '${idVal}')" class="glossy-blue-btn" style="height:32px; padding:0 12px; font-size:0.75rem;" title="Restaurar">
                             <i class="fas fa-undo"></i> Restaurar
                         </button>
-                        <button onclick="hardDeleteRecord('${table}', '${rbRecordId(table, item)}')" class="glossy-red-btn" style="height:30px; padding:0 12px; font-size:0.75rem; background:#ef4444;" title="Borrar Permanente">
+                        <button onclick="hardDeleteRecord('${table}', '${idVal}')" class="glossy-red-btn" style="height:32px; padding:0 12px; font-size:0.75rem; background:#ef4444;" title="Borrar permanente">
                             <i class="fas fa-times"></i> Destruir
                         </button>
-                    </td>
-                </tr>
-            `;
-        });
-        tbody.innerHTML = html;
-        
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.rbApplySearch = function() {
+    const q = (document.getElementById('rb-search')?.value || '').trim().toLowerCase();
+    const rows = window._rbLastRows || [];
+    if (!q) {
+        rbRenderRows(rows);
+        return;
+    }
+    rbRenderRows(rows.filter(item => rbBuildCard(window._rbLastTable, item).searchText.includes(q)));
+};
+
+window.loadRecycleBin = async function() {
+    const table = document.getElementById('rb-table-select').value;
+    const list = document.getElementById('rb-list');
+    list.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Cargando registros eliminados...</div>';
+
+    try {
+        const data = await rbFetchDeleted(table);
+        window._rbLastTable = table;
+        window._rbLastRows = data || [];
+        rbApplySearch();
     } catch (err) {
         console.error("Error loading recycle bin:", err);
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#ef4444;">Error: ${err.message}</td></tr>`;
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Error: ${rbEsc(err.message)}</div>`;
     }
 };
 
@@ -159,13 +310,12 @@ window.restoreRecord = async function(table, idValue) {
             error = fallback.error;
         }
         if (error) throw error;
-        
+
         if (window.logActivity) window.logActivity("RESTORED_RECORD", `[${new Date().toLocaleString()}] Restauró registro en ${table} ID: ${idValue}`);
-        
+
         alert("¡Registro restaurado exitosamente!");
-        loadRecycleBin(); // Refresh list
-        
-        // Force manual UI refresh for the specific module to guarantee it appears instantly
+        loadRecycleBin();
+
         if (table === 'trips' && typeof window.loadTableData === 'function') {
              window.loadTableData(null, true);
         } else if (table === 'receivables_invoices' && typeof window.renderReceivables === 'function') {
@@ -186,7 +336,7 @@ window.restoreRecord = async function(table, idValue) {
         } else if (table === 'yard_stock' && typeof window.loadYardData === 'function') {
              window.loadYardData(true);
         }
-        
+
     } catch (err) {
         console.error("Error restoring:", err);
         alert("Error al restaurar: " + err.message);
@@ -204,11 +354,11 @@ window.hardDeleteRecord = async function(table, idValue) {
             error = fallback.error;
         }
         if (error) throw error;
-        
+
         if (window.logActivity) window.logActivity("HARD_DELETED_RECORD", `[${new Date().toLocaleString()}] Destruyó permanentemente registro en ${table} ID: ${idValue}`);
-        
+
         alert("Registro destruido.");
-        loadRecycleBin(); // Refresh list
+        loadRecycleBin();
     } catch (err) {
         console.error("Error hard deleting:", err);
         alert("Error al destruir: " + err.message);
