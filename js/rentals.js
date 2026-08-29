@@ -1476,6 +1476,28 @@
         modal.style.display = 'flex';
     };
 
+    window.refreshRentalsModule = async function() {
+        const btn = document.getElementById('btn-refresh-rentals');
+        const icon = btn ? btn.querySelector('i') : null;
+        if (btn) btn.disabled = true;
+        if (icon) icon.classList.add('fa-spin');
+        try {
+            const data = await getRentals();
+            window.currentRentals = data || [];
+            await loadRentalInvoiceTrips(true);
+            populateRentalFilterCustomerSelect();
+            populateRentalFilterSizeSelect();
+            populateRentalFilterContainerList();
+            renderRentalsTable();
+        } catch (err) {
+            console.error('Error refreshing rentals:', err);
+            alert('Error refreshing rentals: ' + (err.message || err));
+        } finally {
+            if (btn) btn.disabled = false;
+            if (icon) icon.classList.remove('fa-spin');
+        }
+    };
+
     window.renderRentalsTable = renderRentalsTable;
     window.loadRentalsData = loadRentalsData;
     window.loadRentalInvoiceTrips = loadRentalInvoiceTrips;

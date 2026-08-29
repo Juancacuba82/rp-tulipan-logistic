@@ -5453,6 +5453,9 @@
                                     </div>
                                     <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
                                     <button id="btn-combined-invoice" onclick="window.generateCombinedRentalInvoice()" style="display: none; background: #2563eb; color: white; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Generate Invoice</button>
+                                    <button id="btn-refresh-rentals" onclick="window.refreshRentalsModule()" title="Refresh Rentals from database" style="background: #0f172a; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
                                     <button onclick="clearRentalFilters()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #ef4444; font-weight: 800; font-size: 0.75rem;">
                                         <i class="fas fa-times-circle"></i> Clear
                                     </button>
@@ -8299,7 +8302,7 @@
     <script src="./js/form-inventor.js?v=16"></script>
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=11"></script>
-    <script src="./js/rentals.js?v=101"></script>
+    <script src="./js/rentals.js?v=102"></script>
     <script src="./js/yard-stock.js?v=112"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
