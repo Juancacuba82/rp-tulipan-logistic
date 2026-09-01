@@ -490,8 +490,35 @@
         let cycles = 1;
         let cycleLabel = '1 Month';
         const trStr = (timeRent || '').toLowerCase();
-        
-        if (trStr === 'monthly') {
+
+        // With FROM/TO filters, bill only the overlapping window so one selected
+        // month charges 1 cycle — not the full accumulated debt. Unfiltered
+        // totals keep the original start-to-today (or final_date) logic.
+        if (useFilter && overlapDays > 0) {
+            const cycleStart = effectiveStart;
+            const filterEndInclusive = dateTo
+                ? new Date(dateTo + 'T00:00:00')
+                : endDate;
+            filterEndInclusive.setHours(0, 0, 0, 0);
+            const cycleEnd = new Date(Math.min(endDate.getTime(), filterEndInclusive.getTime()));
+
+            if (trStr === 'monthly') {
+                let months = (cycleEnd.getFullYear() - cycleStart.getFullYear()) * 12;
+                months -= cycleStart.getMonth();
+                months += cycleEnd.getMonth();
+                if (cycleEnd.getDate() > cycleStart.getDate()) {
+                    months += 1;
+                }
+                cycles = Math.max(1, months);
+                cycleLabel = cycles === 1 ? '1 Month' : `${cycles} Months`;
+            } else if (trStr === 'weekly') {
+                cycles = Math.max(1, Math.ceil(overlapDays / 7));
+                cycleLabel = cycles === 1 ? '1 Week' : `${cycles} Weeks`;
+            } else {
+                cycles = Math.max(1, Math.ceil(overlapDays));
+                cycleLabel = cycles === 1 ? '1 day' : `${cycles} days`;
+            }
+        } else if (trStr === 'monthly') {
             let months = (endDate.getFullYear() - start.getFullYear()) * 12;
             months -= start.getMonth();
             months += endDate.getMonth();
