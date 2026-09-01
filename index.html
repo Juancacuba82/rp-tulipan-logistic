@@ -4997,9 +4997,10 @@
                     </div>
                     <div class="sidebar-form">
                         <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #1e293b !important;">Assign To</label>
-                            <select id="call-assigned">
-                                <option value="" disabled selected>Loading employees...</option>
+                            <label class="sidebar-label-btn" style="background: #1e293b !important;">Language</label>
+                            <select id="call-language">
+                                <option value="ENGLISH">ENGLISH</option>
+                                <option value="SPANISH">SPANISH</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -5115,13 +5116,31 @@
                         </div>
 
                         <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                            <div class="filter-summary-card" style="margin-bottom: 0;">
+                            <div class="filter-summary-card" style="margin-bottom: 0; border-color: #93c5fd;">
                                 <div class="filter-summary-icon" style="background: #eff6ff; color: #1e40af;">
-                                    <i class="fas fa-headset"></i>
+                                    <i class="fas fa-pen"></i>
                                 </div>
                                 <div class="filter-summary-info">
-                                    <span class="filter-summary-label">Leads in Grid</span>
-                                    <span class="filter-summary-value" id="calls-count-display">0</span>
+                                    <span class="filter-summary-label">MANUAL</span>
+                                    <span class="filter-summary-value" id="calls-count-manual" style="color: #1e40af; font-size: 1.2rem;">0</span>
+                                </div>
+                            </div>
+                            <div class="filter-summary-card" style="margin-bottom: 0; border-color: #fdba74;">
+                                <div class="filter-summary-icon" style="background: #fff7ed; color: #c2410c;">
+                                    <i class="fas fa-calculator"></i>
+                                </div>
+                                <div class="filter-summary-info">
+                                    <span class="filter-summary-label">WEB-CALCULATOR</span>
+                                    <span class="filter-summary-value" id="calls-count-calculator" style="color: #c2410c; font-size: 1.2rem;">0</span>
+                                </div>
+                            </div>
+                            <div class="filter-summary-card" style="margin-bottom: 0; border-color: #86efac;">
+                                <div class="filter-summary-icon" style="background: #f0fdf4; color: #15803d;">
+                                    <i class="fas fa-globe"></i>
+                                </div>
+                                <div class="filter-summary-info">
+                                    <span class="filter-summary-label">WEBSITE RP</span>
+                                    <span class="filter-summary-value" id="calls-count-website-rp" style="color: #15803d; font-size: 1.2rem;">0</span>
                                 </div>
                             </div>
 
@@ -5212,24 +5231,12 @@
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
-                                    <label><i class="fas fa-user-tag"></i> ASSIGNED TO</label>
+                                    <label><i class="fas fa-map-marker-alt"></i> DESTINATION</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-id-badge"></i>
                                         <select id="cf-seller" class="form-select" onchange="renderCallsTable()"
                                             style="width: 180px;">
-                                            <option value="">All Employees</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="attendance-input-group">
-                                    <label><i class="fas fa-globe"></i> SOURCE</label>
-                                    <div class="attendance-field-with-icon">
-                                        <i class="fas fa-link"></i>
-                                        <select id="cf-source" class="form-select" onchange="renderCallsTable()"
-                                            style="width: 180px;">
-                                            <option value="">All Sources</option>
-                                            <option value="manual">MANUAL</option>
-                                            <option value="website">WEBSITE (ONLINE)</option>
+                                            <option value="">All Destinations</option>
                                         </select>
                                     </div>
                                 </div>
@@ -5266,7 +5273,8 @@
                                     <th>AMOUNT</th>
                                     <th>NEXT CALL</th>
                                     <th>STATUS</th>
-                                    <th class="admin-th-assigned">ASSIGNED TO</th>
+                                    <th class="admin-th-assigned">DESTINATION</th>
+                                    <th>LANGUAGE</th>
                                     <th>NOTES</th>
                                     <th style="min-width: 130px;">LLAMADA</th>
                                 </tr>

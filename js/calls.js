@@ -19,6 +19,20 @@ async function getProfilesEmails() {
     return cachedProfilesEmails;
 }
 
+/** Classify a lead by DESTINATION: manual | web-calculator | website-rp */
+function getCallOriginKey(call) {
+    const destRaw = (call?.created_by || '').toString().trim();
+    const destName = getAssignedDisplayName(destRaw);
+    const compact = destName.toLowerCase().replace(/[_\s]+/g, '-');
+    if (compact === 'web-calculator' || compact === 'webcalculator' || compact.includes('web-calculator')) {
+        return 'web-calculator';
+    }
+    if (compact === 'website-rp' || compact === 'websiterp' || compact === 'website-rp') {
+        return 'website-rp';
+    }
+    return 'manual';
+}
+
 async function loadCallsData(force = false) {
     if (!force && currentCalls && currentCalls.length > 0) {
         renderCallsTable();
@@ -38,93 +52,35 @@ async function loadCallsData(force = false) {
         if (error) throw error;
         currentCalls = data || [];
 
-        // Aseguramos que todos los registros provenientes de la web de ventas
-        // tengan como usuario asignado a rptulipantransport@gmail.com
-        currentCalls.forEach(c => {
-            if (c.source === 'website' && c.created_by !== 'rptulipantransport@gmail.com') {
-                c.created_by = 'rptulipantransport@gmail.com';
-                // Actualizamos silenciosamente en la base de datos
-                db.from('call_logs').update({ created_by: 'rptulipantransport@gmail.com' }).eq('id', c.id).then();
-            }
-        });
-
         subscribeToCallsRealtime();
         renderCallsTable();
         await updateCallSellerDropdown();
-        await populateCallAssignedSelect();
     } catch (err) {
         console.error("Error loading calls:", err);
     }
 }
 
-async function populateCallAssignedSelect() {
-    const sel = document.getElementById('call-assigned');
-    if (!sel) return;
-
-    const currentVal = sel.value;
-    try {
-        const data = await getProfilesEmails();
-
-        sel.innerHTML = '';
-
-        const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
-        if (isAdmin) {
-            const optEveryone = document.createElement('option');
-            optEveryone.value = 'EVERYONE';
-            optEveryone.textContent = 'EVERYONE';
-            optEveryone.style.fontWeight = '900';
-            optEveryone.style.color = '#1e40af';
-            sel.appendChild(optEveryone);
-        }
-
-        data.forEach(p => {
-            if (p.email) {
-                const opt = document.createElement('option');
-                opt.value = p.email;
-                const rawName = p.driver_name_ref;
-                const displayName = (rawName && rawName.trim() !== '') ? rawName : p.email.split('@')[0];
-                opt.textContent = displayName.toUpperCase();
-                sel.appendChild(opt);
-            }
-        });
-
-        // Set default to current user if it's a new entry and no value selected
-        if (!currentVal && window.userEmail) {
-            sel.value = window.userEmail;
-        } else if (currentVal) {
-            sel.value = currentVal;
-        }
-    } catch (err) {
-        console.error("Error populating assigned select:", err);
-        // Fallback: use existing creators if profiles fetch fails
-        const emails = [...new Set(currentCalls.map(c => c.created_by).filter(e => !!e))];
-        if (window.userEmail && !emails.includes(window.userEmail)) emails.push(window.userEmail);
-
-        sel.innerHTML = '';
-
-        const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
-        if (isAdmin) {
-            const optEveryone = document.createElement('option');
-            optEveryone.value = 'EVERYONE';
-            optEveryone.textContent = 'EVERYONE';
-            optEveryone.style.fontWeight = '900';
-            optEveryone.style.color = '#1e40af';
-            sel.appendChild(optEveryone);
-        }
-
-        emails.sort().forEach(e => {
-            const opt = document.createElement('option');
-            opt.value = e;
-            // Check global map if available
-            const mappedName = (window.globalUserNameMap && window.globalUserNameMap[e.toLowerCase().trim()]);
-            const displayName = mappedName || e.split('@')[0];
-            opt.textContent = displayName.toUpperCase();
-            sel.appendChild(opt);
-        });
-        if (window.userEmail) sel.value = window.userEmail;
-    }
+function normalizeCallLanguage(value) {
+    const raw = (value || '').toString().trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!raw) return '';
+    if (raw === 'en' || raw === 'eng' || raw === 'english' || raw === 'ingles') return 'ENGLISH';
+    if (raw === 'es' || raw === 'spa' || raw === 'spanish' || raw === 'espanol') return 'SPANISH';
+    return raw.toUpperCase();
 }
 
+function getCallLanguageValue(call) {
+    if (!call) return '';
+    return normalizeCallLanguage(call.language || call.idioma || call.lang || '');
+}
+
+function getCallLanguageBadge(call) {
+    const lang = getCallLanguageValue(call);
+    if (!lang) return '---';
+    if (lang === 'ENGLISH') return '<span class="inv-badge inv-badge-blue">ENGLISH</span>';
+    if (lang === 'SPANISH') return '<span class="inv-badge inv-badge-orange">SPANISH</span>';
+    return `<span class="inv-badge">${lang}</span>`;
+}
 
 function renderCallsTable() {
     const tbody = document.getElementById('calls-body');
@@ -145,7 +101,6 @@ function renderCallsTable() {
     const fCity = document.getElementById('cf-city')?.value || "";
     const fStatus = document.getElementById('cf-status')?.value || "";
     const fSeller = document.getElementById('cf-seller')?.value || "";
-    const fSource = document.getElementById('cf-source')?.value || "";
     const search = document.getElementById('call-search')?.value.toLowerCase() || "";
 
     tbody.innerHTML = "";
@@ -161,19 +116,27 @@ function renderCallsTable() {
         const matchCity = !fCity || c.city === fCity;
         const matchStatus = !fStatus || c.status === fStatus;
         const matchSeller = !fSeller || c.created_by === fSeller;
-        const matchSource = !fSource || c.source === fSource;
 
-        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus && matchSeller && matchSource;
+        return matchSearch && matchFrom && matchTo && matchService && matchCity && matchStatus && matchSeller;
     });
 
-    // Update Summary Card Counter
-    const callsCountEl = document.getElementById('calls-count-display');
-    if (callsCountEl) {
-        callsCountEl.textContent = filtered.length;
-        // Visual feedback: blue if filtering
-        const isFiltered = fFrom || fTo || fService || fCity || fStatus || fSeller || fSource || search;
-        callsCountEl.style.color = isFiltered ? '#1e40af' : '#1e293b';
-    }
+    let manualCount = 0;
+    let calcCount = 0;
+    let webRpCount = 0;
+    filtered.forEach(c => {
+        const key = getCallOriginKey(c);
+        if (key === 'web-calculator') calcCount++;
+        else if (key === 'website-rp') webRpCount++;
+        else manualCount++;
+    });
+
+    const setSourceCount = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+    setSourceCount('calls-count-manual', manualCount);
+    setSourceCount('calls-count-calculator', calcCount);
+    setSourceCount('calls-count-website-rp', webRpCount);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -222,8 +185,7 @@ function renderCallsTable() {
         const dateStr = formatDate(c.date);
         const nextStr = formatDate(c.next_call_date);
 
-        // Get worker alias or email
-        const worker = c.created_by ? c.created_by.split('@')[0].toUpperCase() : '---';
+        const worker = getAssignedDisplayName(c.created_by);
 
         tr.style.cursor = 'pointer';
         tr.onclick = (e) => {
@@ -234,7 +196,6 @@ function renderCallsTable() {
             <td>${dateStr}</td>
             <td style="font-weight:900;">
                 ${(c.customer || "").toUpperCase()}
-                ${c.source === 'website' ? '<span class="inv-badge inv-badge-green" style="font-size: 0.55rem; padding: 1px 4px; margin-left: 4px;">WEB</span>' : ''}
             </td>
             <td><span class="inv-badge inv-badge-blue">${c.service_type || 'Sales'}</span></td>
             <td style="font-weight: 700;">${window.formatUSPhone(c.phone) || "---"}</td>
@@ -245,6 +206,7 @@ function renderCallsTable() {
             <td style="color: #b91c1c; font-weight: 700;">${nextStr}</td>
             <td><span class="inv-badge ${getStatusBadgeClass(c.status)}">${c.status || 'PENDING'}</span></td>
             <td class="admin-td-assigned" style="font-weight: 700; color: #1e40af;">${worker}</td>
+            <td style="text-align: center; font-weight: 800;">${getCallLanguageBadge(c)}</td>
             <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.description || ''}">
                 ${(c.description || "---").toUpperCase()}
             </td>
@@ -339,6 +301,7 @@ async function executeTransfer() {
             renderCallsTable();
         }
         if (window.populateCityFilter) populateCityFilter();
+        updateCallSellerDropdown();
     } catch (err) {
         console.error("Error transferring client:", err);
         alert("Error: " + err.message);
@@ -352,6 +315,29 @@ function getStatusBadgeClass(status) {
         case 'CANCELLED': return 'inv-badge-red';
         default: return 'inv-badge-blue';
     }
+}
+
+function isMissingColumnError(error, column) {
+    const msg = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+    const code = (error?.code || '').toString();
+    return code === 'PGRST204' || (msg.includes(column) && (msg.includes('column') || msg.includes('schema') || msg.includes('could not find')));
+}
+
+async function upsertCallLog(payload, id) {
+    const run = (body) => id
+        ? db.from('call_logs').update(body).eq('id', id).select()
+        : db.from('call_logs').insert([body]).select();
+
+    let result = await run(payload);
+    if (result.error && payload.language != null && isMissingColumnError(result.error, 'language')) {
+        const fallback = { ...payload };
+        delete fallback.language;
+        result = await run(fallback);
+        if (!result.error && result.data && result.data[0]) {
+            result.data[0].language = payload.language;
+        }
+    }
+    return result;
 }
 
 async function saveCallLog() {
@@ -373,7 +359,10 @@ async function saveCallLog() {
         next_call_date: document.getElementById('call-next-date').value || null,
         status: document.getElementById('call-status').value,
         description: document.getElementById('call-description').value,
-        created_by: document.getElementById('call-assigned').value || window.userEmail || null,
+        created_by: editingCallId
+            ? (currentCalls.find(c => c.id === editingCallId)?.created_by || window.userEmail || null)
+            : (window.userEmail || null),
+        language: document.getElementById('call-language')?.value || 'ENGLISH',
         source: editingCallId ? (currentCalls.find(c => c.id === editingCallId)?.source || 'manual') : 'manual'
     };
 
@@ -417,7 +406,7 @@ async function saveCallLog() {
                     payload.last_called_at = new Date().toISOString();
                     // calling_by se mantiene para registrar quién llamó por última vez
                 }
-                const { data, error } = await db.from('call_logs').update(payload).eq('id', editingCallId).select();
+                const { data, error } = await upsertCallLog(payload, editingCallId);
                 if (error) throw error;
                 if (data && data.length > 0) {
                     const idx = currentCalls.findIndex(c => c.id === editingCallId);
@@ -425,7 +414,7 @@ async function saveCallLog() {
                 }
                 alert("Call updated successfully");
             } else {
-                const { data, error } = await db.from('call_logs').insert([payload]).select();
+                const { data, error } = await upsertCallLog(payload);
                 if (error) throw error;
                 if (data && data.length > 0) {
                     currentCalls.unshift(data[0]);
@@ -436,6 +425,7 @@ async function saveCallLog() {
 
         resetCallForm();
         if (window.populateCityFilter) populateCityFilter();
+        updateCallSellerDropdown();
     } catch (err) {
         console.error("Error saving call:", err);
         alert("Error saving record: " + err.message);
@@ -476,8 +466,11 @@ function editCallLog(id) {
     document.getElementById('call-status').value = call.status || "PENDING";
     document.getElementById('call-description').value = call.description || "";
 
-    const assignSel = document.getElementById('call-assigned');
-    if (assignSel) assignSel.value = call.created_by || window.userEmail || "";
+    const langSel = document.getElementById('call-language');
+    if (langSel) {
+        const lang = getCallLanguageValue(call);
+        langSel.value = (lang === 'SPANISH' || lang === 'ENGLISH') ? lang : 'ENGLISH';
+    }
 
     document.getElementById('btn-save-call').textContent = "UPDATE CALL RECORD";
 
@@ -527,6 +520,7 @@ async function deleteCallLog(id) {
             renderCallsTable();
         }
         if (window.populateCityFilter) populateCityFilter();
+        updateCallSellerDropdown();
     } catch (err) {
         console.error("Error deleting call:", err);
         alert("Error: " + err.message);
@@ -550,8 +544,8 @@ function resetCallForm() {
     document.getElementById('call-status').value = "PENDING";
     document.getElementById('call-description').value = "";
 
-    const assignSel = document.getElementById('call-assigned');
-    if (assignSel && window.userEmail) assignSel.value = window.userEmail;
+    const langSel = document.getElementById('call-language');
+    if (langSel) langSel.value = 'ENGLISH';
 
     document.getElementById('btn-save-call').textContent = "SAVE CALL RECORD";
 
@@ -570,53 +564,38 @@ function resetCallFilters() {
     document.getElementById('cf-city').value = "";
     document.getElementById('cf-status').value = "";
     document.getElementById('cf-seller').value = "";
-    document.getElementById('cf-source').value = "";
     document.getElementById('call-search').value = "";
     renderCallsTable();
 }
 
-async function updateCallSellerDropdown() {
+function getAssignedDisplayName(value) {
+    if (!value) return '---';
+    const text = String(value).trim();
+    return (text.includes('@') ? text.split('@')[0] : text).toUpperCase();
+}
+
+function updateCallSellerDropdown() {
     const sel = document.getElementById('cf-seller');
     if (!sel) return;
 
     const currentVal = sel.value;
+    const assignees = [...new Set(
+        currentCalls.map(c => c.created_by).filter(e => !!e && String(e).trim() !== '')
+    )];
 
-    try {
-        // Fetch all potential sellers (admins, employees, staff)
-        const data = await getProfilesEmails();
+    assignees.sort((a, b) => getAssignedDisplayName(a).localeCompare(getAssignedDisplayName(b)));
 
-        sel.innerHTML = '<option value="">All Employees</option>';
+    sel.innerHTML = '<option value="">All Destinations</option>';
+    assignees.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = getAssignedDisplayName(s);
+        sel.appendChild(opt);
+    });
 
-        const optEveryone = document.createElement('option');
-        optEveryone.value = 'EVERYONE';
-        optEveryone.textContent = 'EVERYONE';
-        sel.appendChild(optEveryone);
-
-        data.forEach(p => {
-            if (p.email) {
-                const opt = document.createElement('option');
-                opt.value = p.email;
-                const rawName = p.driver_name_ref;
-                const displayName = (rawName && rawName.trim() !== '') ? rawName : p.email.split('@')[0];
-                opt.textContent = displayName.toUpperCase();
-                sel.appendChild(opt);
-            }
-        });
-    } catch (err) {
-        console.warn("Fallback: updating seller dropdown from call data", err);
-        const sellers = [...new Set(currentCalls.map(c => c.created_by).filter(e => !!e))].sort();
-        sel.innerHTML = '<option value="">All Employees</option>';
-        sellers.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s;
-            const mappedName = (window.globalUserNameMap && window.globalUserNameMap[s.toLowerCase().trim()]);
-            const displayName = mappedName || s.split('@')[0];
-            opt.textContent = displayName.toUpperCase();
-            sel.appendChild(opt);
-        });
+    if (currentVal && [...sel.options].some(o => o.value === currentVal)) {
+        sel.value = currentVal;
     }
-
-    if (currentVal) sel.value = currentVal;
 }
 
 
@@ -646,6 +625,7 @@ loadCallsData = async function (force = false) {
 };
 window.loadCallsData = loadCallsData;
 window.renderCallsTable = renderCallsTable;
+window.updateCallSellerDropdown = updateCallSellerDropdown;
 
 window.refreshCallsModule = async function () {
     await window.withRefreshButton('btn-refresh-calls', async () => {
@@ -873,6 +853,7 @@ function subscribeToCallsRealtime() {
                     if (idx !== -1) {
                         currentCalls.splice(idx, 1);
                         renderCallsTable();
+                        updateCallSellerDropdown();
                     }
                 } else {
                     if (idx !== -1) {
@@ -881,6 +862,7 @@ function subscribeToCallsRealtime() {
                         currentCalls.unshift(payload.new);
                     }
                     renderCallsTable();
+                    updateCallSellerDropdown();
                 }
             }
         )
@@ -891,17 +873,10 @@ function subscribeToCallsRealtime() {
                 if (!payload.new) return;
                 let newRecord = payload.new;
 
-                // Si el registro nuevo viene de la web, asignarlo a rptulipantransport
-                if (newRecord.source === 'website' && newRecord.created_by !== 'rptulipantransport@gmail.com') {
-                    newRecord.created_by = 'rptulipantransport@gmail.com';
-                    // Solo intentamos actualizar la base de datos si somos administradores para evitar conflictos de concurrencia
-                    // o lo hacemos directamente, Supabase soporta updates concurrentes al mismo registro.
-                    db.from('call_logs').update({ created_by: 'rptulipantransport@gmail.com' }).eq('id', newRecord.id).then();
-                }
-
                 if (!currentCalls.find(c => c.id === newRecord.id)) {
                     currentCalls.unshift(newRecord);
                     renderCallsTable();
+                    updateCallSellerDropdown();
                 }
             }
         )
@@ -915,6 +890,7 @@ function subscribeToCallsRealtime() {
                 if (idx !== -1) {
                     currentCalls.splice(idx, 1);
                     renderCallsTable();
+                    updateCallSellerDropdown();
                 }
             }
         )
