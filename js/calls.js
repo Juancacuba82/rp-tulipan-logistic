@@ -19,16 +19,31 @@ async function getProfilesEmails() {
     return cachedProfilesEmails;
 }
 
-/** Classify a lead by DESTINATION: manual | web-calculator | website-rp */
+/** Classify a lead by DESTINATION/source: manual | web-calculator | website-rp | ai-bot */
 function getCallOriginKey(call) {
     const destRaw = (call?.created_by || '').toString().trim();
     const destName = getAssignedDisplayName(destRaw);
-    const compact = destName.toLowerCase().replace(/[_\s]+/g, '-');
-    if (compact === 'web-calculator' || compact === 'webcalculator' || compact.includes('web-calculator')) {
+    const dest = destName.toLowerCase().replace(/[_\s]+/g, '-');
+    const source = (call?.source || '').toString().trim().toLowerCase().replace(/[_\s]+/g, '-');
+
+    if (
+        dest === 'web-calculator' || dest === 'webcalculator' || dest.includes('web-calculator') ||
+        source === 'calculator' || source === 'web-calculator'
+    ) {
         return 'web-calculator';
     }
-    if (compact === 'website-rp' || compact === 'websiterp' || compact === 'website-rp') {
+    if (
+        dest === 'website-rp' || dest === 'websiterp' || dest.includes('website-rp') ||
+        source === 'website-rp' || source === 'websiterp'
+    ) {
         return 'website-rp';
+    }
+    if (
+        dest === 'ai-bot' || dest === 'aibot' || dest === 'chatbot' ||
+        dest.includes('rptulipantransport') ||
+        source === 'chatbot' || source === 'chatbot-manual' || source.startsWith('chatbot')
+    ) {
+        return 'ai-bot';
     }
     return 'manual';
 }
@@ -60,12 +75,27 @@ async function loadCallsData(force = false) {
     }
 }
 
+/**
+ * Maps device/locale codes from external apps into ENGLISH / SPANISH.
+ * Accepts: en, en-US, es-MX, english, spanish, navigator.language, Accept-Language.
+ *
+ * External apps should send this when inserting into call_logs:
+ *   language: navigator.language || navigator.userLanguage || 'en'
+ */
 function normalizeCallLanguage(value) {
     const raw = (value || '').toString().trim().toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (!raw) return '';
-    if (raw === 'en' || raw === 'eng' || raw === 'english' || raw === 'ingles') return 'ENGLISH';
-    if (raw === 'es' || raw === 'spa' || raw === 'spanish' || raw === 'espanol') return 'SPANISH';
+
+    const primary = raw.split(/[-_,;]/)[0].trim();
+    if (
+        primary === 'en' || primary === 'eng' ||
+        raw === 'english' || raw === 'ingles' || raw.startsWith('en-') || raw.startsWith('en_')
+    ) return 'ENGLISH';
+    if (
+        primary === 'es' || primary === 'spa' ||
+        raw === 'spanish' || raw === 'espanol' || raw.startsWith('es-') || raw.startsWith('es_')
+    ) return 'SPANISH';
     return raw.toUpperCase();
 }
 
@@ -123,10 +153,12 @@ function renderCallsTable() {
     let manualCount = 0;
     let calcCount = 0;
     let webRpCount = 0;
+    let botCount = 0;
     filtered.forEach(c => {
         const key = getCallOriginKey(c);
         if (key === 'web-calculator') calcCount++;
         else if (key === 'website-rp') webRpCount++;
+        else if (key === 'ai-bot') botCount++;
         else manualCount++;
     });
 
@@ -137,6 +169,7 @@ function renderCallsTable() {
     setSourceCount('calls-count-manual', manualCount);
     setSourceCount('calls-count-calculator', calcCount);
     setSourceCount('calls-count-website-rp', webRpCount);
+    setSourceCount('calls-count-ai-bot', botCount);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
