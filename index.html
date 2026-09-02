@@ -26,7 +26,7 @@
     <script src="./js/data-mapping.js?v=11"></script>
     <script src="./js/realtime-sync.js?v=3" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1701" defer></script>
+    <script src="./js/data-managers.js?v=1702" defer></script>
     <script src="./js/delivery-calendar.js?v=1704" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
     <script src="./js/releases.js?v=1701" defer></script>
@@ -44,7 +44,7 @@
     <script src="./js/receivables.js?v=20" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
-    <script src="./js/csv-import.js?v=4" defer></script>
+    <script src="./js/csv-import.js?v=7" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="./js/recycle-bin.js?v=3" defer></script>
@@ -55,6 +55,15 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"
         defer></script>
     <style>
+        #expenses-view #exp-category {
+            height: 42px !important;
+            min-height: 42px !important;
+            padding: 0 12px !important;
+            font-size: 0.9rem !important;
+            line-height: normal !important;
+            box-sizing: border-box !important;
+        }
+
         /* Glossy 3D Button Style */
         .glossy-red-btn {
             background: linear-gradient(to bottom, #ff5f8e 0%, #e60049 100%) !important;
@@ -3757,11 +3766,11 @@
                             <label class="sidebar-label-btn"
                                 style="background: #1e40af !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">CATEGORY</label>
                             <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                                <select id="exp-category" onchange="toggleOtherExpense()" style="flex: 1; margin: 0; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white;">
+                                <select id="exp-category" onchange="toggleOtherExpense()" style="flex: 1; margin: 0; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white;">
                                     <option value="">Select category...</option>
                                 </select>
                                 <button onclick="openExpenseCategoryManager()" class="btn-manage-inline"
-                                    style="flex: 0 0 auto; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                    style="flex: 0 0 auto; height: 42px; display: flex; align-items: center; justify-content: center;">
                                     Manage
                                 </button>
                             </div>
@@ -9393,7 +9402,7 @@
 
     <!-- CSV IMPORT REVIEW MODAL -->
     <div id="csv-import-modal" class="simple-modal" style="display: none; z-index: 10003;">
-        <div class="modal-content" style="max-width: 1000px; width: 95%; max-height: 95vh; overflow-y: auto; background: #f8fafc; padding: 20px;">
+        <div class="modal-content" style="max-width: 1100px; width: 95%; max-height: 95vh; overflow-y: auto; background: #f8fafc; padding: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
                 <h2 style="margin: 0; font-weight: 900; color: #0f172a;"><i class="fas fa-file-import"></i> Bank CSV Import Review</h2>
                 <button onclick="closeCsvImportModal()" class="btn-cancel" style="background: transparent; color: #64748b; padding: 5px 10px; font-size: 1.5rem; margin: 0; border: none; cursor: pointer;"><i class="fas fa-times"></i></button>
@@ -9402,6 +9411,11 @@
             <div style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1;">
                 <label style="font-weight: 700; color: #334155; margin-bottom: 8px; display: block;">1. Select Bank of America File (.csv, .dat)</label>
                 <input type="file" id="csv-file-input" accept=".csv, .bat, .txt, .dat" style="display: block; width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
+                <p style="margin: 10px 0 0 0; font-size: 0.82rem; color: #64748b; line-height: 1.45;">
+                    Los cargos del mismo tipo se agrupan con la <strong>fecha del miércoles</strong> de esa semana del extracto.
+                    <strong>Titan / Crystal Fuel</strong> no se agrupa: cada entrega entra aparte con la fecha real del banco.
+                    El resto de combustible va como <strong>GAS STATIONS</strong>.
+                </p>
             </div>
 
             <div id="csv-preview-container" style="display: none;">
@@ -9413,9 +9427,22 @@
                     </div>
                 </div>
                 
-                <!-- Search Bar -->
-                <div style="margin-bottom: 10px;">
-                    <input type="text" id="csv-search-input" placeholder="🔍 Buscar por nombre, categoría, cantidad o fecha..." style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-size: 14px;">
+                <div style="margin-bottom: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; position: relative; z-index: 20;">
+                    <input type="text" id="csv-search-input" placeholder="🔍 Buscar por nombre, categoría, cantidad o fecha..." style="flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-size: 14px;">
+                    <button type="button" id="btn-csv-ai-explain" onclick="explainCsvExpensesWithAi('unknown')" class="btn-add-sidebar" style="background: #4f46e5; color: white; display: inline-flex; margin: 0; white-space: nowrap; position: relative; z-index: 21;">
+                        <i class="fas fa-robot"></i> Explicar desconocidos
+                    </button>
+                    <button type="button" id="btn-csv-ai-key" onclick="event.preventDefault(); event.stopPropagation(); setOpenAiApiKey();" title="Guardar o cambiar tu API key de ChatGPT" class="btn-add-sidebar" style="background: #334155; color: white; display: inline-flex; align-items: center; gap: 6px; margin: 0; box-shadow: none; position: relative; z-index: 21; pointer-events: auto;">
+                        <i class="fas fa-key" style="pointer-events: none;"></i> API KEY
+                    </button>
+                </div>
+                <div id="csv-openai-key-panel" style="display: none; margin-bottom: 12px; background: #fff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 12px 14px;">
+                    <label for="csv-openai-key-input" style="display:block; font-weight:800; color:#312e81; margin-bottom:8px; font-size:0.85rem;">API key de OpenAI / ChatGPT</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                        <input type="password" id="csv-openai-key-input" placeholder="sk-..." autocomplete="off" style="flex:1; min-width:220px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px;">
+                        <button type="button" id="btn-csv-save-openai-key" onclick="saveOpenAiApiKeyFromPanel()" class="btn-add-sidebar" style="background:#4f46e5; color:white; margin:0; display:inline-flex;">Guardar key</button>
+                    </div>
+                    <p style="margin:8px 0 0 0; font-size:0.75rem; color:#64748b;">Se guarda solo en este navegador. Cópiala desde platform.openai.com/api-keys</p>
                 </div>
 
                 <div class="table-container" style="max-height: 50vh; overflow-y: auto; border-radius: 8px; border: 1px solid #e2e8f0;">

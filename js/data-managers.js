@@ -1369,7 +1369,7 @@
                     return;
                 }
 
-                let finalCategories = dbData || [];
+                let finalCategories = data || [];
                 const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
 
                 // 2. Check if we have local categories to migrate/sync - ADMIN ONLY
@@ -1514,10 +1514,17 @@
                     return;
                 }
 
-                const { error } = await db.from('expense_categories').insert([{ name: name }]);
+                const { data: inserted, error } = await db.from('expense_categories').insert([{ name: name }]).select();
                 if (error) throw error;
 
+                if (inserted && inserted[0]) {
+                    currentExpenseCategories.push(inserted[0]);
+                    currentExpenseCategories.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                }
+
                 input.value = '';
+                refreshExpenseCategorySelects();
+                renderExpenseCategoryManagerList();
                 await loadExpenseCategoriesData();
                 renderExpenseCategoryManagerList();
             } catch (err) {
