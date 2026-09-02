@@ -30,7 +30,7 @@
     <script src="./js/delivery-calendar.js?v=1704" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
     <script src="./js/releases.js?v=1701" defer></script>
-    <script src="./js/profit-expenses.js?v=1701" defer></script>
+    <script src="./js/profit-expenses.js?v=1703" defer></script>
 
     <script src="./js/docs-receipts.js?v=1701" defer></script>
     <script src="./js/custom-receipts.js?v=3" defer></script>
@@ -5735,6 +5735,7 @@
                                         Real-time management of facility-stored containers</p>
                                 </div>
 
+                                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                                 <div class="filter-summary-card"
                                     style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; min-width: 160px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 12px;">
                                     <div class="filter-summary-icon"
@@ -5748,6 +5749,20 @@
                                         <span class="filter-summary-value" id="yard-total-count"
                                             style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">0</span>
                                     </div>
+                                </div>
+                                <div id="yard-income-card" class="filter-summary-card"
+                                    style="display: none; margin-bottom: 0; border: none; background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: white; min-width: 180px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(16, 185, 129, 0.2); align-items: center; gap: 12px;">
+                                    <div class="filter-summary-icon"
+                                        style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                    </div>
+                                    <div class="filter-summary-info">
+                                        <span class="filter-summary-label"
+                                            style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">TOTAL TO COLLECT</span>
+                                        <span class="filter-summary-value" id="yard-total-income"
+                                            style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">$0.00</span>
+                                    </div>
+                                </div>
                                 </div>
                             </div>
 
@@ -5944,6 +5959,7 @@
                                         Storage yard operations and inventory tracking</p>
                                 </div>
 
+                                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                                 <div class="filter-summary-card"
                                     style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: white; min-width: 160px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 12px;">
                                     <div class="filter-summary-icon"
@@ -5957,6 +5973,20 @@
                                         <span class="filter-summary-value" id="storage-total-count"
                                             style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">0</span>
                                     </div>
+                                </div>
+                                <div id="storage-income-card" class="filter-summary-card"
+                                    style="display: none; margin-bottom: 0; border: none; background: linear-gradient(135deg, #059669 0%, #064e3b 100%); color: white; min-width: 180px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(5, 150, 105, 0.2); align-items: center; gap: 12px;">
+                                    <div class="filter-summary-icon"
+                                        style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                    </div>
+                                    <div class="filter-summary-info">
+                                        <span class="filter-summary-label"
+                                            style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">TOTAL TO COLLECT</span>
+                                        <span class="filter-summary-value" id="storage-total-income"
+                                            style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">$0.00</span>
+                                    </div>
+                                </div>
                                 </div>
                             </div>
 
@@ -6152,6 +6182,7 @@
                                     Combined view of RPTulipan and Storage yards</p>
                             </div>
 
+                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                             <div class="filter-summary-card"
                                 style="margin-bottom: 0; border: none; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; min-width: 160px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2); display: flex; align-items: center; gap: 12px;">
                                 <div class="filter-summary-icon"
@@ -6165,6 +6196,46 @@
                                     <span class="filter-summary-value" id="both-total-count"
                                         style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">0</span>
                                 </div>
+                            </div>
+                            <div id="both-rptulipan-income-card" class="filter-summary-card"
+                                style="display: none; margin-bottom: 0; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; min-width: 170px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); align-items: center; gap: 12px;">
+                                <div class="filter-summary-icon"
+                                    style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-warehouse"></i>
+                                </div>
+                                <div class="filter-summary-info">
+                                    <span class="filter-summary-label"
+                                        style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">RPTULIPAN</span>
+                                    <span class="filter-summary-value" id="both-rptulipan-income"
+                                        style="font-size: 1.3rem; color: white; font-weight: 900; line-height: 1.1;">$0.00</span>
+                                </div>
+                            </div>
+                            <div id="both-storage-income-card" class="filter-summary-card"
+                                style="display: none; margin-bottom: 0; border: none; background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: white; min-width: 170px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(16, 185, 129, 0.2); align-items: center; gap: 12px;">
+                                <div class="filter-summary-icon"
+                                    style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                                <div class="filter-summary-info">
+                                    <span class="filter-summary-label"
+                                        style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">STORAGE YARD</span>
+                                    <span class="filter-summary-value" id="both-storage-income"
+                                        style="font-size: 1.3rem; color: white; font-weight: 900; line-height: 1.1;">$0.00</span>
+                                </div>
+                            </div>
+                            <div id="both-income-card" class="filter-summary-card"
+                                style="display: none; margin-bottom: 0; border: none; background: linear-gradient(135deg, #059669 0%, #064e3b 100%); color: white; min-width: 180px; padding: 12px 15px; border-radius: 12px; box-shadow: 0 8px 16px rgba(5, 150, 105, 0.25); align-items: center; gap: 12px;">
+                                <div class="filter-summary-icon"
+                                    style="background: rgba(255,255,255,0.2); color: white; width: 36px; height: 36px; font-size: 1.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-hand-holding-usd"></i>
+                                </div>
+                                <div class="filter-summary-info">
+                                    <span class="filter-summary-label"
+                                        style="color: rgba(255,255,255,0.8); font-weight: 600; font-size: 0.75rem;">TOTAL TO COLLECT</span>
+                                    <span class="filter-summary-value" id="both-total-income"
+                                        style="font-size: 1.4rem; color: white; font-weight: 900; line-height: 1.1;">$0.00</span>
+                                </div>
+                            </div>
                             </div>
                         </div>
 
@@ -8377,7 +8448,7 @@
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=12"></script>
     <script src="./js/rentals.js?v=104"></script>
-    <script src="./js/yard-stock.js?v=114"></script>
+    <script src="./js/yard-stock.js?v=115"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">
     </div>

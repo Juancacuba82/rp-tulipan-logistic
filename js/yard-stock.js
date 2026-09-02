@@ -152,6 +152,17 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         return false;
     };
 
+    function formatYardMoney(amount) {
+        return `$${(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function setYardIncomeCard(cardId, valueId, amount, dateFrom, dateTo) {
+        const card = document.getElementById(cardId);
+        const valueEl = document.getElementById(valueId);
+        if (valueEl) valueEl.textContent = formatYardMoney(amount);
+        if (card) card.style.display = (dateFrom || dateTo) ? 'flex' : 'none';
+    }
+
     function renderYardTable() {
         const body = document.getElementById('yard-body');
         const countEl = document.getElementById('yard-total-count');
@@ -194,6 +205,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         if (countEl) countEl.textContent = filtered.length;
 
+        let totalToCollect = 0;
         body.innerHTML = '';
         const fragment = document.createDocumentFragment();
         filtered.forEach(item => {
@@ -236,6 +248,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             };
 
             const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
+            totalToCollect += costs.totalCost || 0;
 
             const tooltipTitle = item.exit_date
                 ? `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
@@ -286,6 +299,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
+        setYardIncomeCard('yard-income-card', 'yard-total-income', totalToCollect, dateFrom, dateTo);
     }
     window.renderYardTable = renderYardTable;
 
@@ -340,9 +354,11 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     </td>
                 </tr>
             `;
+            setYardIncomeCard('storage-income-card', 'storage-total-income', 0, dateFrom, dateTo);
             return;
         }
 
+        let totalToCollect = 0;
         const fragment = document.createDocumentFragment();
         filtered.forEach(item => {
             const isSelected = (editingYardId === item.id);
@@ -379,6 +395,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             };
 
             const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
+            totalToCollect += costs.totalCost || 0;
 
             const tooltipTitle = item.exit_date
                 ? `Daily: $${(parseFloat(item.daily_rate) || 0).toFixed(2)}/day ($${costs.accumStorage.toFixed(2)}) | Exit Date: ${item.exit_date}`
@@ -429,6 +446,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
+        setYardIncomeCard('storage-income-card', 'storage-total-income', totalToCollect, dateFrom, dateTo);
     }
     window.renderStorageTable = renderStorageTable;
 
@@ -480,9 +498,15 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     </td>
                 </tr>
             `;
+            setYardIncomeCard('both-income-card', 'both-total-income', 0, dateFrom, dateTo);
+            setYardIncomeCard('both-rptulipan-income-card', 'both-rptulipan-income', 0, dateFrom, dateTo);
+            setYardIncomeCard('both-storage-income-card', 'both-storage-income', 0, dateFrom, dateTo);
             return;
         }
 
+        let totalToCollect = 0;
+        let rptulipanTotal = 0;
+        let storageTotal = 0;
         const fragment = document.createDocumentFragment();
         filtered.forEach(item => {
             const isStorage = (item.notes || '').includes('[Storage Yard]');
@@ -522,6 +546,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             };
 
             const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
+            totalToCollect += costs.totalCost || 0;
+            if (isStorage) storageTotal += costs.totalCost || 0;
+            else rptulipanTotal += costs.totalCost || 0;
 
             const containerNoDisplay = `${item.container_no || '---'}`;
             let displayExitDate = item.exit_date ? window.formatDateMMDDYYYY(item.exit_date + 'T12:00:00') : '---';
@@ -573,6 +600,9 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             fragment.appendChild(tr);
         });
         body.appendChild(fragment);
+        setYardIncomeCard('both-income-card', 'both-total-income', totalToCollect, dateFrom, dateTo);
+        setYardIncomeCard('both-rptulipan-income-card', 'both-rptulipan-income', rptulipanTotal, dateFrom, dateTo);
+        setYardIncomeCard('both-storage-income-card', 'both-storage-income', storageTotal, dateFrom, dateTo);
     }
     window.renderBothTable = renderBothTable;
 
@@ -850,12 +880,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             return;
         }
 
-        const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
-        const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
-        const publicKey = localStorage.getItem('ejs_public_key');
-
-        if (!serviceId || !templateId || !publicKey) {
-            alert('EmailJS is not configured. Please go to Email Settings.');
+        if (typeof window.generateYardInvoiceHTML !== 'function') {
+            alert('Statement generator is not available. Please refresh the page.');
             return;
         }
 
@@ -999,6 +1025,15 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 sendBtn.disabled = true;
 
                 try {
+                    const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
+                    const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+                    const publicKey = localStorage.getItem('ejs_public_key');
+
+                    if (!serviceId || !templateId || !publicKey || typeof emailjs === 'undefined') {
+                        alert('EmailJS is not configured. Please go to Email Settings to send the statement.');
+                        return;
+                    }
+
                     emailjs.init(publicKey);
                     const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customerFilter);
                     const templateParams = {
@@ -1208,7 +1243,8 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
         } catch (err) {
             console.error('Generation Error:', err);
-            alert("Error sending email: " + (err.text || JSON.stringify(err)));
+            const msg = (err && err.message) ? err.message : (err && err.text) ? err.text : String(err);
+            alert("Error opening statement: " + msg);
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;

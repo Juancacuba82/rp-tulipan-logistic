@@ -26,6 +26,8 @@
             await window.withRefreshButton('btn-refresh-profit', async () => {
                 await loadExpensesData(true);
                 if (typeof window.loadReleasesData === 'function') await window.loadReleasesData(true);
+                if (typeof window.loadRentalsData === 'function') await window.loadRentalsData(true);
+                if (typeof window.loadYardData === 'function') await window.loadYardData(true);
                 if (typeof window.renderProfitReport === 'function') await window.renderProfitReport();
             }, 'profit');
         };
@@ -347,9 +349,13 @@
         // PROFIT REPORT CALCULATIONS
         window.renderProfitReport = async function (tripsData = null) {
             try {
-            // Ensure rentals data is loaded if we are going to use it independently
+            // Ensure rentals and yard stock are loaded for accrued totals
             if (typeof window.loadRentalsData === 'function' && (!window.currentRentals || window.currentRentals.length === 0)) {
                 await window.loadRentalsData();
+            }
+            const yardCache = (typeof window.getYardStockData === 'function') ? window.getYardStockData() : [];
+            if (typeof window.loadYardData === 'function' && (!yardCache || yardCache.length === 0)) {
+                await window.loadYardData();
             }
 
             const dateFrom = document.getElementById('profit-date-from').value;
@@ -400,12 +406,12 @@
             let totals = {
                 sales: 0,        // Gross Sales Revenue (sales_price * qty)
                 yard: 0,         // Yard / Storage income
-                rentals: 0,      // PAID rentals income
+                rentals: 0,      // Accrued rental income from Rentals (by date, not payment)
                 tulipan: 0,      // RP Tulipan transport revenue
                 jr: 0,           // JR Super Crane transport revenue
                 contractor: 0,   // Contractor transport revenue
-                storageTulipan: 0, // Storage RPTulipan total
-                storageYard: 0,    // Storage Yard total
+                storageTulipan: 0, // Accrued RPTulipan yard (days + lifts)
+                storageYard: 0,    // Accrued Storage Yard (days + lifts)
                 expenses: 0,     // Business expenses
                 releases: 0      // Informational: total container purchase cost in COMPLETE orders
             };
@@ -422,30 +428,10 @@
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                     const serviceMode = (row[26] || '').toString().toUpperCase();
                     if (serviceMode === 'RENTAL INVOICE') {
-                        const rentVal = parseFloat(row[27]) || 0;
-                        totals.rentals += rentVal;
-                        return; // Skip standard processing
+                        return; // Rentals come from the Rentals module (accrued), not paid invoices
                     }
                     if (serviceMode === 'YARD INVOICE') {
-                        try {
-                            const yardServicesStr = row[12];
-                            if (yardServicesStr && yardServicesStr !== '---') {
-                                const snapshot = JSON.parse(yardServicesStr);
-                                if (snapshot && snapshot.items) {
-                                    snapshot.items.forEach(item => {
-                                        const itemTotal = parseFloat(item.item_total) || 0;
-                                        if (item.yard_type === 'STORAGE') {
-                                            totals.storageYard += itemTotal;
-                                        } else {
-                                            totals.storageTulipan += itemTotal;
-                                        }
-                                    });
-                                }
-                            }
-                        } catch (e) {
-                            console.warn("Could not parse YARD INVOICE snapshot", e);
-                        }
-                        return; // Skip standard processing since all revenue is in the snapshot
+                        return; // Storage comes from Yard Stock (accrued days + lifts), not paid invoices
                     }
                     
                     const qty        = parseInt(row[53]) || 1;  // index 53: qty
@@ -540,8 +526,23 @@
                     }
                 }
             });
-            // 1.5 Process Rentals Independently (Accumulated Total) - REMOVED
-            // Rentals are now calculated via RENTAL INVOICE trips
+            // 1.5 Accrued rentals from the Rentals module (same TOTAL as Rentals for the date range)
+            if (window.currentRentals && typeof window.calculateRentalCost === 'function') {
+                window.currentRentals.forEach(row => {
+                    const costInfo = window.calculateRentalCost(
+                        row.start_date,
+                        row.final_date,
+                        row.base_price,
+                        row.daily_rate,
+                        row.status,
+                        row.time_rent,
+                        dateFrom || null,
+                        dateTo || null
+                    );
+                    if ((dateFrom || dateTo) && costInfo.overlapDays <= 0) return;
+                    totals.rentals += costInfo.total || 0;
+                });
+            }
             // 2. Process Business Expenses
             expensesData.forEach(row => {
                 const rowDate = row[0];
@@ -552,8 +553,22 @@
                 }
             });
 
-            // 2.5 Process Yard Stock Storage Costs - REMOVED
-            // Yard Stock is now calculated directly from YARD INVOICE trips (Accounts Receivable) in step 1 above.
+            // 2.5 Accrued yard storage from Yard Stock (days + entry/exit lifts, by location)
+            if (typeof window.getYardStockData === 'function' && typeof window.calculateDynamicYardCosts === 'function') {
+                const yardItems = window.getYardStockData() || [];
+                yardItems.forEach(item => {
+                    if (typeof window.checkYardDateMatch === 'function' && !window.checkYardDateMatch(item, dateFrom, dateTo)) {
+                        return;
+                    }
+                    const costs = window.calculateDynamicYardCosts(item, dateFrom || null, dateTo || null);
+                    const isStorage = (item.notes || '').includes('[Storage Yard]');
+                    if (isStorage) {
+                        totals.storageYard += costs.totalCost || 0;
+                    } else {
+                        totals.storageTulipan += costs.totalCost || 0;
+                    }
+                });
+            }
 
             // 3. Final Summaries
             const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0);
