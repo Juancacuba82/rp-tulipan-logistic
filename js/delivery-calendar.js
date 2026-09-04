@@ -2978,6 +2978,136 @@ window.toggleDeleteSelectedBtn = function() {
     }
 };
 
+let isDuplicatingTrip = false;
+
+window.duplicateTrip = async function (tripId) {
+    if (isDuplicatingTrip) return;
+
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role === 'student') {
+        alert("Students cannot create or modify calendar orders.");
+        return;
+    }
+
+    if (!tripId || !Array.isArray(window.currentTrips)) return;
+
+    const source = window.currentTrips.find(t => t[0] === tripId);
+    if (!source) {
+        alert("No se encontró la orden seleccionada.");
+        return;
+    }
+
+    isDuplicatingTrip = true;
+    try {
+        const clone = [...source];
+        const newTripId = window.newTripIdForDb();
+
+        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let ordSuffix = '';
+        for (let i = 0; i < 4; i++) ordSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+        const newOrderNo = 'ORD-' + ordSuffix;
+
+        clone[0] = newTripId;
+        clone[5] = newOrderNo;
+
+        clone[30] = 'PEND';
+        clone[31] = 'PEND';
+        clone[32] = 'PEND';
+        clone[33] = 'PEND';
+        clone[34] = 'PEND';
+        clone[40] = false;
+        clone[41] = 'PENDING_PAYMENT';
+        clone[52] = 'PEND';
+        clone[54] = '';
+        clone[55] = [];
+        clone[56] = '';
+        clone[57] = 'NO';
+        clone[59] = '';
+        clone[60] = window.userEmail || '---';
+        clone[61] = '---';
+        clone[62] = false;
+        clone[63] = null;
+        clone[64] = 0;
+        if (clone.length > 75) clone[75] = null;
+
+        const qty = parseInt(clone[53]) || 1;
+        let pending = 0;
+        pending += (parseFloat(String(clone[13]).replace(/[$,]/g, '')) || 0) * qty;
+        pending += (parseFloat(String(clone[18]).replace(/[$,]/g, '')) || 0) * qty;
+        pending += (parseFloat(String(clone[20]).replace(/[$,]/g, '')) || 0) * qty;
+        pending += parseFloat(String(clone[22]).replace(/[$,]/g, '')) || 0;
+        clone[35] = `$${pending.toFixed(2)}`;
+
+        const dbObj = mapArrayToTrip(clone);
+        dbObj.trip_id = newTripId;
+
+        const noteStr = (clone[25] === '---' || !clone[25]) ? '' : String(clone[25]).trim();
+        const yardData = {
+            container_no: (clone[3] || '---').toString().trim().toUpperCase(),
+            size: clone[2] || '---',
+            type: (clone[44] === '---' ? 'DRY' : clone[44]) || 'DRY',
+            condition: (clone[45] === '---' ? 'USED' : clone[45]) || 'USED',
+            origin_release: newOrderNo,
+            notes: noteStr,
+            customer_name: clone[11] || '---',
+            customer_phone: (clone[23] === '---' ? '' : clone[23]) || '',
+            daily_rate: parseFloat(clone[14]) || 0,
+            liftCostStr: ''
+        };
+
+        const { error: rpcErr } = await db.rpc('sync_order_with_yard', {
+            p_trip_id: newTripId,
+            p_trip_data: dbObj,
+            p_order_no: newOrderNo,
+            p_is_finalized: false,
+            p_move_to_yard: false,
+            p_yard_data: yardData
+        });
+        if (rpcErr) throw rpcErr;
+
+        const { trip_id: _ignoredId, ...masterPayload } = dbObj;
+        masterPayload.move_to_yard = false;
+        await db.from('trips').update(masterPayload).eq('trip_id', newTripId);
+
+        const newRowData = [...clone];
+
+        if (!window.currentTrips) window.currentTrips = [];
+        if (!window.currentTrips.some(t => t[0] === newTripId)) {
+            window.currentTrips.push(newRowData);
+        } else {
+            const idx = window.currentTrips.findIndex(t => t[0] === newTripId);
+            if (idx !== -1) window.currentTrips[idx] = newRowData;
+        }
+
+        if (!window.allTripsUnfiltered) window.allTripsUnfiltered = [];
+        if (!window.allTripsUnfiltered.some(t => t[0] === newTripId)) {
+            window.allTripsUnfiltered.push(newRowData);
+        } else {
+            const idx = window.allTripsUnfiltered.findIndex(t => t[0] === newTripId);
+            if (idx !== -1) window.allTripsUnfiltered[idx] = newRowData;
+        }
+
+        if (window.logActivity) {
+            window.logActivity('DUPLICATED_ORDER', `Duplicó orden ${source[5]} → ${newOrderNo}`);
+        }
+
+        if (window.showToast) {
+            window.showToast(`Orden duplicada: ${newOrderNo}`, 'success');
+        } else {
+            alert(`Orden duplicada correctamente: ${newOrderNo}`);
+        }
+
+        if (typeof window.loadTableData === 'function') {
+            await window.loadTableData(window.currentTrips);
+        }
+    } catch (err) {
+        console.error('duplicateTrip failed:', err);
+        alert('ERROR al duplicar: ' + (err.message || 'Unknown error'));
+    } finally {
+        isDuplicatingTrip = false;
+    }
+};
+
 window.performOrderDeletion = async function(rowData, skipAlertAndReload = false) {
     // --- STOCK REVERSION LOGIC ---
     const wasFinalized = (rowData[41] === 'PAID' || rowData[41] === 'COMPLETE');

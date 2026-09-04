@@ -104,6 +104,33 @@ function getCallLanguageValue(call) {
     return normalizeCallLanguage(call.language || call.idioma || call.lang || '');
 }
 
+function formatCallAmount(amount) {
+    const raw = String(amount ?? '').trim();
+    if (!raw) return '$0.00';
+    const parts = raw.includes('/') ? raw.split('/') : [raw];
+    return parts.map((part) => {
+        const n = Number(String(part).replace(/[^0-9.-]/g, ''));
+        return '$' + (Number.isFinite(n) ? n : 0).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }).join(' / ');
+}
+
+function firstCallAmountNumber(amount) {
+    const raw = String(amount ?? '').split('/')[0];
+    const n = parseFloat(String(raw).replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+}
+
+function getCallAmountPayload() {
+    const raw = String(document.getElementById('call-amount')?.value || '').trim();
+    if (!raw) return '0';
+    if (raw.includes('/')) return raw.replace(/\s+/g, ' ');
+    const n = parseFloat(raw.replace(/,/g, ''));
+    return Number.isFinite(n) ? String(Math.round(n * 100) / 100) : '0';
+}
+
 function getCallLanguageBadge(call) {
     const lang = getCallLanguageValue(call);
     if (!lang) return '---';
@@ -235,7 +262,7 @@ function renderCallsTable() {
             <td style="text-align: center;">${(c.city || "").toUpperCase()}</td>
             <td>${c.zip_code || "---"}</td>
             <td>${(c.measures || "").toUpperCase()}</td>
-            <td style="color: #15803d; font-weight: 800;">$${Number(c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="color: #15803d; font-weight: 800;">${formatCallAmount(c.amount)}</td>
             <td style="color: #b91c1c; font-weight: 700;">${nextStr}</td>
             <td><span class="inv-badge ${getStatusBadgeClass(c.status)}">${c.status || 'PENDING'}</span></td>
             <td class="admin-td-assigned" style="font-weight: 700; color: #1e40af;">${worker}</td>
@@ -388,7 +415,7 @@ async function saveCallLog() {
         measures: (document.getElementById('call-size').style.display === 'none'
             ? document.getElementById('call-size-sel').value
             : document.getElementById('call-size').value).toUpperCase(),
-        amount: Math.round((parseFloat(document.getElementById('call-amount').value) || 0) * 100) / 100,
+        amount: getCallAmountPayload(),
         next_call_date: document.getElementById('call-next-date').value || null,
         status: document.getElementById('call-status').value,
         description: document.getElementById('call-description').value,
@@ -494,7 +521,7 @@ function editCallLog(id) {
         sizeSel.style.display = 'none';
         sizeInput.style.display = 'block';
     }
-    document.getElementById('call-amount').value = call.amount || 0;
+    document.getElementById('call-amount').value = call.amount || '';
     document.getElementById('call-next-date').value = call.next_call_date || "";
     document.getElementById('call-status').value = call.status || "PENDING";
     document.getElementById('call-description').value = call.description || "";
@@ -706,15 +733,15 @@ async function transferSoldCallToCalendar(call) {
         container_source: 'FORM_CALL',  // Marker used by CALLS TRANSFER filter
         status: 'PENDING_PAYMENT',
         order_no: orderNo,
-        amount: call.amount,
+        amount: firstCallAmountNumber(call.amount),
         service_mode: 'SALE',
         has_trans: call.service_type === 'Transport' ? 'YES' : 'NO',
         has_sales: call.service_type === 'Sales' ? 'YES' : 'NO',
         yard_services: call.service_type === 'Service Yard' ? 'YES' : 'NO',
         // Map amount to the specific field for better tracking
-        trans_pay: call.service_type === 'Transport' ? call.amount : 0,
-        sales_price: call.service_type === 'Sales' ? call.amount : 0,
-        yard_rate: call.service_type === 'Service Yard' ? call.amount : 0,
+        trans_pay: call.service_type === 'Transport' ? firstCallAmountNumber(call.amount) : 0,
+        sales_price: call.service_type === 'Sales' ? firstCallAmountNumber(call.amount) : 0,
+        yard_rate: call.service_type === 'Service Yard' ? firstCallAmountNumber(call.amount) : 0,
         // Default flags
         st_yard: 'PEND',
         st_rent: 'PEND',
