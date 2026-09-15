@@ -1234,7 +1234,31 @@
     };
 
 
-    window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false, preselectedServices = null, isReadOnly = false, preselectedGroupBy = null) {
+    window.getMasterBillingCompanyKey = function() {
+        const raw = (document.getElementById('mb-billing-company-select')?.value || 'RP_TULIPAN').toString().trim().toUpperCase();
+        return raw.includes('JR') ? 'JR_SUPER_CRANE' : 'RP_TULIPAN';
+    };
+
+    window.parseBillingCompanyFromSvcType = function(svcType) {
+        const m = (svcType || '').toString().match(/\|COMPANY:([^|]+)/i);
+        if (!m) return 'RP_TULIPAN';
+        return m[1].toUpperCase().includes('JR') ? 'JR_SUPER_CRANE' : 'RP_TULIPAN';
+    };
+
+    window.appendBillingCompanyToSvcFilter = function(svcFilter) {
+        let s = (svcFilter || '').toString().replace(/\|COMPANY:[^|]*/gi, '');
+        return s + '|COMPANY:' + window.getMasterBillingCompanyKey();
+    };
+
+    window.applyMasterBillingCompany = function(companyKey) {
+        const select = document.getElementById('mb-billing-company-select');
+        const raw = (companyKey || 'RP_TULIPAN').toString().trim().toUpperCase();
+        const key = raw.includes('JR') ? 'JR_SUPER_CRANE' : 'RP_TULIPAN';
+        if (select) select.value = key;
+        if (typeof window.updateMasterBillingCompany === 'function') window.updateMasterBillingCompany();
+    };
+
+    window.openMasterBillingModal = function(overrideRows = null, overrideInvoiceNo = null, overrideCustomer = null, isPreviewOnly = false, preselectedServices = null, isReadOnly = false, preselectedGroupBy = null, preselectedCompany = null) {
         
         let rows = overrideRows || window.billingRows || [];
         
@@ -1343,6 +1367,11 @@
             }
             if (companySelect) {
                 companySelect.style.backgroundColor = isReadOnly ? '#f1f5f9' : 'white';
+            }
+            if (preselectedCompany) {
+                window.applyMasterBillingCompany(preselectedCompany);
+            } else if (typeof window.updateMasterBillingCompany === 'function') {
+                window.updateMasterBillingCompany();
             }
         }
 
@@ -1762,6 +1791,7 @@
                 const groupByVal = document.getElementById('mb-group-by-select')?.value || 'ORDER';
                 let svcFilter = selectedServices.join(',') || (document.getElementById('bc-f-service')?.value || '');
                 svcFilter += `|GROUP:${groupByVal}`;
+                if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
                 
                 await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
                 
@@ -1929,6 +1959,7 @@
                 const tripIds = [singleRow[0]]; // Only this row
                 let svcFilter = document.getElementById('bc-f-service')?.value || '';
                 svcFilter += '|GROUP:ORDER';
+                if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
 
                 if (window.addInvoiceToReceivables) {
                     await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
@@ -2083,6 +2114,7 @@
                     const tripIds = [singleRow[0]];
                     let svcFilter = document.getElementById('bc-f-service')?.value || '';
                     svcFilter += '|GROUP:ORDER';
+                    if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
                     await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
                 }
 

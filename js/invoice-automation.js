@@ -232,7 +232,8 @@
         const invoiceNoToSave = window.currentMasterInvoiceNo;
         const totalNumToSave = parseFloat((document.getElementById('mb-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0;
         const detailsHtmlToSave = document.getElementById('mb-services-container')?.innerHTML || '';
-        const svcFilterToSave = document.getElementById('bc-f-service')?.value || '';
+        let svcFilterToSave = document.getElementById('bc-f-service')?.value || '';
+        if (window.appendBillingCompanyToSvcFilter) svcFilterToSave = window.appendBillingCompanyToSvcFilter(svcFilterToSave);
 
         // Open the billing detail modal silently (needed by generateMasterInvoiceBlob)
         // We render off-screen so we can capture the invoice PDF
@@ -550,7 +551,16 @@
                 const totalNum = parseFloat(grandTotalStr.replace(/[^0-9.-]+/g,"")) || 0;
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
                 const masterTripIds = rows.map(r => r[0]).filter(Boolean);
-                const svcFilter = document.getElementById('bc-f-service')?.value || '';
+                let svcFilter = document.getElementById('bc-f-service')?.value || '';
+                const selectedServices = [];
+                if (document.getElementById('mb-svc-transport')?.checked) selectedServices.push('TRANSPORT');
+                if (document.getElementById('mb-svc-rent')?.checked) selectedServices.push('RENT');
+                if (document.getElementById('mb-svc-sales')?.checked) selectedServices.push('SALES');
+                if (document.getElementById('mb-svc-storage')?.checked) selectedServices.push('STORAGE');
+                if (document.getElementById('mb-svc-yard')?.checked) selectedServices.push('YARD');
+                const groupByVal = document.getElementById('mb-group-by-select')?.value || 'ORDER';
+                svcFilter = (selectedServices.join(',') || svcFilter) + `|GROUP:${groupByVal}`;
+                if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
                 window.addInvoiceToReceivables(templateParams.customer_name, window.currentMasterInvoiceNo || masterTitle, totalNum, detailsHtml, masterTripIds, svcFilter);
             }
 

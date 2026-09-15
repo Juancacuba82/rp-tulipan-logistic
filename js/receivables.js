@@ -805,16 +805,20 @@ window.openReceivablePreview = function (id) {
         let preselected = 'TRANSPORT,RENT,SALES,STORAGE,YARD';
         let groupBy = 'ORDER';
         const svcType = inv.service_type || '';
-        if (svcType) {
-            if (svcType.includes('|GROUP:')) {
-                const parts = svcType.split('|GROUP:');
+        const companyKey = window.parseBillingCompanyFromSvcType
+            ? window.parseBillingCompanyFromSvcType(svcType)
+            : 'RP_TULIPAN';
+        const svcClean = svcType.replace(/\|COMPANY:[^|]*/gi, '');
+        if (svcClean) {
+            if (svcClean.includes('|GROUP:')) {
+                const parts = svcClean.split('|GROUP:');
                 preselected = parts[0] || preselected;
-                groupBy = parts[1] || 'ORDER';
+                groupBy = (parts[1] || 'ORDER').split('|')[0] || 'ORDER';
             } else {
-                preselected = svcType;
+                preselected = svcClean;
             }
         }
-        window.openMasterBillingModal(rows, invoiceNumber, customerName, false, preselected, true, groupBy);
+        window.openMasterBillingModal(rows, invoiceNumber, customerName, false, preselected, true, groupBy, companyKey);
     } else {
         alert("Billing module is not fully loaded.");
     }
