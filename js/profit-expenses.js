@@ -527,23 +527,22 @@
                     }
                 }
             });
-            // 1.5 Accrued rentals from the Rentals module (same TOTAL as Rentals for the date range)
-            if (window.currentRentals && typeof window.calculateRentalCost === 'function') {
-                window.currentRentals.forEach(row => {
-                    const costInfo = window.calculateRentalCost(
-                        row.start_date,
-                        row.final_date,
-                        row.base_price,
-                        row.daily_rate,
-                        row.status,
-                        row.time_rent,
-                        dateFrom || null,
-                        dateTo || null
-                    );
-                    if ((dateFrom || dateTo) && costInfo.overlapDays <= 0) return;
-                    totals.rentals += costInfo.total || 0;
-                });
+            // 1.5 Rental income from cycle invoices (exclude write-offs / complimentary)
+            if (typeof window.loadRentalInvoiceTrips === 'function') {
+                await window.loadRentalInvoiceTrips(false);
             }
+            const rentalInvoices = (window.rentalInvoiceTrips && window.rentalInvoiceTrips.length)
+                ? window.rentalInvoiceTrips
+                : (logisticsData || []).filter(row => (row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE');
+            rentalInvoices.forEach(row => {
+                const note = (row[25] || '').toString();
+                if (/WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note)) return;
+                const periodStart = (row[28] && row[28] !== '---') ? row[28] : row[1];
+                const periodEnd = (row[29] && row[29] !== '---') ? row[29] : periodStart;
+                if (dateFrom && periodEnd && periodEnd < dateFrom) return;
+                if (dateTo && periodStart && periodStart > dateTo) return;
+                totals.rentals += parseFloat(row[27]) || 0;
+            });
             // 2. Process Business Expenses
             expensesData.forEach(row => {
                 const rowDate = row[0];

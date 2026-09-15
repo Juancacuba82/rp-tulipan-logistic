@@ -160,13 +160,14 @@
             cyclesDue: 0,
             unpaidCycles: 0,
             amountDue: 0,
-            paymentStatus: 'UNBILLED',
+            paymentStatus: 'PAID',
             needsAlert: false,
             unit,
             cycleLabel: '0',
             invoiceStart: null,
             invoiceEnd: null,
-            unpaid: []
+            unpaid: [],
+            unbilled: []
         };
         if (!row || !row.start_date) return empty;
 
@@ -194,25 +195,25 @@
 
         const invoices = getRentalInvoicePool(row);
         const unpaid = [];
+        const unbilled = [];
         let billedUnpaid = 0;
         cycles.forEach(c => {
             const covering = invoices.filter(t => {
                 const { start, end } = getInvoicePeriod(t);
                 return datesOverlap(start, end, c.start, c.end);
             });
-            const paid = covering.some(t => (t[31] || '').toString().trim().toUpperCase() === 'PAID');
-            if (paid) return;
+            const settled = covering.some(t => {
+                const st = (t[31] || '').toString().trim().toUpperCase();
+                const note = (t[25] || '').toString();
+                return st === 'PAID' || /WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note);
+            });
+            if (settled) return;
             unpaid.push(c);
             if (covering.length) billedUnpaid += 1;
+            else unbilled.push(c);
         });
 
-        let paymentStatus = 'PAID';
-        if (unpaid.length) {
-            paymentStatus = billedUnpaid > 0 ? 'PENDING' : 'UNBILLED';
-        } else if (!cycles.length) {
-            paymentStatus = 'UNBILLED';
-        }
-
+        const paymentStatus = unpaid.length ? 'PENDING' : 'PAID';
         const first = unpaid[0];
         const last = unpaid[unpaid.length - 1];
         const dueWord = cycleUnitLabels(unit, unpaid.length || 1);
@@ -229,8 +230,126 @@
                 : (cycles.length ? 'Current paid' : '0'),
             invoiceStart: first ? toIsoDate(first.start) : null,
             invoiceEnd: last ? toIsoDate(last.end) : null,
-            unpaid
+            unpaid,
+            unbilled
         };
+    }
+
+    function isRentalCycleInvoiced(row, cycle) {
+        return getRentalInvoicePool(row).some(t => {
+            const { start, end } = getInvoicePeriod(t);
+            return datesOverlap(start, end, cycle.start, cycle.end);
+        });
+    }
+
+    function fmtIsoMdY(iso) {
+        const p = (iso || '').split('-');
+        return p.length >= 3 ? `${p[1]}/${p[2]}/${p[0]}` : (iso || '');
+    }
+
+    async function createRentalCycleInvoice(row, cycle) {
+        if (!row || !cycle || !window.db) return null;
+        if (isRentalCycleInvoiced(row, cycle)) return null;
+        const amount = parseFloat(row.base_price) || 0;
+        if (amount <= 0) return null;
+
+        const start = toIsoDate(cycle.start);
+        const end = toIsoDate(cycle.end);
+        const invoiceDate = new Date().toISOString().split('T')[0];
+        const orderNo = `RENT-${Date.now().toString(36)}-${Math.floor(Math.random() * 900 + 100)}`;
+        const periodLabel = `${fmtIsoMdY(start)} - ${fmtIsoMdY(end)}`;
+        const tripId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `rent-${Date.now()}-${Math.random()}`;
+
+        const tripObj = {
+            trip_id: tripId,
+            date: invoiceDate,
+            order_no: orderNo,
+            customer: row.customer_name,
+            delivery_place: row.delivery_place || '',
+            note: formatRentalInvoiceNote(periodLabel, row.id),
+            n_cont: row.container_no,
+            yard_rate: 0,
+            monthly_rate: amount,
+            service_mode: 'RENTAL INVOICE',
+            status: 'COMPLETE',
+            st_yard: 'PEND',
+            st_rate: 'PAID',
+            st_sales: 'PAID',
+            st_amount: 'PAID',
+            st_rent: 'PEND',
+            has_trans: 'NO',
+            has_sales: 'NO',
+            invoice_sent: 'YES',
+            paid: false,
+            start_date_rent: start,
+            next_due: end
+        };
+
+        const { error: insertError } = await window.db.from('trips').insert([tripObj]);
+        if (insertError) throw insertError;
+        if (typeof window.mapTripToArray === 'function') {
+            rememberRentalInvoiceTrip(window.mapTripToArray(tripObj));
+        }
+
+        if (window.addInvoiceToReceivables) {
+            const detailsHtml = `
+                <div style="font-size:0.85rem; color:#475569;">
+                    <strong>Container:</strong> ${row.container_no || '---'}<br>
+                    <strong>Period:</strong> ${periodLabel}
+                </div>
+            `;
+            await window.addInvoiceToReceivables(
+                row.customer_name,
+                orderNo,
+                amount,
+                detailsHtml,
+                [tripId, 'RENTAL_ID:' + row.id],
+                'RENTAL',
+                0,
+                '',
+                { silent: true }
+            );
+        }
+        return tripObj;
+    }
+
+    let rentalCycleInvoiceSync = null;
+    async function ensureRentalCycleInvoices() {
+        if (rentalCycleInvoiceSync) return rentalCycleInvoiceSync;
+        rentalCycleInvoiceSync = (async () => {
+            const rows = window.currentRentals || [];
+            let created = 0;
+            for (const row of rows) {
+                const status = (row.status || '').trim().toUpperCase();
+                if (status && status !== 'ACTIVE' && status !== 'FINISHED') continue;
+                const prepaid = getPrepaidBalance(row, null, null);
+                const missing = prepaid.unbilled || [];
+                for (const cycle of missing) {
+                    try {
+                        const made = await createRentalCycleInvoice(row, cycle);
+                        if (made) created += 1;
+                    } catch (err) {
+                        console.warn('[Rentals] Auto invoice failed for', row.container_no, err);
+                    }
+                }
+            }
+            if (created > 0) {
+                await loadRentalInvoiceTrips(true);
+                window.billingDataLoaded = false;
+                if (typeof window.loadReceivables === 'function') {
+                    await window.loadReceivables();
+                    const recvView = document.getElementById('receivables-view');
+                    if (recvView && !recvView.classList.contains('hidden') && typeof window.renderReceivables === 'function') {
+                        window.renderReceivables();
+                    }
+                }
+            }
+        })();
+        try {
+            await rentalCycleInvoiceSync;
+        } finally {
+            rentalCycleInvoiceSync = null;
+        }
     }
 
     function findMatchingRentalInvoice(row, filterStartStr, filterEndStr) {
@@ -306,6 +425,7 @@
     async function loadRentalsData(force = false) {
         if (!force && window.currentRentals && window.currentRentals.length > 0) {
             await loadRentalInvoiceTrips(false);
+            await ensureRentalCycleInvoices();
             renderRentalsTable();
             return;
         }
@@ -365,6 +485,7 @@
             }
             populateAllRentalSelects();
             await loadRentalInvoiceTrips(true);
+            await ensureRentalCycleInvoices();
             renderRentalsTable();
         } catch (err) { console.error("Error loading rentals:", err); }
     }
@@ -1190,13 +1311,17 @@
         if (!row) return;
 
         const prepaid = getPrepaidBalance(row, null, null);
-        if (!prepaid.unpaidCycles) {
-            alert('This rental is paid for the current prepaid period. Nothing to invoice.');
+        if (!prepaid.unbilled || !prepaid.unbilled.length) {
+            if (prepaid.unpaidCycles) {
+                alert('These cycles are already in Accounts Receivable as PENDING. Open Account to collect payment or write off (complimentary).');
+            } else {
+                alert('This rental is paid for the current prepaid period. Nothing to invoice.');
+            }
             return;
         }
 
         const cyclePrice = parseFloat(row.base_price) || 0;
-        const unpaidCycles = prepaid.unpaid || [];
+        const unpaidCycles = prepaid.unbilled;
         const fmt = (s) => { const p = (s || '').split('-'); return p.length >= 3 ? `${p[1]}/${p[2]}/${p[0]}` : (s || ''); };
         const fmtDateObj = (d) => fmt(toIsoDate(d));
 
@@ -1508,20 +1633,21 @@
 
         matchingRentals.forEach(row => {
             const prepaid = getPrepaidBalance(row, startDateFilter, endDateFilter);
-            const bDue = parseFloat(prepaid.amountDue) || 0;
-            if (bDue > 0) {
+            const missing = prepaid.unbilled || [];
+            const bDue = missing.length * (parseFloat(row.base_price) || 0);
+            if (bDue > 0 && missing.length) {
                 totalCombinedAmount += bDue;
                 processedRentals.push({
                     row,
                     amount: bDue,
-                    invoiceStart: prepaid.invoiceStart,
-                    invoiceEnd: prepaid.invoiceEnd
+                    invoiceStart: toIsoDate(missing[0].start),
+                    invoiceEnd: toIsoDate(missing[missing.length - 1].end)
                 });
             }
         });
 
         if (totalCombinedAmount <= 0) {
-            alert('The total amount to invoice is 0.');
+            alert('These rentals are already in Accounts Receivable. Open Account to collect or write off.');
             return;
         }
 
@@ -1715,6 +1841,7 @@
             const data = await getRentals();
             window.currentRentals = data || [];
             await loadRentalInvoiceTrips(true);
+            await ensureRentalCycleInvoices();
             populateRentalFilterCustomerSelect();
             populateRentalFilterSizeSelect();
             populateRentalFilterContainerList();

@@ -29,28 +29,93 @@ async function loadReceivables() {
         console.error('[Receivables] Error loading invoices:', err);
     }
 }
+window.loadReceivables = loadReceivables;
+
+function collectTripPools() {
+    if ((!window.combinedBillingTrips || window.combinedBillingTrips.length === 0) && window.compileCombinedBillingTrips) {
+        window.compileCombinedBillingTrips();
+    }
+    return [
+        window.combinedBillingTrips || [],
+        window.rentalInvoiceTrips || [],
+        window.currentTrips || [],
+        window.allTripsUnfiltered || []
+    ];
+}
+
+function findTripRowById(tid) {
+    const id = String(tid);
+    for (const pool of collectTripPools()) {
+        const row = pool.find(r => r && String(r[0]) === id);
+        if (row) return row;
+    }
+    return null;
+}
 
 function getOrderNumbersFromTripIds(tripIdsStr) {
     if (!tripIdsStr) return '';
-    const ids = tripIdsStr.split(',').map(id => id.trim()).filter(Boolean);
+    const ids = tripIdsStr.split(',').map(id => id.trim()).filter(id => id && !id.startsWith('RENTAL_ID:'));
     if (ids.length === 0) return '';
-    
-    if (!window.combinedBillingTrips || window.combinedBillingTrips.length === 0) {
-        if (window.compileCombinedBillingTrips) window.compileCombinedBillingTrips();
-    }
-    
-    const combined = window.combinedBillingTrips || [];
     const orders = [];
     ids.forEach(id => {
-        const row = combined.find(r => String(r[0]) === String(id));
-        if (row && row[5] && row[5] !== '---') {
-            orders.push(row[5]);
-        }
+        const row = findTripRowById(id);
+        if (row && row[5] && row[5] !== '---') orders.push(row[5]);
     });
-    
-    if (orders.length === 0) return '';
     return [...new Set(orders)].join(', ');
 }
+
+function invoiceServiceKey(inv) {
+    const type = (inv.service_type || '').toString().toUpperCase().trim();
+    if (type) {
+        const clean = type.replace(/\|COMPANY:[^|]*/gi, '').split('|GROUP:')[0].trim();
+        if (clean) return clean;
+    }
+    const invNo = (inv.invoice_number || '').toString();
+    if (invNo.includes('-')) return invNo.split('-')[0].toUpperCase();
+    return '';
+}
+
+function invoiceMatchesService(inv, filter) {
+    if (!filter) return true;
+    const f = filter.toUpperCase().trim();
+    const key = invoiceServiceKey(inv);
+    if (key === f || key.startsWith(f + '|')) return true;
+    const invNo = (inv.invoice_number || '').toString().toUpperCase();
+    return invNo.startsWith(f + '-');
+}
+
+function invoiceMatchesOrder(inv, search) {
+    if (!search || !search.trim()) return true;
+    const q = search.trim().toUpperCase();
+    const details = (inv.details_html || '').toString().replace(/<[^>]+>/g, ' ');
+    const hay = [
+        inv.invoice_number || '',
+        inv.trip_ids || '',
+        details,
+        getOrderNumbersFromTripIds(inv.trip_ids)
+    ].join(' ').toUpperCase();
+    return hay.includes(q);
+}
+
+function customerMatchesFilter(custName, filter) {
+    if (!filter) return true;
+    return (custName || '').toString().trim().toUpperCase() === filter.toString().trim().toUpperCase();
+}
+
+function isHistoryInvoice(inv) {
+    const st = (inv.status || '').toLowerCase();
+    const method = (inv.payment_method || '').toString().toUpperCase();
+    return st === 'paid' || st === 'written off' || method === 'WRITE-OFF';
+}
+
+function setReceivablesTab(tab) {
+    window.recvActiveTab = tab === 'history' ? 'history' : 'pending';
+    const pending = document.getElementById('recv-pending');
+    const history = document.getElementById('recv-history');
+    if (pending) pending.style.display = window.recvActiveTab === 'history' ? 'none' : 'block';
+    if (history) history.style.display = window.recvActiveTab === 'history' ? 'block' : 'none';
+}
+window.setReceivablesTab = setReceivablesTab;
 
 window.resetReceivablesFilters = function() {
     window.recvCustomerFilter = '';
@@ -65,39 +130,52 @@ window.renderReceivables = function () {
 
     const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
 
-    // Extract unique services from invoice prefixes
-    const uniqueServices = new Set();
-    window.receivablesData.invoices.forEach(inv => {
-        if (inv.invoice_number && inv.invoice_number.toString().includes('-')) {
-            uniqueServices.add(inv.invoice_number.toString().split('-')[0].toUpperCase());
-        }
-    });
-    const servicesList = Array.from(uniqueServices).sort();
+    const allInvoices = window.receivablesData.invoices || [];
+    const orderQ = window.recvOrderFilter;
 
-    // Group invoices by customer
+    const servicesForCustomer = new Set();
+    allInvoices.forEach(inv => {
+        const cust = (inv.customer_name || 'UNKNOWN').toString().trim().toUpperCase() || 'UNKNOWN';
+        if (window.recvCustomerFilter && !customerMatchesFilter(cust, window.recvCustomerFilter)) return;
+        if (!invoiceMatchesOrder(inv, orderQ)) return;
+        const svc = invoiceServiceKey(inv);
+        if (svc) servicesForCustomer.add(svc);
+    });
+    if (window.recvServiceFilter && !servicesForCustomer.has(window.recvServiceFilter)) {
+        window.recvServiceFilter = '';
+    }
+
+    const customersForService = new Set();
+    allInvoices.forEach(inv => {
+        if (!invoiceMatchesService(inv, window.recvServiceFilter)) return;
+        if (!invoiceMatchesOrder(inv, orderQ)) return;
+        const cust = (inv.customer_name || 'UNKNOWN').toString().trim().toUpperCase() || 'UNKNOWN';
+        customersForService.add(cust);
+    });
+    if (window.recvCustomerFilter && ![...customersForService].some(c => customerMatchesFilter(c, window.recvCustomerFilter))) {
+        window.recvCustomerFilter = '';
+        servicesForCustomer.clear();
+        allInvoices.forEach(inv => {
+            if (!invoiceMatchesOrder(inv, orderQ)) return;
+            const svc = invoiceServiceKey(inv);
+            if (svc) servicesForCustomer.add(svc);
+        });
+    }
+
+    const servicesList = Array.from(servicesForCustomer).sort();
+    const customersList = Array.from(customersForService).sort();
+
     const grouped = {
         pending: {},
         history: {}
     };
 
     window.receivablesData.invoices.forEach(inv => {
-        if (window.recvServiceFilter) {
-            const invNo = (inv.invoice_number || '').toString().toUpperCase();
-            if (!invNo.startsWith(window.recvServiceFilter + '-')) {
-                return;
-            }
-        }
+        if (!invoiceMatchesService(inv, window.recvServiceFilter)) return;
+        if (!invoiceMatchesOrder(inv, window.recvOrderFilter)) return;
 
-        if (window.recvOrderFilter && window.recvOrderFilter.trim() !== '') {
-            const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids).toUpperCase();
-            const searchVal = window.recvOrderFilter.trim().toUpperCase();
-            if (!extractedOrders.includes(searchVal)) {
-                return;
-            }
-        }
-
-        const custName = inv.customer_name || 'UNKNOWN';
-        const groupKey = inv.status === 'Paid' ? 'history' : 'pending';
+        const custName = (inv.customer_name || 'UNKNOWN').toString().trim().toUpperCase() || 'UNKNOWN';
+        const groupKey = isHistoryInvoice(inv) ? 'history' : 'pending';
 
         if (!grouped[groupKey][custName]) grouped[groupKey][custName] = [];
         grouped[groupKey][custName].push(inv);
@@ -106,7 +184,7 @@ window.renderReceivables = function () {
     let totalPendingDue = 0;
     let totalPendingCount = 0;
     for (const [custName, invoices] of Object.entries(grouped.pending)) {
-        if (window.recvCustomerFilter && custName !== window.recvCustomerFilter) continue;
+        if (window.recvCustomerFilter && !customerMatchesFilter(custName, window.recvCustomerFilter)) continue;
         invoices.forEach(inv => {
             const amtPaid = parseFloat(inv.amount_paid || 0);
             const totalAmt = parseFloat(inv.total_amount || 0);
@@ -146,17 +224,17 @@ window.renderReceivables = function () {
     </div>
     
     <div class="tabs-container" style="display:flex; gap:10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px; align-items:center;">
-        <button class="glossy-blue-btn" onclick="document.getElementById('recv-pending').style.display='block'; document.getElementById('recv-history').style.display='none';">Pending Invoices</button>
-        <button class="glossy-dark-btn" onclick="document.getElementById('recv-pending').style.display='none'; document.getElementById('recv-history').style.display='block';">Payment History</button>
+        <button class="glossy-blue-btn" onclick="window.setReceivablesTab('pending')">Pending Invoices</button>
+        <button class="glossy-dark-btn" onclick="window.setReceivablesTab('history')">Payment History</button>
         
         <select id="recv-customer-filter" onchange="window.recvCustomerFilter = this.value; window.renderReceivables();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: auto; color:#0f172a;">
-            <option value="">ALL CUSTOMERS</option>
-            ${Object.keys(grouped.pending).sort().map(c => `<option value="${c}" ${window.recvCustomerFilter === c ? 'selected' : ''}>${c}</option>`).join('')}
+            <option value="" ${!window.recvCustomerFilter ? 'selected' : ''}>ALL CUSTOMERS</option>
+            ${customersList.map(c => `<option value="${c}" ${window.recvCustomerFilter && customerMatchesFilter(c, window.recvCustomerFilter) ? 'selected' : ''}>${c}</option>`).join('')}
         </select>
 
         <select id="recv-service-filter" onchange="window.recvServiceFilter = this.value; window.renderReceivables();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: 10px; color:#0f172a;">
-            <option value="">ALL SERVICES</option>
-            ${servicesList.map(s => `<option value="${s}" ${window.recvServiceFilter === s ? 'selected' : ''}>${s}</option>`).join('')}
+            <option value="" ${!window.recvServiceFilter ? 'selected' : ''}>ALL SERVICES</option>
+            ${servicesList.map(s => `<option value="${s}" ${window.recvServiceFilter && window.recvServiceFilter === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
 
         <input type="text" id="recv-order-filter" placeholder="Search Order #" oninput="window.recvOrderFilter = this.value; window.renderReceivables();" value="${window.recvOrderFilter || ''}" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: 10px; color:#0f172a; width: 160px;" autofocus>
@@ -169,7 +247,7 @@ window.renderReceivables = function () {
     let pendingCount = 0;
     if (Object.keys(grouped.pending).length > 0) {
         for (const [custName, invoices] of Object.entries(grouped.pending)) {
-            if (window.recvCustomerFilter && custName !== window.recvCustomerFilter) continue;
+            if (window.recvCustomerFilter && !customerMatchesFilter(custName, window.recvCustomerFilter)) continue;
             pendingCount++;
             let totalPending = invoices.reduce((sum, i) => sum + (parseFloat(i.total_amount || 0) - parseFloat(i.amount_paid || 0)), 0);
             html += `
@@ -219,7 +297,7 @@ window.renderReceivables = function () {
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}', ${balance.toFixed(2)}, '${inv.invoice_number}', '${custName}', ${totalAmt.toFixed(2)}, ${amtPaid.toFixed(2)})">
+                                    <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}')">
                                         PAY
                                     </button>
                                     ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
@@ -248,9 +326,9 @@ window.renderReceivables = function () {
     let historyCount = 0;
     if (Object.keys(grouped.history).length > 0) {
         for (const [custName, invoices] of Object.entries(grouped.history)) {
-            if (window.recvCustomerFilter && custName !== window.recvCustomerFilter) continue;
+            if (window.recvCustomerFilter && !customerMatchesFilter(custName, window.recvCustomerFilter)) continue;
             historyCount++;
-            let totalPaid = invoices.reduce((sum, i) => sum + parseFloat(i.total_amount || 0), 0);
+            let totalPaid = invoices.reduce((sum, i) => sum + parseFloat(i.amount_paid || 0), 0);
             html += `
             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow:hidden;">
                 <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
@@ -283,14 +361,19 @@ window.renderReceivables = function () {
                 const createdBy = inv.created_by ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:4px; font-weight:600;"><i class="fas fa-magic" style="margin-right:3px;"></i>Created: ${inv.created_by}</div>` : '';
                 const paidBy = inv.paid_by ? `<div style="font-size:0.65rem; color:#10b981; margin-top:2px; font-weight:600;"><i class="fas fa-check-circle" style="margin-right:3px;"></i>Paid: ${inv.paid_by}</div>` : '';
 
+                const isWriteOff = (inv.status || '').toLowerCase() === 'written off'
+                    || (inv.payment_method || '').toString().toUpperCase() === 'WRITE-OFF';
+                const histAmt = isWriteOff ? 0 : parseFloat(inv.amount_paid || inv.total_amount || 0);
+                const methodLabel = isWriteOff ? 'WRITE-OFF' : (inv.payment_method || 'N/A');
+
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
                                 <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del>${orderNoExtracted}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}${createdBy}${paidBy}</td>
                                 <td style="padding:10px 0;">
-                                    <span style="background:#e0f2fe; color:#0284c7; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${inv.payment_method || 'N/A'}</span>
+                                    <span style="background:${isWriteOff ? '#f3e8ff' : '#e0f2fe'}; color:${isWriteOff ? '#7c3aed' : '#0284c7'}; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${methodLabel}</span>
                                 </td>
-                                <td style="padding:10px 0; font-weight:700; text-align:right; color:#10b981;">$${parseFloat(inv.total_amount || 0).toFixed(2)}</td>
+                                <td style="padding:10px 0; font-weight:700; text-align:right; color:${isWriteOff ? '#7c3aed' : '#10b981'};">${isWriteOff ? '$0.00 (forgiven)' : '$' + histAmt.toFixed(2)}</td>
                                 <td style="padding:10px 0; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
@@ -323,6 +406,7 @@ window.renderReceivables = function () {
     }
 
     container.innerHTML = html;
+    setReceivablesTab(window.recvActiveTab || 'pending');
 
     if (isOrderFilterFocused) {
         const newEl = document.getElementById('recv-order-filter');
@@ -334,6 +418,14 @@ window.renderReceivables = function () {
 };
 
 window.markReceivablePaid = function (id, balance, invoiceNumber, custName, totalAmount, amtPaid) {
+    const inv = (window.receivablesData.invoices || []).find(i => String(i.id) === String(id));
+    if (inv) {
+        totalAmount = parseFloat(inv.total_amount) || 0;
+        amtPaid = parseFloat(inv.amount_paid) || 0;
+        balance = totalAmount - amtPaid;
+        invoiceNumber = inv.invoice_number;
+        custName = inv.customer_name;
+    }
     balance = parseFloat(balance) || 0;
     totalAmount = parseFloat(totalAmount) || 0;
     amtPaid = parseFloat(amtPaid) || 0;
@@ -389,6 +481,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                 <input type="number" id="recv-payment-amount" value="${balance.toFixed(2)}" max="${balance.toFixed(2)}" style="width: 100%; padding: 15px 15px 15px 35px; border: 2px solid #3b82f6; border-radius: 10px; font-size: 1.2rem; font-weight: 900; color:#0f172a; outline: none;">
             </div>
             <button id="btn-next-step" class="glossy-blue-btn" style="width: 100%; justify-content: center; font-size:1.1rem; padding:15px;">NEXT <i class="fas fa-arrow-right" style="margin-left:10px;"></i></button>
+            <button type="button" id="btn-write-off" style="margin-top:12px; width:100%; background:#faf5ff; border:1px solid #d8b4fe; padding:12px; border-radius:10px; cursor:pointer; color:#6b21a8; font-weight:800;">Write off / Complimentary (no collection)</button>
         </div>
         
         <div id="recv-step-2" style="display: none;">
@@ -426,6 +519,94 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     closeBtn.onclick = () => overlay.remove();
     
     let currentPaymentAmount = balance;
+
+    const markLinkedRentalTripsSettled = async (invoiceRecord, writeOffReason) => {
+        if (!invoiceRecord || !invoiceRecord.trip_ids || !window.db) return;
+        const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
+        const normalTrips = tripIdList.filter(t => !t.startsWith('RENTAL_ID:'));
+        const svcType = (invoiceRecord.service_type || '').toUpperCase();
+        const serviceColumnMap = {
+            'TRANSPORT': { st_rate: 'PAID' },
+            'YARD': { st_yard: 'PAID' },
+            'YARD STORAGE': { st_yard: 'PAID' },
+            'SALES': { st_sales: 'PAID' },
+            'RENT': { st_rent: 'PAID' },
+            'RENTAL': { st_rent: 'PAID' },
+            'STORAGE': { st_amount: 'PAID' }
+        };
+        const cols = serviceColumnMap[svcType] || { st_rate: 'PAID' };
+        const reasonNote = writeOffReason ? ` | WRITE-OFF: ${writeOffReason}` : ' | WRITE-OFF';
+        for (const tid of normalTrips) {
+            const patch = { ...cols, paid: true };
+            try {
+                const { data: tripRows } = await window.db.from('trips').select('note, service_mode').eq('trip_id', tid).limit(1);
+                const tripRow = (tripRows && tripRows[0]) || null;
+                const mode = (tripRow?.service_mode || '').toString().toUpperCase();
+                if (mode === 'RENTAL INVOICE' || svcType === 'RENTAL' || svcType === 'RENT') {
+                    patch.st_rent = 'PAID';
+                    patch.note = ((tripRow && tripRow.note) ? tripRow.note : '') + reasonNote;
+                }
+                await window.db.from('trips').update(patch).eq('trip_id', tid);
+            } catch (e) {
+                console.warn('[Receivables] Could not settle trip', tid, e);
+            }
+            const applyLocal = (arr) => {
+                if (!arr) return;
+                const local = arr.find(t => t[0] === tid);
+                if (!local) return;
+                if (patch.st_rent) local[31] = 'PAID';
+                if (patch.st_yard) local[30] = 'PAID';
+                if (patch.st_rate) local[32] = 'PAID';
+                if (patch.st_sales) local[33] = 'PAID';
+                if (patch.st_amount) local[34] = 'PAID';
+                if (patch.note) local[25] = patch.note;
+            };
+            applyLocal(window.currentTrips);
+            applyLocal(window.rentalInvoiceTrips);
+            applyLocal(window.combinedBillingTrips);
+        }
+        if (typeof window.renderRentalsTable === 'function') window.renderRentalsTable();
+    };
+
+    const processWriteOff = async () => {
+        const reason = prompt('Write off this invoice with no collection.\nReason (required), e.g. complimentary week:');
+        if (reason === null) return;
+        const trimmed = (reason || '').trim();
+        if (!trimmed) {
+            alert('A reason is required to write off an invoice.');
+            return;
+        }
+        if (!confirm(`This will close invoice ${invoiceNumber} as complimentary. No money will be recorded in Cash Ledger or Profit. Continue?`)) {
+            return;
+        }
+        const woBtn = document.getElementById('btn-write-off');
+        if (woBtn) woBtn.disabled = true;
+        try {
+            const extraNote = `<div style="margin-top:8px;color:#7c3aed;font-weight:700;">WRITE-OFF: ${trimmed.replace(/</g, '')}</div>`;
+            const invoiceRecord = window.receivablesData.invoices.find(i => i.id === id);
+            const updatePayload = {
+                amount_paid: amtPaid,
+                status: 'Written Off',
+                payment_method: 'WRITE-OFF',
+                paid_date: new Date().toISOString(),
+                paid_by: window.userEmail || window.userName || 'Unknown',
+                details_html: ((invoiceRecord && invoiceRecord.details_html) ? invoiceRecord.details_html : '') + extraNote
+            };
+            const { error: updateErr } = await window.db.from('receivables_invoices').update(updatePayload).eq('id', id);
+            if (updateErr) throw updateErr;
+            if (window.logActivity) {
+                window.logActivity('UPDATED_RECORD', `[${new Date().toLocaleString()}] Write-off invoice ${invoiceNumber}. Reason: ${trimmed}`);
+            }
+            await markLinkedRentalTripsSettled(invoiceRecord, trimmed);
+            overlay.remove();
+            await loadReceivables();
+            renderReceivables();
+        } catch (err) {
+            console.error('Error writing off invoice:', err);
+            alert('Failed to write off invoice: ' + err.message);
+            if (woBtn) woBtn.disabled = false;
+        }
+    };
 
     document.getElementById('btn-next-step').onclick = () => {
         const inputVal = parseFloat(document.getElementById('recv-payment-amount').value);
@@ -650,6 +831,8 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
 
     document.getElementById('btn-pay-bank').onclick = () => processPayment(0, currentPaymentAmount, 'Bank');
     document.getElementById('btn-pay-cash').onclick = () => processPayment(currentPaymentAmount, 0, 'Cash');
+    const writeOffBtn = document.getElementById('btn-write-off');
+    if (writeOffBtn) writeOffBtn.onclick = () => processWriteOff();
 
     const splitInputDiv = document.getElementById('recv-split-input');
     const methodSelectionDiv = document.getElementById('recv-method-selection');
@@ -683,7 +866,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     };
 };
 
-window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '', tripIds = [], serviceType = '', amountPaid = 0, paymentMethod = '') {
+window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '', tripIds = [], serviceType = '', amountPaid = 0, paymentMethod = '', opts = {}) {
     if (!customerName || !invoiceNumber || !totalAmount) return;
     try {
         const customerUpper = customerName.trim().toUpperCase();
@@ -731,9 +914,14 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
         const { error } = await window.db.from('receivables_invoices').insert([insertPayload]);
         if (error) throw error;
         console.log(`[Receivables] Invoice ${invoiceNumber} added to AR. Trips: ${tripIdsStr}, Service: ${svcType}`);
+        if (!opts.silent) {
+            await loadReceivables();
+        }
     } catch (err) {
         console.error('[Receivables] Failed to add invoice to AR:', err);
-        alert('Error al guardar en Accounts Receivable: ' + err.message);
+        if (!opts || !opts.silent) {
+            alert('Error al guardar en Accounts Receivable: ' + err.message);
+        }
     }
 };
 
@@ -770,8 +958,8 @@ window.deleteReceivable = async function (id) {
     }
 };
 
-window.openReceivablePreview = function (id) {
-    const inv = window.receivablesData.invoices.find(i => i.id === id);
+window.openReceivablePreview = async function (id) {
+    const inv = window.receivablesData.invoices.find(i => String(i.id) === String(id));
     if (!inv) return;
 
     const invoiceNumber = inv.invoice_number;
@@ -782,25 +970,35 @@ window.openReceivablePreview = function (id) {
         return;
     }
 
-    const tripIds = inv.trip_ids.split(',').map(id => id.trim());
-    
-    // Ensure combinedBillingTrips is available (usually loaded with billing)
-    if (!window.combinedBillingTrips || window.combinedBillingTrips.length === 0) {
-        if (window.compileCombinedBillingTrips) {
-            window.compileCombinedBillingTrips();
-        } else {
-            alert("Please open the BILLING tab first to initialize the billing data, then come back here.");
-            return;
+    const tripIds = inv.trip_ids.split(',').map(tid => tid.trim()).filter(tid => tid && !tid.startsWith('RENTAL_ID:'));
+    if (!tripIds.length) {
+        alert('This invoice has no linked trips to preview.');
+        return;
+    }
+
+    let rows = tripIds.map(findTripRowById).filter(Boolean);
+
+    if (rows.length === 0 && window.db) {
+        try {
+            const { data } = await window.db.from('trips').select('*').in('trip_id', tripIds);
+            if (data && data.length && typeof window.mapTripToArray === 'function') {
+                rows = data.map(window.mapTripToArray).filter(Boolean);
+                rows.forEach(r => {
+                    if (typeof window.rememberRentalInvoiceTrip === 'function' && (r[26] || '').toString().toUpperCase() === 'RENTAL INVOICE') {
+                        window.rememberRentalInvoiceTrip(r);
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('[Receivables] Preview fetch failed', e);
         }
     }
 
-    const rows = (window.combinedBillingTrips || []).filter(r => tripIds.includes(r[0]));
     if (rows.length === 0) {
         alert("Could not find the original orders for this invoice. They might have been deleted.");
         return;
     }
 
-    // Open the Master Billing Modal with the exact rows and original invoice number
     if (window.openMasterBillingModal) {
         let preselected = 'TRANSPORT,RENT,SALES,STORAGE,YARD';
         let groupBy = 'ORDER';
