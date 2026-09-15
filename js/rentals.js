@@ -79,6 +79,160 @@
         return aStart.getTime() <= bEnd.getTime() && aEnd.getTime() >= bStart.getTime();
     }
 
+    function datesOverlap(aStart, aEnd, bStart, bEnd) {
+        if (!aStart || !aEnd || !bStart || !bEnd) return false;
+        return aStart.getTime() <= bEnd.getTime() && aEnd.getTime() >= bStart.getTime();
+    }
+
+    function toIsoDate(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function rentCycleUnit(timeRent) {
+        const t = (timeRent || '').toLowerCase();
+        if (t === 'weekly') return 'weekly';
+        if (t === 'diary' || t === 'daily') return 'daily';
+        return 'monthly';
+    }
+
+    function nextCycleStart(start, unit, n) {
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        if (unit === 'monthly') return new Date(d.getFullYear(), d.getMonth() + n, d.getDate());
+        const x = new Date(d);
+        x.setDate(x.getDate() + n * (unit === 'weekly' ? 7 : 1));
+        return x;
+    }
+
+    function cycleUnitLabels(unit, count) {
+        if (unit === 'monthly') return count === 1 ? 'Month' : 'Months';
+        if (unit === 'weekly') return count === 1 ? 'Week' : 'Weeks';
+        return count === 1 ? 'day' : 'days';
+    }
+
+    function buildPrepaidCycles(startDateStr, timeRent, throughDate, maxCycles = 800) {
+        const start = parseLocalDate(startDateStr);
+        if (!start) return [];
+        start.setHours(0, 0, 0, 0);
+        const through = new Date(throughDate);
+        through.setHours(0, 0, 0, 0);
+        const unit = rentCycleUnit(timeRent);
+        const cycles = [];
+        for (let i = 0; i < maxCycles; i++) {
+            const cStart = nextCycleStart(start, unit, i);
+            if (cStart.getTime() > through.getTime()) break;
+            const cNext = nextCycleStart(start, unit, i + 1);
+            const cEnd = new Date(cNext.getFullYear(), cNext.getMonth(), cNext.getDate());
+            cEnd.setDate(cEnd.getDate() - 1);
+            cycles.push({ start: cStart, end: cEnd, index: i });
+        }
+        return cycles;
+    }
+
+    function getRentalInvoicePool(row) {
+        const trips = getRentalInvoiceTrips();
+        if (!trips.length || !row) return [];
+        const rid = row.id != null ? String(row.id) : '';
+        const cont = (row.container_no || '').toString().trim().toUpperCase();
+        const byRid = [];
+        const byCont = [];
+        trips.forEach(t => {
+            const noteRid = extractRentalIdFromNote(t[25]);
+            if (rid && noteRid && String(noteRid) === rid) {
+                byRid.push(t);
+                return;
+            }
+            const tCont = (t[3] || '').toString().trim().toUpperCase();
+            if (cont && tCont === cont && tCont !== '---' && tCont !== 'TBA') {
+                byCont.push(t);
+            }
+        });
+        return byRid.length ? byRid : byCont;
+    }
+
+    function getPrepaidBalance(row, filterStartStr, filterEndStr) {
+        const unit = rentCycleUnit(row.time_rent);
+        const priced = parseFloat(row.base_price) || 0;
+        const empty = {
+            cyclesDue: 0,
+            unpaidCycles: 0,
+            amountDue: 0,
+            paymentStatus: 'UNBILLED',
+            needsAlert: false,
+            unit,
+            cycleLabel: '0',
+            invoiceStart: null,
+            invoiceEnd: null,
+            unpaid: []
+        };
+        if (!row || !row.start_date) return empty;
+
+        const status = (row.status || '').trim().toUpperCase();
+        let through = new Date();
+        through.setHours(0, 0, 0, 0);
+        if (status === 'FINISHED' && row.final_date) {
+            const fd = parseLocalDate(row.final_date);
+            if (fd) {
+                fd.setHours(0, 0, 0, 0);
+                through = fd;
+            }
+        }
+
+        let cycles = buildPrepaidCycles(row.start_date, row.time_rent, through);
+        const fStart = parseLocalDate(filterStartStr);
+        const fEnd = parseLocalDate(filterEndStr);
+        if (fStart || fEnd) {
+            const rs = fStart || new Date(2000, 0, 1);
+            const re = fEnd || new Date(2099, 11, 31);
+            rs.setHours(0, 0, 0, 0);
+            re.setHours(0, 0, 0, 0);
+            cycles = cycles.filter(c => datesOverlap(c.start, c.end, rs, re));
+        }
+
+        const invoices = getRentalInvoicePool(row);
+        const unpaid = [];
+        let billedUnpaid = 0;
+        cycles.forEach(c => {
+            const covering = invoices.filter(t => {
+                const { start, end } = getInvoicePeriod(t);
+                return datesOverlap(start, end, c.start, c.end);
+            });
+            const paid = covering.some(t => (t[31] || '').toString().trim().toUpperCase() === 'PAID');
+            if (paid) return;
+            unpaid.push(c);
+            if (covering.length) billedUnpaid += 1;
+        });
+
+        let paymentStatus = 'PAID';
+        if (unpaid.length) {
+            paymentStatus = billedUnpaid > 0 ? 'PENDING' : 'UNBILLED';
+        } else if (!cycles.length) {
+            paymentStatus = 'UNBILLED';
+        }
+
+        const first = unpaid[0];
+        const last = unpaid[unpaid.length - 1];
+        const dueWord = cycleUnitLabels(unit, unpaid.length || 1);
+
+        return {
+            cyclesDue: cycles.length,
+            unpaidCycles: unpaid.length,
+            amountDue: unpaid.length * priced,
+            paymentStatus,
+            needsAlert: unpaid.length > 0,
+            unit,
+            cycleLabel: unpaid.length
+                ? `${unpaid.length} ${dueWord} due`
+                : (cycles.length ? 'Current paid' : '0'),
+            invoiceStart: first ? toIsoDate(first.start) : null,
+            invoiceEnd: last ? toIsoDate(last.end) : null,
+            unpaid
+        };
+    }
+
     function findMatchingRentalInvoice(row, filterStartStr, filterEndStr) {
         const trips = getRentalInvoiceTrips();
         if (!trips.length || !row) return null;
@@ -608,37 +762,19 @@
             }
             
             visibleCount++;
-            
-            totalAccumulated += costInfo.total;
-            
-            row._calculatedCost = costInfo.total; // Store for generateRentalInvoice
-            row._calculatedStart = startDateFilter || row.start_date;
-            row._calculatedEnd = endDateFilter || row.final_date || new Date().toISOString().split('T')[0];
 
-            let dynamicPaymentStatus = 'UNBILLED';
-            let isExpired = false;
+            const prepaid = getPrepaidBalance(row, startDateFilter, endDateFilter);
+            totalAccumulated += prepaid.amountDue;
 
-            const matchingTrip = findMatchingRentalInvoice(row, startDateFilter, endDateFilter);
-            if (matchingTrip) {
-                const stRent = (matchingTrip[31] || '').toString().trim().toUpperCase();
-                dynamicPaymentStatus = (stRent === 'PAID') ? 'PAID' : 'PENDING';
-            }
-            
-            // Highlight row in red if status is UNBILLED or PENDING, AND the evaluated end date has already passed
-            if (row.status === 'ACTIVE' && (dynamicPaymentStatus === 'UNBILLED' || dynamicPaymentStatus === 'PENDING')) {
-                const endObj = new Date(row._calculatedEnd);
-                endObj.setHours(0,0,0,0);
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                
-                if (today > endObj) {
-                    isExpired = true; // Red alert
-                }
-            }
+            row._calculatedCost = prepaid.amountDue;
+            row._calculatedStart = prepaid.invoiceStart || startDateFilter || row.start_date;
+            row._calculatedEnd = prepaid.invoiceEnd || endDateFilter || row.final_date || new Date().toISOString().split('T')[0];
+            row._prepaidBalance = prepaid;
 
-            const displayCost = costInfo.total;
-            const displayDays = costInfo.cycleLabel;
-            const balanceDue = displayCost;
+            const dynamicPaymentStatus = prepaid.paymentStatus;
+            const isExpired = prepaid.needsAlert;
+            const displayDays = prepaid.cycleLabel;
+            const balanceDue = prepaid.amountDue;
             
             const cNum = (row.container_no || '').toString().trim().toUpperCase();
             const isDuplicate = (cNum && cNum !== '---' && cNum !== 'TBA' && containerCounts[cNum] > 1);
@@ -658,7 +794,7 @@
                 <td style="color: #000000; font-weight: 700;">${formatDate(row.start_date)}</td>
                 <td style="font-weight: 700; color: ${isExpired ? '#ef4444' : '#000000'}; font-size: 0.85rem; line-height: 1.2;">
                     ${formatDate(row.start_date)}<br>a ${formatDate(row.final_date)} 
-                    ${isExpired ? '<i class="fas fa-exclamation-triangle" title="Rental Expired"></i>' : ''}
+                    ${isExpired ? '<i class="fas fa-exclamation-triangle" title="Unpaid prepaid cycle"></i>' : ''}
                 </td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.release_no || '---'}</td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.size || '---'}</td>
@@ -669,7 +805,7 @@
                 <td style="font-weight: 700; color: #000000;">${row.customer_name || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">${window.formatUSPhone(row.phone) || '---'}</td>
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">$${parseFloat(row.base_price).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                <td style="font-weight: 800; color: #000000;">${displayDays}</td>
+                <td style="font-weight: 800; color: ${isExpired ? '#ef4444' : '#000000'};">${displayDays}</td>
                 <td style="font-weight: 900; color: ${balanceDue > 0 ? (isExpired ? '#ef4444' : '#000000') : '#10b981'}; font-size: 1rem;">$${balanceDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td>
                     <span class="status-badge" style="background: ${row.status === 'FINISHED' ? '#64748b' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">
@@ -677,7 +813,7 @@
                     </span>
                 </td>
                 <td>
-                    <span class="status-badge" style="background: ${dynamicPaymentStatus === 'PAID' ? '#1e40af' : '#94a3b8'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">
+                    <span class="status-badge" style="background: ${dynamicPaymentStatus === 'PAID' ? '#1e40af' : (dynamicPaymentStatus === 'PENDING' ? '#d97706' : '#94a3b8')}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">
                         ${dynamicPaymentStatus}
                     </span>
                   </td>
@@ -693,8 +829,11 @@
         // Show/Hide combined invoice button
         const combBtn = document.getElementById('btn-combined-invoice');
         if (combBtn) {
-            const hasVisibleActive = visibleCount > 0 && customerFilter !== '';
-            combBtn.style.display = hasVisibleActive ? 'inline-block' : 'none';
+            const showInvoiceBtn = !!editingRentalId || (visibleCount > 0 && customerFilter !== '');
+            combBtn.style.display = showInvoiceBtn ? 'inline-block' : 'none';
+            combBtn.innerHTML = editingRentalId
+                ? '<i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Invoice this rental'
+                : '<i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Generate Invoice';
         }
 
         // Show/Hide global delete button
@@ -1037,6 +1176,11 @@
         });
     };
 
+    window.generateRentalsInvoiceButton = function() {
+        if (editingRentalId) return window.generateRentalInvoice();
+        return window.generateCombinedRentalInvoice();
+    };
+
     window.generateRentalInvoice = async function() {
         if (!editingRentalId) {
             alert('Select a rental to generate an invoice.');
@@ -1045,68 +1189,129 @@
         const row = window.currentRentals.find(r => r.id === editingRentalId);
         if (!row) return;
 
-        // Create or reuse modal dynamically
+        const prepaid = getPrepaidBalance(row, null, null);
+        if (!prepaid.unpaidCycles) {
+            alert('This rental is paid for the current prepaid period. Nothing to invoice.');
+            return;
+        }
+
+        const cyclePrice = parseFloat(row.base_price) || 0;
+        const unpaidCycles = prepaid.unpaid || [];
+        const fmt = (s) => { const p = (s || '').split('-'); return p.length >= 3 ? `${p[1]}/${p[2]}/${p[0]}` : (s || ''); };
+        const fmtDateObj = (d) => fmt(toIsoDate(d));
+
         let modal = document.getElementById('rental-invoice-modal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'rental-invoice-modal';
             modal.className = 'simple-modal';
             modal.style.display = 'none';
-            modal.innerHTML = `
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="modal-header" style="background: #1e3a8a; color: white; padding: 15px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin:0; font-size: 1.1rem;"><i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Generate Rental Invoice</h3>
-                        <button class="btn-close-modal" onclick="document.getElementById('rental-invoice-modal').style.display='none'" style="background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
-                    </div>
-                    <div style="padding: 20px; font-size: 0.95rem; color: #334155; line-height: 1.6;">
-                        <div style="display: grid; grid-template-columns: 100px 1fr; gap: 10px; margin-bottom: 20px;">
-                            <strong style="color: #64748b;">Customer:</strong> <span id="ri-modal-customer" style="font-weight: 600;"></span>
-                            <strong style="color: #64748b;">Container:</strong> <span><span id="ri-modal-container" style="font-weight: 600;"></span> (<span id="ri-modal-size"></span>)</span>
-                            <strong style="color: #64748b;">Period:</strong> <span id="ri-modal-period" style="font-weight: 600; color: #2563eb;"></span>
-                            <strong style="color: #64748b;">Amount:</strong> <span style="font-weight: 700; color: #10b981; font-size: 1.1rem;">$<span id="ri-modal-amount"></span></span>
-                        </div>
-                        
-                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                            <label style="font-weight: 700; display: block; margin-bottom: 10px; color: #1e293b;">Payment Status</label>
-                            <div style="display: flex; gap: 20px; align-items: center;">
-                                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                    <input type="radio" name="ri-pay-status" value="PENDING" checked> Pending
-                                </label>
-                                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                    <input type="radio" name="ri-pay-status" value="PAID"> Paid Now
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer" style="padding: 15px 20px; background: #f1f5f9; text-align: right; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
-                        <button style="padding: 10px 15px; background: #64748b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; font-weight: 600;" onclick="document.getElementById('rental-invoice-modal').style.display='none'">Cancel</button>
-                        <button id="btn-confirm-rental-invoice" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-check"></i> Generate Invoice</button>
-                    </div>
-                </div>
-            `;
             document.body.appendChild(modal);
         }
 
-        const invoiceDate = new Date().toISOString().split('T')[0];
-        const start = row._calculatedStart || row.start_date || invoiceDate;
-        const end = row._calculatedEnd || row.final_date || invoiceDate;
-        const fmt = (s) => { const p = s.split('-'); return `${p[1]}/${p[2]}/${p[0]}`; };
-        
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 520px;">
+                <div class="modal-header" style="background: #1e3a8a; color: white; padding: 15px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin:0; font-size: 1.1rem;"><i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Generate Rental Invoice</h3>
+                    <button class="btn-close-modal" onclick="document.getElementById('rental-invoice-modal').style.display='none'" style="background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
+                </div>
+                <div style="padding: 20px; font-size: 0.95rem; color: #334155; line-height: 1.6;">
+                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 10px; margin-bottom: 16px;">
+                        <strong style="color: #64748b;">Customer:</strong> <span id="ri-modal-customer" style="font-weight: 600;"></span>
+                        <strong style="color: #64748b;">Container:</strong> <span><span id="ri-modal-container" style="font-weight: 600;"></span> (<span id="ri-modal-size"></span>)</span>
+                        <strong style="color: #64748b;">Period:</strong> <span id="ri-modal-period" style="font-weight: 600; color: #2563eb;"></span>
+                        <strong style="color: #64748b;">Amount:</strong> <span style="font-weight: 700; color: #10b981; font-size: 1.1rem;">$<span id="ri-modal-amount"></span></span>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label style="font-weight: 700; color: #1e293b;">Cycles to invoice</label>
+                            <button type="button" id="ri-select-all-cycles" style="background: none; border: none; color: #2563eb; font-weight: 700; cursor: pointer; font-size: 0.8rem;">Select all due</button>
+                        </div>
+                        <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">Oldest cycle is selected by default. Check more only if the customer is paying more than one rent now.</p>
+                        <div id="ri-cycle-list" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #fff;"></div>
+                    </div>
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <label style="font-weight: 700; display: block; margin-bottom: 10px; color: #1e293b;">Payment Status</label>
+                        <div style="display: flex; gap: 20px; align-items: center;">
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                <input type="radio" name="ri-pay-status" value="PENDING" checked> Pending
+                            </label>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                <input type="radio" name="ri-pay-status" value="PAID"> Paid Now
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding: 15px 20px; background: #f1f5f9; text-align: right; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
+                    <button style="padding: 10px 15px; background: #64748b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; font-weight: 600;" onclick="document.getElementById('rental-invoice-modal').style.display='none'">Cancel</button>
+                    <button id="btn-confirm-rental-invoice" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-check"></i> Generate Invoice</button>
+                </div>
+            </div>
+        `;
+
         document.getElementById('ri-modal-customer').textContent = row.customer_name || '---';
         document.getElementById('ri-modal-container').textContent = row.container_no || '---';
         document.getElementById('ri-modal-size').textContent = row.size || '---';
-        document.getElementById('ri-modal-period').textContent = `${fmt(start)} - ${fmt(end)}`;
-        
-        const rentAmount = (typeof row._calculatedCost === 'number') ? row._calculatedCost : (parseFloat(row.base_price) || 0);
-        document.getElementById('ri-modal-amount').textContent = rentAmount.toFixed(2);
-        
-        // Reset radio
-        const radios = document.getElementsByName('ri-pay-status');
-        if (radios.length > 0) radios[0].checked = true;
-        
-        // Setup confirm action
+
+        const cycleList = document.getElementById('ri-cycle-list');
+        const unitWord = cycleUnitLabels(prepaid.unit, 1);
+        unpaidCycles.forEach((c, i) => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px; cursor:pointer; border-radius:6px;';
+            label.innerHTML = `
+                <input type="checkbox" name="ri-cycle" value="${i}" ${i === 0 ? 'checked' : ''}>
+                <span style="flex:1; font-weight:600;">${unitWord} ${i + 1}: ${fmtDateObj(c.start)} – ${fmtDateObj(c.end)}</span>
+                <span style="font-weight:800; color:#0f172a;">$${cyclePrice.toFixed(2)}</span>
+            `;
+            cycleList.appendChild(label);
+        });
+
+        const getSelectedCycles = () => {
+            const boxes = [...document.querySelectorAll('#ri-cycle-list input[name="ri-cycle"]:checked')];
+            return boxes.map(cb => unpaidCycles[Number(cb.value)]).filter(Boolean);
+        };
+
+        const refreshInvoiceSummary = () => {
+            const selected = getSelectedCycles();
+            const startIso = selected[0] ? toIsoDate(selected[0].start) : '';
+            const endIso = selected.length ? toIsoDate(selected[selected.length - 1].end) : '';
+            const amount = selected.length * cyclePrice;
+            document.getElementById('ri-modal-period').textContent = selected.length
+                ? `${fmt(startIso)} - ${fmt(endIso)} (${selected.length} ${cycleUnitLabels(prepaid.unit, selected.length)})`
+                : 'Select at least one cycle';
+            document.getElementById('ri-modal-amount').textContent = amount.toFixed(2);
+            return { startIso, endIso, amount, selected };
+        };
+
+        const applyFifoSelection = (changedIdx, isChecked) => {
+            const boxes = [...document.querySelectorAll('#ri-cycle-list input[name="ri-cycle"]')];
+            boxes.forEach((cb, i) => {
+                cb.checked = isChecked ? i <= changedIdx : i < changedIdx;
+            });
+            refreshInvoiceSummary();
+        };
+
+        cycleList.querySelectorAll('input[name="ri-cycle"]').forEach((cb, i) => {
+            cb.addEventListener('change', () => applyFifoSelection(i, cb.checked));
+        });
+        document.getElementById('ri-select-all-cycles').onclick = () => {
+            document.querySelectorAll('#ri-cycle-list input[name="ri-cycle"]').forEach(cb => { cb.checked = true; });
+            refreshInvoiceSummary();
+        };
+        refreshInvoiceSummary();
+
+        const invoiceDate = new Date().toISOString().split('T')[0];
         const confirmBtn = document.getElementById('btn-confirm-rental-invoice');
         confirmBtn.onclick = async function() {
+            const summary = refreshInvoiceSummary();
+            if (!summary.selected.length) {
+                alert('Select at least one unpaid cycle to invoice.');
+                return;
+            }
+            const start = summary.startIso;
+            const end = summary.endIso;
+            const rentAmount = summary.amount;
+
             confirmBtn.disabled = true;
             confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             
@@ -1120,7 +1325,6 @@
             if (isPaidNow) {
                 paymentSplit = await window.showSplitPaymentModal(rentAmount);
                 if (!paymentSplit) {
-                    // User cancelled the payment split modal
                     confirmBtn.disabled = false;
                     confirmBtn.innerHTML = '<i class="fas fa-check"></i> Generate Invoice';
                     return;
@@ -1303,15 +1507,16 @@
         const processedRentals = [];
 
         matchingRentals.forEach(row => {
-            const costData = calculateRentalCost(
-                row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent,
-                startDateFilter, endDateFilter
-            );
-            
-            const bDue = parseFloat(costData.total) || 0;
+            const prepaid = getPrepaidBalance(row, startDateFilter, endDateFilter);
+            const bDue = parseFloat(prepaid.amountDue) || 0;
             if (bDue > 0) {
                 totalCombinedAmount += bDue;
-                processedRentals.push({ row, amount: bDue });
+                processedRentals.push({
+                    row,
+                    amount: bDue,
+                    invoiceStart: prepaid.invoiceStart,
+                    invoiceEnd: prepaid.invoiceEnd
+                });
             }
         });
 
@@ -1414,8 +1619,8 @@
                     allTripIds.push(tripId);
                     allTripIds.push('RENTAL_ID:' + row.id);
                     
-                    const start = startDateFilter || row._calculatedStart || row.start_date || invoiceDate;
-                    const end = endDateFilter || row._calculatedEnd || row.final_date || invoiceDate;
+                    const start = item.invoiceStart || startDateFilter || row._calculatedStart || row.start_date || invoiceDate;
+                    const end = item.invoiceEnd || endDateFilter || row._calculatedEnd || row.final_date || invoiceDate;
                     const fmt = (s) => { const p = s.split('-'); return `${p[1]}/${p[2]}/${p[0]}`; };
                     const periodLabel = `${fmt(start)} - ${fmt(end)}`;
                     
