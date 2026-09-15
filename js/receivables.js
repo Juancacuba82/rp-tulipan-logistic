@@ -84,6 +84,29 @@ function invoiceMatchesService(inv, filter) {
     return invNo.startsWith(f + '-');
 }
 
+function getReceivableSubtitle(inv) {
+    const details = (inv.details_html || '').toString();
+    const contFromDetails = (details.match(/Container:<\/strong>\s*([^<]+)/i) || [])[1];
+    const periodFromDetails = (details.match(/Period:<\/strong>\s*([^<]+)/i) || [])[1];
+    const ids = (inv.trip_ids || '').toString().split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
+    const containers = [];
+    ids.forEach(tid => {
+        const row = findTripRowById(tid);
+        const c = row && row[3] ? row[3].toString().trim() : '';
+        if (c && c !== '---' && c !== 'TBA') containers.push(c);
+    });
+    const uniqueCont = [...new Set(containers)];
+    const containerLabel = uniqueCont.length ? uniqueCont.join(', ') : (contFromDetails || '').trim();
+    const invNo = (inv.invoice_number || '').toString();
+    const orders = getOrderNumbersFromTripIds(inv.trip_ids);
+    const orderLabel = (orders && orders !== invNo) ? orders : '';
+    const parts = [];
+    if (containerLabel && containerLabel !== '---') parts.push(containerLabel);
+    if (periodFromDetails) parts.push(periodFromDetails.trim());
+    else if (orderLabel) parts.push(orderLabel);
+    return parts.join(' · ');
+}
+
 function invoiceMatchesOrder(inv, search) {
     if (!search || !search.trim()) return true;
     const q = search.trim().toUpperCase();
@@ -92,7 +115,8 @@ function invoiceMatchesOrder(inv, search) {
         inv.invoice_number || '',
         inv.trip_ids || '',
         details,
-        getOrderNumbersFromTripIds(inv.trip_ids)
+        getOrderNumbersFromTripIds(inv.trip_ids),
+        getReceivableSubtitle(inv)
     ].join(' ').toUpperCase();
     return hay.includes(q);
 }
@@ -275,9 +299,9 @@ window.renderReceivables = function () {
                 const displayInvNo = inv.invoice_number ? inv.invoice_number.toString() : 'N/A';
                 
                 let orderNoExtracted = '';
-                const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids);
-                if (extractedOrders && !extractedOrders.includes(',')) {
-                    orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">(${extractedOrders})</span>`;
+                const subtitle = getReceivableSubtitle(inv);
+                if (subtitle) {
+                    orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">${subtitle}</span>`;
                 }
 
                 const amtPaid = parseFloat(inv.amount_paid || 0);
@@ -353,9 +377,9 @@ window.renderReceivables = function () {
                 const displayInvNo = (inv.invoice_number || '---').toString();
                 
                 let orderNoExtracted = '';
-                const extractedOrders = getOrderNumbersFromTripIds(inv.trip_ids);
-                if (extractedOrders && !extractedOrders.includes(',')) {
-                    orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">(${extractedOrders})</span>`;
+                const subtitle = getReceivableSubtitle(inv);
+                if (subtitle) {
+                    orderNoExtracted = `<br><span style="font-size:0.85rem; color:#0f172a; font-weight:600; letter-spacing:0.5px;">${subtitle}</span>`;
                 }
 
                 const createdBy = inv.created_by ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:4px; font-weight:600;"><i class="fas fa-magic" style="margin-right:3px;"></i>Created: ${inv.created_by}</div>` : '';
@@ -456,10 +480,13 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     modal.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
     modal.style.fontFamily = "'Outfit', sans-serif";
 
+    const paySubtitle = inv ? getReceivableSubtitle(inv) : '';
+
     let html = `
         <h2 style="margin: 0 0 10px 0; color: #0f172a; font-size: 1.5rem;"><i class="fas fa-money-check-alt" style="color: #3b82f6;"></i> Process Payment</h2>
         <div style="background:#f8fafc; padding:15px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:20px;">
             <p style="margin: 0 0 5px 0; color: #64748b; font-size: 0.95rem;">Invoice: <strong style="color:#0f172a;">${invoiceNumber}</strong></p>
+            ${paySubtitle ? `<p style="margin:0 0 8px 0;color:#0f172a;font-weight:800;font-size:0.9rem;">${paySubtitle}</p>` : ''}
             <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:0.85rem;">
                 <span style="color:#64748b;">Total Invoice:</span>
                 <span style="font-weight:700;">$${totalAmount.toFixed(2)}</span>
@@ -487,9 +514,9 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
         <div id="recv-step-2" style="display: none;">
             <p style="margin:0 0 15px 0; font-size: 0.95rem; color: #334155; font-weight:700; text-align:center;">Select Payment Method for <span id="display-pay-amt" style="color:#3b82f6; font-size:1.2rem;">$0.00</span></p>
             <div id="recv-method-selection" style="display: flex; flex-direction: column; gap: 10px;">
-                <button id="btn-pay-bank" class="glossy-blue-btn" style="width: 100%; justify-content: center;">ALL BANK</button>
-                <button id="btn-pay-cash" class="glossy-green-btn" style="width: 100%; justify-content: center;">ALL CASH</button>
-                <button id="btn-pay-split" class="glossy-dark-btn" style="width: 100%; justify-content: center;">SPLIT PAYMENT</button>
+                <button type="button" id="btn-pay-bank" class="glossy-blue-btn" style="width: 100%; justify-content: center;">ALL BANK</button>
+                <button type="button" id="btn-pay-cash" class="glossy-green-btn" style="width: 100%; justify-content: center;">ALL CASH</button>
+                <button type="button" id="btn-pay-split" class="glossy-dark-btn" style="width: 100%; justify-content: center;">SPLIT PAYMENT</button>
             </div>
 
             <div id="recv-split-input" style="display: none; flex-direction: column; gap: 15px;">
@@ -515,7 +542,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    const closeBtn = document.getElementById('btn-cancel-payment');
+    const closeBtn = overlay.querySelector('#btn-cancel-payment');
     closeBtn.onclick = () => overlay.remove();
     
     let currentPaymentAmount = balance;
@@ -544,7 +571,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                 const mode = (tripRow?.service_mode || '').toString().toUpperCase();
                 if (mode === 'RENTAL INVOICE' || svcType === 'RENTAL' || svcType === 'RENT') {
                     patch.st_rent = 'PAID';
-                    patch.note = ((tripRow && tripRow.note) ? tripRow.note : '') + reasonNote;
+                    if (writeOffReason) patch.note = ((tripRow && tripRow.note) ? tripRow.note : '') + reasonNote;
                 }
                 await window.db.from('trips').update(patch).eq('trip_id', tid);
             } catch (e) {
@@ -579,7 +606,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
         if (!confirm(`This will close invoice ${invoiceNumber} as complimentary. No money will be recorded in Cash Ledger or Profit. Continue?`)) {
             return;
         }
-        const woBtn = document.getElementById('btn-write-off');
+        const woBtn = overlay.querySelector('#btn-write-off');
         if (woBtn) woBtn.disabled = true;
         try {
             const extraNote = `<div style="margin-top:8px;color:#7c3aed;font-weight:700;">WRITE-OFF: ${trimmed.replace(/</g, '')}</div>`;
@@ -608,8 +635,8 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
         }
     };
 
-    document.getElementById('btn-next-step').onclick = () => {
-        const inputVal = parseFloat(document.getElementById('recv-payment-amount').value);
+    overlay.querySelector('#btn-next-step').onclick = () => {
+        const inputVal = parseFloat(overlay.querySelector('#recv-payment-amount').value);
         if (!inputVal || inputVal <= 0) {
             alert("Please enter a valid payment amount.");
             return;
@@ -619,22 +646,22 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             return;
         }
         currentPaymentAmount = inputVal;
-        document.getElementById('display-pay-amt').textContent = `$${currentPaymentAmount.toFixed(2)}`;
-        document.getElementById('recv-bank-portion').textContent = `$${currentPaymentAmount.toFixed(2)}`;
-        document.getElementById('recv-step-1').style.display = 'none';
-        document.getElementById('recv-step-2').style.display = 'block';
+        overlay.querySelector('#display-pay-amt').textContent = `$${currentPaymentAmount.toFixed(2)}`;
+        overlay.querySelector('#recv-bank-portion').textContent = `$${currentPaymentAmount.toFixed(2)}`;
+        overlay.querySelector('#recv-step-1').style.display = 'none';
+        overlay.querySelector('#recv-step-2').style.display = 'block';
     };
 
-    document.getElementById('btn-back-step').onclick = () => {
-        document.getElementById('recv-step-2').style.display = 'none';
-        document.getElementById('recv-step-1').style.display = 'block';
+    overlay.querySelector('#btn-back-step').onclick = () => {
+        overlay.querySelector('#recv-step-2').style.display = 'none';
+        overlay.querySelector('#recv-step-1').style.display = 'block';
     };
 
     const processPayment = async (cashAmount, bankAmount, label) => {
-        const btnAllBank = document.getElementById('btn-pay-bank');
-        const btnAllCash = document.getElementById('btn-pay-cash');
-        const btnSplit = document.getElementById('btn-pay-split');
-        const btnConfirmSplit = document.getElementById('btn-confirm-split');
+        const btnAllBank = overlay.querySelector('#btn-pay-bank');
+        const btnAllCash = overlay.querySelector('#btn-pay-cash');
+        const btnSplit = overlay.querySelector('#btn-pay-split');
+        const btnConfirmSplit = overlay.querySelector('#btn-confirm-split');
         if (btnAllBank) btnAllBank.disabled = true;
         if (btnAllCash) btnAllCash.disabled = true;
         if (btnSplit) btnSplit.disabled = true;
@@ -663,106 +690,9 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             if (updateErr) throw updateErr;
             if (window.logActivity) window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Actualizó Pago en Accounts Receivable ID: ${id}. Pagado: $${newAmountPaid}`);
 
-            // ── Sync trip payment status in calendar (ONLY IF FULLY PAID) ─────────────
             if (isFullyPaid) {
-                const invoiceRecord = window.receivablesData.invoices.find(i => i.id === id);
-                if (invoiceRecord && invoiceRecord.trip_ids) {
-                    const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
-                    const svcType = (invoiceRecord.service_type || '').toUpperCase();
-
-                    // Map service type to the exact column(s) in the trips table
-                    const serviceColumnMap = {
-                        'TRANSPORT': { st_rate: 'PAID' },
-                        'YARD':      { st_yard: 'PAID' },
-                        'YARD STORAGE': { st_yard: 'PAID' },
-                        'SALES':     { st_sales: 'PAID' },
-                        'RENT':      { st_rent: 'PAID' },
-                        'RENTAL':    { st_rent: 'PAID' }, // Fix missing RENTAL mapping
-                        'STORAGE':   { st_amount: 'PAID' },
-                        'ALL':       { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' },
-                        '':          { st_rate: 'PAID', st_yard: 'PAID', st_sales: 'PAID', st_rent: 'PAID', st_amount: 'PAID' }
-                    };
-                    const colsToUpdate = serviceColumnMap[svcType] || serviceColumnMap['ALL'];
-
-                    if (tripIdList.length > 0 && Object.keys(colsToUpdate).length > 0) {
-                        const normalTrips = tripIdList.filter(t => !t.startsWith('RENTAL_ID:'));
-                        const rentalIds = tripIdList.filter(t => t.startsWith('RENTAL_ID:')).map(t => t.replace('RENTAL_ID:', ''));
-
-                        await Promise.all([
-                            ...normalTrips.map(tid => window.db.from('trips').update(colsToUpdate).eq('trip_id', tid)),
-                            ...rentalIds.map(rid => window.db.from('rentals').update({ payment_status: 'PAID' }).eq('id', rid))
-                        ]);
-                        
-                        // Also mark original trip's rent as PAID visually (if it's a rental)
-                        if (svcType === 'RENTAL' || svcType === 'RENT') {
-                            try {
-                                const { data: ghostTrips } = await window.db.from('trips').select('order_no').in('trip_id', normalTrips);
-                                const orderNos = (ghostTrips || []).map(t => t.order_no).filter(Boolean);
-                                if (orderNos.length > 0) {
-                                    await window.db.from('trips').update({ st_rent: 'PAID' }).in('order_no', orderNos);
-                                    
-                                    // Sync local cache for original trips
-                                    if (window.currentTrips) {
-                                        window.currentTrips.forEach(t => {
-                                            if (orderNos.includes(t[5])) t[31] = 'PAID'; // st_rent is index 31
-                                        });
-                                    }
-                                }
-                            } catch (e) { console.warn('Could not sync original trip rent status', e); }
-                        }
-
-                        // Also mark original trip's yard storage as PAID visually
-                        if (svcType === 'YARD STORAGE' || svcType === 'YARD') {
-                            try {
-                                const { data: ghostTrips } = await window.db.from('trips').select('yard_services').in('trip_id', normalTrips);
-                                const originalOrderNos = new Set();
-                                (ghostTrips || []).forEach(t => {
-                                    if (t.yard_services) {
-                                        try {
-                                            const snap = JSON.parse(t.yard_services);
-                                            (snap.items || []).forEach(item => {
-                                                if (item.origin_release) originalOrderNos.add(item.origin_release);
-                                            });
-                                        } catch (e) {}
-                                    }
-                                });
-                                
-                                if (originalOrderNos.size > 0) {
-                                    const orders = Array.from(originalOrderNos);
-                                    await window.db.from('trips').update({ st_yard: 'PAID' }).in('order_no', orders);
-                                    
-                                    // Sync local cache for original trips
-                                    if (window.currentTrips) {
-                                        window.currentTrips.forEach(t => {
-                                            if (orders.includes(t[5])) t[30] = 'PAID'; // st_yard is index 30
-                                        });
-                                    }
-                                }
-                            } catch (e) { console.warn('Could not sync original trip yard status', e); }
-                        }
-
-                        // Sync local cache so calendar reflects immediately
-                        const applyPaidCols = (localRow) => {
-                            if (!localRow) return;
-                            if (colsToUpdate.st_rate)   localRow[32] = 'PAID';
-                            if (colsToUpdate.st_yard)   localRow[30] = 'PAID';
-                            if (colsToUpdate.st_sales)  localRow[33] = 'PAID';
-                            if (colsToUpdate.st_rent)   localRow[31] = 'PAID';
-                            if (colsToUpdate.st_amount) localRow[34] = 'PAID';
-                        };
-                        normalTrips.forEach(tid => {
-                            applyPaidCols((window.currentTrips || []).find(t => t[0] === tid));
-                            applyPaidCols((window.rentalInvoiceTrips || []).find(t => t[0] === tid));
-                            applyPaidCols((window.combinedBillingTrips || []).find(t => t[0] === tid));
-                        });
-                        rentalIds.forEach(rid => {
-                            const localRental = (window.currentRentals || []).find(r => String(r.id) === String(rid));
-                            if (localRental) localRental.payment_status = 'PAID';
-                            if (window.renderRentalsTable) window.renderRentalsTable();
-                        });
-                        console.log(`[Receivables] Trip/Rental payment synced: ${tripIdList.join(',')}   ${JSON.stringify(colsToUpdate)}`);
-                    }
-                }
+                const invoiceRecord = window.receivablesData.invoices.find(i => String(i.id) === String(id)) || inv;
+                await markLinkedRentalTripsSettled(invoiceRecord, null);
             }
 
             if (cashAmount > 0) {
@@ -829,22 +759,22 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
         }
     };
 
-    document.getElementById('btn-pay-bank').onclick = () => processPayment(0, currentPaymentAmount, 'Bank');
-    document.getElementById('btn-pay-cash').onclick = () => processPayment(currentPaymentAmount, 0, 'Cash');
-    const writeOffBtn = document.getElementById('btn-write-off');
+    overlay.querySelector('#btn-pay-bank').onclick = () => processPayment(0, currentPaymentAmount, 'Bank');
+    overlay.querySelector('#btn-pay-cash').onclick = () => processPayment(currentPaymentAmount, 0, 'Cash');
+    const writeOffBtn = overlay.querySelector('#btn-write-off');
     if (writeOffBtn) writeOffBtn.onclick = () => processWriteOff();
 
-    const splitInputDiv = document.getElementById('recv-split-input');
-    const methodSelectionDiv = document.getElementById('recv-method-selection');
+    const splitInputDiv = overlay.querySelector('#recv-split-input');
+    const methodSelectionDiv = overlay.querySelector('#recv-method-selection');
 
-    document.getElementById('btn-pay-split').onclick = () => {
+    overlay.querySelector('#btn-pay-split').onclick = () => {
         methodSelectionDiv.style.display = 'none';
         splitInputDiv.style.display = 'flex';
-        document.getElementById('recv-cash-amount').focus();
+        overlay.querySelector('#recv-cash-amount').focus();
     };
 
-    const cashInput = document.getElementById('recv-cash-amount');
-    const bankPortionSpan = document.getElementById('recv-bank-portion');
+    const cashInput = overlay.querySelector('#recv-cash-amount');
+    const bankPortionSpan = overlay.querySelector('#recv-bank-portion');
 
     cashInput.addEventListener('input', (e) => {
         let val = parseFloat(e.target.value) || 0;
@@ -855,7 +785,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
         bankPortionSpan.textContent = '$' + (currentPaymentAmount - val).toFixed(2);
     });
 
-    document.getElementById('btn-confirm-split').onclick = () => {
+    overlay.querySelector('#btn-confirm-split').onclick = () => {
         const cashAmount = parseFloat(cashInput.value) || 0;
         const bankAmount = currentPaymentAmount - cashAmount;
         if (cashAmount <= 0 && bankAmount <= 0) {
