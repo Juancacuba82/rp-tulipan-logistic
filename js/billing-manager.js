@@ -5,6 +5,17 @@
 
 (function () {
 
+    function isBillingAdmin() {
+        return typeof window.isAdmin === 'function'
+            ? window.isAdmin()
+            : (window.currentUserRole || '').toLowerCase().trim() === 'admin';
+    }
+
+    function denyBillingWrite() {
+        alert('Only administrators can create or send invoices.');
+        return false;
+    }
+
     // ── GLOBAL STATE ──────────────────────────────────────────
     window.billingRows = [];              // Current filtered rows in table
     window.currentBillingOrderRows = []; // Rows for the open order in the modal
@@ -615,10 +626,14 @@
             // We need the global index from currentTrips to easily identify this exact row
             const globalIdx = (window.combinedBillingTrips || []).indexOf(row);
 
-            tr.innerHTML = `
-                <td style="${cs} width:40px; text-align:center;">
+            const selectCell = isBillingAdmin()
+                ? `<td style="${cs} width:40px; text-align:center;">
                     <input type="checkbox" class="billing-row-checkbox" checked data-global-idx="${globalIdx}" style="cursor:pointer; transform:scale(1.2);" onclick="event.stopPropagation();">
-                </td>
+                </td>`
+                : `<td style="display:none;"></td>`;
+
+            tr.innerHTML = `
+                ${selectCell}
                 <td style="${cs}">${displayDate}</td>
                 <td style="${cs}">${orderNo}</td>
                 <td style="${cs}">${nCont}</td>
@@ -664,8 +679,9 @@
         // Toggle Booking Invoice Button
         const bookingInput = document.getElementById('bc-f-booking');
         const masterInvoiceBtn = document.getElementById('btn-booking-invoice');
+        const canWriteBilling = isBillingAdmin();
         if (masterInvoiceBtn) {
-            if (bookingInput && bookingInput.value.trim() !== '') {
+            if (canWriteBilling && bookingInput && bookingInput.value.trim() !== '') {
                 masterInvoiceBtn.style.display = 'inline-flex';
             } else {
                 masterInvoiceBtn.style.display = 'none';
@@ -676,21 +692,23 @@
         const serviceInput = document.getElementById('bc-f-service');
         const serviceInvoiceBtn = document.getElementById('btn-service-invoice');
         if (serviceInvoiceBtn) {
-            if (serviceInput && serviceInput.value.trim() !== '') {
+            if (canWriteBilling && serviceInput && serviceInput.value.trim() !== '') {
                 serviceInvoiceBtn.style.display = 'inline-flex';
             } else {
                 serviceInvoiceBtn.style.display = 'none';
             }
         }
 
-        // Toggle Filtered Invoice Button
+        // Toggle Filtered Invoice Button (admin write actions only)
         const custInput = document.getElementById('bc-f-customer');
         const sendFilteredBtn = document.getElementById('btn-send-filtered-invoice');
         const btnBulkCreate = document.getElementById('btn-bulk-create');
         const btnBulkSend = document.getElementById('btn-bulk-send');
+        const selectAllTh = document.querySelector('#billing-center-table thead tr th:first-child');
+        if (selectAllTh) selectAllTh.style.display = canWriteBilling ? '' : 'none';
         
         if (sendFilteredBtn) {
-            if (custInput && custInput.value.trim() !== '') {
+            if (canWriteBilling && custInput && custInput.value.trim() !== '') {
                 sendFilteredBtn.style.display = 'inline-flex';
                 if (btnBulkCreate) btnBulkCreate.style.display = 'inline-flex';
                 if (btnBulkSend) btnBulkSend.style.display = 'inline-flex';
@@ -1167,7 +1185,7 @@
         const modal = document.getElementById('yard-reprint-modal');
         const resendBtn = document.getElementById('btn-yard-reprint-resend');
         
-        if (isPreviewOnly) {
+        if (isPreviewOnly || !isBillingAdmin()) {
             resendBtn.style.display = 'none';
             document.getElementById('yard-reprint-email').parentElement.parentElement.style.display = 'none';
         } else {
@@ -1275,6 +1293,7 @@
             isPreviewOnly = window.currentMasterBillingIsPreview || false;
         } else {
             window.currentMasterBillingIsPreview = isPreviewOnly;
+            if (!isBillingAdmin()) isReadOnly = true;
             
             const cbTrans = document.getElementById('mb-svc-transport');
             const cbRent = document.getElementById('mb-svc-rent');
@@ -1408,10 +1427,23 @@
         const btnCreate = document.getElementById('mb-btn-create-record');
         
         const hideButtons = isSinglePreview || isPreviewOnly;
+        const canWriteBilling = isBillingAdmin();
         
-        if (btnSend) btnSend.style.display = hideButtons ? 'none' : 'inline-flex';
+        if (btnSend) {
+            btnSend.style.display = (hideButtons || !canWriteBilling) ? 'none' : 'inline-flex';
+            const pdfCount = document.getElementById('mb-pdf-count-select');
+            if (pdfCount) pdfCount.style.display = (hideButtons || !canWriteBilling) ? 'none' : '';
+        }
         if (btnPdf) btnPdf.style.display = hideButtons ? 'none' : 'inline-block';
-        if (btnCreate) btnCreate.style.display = (hideButtons || window.isMasterBillingReadOnly) ? 'none' : 'inline-block';
+        if (btnCreate) btnCreate.style.display = (hideButtons || !canWriteBilling || window.isMasterBillingReadOnly) ? 'none' : 'inline-block';
+
+        const invNoEl = document.getElementById('mb-invoice-number');
+        if (invNoEl) {
+            const allowEditInv = canWriteBilling && !window.isMasterBillingReadOnly;
+            invNoEl.contentEditable = allowEditInv ? 'true' : 'false';
+            invNoEl.style.cursor = allowEditInv ? 'text' : 'default';
+            invNoEl.style.borderBottom = allowEditInv ? '1px dashed #94a3b8' : 'none';
+        }
 
         document.getElementById('mb-bill-to-name').textContent = customer;
         document.getElementById('mb-date-display').textContent = new Date().toLocaleDateString('en-US');
@@ -1760,6 +1792,7 @@
     };
 
     window.createMasterInvoiceRecordOnly = async function(event) {
+        if (!isBillingAdmin()) return denyBillingWrite();
         if (!event) event = window.event;
         const pendingRows = window.currentBillingOrderRows || [];
         if (!window.confirmBillingNotAlreadyInvoiced(pendingRows)) {
@@ -1873,6 +1906,7 @@
     };
 
     window.sendFilteredInvoiceEmail = async function() {
+        if (!isBillingAdmin()) return denyBillingWrite();
         const pendingRows = window.currentBillingOrderRows || [];
         if (!window.confirmBillingNotAlreadyInvoiced(pendingRows)) {
             if (window.closeMasterBillingModal) window.closeMasterBillingModal();
@@ -1915,6 +1949,7 @@
     }
 
     window.bulkCreateIndividualRecords = async function() {
+        if (!isBillingAdmin()) return denyBillingWrite();
         const rows = getSelectedBillingRows();
         if (rows.length === 0) {
             alert("Seleccione al menos una orden para crear registros individuales.");
@@ -2029,6 +2064,7 @@
     };
 
     window.bulkSendIndividualEmails = async function() {
+        if (!isBillingAdmin()) return denyBillingWrite();
         const rows = getSelectedBillingRows();
         if (rows.length === 0) {
             alert("Seleccione al menos una orden para enviar correos individuales.");

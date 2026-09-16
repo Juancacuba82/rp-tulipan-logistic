@@ -1,4 +1,4 @@
-(function() {
+﻿(function() {
     window.currentRentals = [];
     window.rentalInvoiceTrips = window.rentalInvoiceTrips || [];
     let editingRentalId = null;
@@ -74,11 +74,6 @@
         return { start, end };
     }
 
-    function periodsOverlap(aStart, aEnd, bStart, bEnd) {
-        if (!aStart || !aEnd || !bStart || !bEnd) return true;
-        return aStart.getTime() <= bEnd.getTime() && aEnd.getTime() >= bStart.getTime();
-    }
-
     function datesOverlap(aStart, aEnd, bStart, bEnd) {
         if (!aStart || !aEnd || !bStart || !bEnd) return false;
         return aStart.getTime() <= bEnd.getTime() && aEnd.getTime() >= bStart.getTime();
@@ -132,8 +127,16 @@
         return cycles;
     }
 
-    function getRentalInvoicePool(row) {
-        const trips = getRentalInvoiceTrips();
+    function mergeRentalInvoicePool(byRid, byCont) {
+        const pool = new Map();
+        byRid.forEach(t => pool.set(t[0], t));
+        byCont.forEach(t => {
+            if (!pool.has(t[0])) pool.set(t[0], t);
+        });
+        return [...pool.values()];
+    }
+
+    function buildRentalInvoicePoolForRow(row, trips) {
         if (!trips.length || !row) return [];
         const rid = row.id != null ? String(row.id) : '';
         const cont = (row.container_no || '').toString().trim().toUpperCase();
@@ -150,7 +153,121 @@
                 byCont.push(t);
             }
         });
-        return byRid.length ? byRid : byCont;
+        return mergeRentalInvoicePool(byRid, byCont);
+    }
+
+    function getRentalInvoicePool(row) {
+        return buildRentalInvoicePoolForRow(row, getRentalInvoiceTrips());
+    }
+
+    function buildReceivableSettlementByTripId() {
+        const map = new Map();
+        const invoices = (window.receivablesData && window.receivablesData.invoices) || [];
+        invoices.forEach(inv => {
+            const st = (inv.status || '').toLowerCase();
+            const method = (inv.payment_method || '').toString().toUpperCase();
+            const settled = st === 'paid' || st === 'written off' || method === 'WRITE-OFF';
+            if (!settled) return;
+            const ids = (inv.trip_ids || '').toString().split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
+            ids.forEach(tid => map.set(String(tid), inv));
+        });
+        return map;
+    }
+
+    function getReceivableSettlementByTripId() {
+        const invoices = (window.receivablesData && window.receivablesData.invoices) || [];
+        const count = invoices.length;
+        if (window._recvSettlementMap && window._recvSettlementInvCount === count) {
+            return window._recvSettlementMap;
+        }
+        const map = buildReceivableSettlementByTripId();
+        window._recvSettlementMap = map;
+        window._recvSettlementInvCount = count;
+        return map;
+    }
+
+    function isTripCycleSettled(trip, recvByTripId) {
+        if (!trip) return false;
+        const st = (trip[31] || '').toString().trim().toUpperCase();
+        const note = (trip[25] || '').toString();
+        if (st === 'PAID' || /WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note)) return true;
+        const tid = trip && trip[0] != null ? String(trip[0]) : '';
+        if (tid && recvByTripId && recvByTripId.has(tid)) return true;
+        return false;
+    }
+
+    async function ensureReceivablesForRentals() {
+        if (typeof window.loadReceivables !== 'function') return;
+        const list = window.receivablesData && window.receivablesData.invoices;
+        if (!list || !list.length) {
+            await window.loadReceivables();
+        }
+        window._recvSettlementMap = null;
+    }
+
+    async function reconcileRentalTripsFromReceivables() {
+        try {
+            await ensureReceivablesForRentals();
+            const recvByTripId = getReceivableSettlementByTripId();
+            if (!recvByTripId.size || !window.db) return 0;
+
+            const rows = window.currentRentals || [];
+            if (!rows.length) return 0;
+
+            const seen = new Set();
+            let patched = 0;
+
+            for (const row of rows) {
+                const status = (row.status || '').trim().toUpperCase();
+                if (status && status !== 'ACTIVE' && status !== 'FINISHED') continue;
+
+                for (const trip of getRentalInvoicePool(row)) {
+                    const tid = trip && trip[0] != null ? String(trip[0]) : '';
+                    if (!tid || seen.has(tid)) continue;
+                    seen.add(tid);
+
+                    if (!recvByTripId.has(tid)) continue;
+                    if (isTripCycleSettled(trip, null)) continue;
+
+                    const inv = recvByTripId.get(tid);
+                    const isWriteOff = (inv.status || '').toLowerCase() === 'written off'
+                        || (inv.payment_method || '').toString().toUpperCase() === 'WRITE-OFF';
+                    const patch = { st_rent: 'PAID', paid: true };
+                    try {
+                        if (isWriteOff) {
+                            const { data: tripRows } = await window.db.from('trips').select('note').eq('trip_id', tid).limit(1);
+                            const existing = (tripRows && tripRows[0] && tripRows[0].note) ? tripRows[0].note : (trip[25] || '');
+                            if (!/WRITE-?OFF/i.test(existing)) {
+                                patch.note = existing + ' | WRITE-OFF';
+                            }
+                        }
+                        await window.db.from('trips').update(patch).eq('trip_id', tid);
+                        patched += 1;
+                        const applyLocal = (arr) => {
+                            if (!arr) return;
+                            const local = arr.find(t => String(t[0]) === tid);
+                            if (!local) return;
+                            local[31] = 'PAID';
+                            if (patch.note) local[25] = patch.note;
+                        };
+                        applyLocal(window.rentalInvoiceTrips);
+                        applyLocal(window.currentTrips);
+                        applyLocal(window.combinedBillingTrips);
+                    } catch (e) {
+                        console.warn('[Rentals] Reconcile trip from Account failed', tid, e);
+                    }
+                }
+            }
+
+            if (patched > 0) {
+                console.log(`[Rentals] Reconciled ${patched} rental invoice trip(s) with Account (Paid / Write-off).`);
+                window._recvSettlementMap = null;
+            }
+            return patched;
+        } catch (err) {
+            console.warn('[Rentals] Reconcile skipped due to error:', err);
+            return 0;
+        }
     }
 
     function getPrepaidBalance(row, filterStartStr, filterEndStr) {
@@ -194,6 +311,7 @@
         }
 
         const invoices = getRentalInvoicePool(row);
+        const recvByTripId = getReceivableSettlementByTripId();
         const unpaid = [];
         const unbilled = [];
         let billedUnpaid = 0;
@@ -202,11 +320,7 @@
                 const { start, end } = getInvoicePeriod(t);
                 return datesOverlap(start, end, c.start, c.end);
             });
-            const settled = covering.some(t => {
-                const st = (t[31] || '').toString().trim().toUpperCase();
-                const note = (t[25] || '').toString();
-                return st === 'PAID' || /WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note);
-            });
+            const settled = covering.some(t => isTripCycleSettled(t, recvByTripId));
             if (settled) return;
             unpaid.push(c);
             if (covering.length) billedUnpaid += 1;
@@ -352,55 +466,6 @@
         }
     }
 
-    function findMatchingRentalInvoice(row, filterStartStr, filterEndStr) {
-        const trips = getRentalInvoiceTrips();
-        if (!trips.length || !row) return null;
-
-        const rid = row.id != null ? String(row.id) : '';
-        const cont = (row.container_no || '').toString().trim().toUpperCase();
-        const fStart = parseLocalDate(filterStartStr);
-        const fEnd = parseLocalDate(filterEndStr);
-        const hasFilter = !!(fStart || fEnd);
-        const rangeStart = fStart || parseLocalDate(row.start_date);
-        const rangeEnd = fEnd || parseLocalDate(row.final_date) || new Date();
-        if (rangeEnd) rangeEnd.setHours(0, 0, 0, 0);
-
-        const byRid = [];
-        const byCont = [];
-        trips.forEach(t => {
-            const noteRid = extractRentalIdFromNote(t[25]);
-            if (rid && noteRid && String(noteRid) === rid) {
-                byRid.push(t);
-                return;
-            }
-            const tCont = (t[3] || '').toString().trim().toUpperCase();
-            if (cont && tCont === cont && tCont !== '---' && tCont !== 'TBA') {
-                byCont.push(t);
-            }
-        });
-
-        const pool = byRid.length ? byRid : byCont;
-        const matched = pool.filter(t => {
-            const { start, end } = getInvoicePeriod(t);
-            if (hasFilter) {
-                const rs = rangeStart || new Date(2000, 0, 1);
-                const re = rangeEnd || new Date(2099, 11, 31);
-                return periodsOverlap(start, end, rs, re);
-            }
-            if (byRid.length) return true;
-            const rentalStart = parseLocalDate(row.start_date);
-            const rentalEnd = parseLocalDate(row.final_date) || new Date();
-            if (rentalEnd) rentalEnd.setHours(0, 0, 0, 0);
-            if (start && end && rentalStart) {
-                return periodsOverlap(start, end, rentalStart, rentalEnd);
-            }
-            return true;
-        });
-
-        if (!matched.length) return null;
-        return matched.find(t => (t[31] || '').toString().trim().toUpperCase() === 'PAID') || matched[0];
-    }
-
     async function loadRentalInvoiceTrips(force = false) {
         if (!force && window.rentalInvoiceTrips && window.rentalInvoiceTrips.length > 0) return;
         const sc = window.db || (typeof db !== 'undefined' ? db : null);
@@ -425,6 +490,7 @@
     async function loadRentalsData(force = false) {
         if (!force && window.currentRentals && window.currentRentals.length > 0) {
             await loadRentalInvoiceTrips(false);
+            await reconcileRentalTripsFromReceivables();
             await ensureRentalCycleInvoices();
             renderRentalsTable();
             return;
@@ -432,47 +498,6 @@
         try {
             const data = await getRentals();
             
-            // --- AUTOMATION: Auto-Pending for expired PAID rentals ---
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-            let updateCount = 0;
-
-            console.log("Checking for expired rentals... Today is:", new Date(today).toLocaleDateString());
-
-            const expiredIds = [];
-            for (let row of data) {
-                const status = (row.status || '').trim().toUpperCase();
-                const pStatus = (row.payment_status || '').trim().toUpperCase();
-
-                if (status === 'ACTIVE' && pStatus === 'PAID' && row.final_date) {
-                    let fDate;
-                    if (row.final_date.includes('-')) {
-                        const [fy, fm, fd] = row.final_date.split('-').map(Number);
-                        fDate = new Date(fy, fm - 1, fd).getTime();
-                    } else {
-                        fDate = new Date(row.final_date).getTime();
-                    }
-
-                    if (!isNaN(fDate) && fDate <= today) {
-                        row.payment_status = 'PENDING';
-                        expiredIds.push(row.id);
-                    }
-                }
-            }
-
-            if (expiredIds.length > 0) {
-                console.log(`Auto-Pending: Batch updating ${expiredIds.length} expired rentals...`);
-                if (window.updateRentalsBatch) {
-                    window.updateRentalsBatch(expiredIds, { payment_status: 'PENDING' })
-                        .then(() => console.log(`DB confirmed PENDING for ${expiredIds.length} rentals.`))
-                        .catch(err => console.error(`Batch update failed:`, err));
-                }
-            }
-
-            if (updateCount > 0) {
-                console.log(`Marked ${updateCount} rentals as PENDING locally.`);
-            }
-
             // Always use the locally-mutated data — never re-fetch (that would overwrite our changes)
             window.currentRentals = data || [];
 
@@ -485,6 +510,7 @@
             }
             populateAllRentalSelects();
             await loadRentalInvoiceTrips(true);
+            await reconcileRentalTripsFromReceivables();
             await ensureRentalCycleInvoices();
             renderRentalsTable();
         } catch (err) { console.error("Error loading rentals:", err); }
@@ -692,6 +718,254 @@
         }
     }
 
+    function findTripForRentalRow(row) {
+        if (!row) return null;
+        const cont = (row.container_no || '').toString().trim().toUpperCase();
+        const orderNo = (row.release_no || '').toString().trim();
+        const pools = [
+            window.currentTrips,
+            window.allTripsUnfiltered,
+            window.combinedBillingTrips
+        ];
+        for (const pool of pools) {
+            if (!pool || !pool.length) continue;
+            if (orderNo && orderNo !== '---') {
+                const exact = pool.find(t => {
+                    const c = (t[3] || '').toString().trim().toUpperCase();
+                    const o = (t[5] || '').toString().trim();
+                    return c === cont && o === orderNo;
+                });
+                if (exact) return exact;
+            }
+            const byCont = pool.find(t => (t[3] || '').toString().trim().toUpperCase() === cont);
+            if (byCont) return byCont;
+        }
+        return null;
+    }
+
+    async function fetchTripForRentalRow(row) {
+        let trip = findTripForRentalRow(row);
+        if (trip || !window.db || !row) return trip;
+        const cont = (row.container_no || '').toString().trim();
+        const orderNo = (row.release_no || '').toString().trim();
+        try {
+            let q = window.db.from('trips').select('*')
+                .eq('n_cont', cont)
+                .or('is_deleted.eq.false,is_deleted.is.null')
+                .order('date', { ascending: false })
+                .limit(5);
+            if (orderNo && orderNo !== '---') {
+                q = q.eq('order_no', orderNo);
+            }
+            const { data } = await q;
+            if (data && data.length && typeof window.mapTripToArray === 'function') {
+                return window.mapTripToArray(data[0]);
+            }
+        } catch (e) {
+            console.warn('[Rentals] Could not fetch trip for yard return', e);
+        }
+        return null;
+    }
+
+    function updateRentalEditSummary(row) {
+        const panel = document.getElementById('rental-edit-summary');
+        const statusEl = document.getElementById('rental-display-status');
+        const payEl = document.getElementById('rental-display-payment');
+        const cyclesEl = document.getElementById('rental-display-cycles');
+        if (!panel || !row) {
+            if (panel) panel.style.display = 'none';
+            return;
+        }
+        panel.style.display = 'block';
+        const st = (row.status || 'ACTIVE').toString().toUpperCase();
+        if (statusEl) {
+            statusEl.textContent = st;
+            statusEl.style.background = st === 'FINISHED' ? '#64748b' : '#10b981';
+        }
+        const prepaid = getPrepaidBalance(row, null, null);
+        const pay = prepaid.paymentStatus || 'PAID';
+        if (payEl) {
+            payEl.textContent = pay;
+            payEl.style.background = pay === 'PAID' ? '#1e40af' : '#d97706';
+        }
+        if (cyclesEl) {
+            const due = prepaid.amountDue || 0;
+            cyclesEl.textContent = prepaid.cycleLabel + (due > 0 ? ` · $${due.toFixed(2)} due` : '');
+        }
+    }
+
+    function updateRentalEditActionButtons(row) {
+        const returnBtn = document.getElementById('btn-return-rental-yard');
+        const st = (row && row.status || '').toString().toUpperCase();
+        if (returnBtn) {
+            returnBtn.style.display = (editingRentalId && st === 'ACTIVE') ? 'block' : 'none';
+        }
+    }
+
+    window.openReturnRentalToYardModal = function () {
+        if (!editingRentalId) {
+            alert('Select a rental row first.');
+            return;
+        }
+        const row = window.currentRentals.find(r => r.id === editingRentalId);
+        if (!row) return;
+        if ((row.status || '').toUpperCase() !== 'ACTIVE') {
+            alert('This rental is already finished.');
+            return;
+        }
+
+        const prepaid = getPrepaidBalance(row, null, null);
+        const unpaidWarn = prepaid.unpaidCycles > 0
+            ? `<p style="margin:0 0 12px; padding:10px; background:#fff7ed; border:1px solid #fdba74; border-radius:8px; font-size:0.85rem; color:#9a3412;"><strong>${prepaid.unpaidCycles}</strong> prepaid cycle(s) still open in Rentals / Account. Collect or write off in <strong>Account</strong>; yard return is $0.</p>`
+            : '';
+
+        const today = new Date().toISOString().split('T')[0];
+        const orderTrace = (row.release_no || '---').toString();
+        const traceWarn = (!orderTrace || orderTrace === '---')
+            ? `<p style="margin:0 0 12px; padding:10px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; font-size:0.85rem; color:#991b1b;">No order # on this rental — future <strong>Form Inventor</strong> cost may not link to Releases.</p>`
+            : `<p style="margin:0 0 12px; font-size:0.8rem; color:#64748b;">Order / trace for cost: <strong>${orderTrace}</strong> (kept on Yard Stock for later sales).</p>`;
+
+        let overlay = document.getElementById('rental-return-yard-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'rental-return-yard-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;z-index:999998;padding:16px;';
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:12px;max-width:480px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;font-family:Montserrat,sans-serif;">
+                <div style="background:#047857;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;font-size:1.05rem;"><i class="fas fa-warehouse" style="margin-right:8px;"></i> Return to Yard</h3>
+                    <button type="button" id="rental-return-yard-close" style="background:none;border:none;color:#fff;font-size:1.25rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+                </div>
+                <div style="padding:20px;color:#334155;">
+                    <p style="margin:0 0 10px;font-size:0.9rem;">Container <strong>${(row.container_no || '---').toString()}</strong> · ${row.customer_name || '---'}</p>
+                    ${traceWarn}
+                    ${unpaidWarn}
+                    <label style="display:block;font-size:0.75rem;font-weight:800;color:#64748b;margin-bottom:4px;">RETURN DATE</label>
+                    <input type="date" id="rental-return-date" value="${today}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;margin-bottom:14px;box-sizing:border-box;">
+                    <label style="display:block;font-size:0.75rem;font-weight:800;color:#64748b;margin-bottom:4px;">YARD DESTINATION</label>
+                    <select id="rental-return-yard-dest" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;margin-bottom:14px;">
+                        <option value="RPTULIPAN">RP Tulipan Yard</option>
+                        <option value="STORAGE">Storage Yard</option>
+                    </select>
+                    <p style="margin:0;font-size:0.78rem;color:#64748b;">Entry fee, daily rate and lift cost will be <strong>$0</strong> (own container). Rental status → FINISHED.</p>
+                </div>
+                <div style="padding:14px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;">
+                    <button type="button" id="rental-return-yard-cancel" style="padding:10px 16px;background:#e2e8f0;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Cancel</button>
+                    <button type="button" id="rental-return-yard-confirm" style="padding:10px 18px;background:#047857;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;">Confirm return</button>
+                </div>
+            </div>
+        `;
+
+        const close = () => { overlay.style.display = 'none'; };
+        overlay.style.display = 'flex';
+        overlay.querySelector('#rental-return-yard-close').onclick = close;
+        overlay.querySelector('#rental-return-yard-cancel').onclick = close;
+        overlay.querySelector('#rental-return-yard-confirm').onclick = async () => {
+            const returnDate = overlay.querySelector('#rental-return-date').value;
+            const dest = overlay.querySelector('#rental-return-yard-dest').value || 'RPTULIPAN';
+            if (!returnDate) {
+                alert('Please select a return date.');
+                return;
+            }
+            const btn = overlay.querySelector('#rental-return-yard-confirm');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            try {
+                await completeReturnRentalToYard(row, returnDate, dest);
+                close();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to return container to yard: ' + (err.message || err));
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Confirm return';
+            }
+        };
+    };
+
+    async function completeReturnRentalToYard(row, returnDate, yardDest) {
+        if (!row || !window.db) throw new Error('Missing rental or database');
+        const sc = window.db;
+        const containerNo = (row.container_no || '').toString().trim().toUpperCase();
+        const originRelease = (row.release_no || '').toString().trim() || '---';
+        const yardNotesPrefix = yardDest === 'STORAGE' ? '[Storage Yard] ' : '';
+        const returnNote = `Returned from rental ${returnDate}`;
+        const notes = `${yardNotesPrefix}${returnNote}`.trim();
+
+        const linkedTrip = await fetchTripForRentalRow(row);
+        const relType = linkedTrip ? ((linkedTrip[44] || 'DRY').toString()) : 'DRY';
+        const relCondition = linkedTrip ? ((linkedTrip[45] || 'CW').toString()) : 'CW';
+        const size = row.size || (linkedTrip ? linkedTrip[2] : '---') || '---';
+
+        const createdAtStr = new Date(returnDate + 'T12:00:00').toISOString();
+
+        const { data: existingYard } = await sc.from('yard_stock')
+            .select('id, notes, lifts, lift_cost')
+            .eq('container_no', containerNo)
+            .eq('origin_release', originRelease)
+            .or('is_deleted.eq.false,is_deleted.is.null')
+            .limit(1);
+
+        const yardPayload = {
+            container_no: containerNo,
+            size: size,
+            type: relType,
+            condition: relCondition,
+            origin_release: originRelease,
+            notes: notes,
+            customer_name: '',
+            customer_phone: '',
+            daily_rate: 0,
+            entry_fee: 0,
+            lift_cost: 0,
+            lifts: 1,
+            status: 'AVAILABLE',
+            exit_date: null,
+            order_out: null,
+            created_at: createdAtStr
+        };
+
+        if (existingYard && existingYard.length > 0) {
+            const { error: yErr } = await sc.from('yard_stock').update(yardPayload).eq('id', existingYard[0].id);
+            if (yErr) throw yErr;
+        } else {
+            const { error: yErr } = await sc.from('yard_stock').insert([yardPayload]);
+            if (yErr) throw yErr;
+        }
+
+        const rentalUpdate = {
+            status: 'FINISHED',
+            final_date: returnDate,
+            notes: ((row.notes || '') + `\n[Returned to yard ${returnDate} — ${yardDest === 'STORAGE' ? 'Storage Yard' : 'RP Tulipan Yard'}]`).trim()
+        };
+        const { data: updated, error: rErr } = await sc.from('rentals').update(rentalUpdate).eq('id', row.id).select();
+        if (rErr) throw rErr;
+
+        if (updated && updated[0]) {
+            const idx = window.currentRentals.findIndex(r => r.id === row.id);
+            if (idx !== -1) window.currentRentals[idx] = { ...window.currentRentals[idx], ...updated[0] };
+        }
+
+        if (window.logActivity) {
+            window.logActivity('UPDATED_RECORD', `[${new Date().toLocaleString()}] Rental returned to yard: ${containerNo} → ${yardDest} (${returnDate})`);
+        }
+
+        if (typeof window.loadYardData === 'function') {
+            await window.loadYardData(true);
+        }
+        if (typeof window.renderYardTable === 'function') {
+            window.renderYardTable();
+        }
+
+        alert(`Container ${containerNo} is back in Yard Stock (${yardDest === 'STORAGE' ? 'Storage Yard' : 'RP Tulipan Yard'}). Rental marked FINISHED.`);
+        resetRentalForm();
+        await reconcileRentalTripsFromReceivables();
+        renderRentalsTable();
+    }
+
     function toggleRentalCustomerMode() {
         const sel = document.getElementById('rental-customer-sel');
         const inp = document.getElementById('rental-customer');
@@ -767,7 +1041,7 @@
         const trStr = (timeRent || '').toLowerCase();
 
         // With FROM/TO filters, bill only the overlapping window so one selected
-        // month charges 1 cycle — not the full accumulated debt. Unfiltered
+        // month charges 1 cycle â€” not the full accumulated debt. Unfiltered
         // totals keep the original start-to-today (or final_date) logic.
         if (useFilter && overlapDays > 0) {
             const cycleStart = effectiveStart;
@@ -912,14 +1186,16 @@
             tr.onclick = () => editRental(idx);
 
             tr.innerHTML = `
-                <td style="color: #000000; font-weight: 700;">${formatDate(row.start_date)}</td>
-                <td style="font-weight: 700; color: ${isExpired ? '#ef4444' : '#000000'}; font-size: 0.85rem; line-height: 1.2;">
-                    ${formatDate(row.start_date)}<br>a ${formatDate(row.final_date)} 
-                    ${isExpired ? '<i class="fas fa-exclamation-triangle" title="Unpaid prepaid cycle"></i>' : ''}
+                <td style="color: ${isExpired ? '#ef4444' : '#000000'}; font-weight: 700;">
+                    ${formatDate(row.start_date)}
+                    ${isExpired ? ' <i class="fas fa-exclamation-triangle" title="Unpaid prepaid cycle"></i>' : ''}
+                </td>
+                <td class="rentals-col-time-rent" style="font-weight: 700; color: ${isExpired ? '#ef4444' : '#000000'}; font-size: 0.85rem; line-height: 1.2;">
+                    ${formatDate(row.start_date)}<br>a ${formatDate(row.final_date)}
                 </td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.release_no || '---'}</td>
                 <td style="font-weight: 700; color: #000000; text-align: center;">${row.size || '---'}</td>
-                <td style="font-weight: 900; color: ${isDuplicate ? '#9a3412' : '#000000'}; background-color: ${isDuplicate ? '#ffedd5' : 'transparent'};" ${isDuplicate ? 'title="ATENCIÓN: Este número de contenedor está repetido en el sistema."' : ''}>
+                <td style="font-weight: 900; color: ${isDuplicate ? '#9a3412' : '#000000'}; background-color: ${isDuplicate ? '#ffedd5' : 'transparent'};" ${isDuplicate ? 'title="ATENCIÃ“N: Este nÃºmero de contenedor estÃ¡ repetido en el sistema."' : ''}>
                     ${isDuplicate ? '<i class="fas fa-exclamation-triangle" style="color: #ea580c; margin-right: 6px;"></i>' : ''}${row.container_no || '---'}
                 </td>
                 <td style="font-weight: 700; color: #000000;">${row.delivery_place || '---'}</td>
@@ -946,16 +1222,6 @@
         // Update Summary Card Counter with filtered count
         const countEl = document.getElementById('rental-count-display');
         if (countEl) countEl.textContent = visibleCount;
-
-        // Show/Hide combined invoice button
-        const combBtn = document.getElementById('btn-combined-invoice');
-        if (combBtn) {
-            const showInvoiceBtn = !!editingRentalId || (visibleCount > 0 && customerFilter !== '');
-            combBtn.style.display = showInvoiceBtn ? 'inline-block' : 'none';
-            combBtn.innerHTML = editingRentalId
-                ? '<i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Invoice this rental'
-                : '<i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Generate Invoice';
-        }
 
         // Show/Hide global delete button
         const delBtn = document.getElementById('btn-delete-rental-global');
@@ -994,11 +1260,17 @@
         const basePrice = document.getElementById('rental-base-price').value || 0;
         const size = (document.getElementById('rental-size-sel').style.display !== 'none') ? document.getElementById('rental-size-sel').value : document.getElementById('rental-size').value;
         const deliveryPlace = document.getElementById('rental-delivery-place').value;
-        const status = document.getElementById('rental-status').value;
-        const paymentStatus = document.getElementById('rental-payment-status').value;
         const notes = document.getElementById('rental-notes').value;
 
         if (!startDate || !container || !customer) { alert("Please fill in Start Date, Container #, and Customer."); return; }
+        if (!originalRentalState) return;
+
+        const status = (originalRentalState.status || 'ACTIVE').toString();
+        const paymentStatus = originalRentalState.payment_status || 'PENDING';
+
+        if (originalRentalState.final_date) {
+            finalDate = originalRentalState.final_date;
+        }
 
         const payload = {
             start_date: startDate, 
@@ -1098,8 +1370,7 @@
         document.getElementById('rental-delivery-place').value = row.delivery_place || '';
         document.getElementById('rental-phone').value = window.formatUSPhone(row.phone || '');
         document.getElementById('rental-base-price').value = row.base_price;
-        document.getElementById('rental-status').value = row.status || 'ACTIVE';
-        document.getElementById('rental-payment-status').value = row.payment_status || 'PENDING';
+        updateRentalEditSummary(row);
         document.getElementById('rental-notes').value = row.notes || '';
         
         // Lock core fields to prevent sync errors with Calendar
@@ -1112,15 +1383,8 @@
 
         document.getElementById('btn-save-rental').style.display = 'block';
         document.getElementById('btn-reset-rental').style.display = 'block';
-        
-        const invBtn = document.getElementById('btn-generate-invoice');
-        if (invBtn) invBtn.style.display = 'block';
-        
-        const payBtn = document.getElementById('btn-register-payment');
-        if (payBtn) {
-            payBtn.style.display = (row.status === 'ACTIVE') ? 'block' : 'none';
-        }
-        
+        updateRentalEditActionButtons(row);
+
         // Refresh table to show highlighting and delete button
         renderRentalsTable();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1171,8 +1435,8 @@
         document.getElementById('rental-delivery-place').value = '';
         document.getElementById('rental-phone').value = '';
         document.getElementById('rental-base-price').value = '';
-        document.getElementById('rental-status').value = 'ACTIVE';
-        document.getElementById('rental-payment-status').value = 'PENDING';
+        const summaryPanel = document.getElementById('rental-edit-summary');
+        if (summaryPanel) summaryPanel.style.display = 'none';
         document.getElementById('rental-notes').value = '';
         
         // Unlock fields
@@ -1188,12 +1452,8 @@
 
         document.getElementById('btn-save-rental').style.display = 'none';
         document.getElementById('btn-reset-rental').style.display = 'none';
-        
-        const invBtn = document.getElementById('btn-generate-invoice');
-        if (invBtn) invBtn.style.display = 'none';
-        
-        const payBtn = document.getElementById('btn-register-payment');
-        if (payBtn) payBtn.style.display = 'none';
+        updateRentalEditActionButtons(null);
+
         renderRentalsTable(); // Hide delete button and clear highlight
     }
 
@@ -1297,550 +1557,12 @@
         });
     };
 
-    window.generateRentalsInvoiceButton = function() {
-        if (editingRentalId) return window.generateRentalInvoice();
-        return window.generateCombinedRentalInvoice();
-    };
-
-    window.generateRentalInvoice = async function() {
-        if (!editingRentalId) {
-            alert('Select a rental to generate an invoice.');
-            return;
-        }
-        const row = window.currentRentals.find(r => r.id === editingRentalId);
-        if (!row) return;
-
-        const prepaid = getPrepaidBalance(row, null, null);
-        if (!prepaid.unbilled || !prepaid.unbilled.length) {
-            if (prepaid.unpaidCycles) {
-                alert('These cycles are already in Accounts Receivable as PENDING. Open Account to collect payment or write off (complimentary).');
-            } else {
-                alert('This rental is paid for the current prepaid period. Nothing to invoice.');
-            }
-            return;
-        }
-
-        const cyclePrice = parseFloat(row.base_price) || 0;
-        const unpaidCycles = prepaid.unbilled;
-        const fmt = (s) => { const p = (s || '').split('-'); return p.length >= 3 ? `${p[1]}/${p[2]}/${p[0]}` : (s || ''); };
-        const fmtDateObj = (d) => fmt(toIsoDate(d));
-
-        let modal = document.getElementById('rental-invoice-modal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'rental-invoice-modal';
-            modal.className = 'simple-modal';
-            modal.style.display = 'none';
-            document.body.appendChild(modal);
-        }
-
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 520px;">
-                <div class="modal-header" style="background: #1e3a8a; color: white; padding: 15px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin:0; font-size: 1.1rem;"><i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Generate Rental Invoice</h3>
-                    <button class="btn-close-modal" onclick="document.getElementById('rental-invoice-modal').style.display='none'" style="background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-                <div style="padding: 20px; font-size: 0.95rem; color: #334155; line-height: 1.6;">
-                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 10px; margin-bottom: 16px;">
-                        <strong style="color: #64748b;">Customer:</strong> <span id="ri-modal-customer" style="font-weight: 600;"></span>
-                        <strong style="color: #64748b;">Container:</strong> <span><span id="ri-modal-container" style="font-weight: 600;"></span> (<span id="ri-modal-size"></span>)</span>
-                        <strong style="color: #64748b;">Period:</strong> <span id="ri-modal-period" style="font-weight: 600; color: #2563eb;"></span>
-                        <strong style="color: #64748b;">Amount:</strong> <span style="font-weight: 700; color: #10b981; font-size: 1.1rem;">$<span id="ri-modal-amount"></span></span>
-                    </div>
-                    <div style="margin-bottom: 16px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <label style="font-weight: 700; color: #1e293b;">Cycles to invoice</label>
-                            <button type="button" id="ri-select-all-cycles" style="background: none; border: none; color: #2563eb; font-weight: 700; cursor: pointer; font-size: 0.8rem;">Select all due</button>
-                        </div>
-                        <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">Oldest cycle is selected by default. Check more only if the customer is paying more than one rent now.</p>
-                        <div id="ri-cycle-list" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #fff;"></div>
-                    </div>
-                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        <label style="font-weight: 700; display: block; margin-bottom: 10px; color: #1e293b;">Payment Status</label>
-                        <div style="display: flex; gap: 20px; align-items: center;">
-                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                <input type="radio" name="ri-pay-status" value="PENDING" checked> Pending
-                            </label>
-                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                <input type="radio" name="ri-pay-status" value="PAID"> Paid Now
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer" style="padding: 15px 20px; background: #f1f5f9; text-align: right; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
-                    <button style="padding: 10px 15px; background: #64748b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; font-weight: 600;" onclick="document.getElementById('rental-invoice-modal').style.display='none'">Cancel</button>
-                    <button id="btn-confirm-rental-invoice" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-check"></i> Generate Invoice</button>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('ri-modal-customer').textContent = row.customer_name || '---';
-        document.getElementById('ri-modal-container').textContent = row.container_no || '---';
-        document.getElementById('ri-modal-size').textContent = row.size || '---';
-
-        const cycleList = document.getElementById('ri-cycle-list');
-        const unitWord = cycleUnitLabels(prepaid.unit, 1);
-        unpaidCycles.forEach((c, i) => {
-            const label = document.createElement('label');
-            label.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px; cursor:pointer; border-radius:6px;';
-            label.innerHTML = `
-                <input type="checkbox" name="ri-cycle" value="${i}" ${i === 0 ? 'checked' : ''}>
-                <span style="flex:1; font-weight:600;">${unitWord} ${i + 1}: ${fmtDateObj(c.start)} – ${fmtDateObj(c.end)}</span>
-                <span style="font-weight:800; color:#0f172a;">$${cyclePrice.toFixed(2)}</span>
-            `;
-            cycleList.appendChild(label);
-        });
-
-        const getSelectedCycles = () => {
-            const boxes = [...document.querySelectorAll('#ri-cycle-list input[name="ri-cycle"]:checked')];
-            return boxes.map(cb => unpaidCycles[Number(cb.value)]).filter(Boolean);
-        };
-
-        const refreshInvoiceSummary = () => {
-            const selected = getSelectedCycles();
-            const startIso = selected[0] ? toIsoDate(selected[0].start) : '';
-            const endIso = selected.length ? toIsoDate(selected[selected.length - 1].end) : '';
-            const amount = selected.length * cyclePrice;
-            document.getElementById('ri-modal-period').textContent = selected.length
-                ? `${fmt(startIso)} - ${fmt(endIso)} (${selected.length} ${cycleUnitLabels(prepaid.unit, selected.length)})`
-                : 'Select at least one cycle';
-            document.getElementById('ri-modal-amount').textContent = amount.toFixed(2);
-            return { startIso, endIso, amount, selected };
-        };
-
-        const applyFifoSelection = (changedIdx, isChecked) => {
-            const boxes = [...document.querySelectorAll('#ri-cycle-list input[name="ri-cycle"]')];
-            boxes.forEach((cb, i) => {
-                cb.checked = isChecked ? i <= changedIdx : i < changedIdx;
-            });
-            refreshInvoiceSummary();
-        };
-
-        cycleList.querySelectorAll('input[name="ri-cycle"]').forEach((cb, i) => {
-            cb.addEventListener('change', () => applyFifoSelection(i, cb.checked));
-        });
-        document.getElementById('ri-select-all-cycles').onclick = () => {
-            document.querySelectorAll('#ri-cycle-list input[name="ri-cycle"]').forEach(cb => { cb.checked = true; });
-            refreshInvoiceSummary();
-        };
-        refreshInvoiceSummary();
-
-        const invoiceDate = new Date().toISOString().split('T')[0];
-        const confirmBtn = document.getElementById('btn-confirm-rental-invoice');
-        confirmBtn.onclick = async function() {
-            const summary = refreshInvoiceSummary();
-            if (!summary.selected.length) {
-                alert('Select at least one unpaid cycle to invoice.');
-                return;
-            }
-            const start = summary.startIso;
-            const end = summary.endIso;
-            const rentAmount = summary.amount;
-
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            
-            const isPaidNow = document.querySelector('input[name="ri-pay-status"]:checked').value === 'PAID';
-            const orderNo = `RENT-${Math.floor(1000 + Math.random() * 9000)}`;
-            const periodLabel = `${fmt(start)} - ${fmt(end)}`;
-            
-            let paymentSplit = null;
-            let totalPaid = 0;
-            let isFullyPaid = false;
-            if (isPaidNow) {
-                paymentSplit = await window.showSplitPaymentModal(rentAmount);
-                if (!paymentSplit) {
-                    confirmBtn.disabled = false;
-                    confirmBtn.innerHTML = '<i class="fas fa-check"></i> Generate Invoice';
-                    return;
-                }
-                totalPaid = paymentSplit.cashAmt + paymentSplit.bankAmt;
-                isFullyPaid = totalPaid >= rentAmount;
-            }
-
-            let baseTrip = null;
-            if (window.currentTrips && window.currentTrips.length > 0) {
-                // Find latest trip for this container
-                baseTrip = window.currentTrips.slice().reverse().find(t => t[3] === row.container_no);
-            }
-
-            if (!baseTrip) {
-                // Fallback: fetch from database if not in memory
-                try {
-                    const { data: dbTrips, error: dbErr } = await window.db.from('trips')
-                        .select('*')
-                        .eq('n_cont', row.container_no)
-                        .or('is_deleted.eq.false,is_deleted.is.null')
-                        .order('date', { ascending: false })
-                        .limit(1);
-                    if (!dbErr && dbTrips && dbTrips.length > 0 && typeof window.mapTripToArray === 'function') {
-                        baseTrip = window.mapTripToArray(dbTrips[0]);
-                    }
-                } catch (e) {
-                    console.warn("Could not fetch base trip from DB", e);
-                }
-            }
-
-            const tripObj = {
-                trip_id: crypto.randomUUID(),
-                date: invoiceDate,
-                order_no: baseTrip ? baseTrip[5] : orderNo, // Use original order number in Trips table
-                customer: row.customer_name,
-                pickup_address: baseTrip ? baseTrip[7] : '',
-                delivery_place: baseTrip ? baseTrip[8] : '',
-                note: formatRentalInvoiceNote(periodLabel, row.id),
-                n_cont: row.container_no,
-                yard_rate: 0, 
-                monthly_rate: rentAmount, // This maps to row[27] which is the RENT column in billing
-                service_mode: 'RENTAL INVOICE',
-                status: 'COMPLETE',
-                st_yard: isFullyPaid ? 'PAID' : 'PEND',
-                st_rate: 'PAID',
-                st_sales: 'PAID',
-                st_amount: 'PAID',
-                st_rent: isFullyPaid ? 'PAID' : 'PEND', // Ensure rent status matches payment
-                has_trans: 'NO',
-                has_sales: 'NO',
-                invoice_sent: 'YES',
-                paid: isFullyPaid,
-                email: baseTrip ? (baseTrip[36] === '---' ? '' : baseTrip[36]) : '',
-                start_date_rent: start,
-                next_due: end
-            };
-
-            try {
-                const { error: insertError } = await window.db.from('trips').insert([tripObj]);
-                if (insertError) throw insertError;
-                if (typeof window.mapTripToArray === 'function') {
-                    rememberRentalInvoiceTrip(window.mapTripToArray(tripObj));
-                }
-                
-                if (isPaidNow && paymentSplit && window.logCashTransaction) {
-                    const desc = `Pago Factura Renta - ${orderNo}`;
-                    if (paymentSplit.cashAmt > 0) {
-                        await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: desc + ' [Cash]', referencia: orderNo, chofer: row.customer_name });
-                    }
-                    if (paymentSplit.bankAmt > 0) {
-                        await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: desc + ' [Bank]', referencia: orderNo, chofer: row.customer_name });
-                    }
-                }
-                
-                // Always generate Accounts Receivable record
-                if (window.addInvoiceToReceivables) {
-                    const detailsHtml = `
-                        <div style="font-size:0.85rem; color:#475569;">
-                            <strong>Container:</strong> ${row.container_no || '---'}<br>
-                            <strong>Period:</strong> ${fmt(start)} - ${fmt(end)}
-                        </div>
-                    `;
-                    
-                    let arMethod = '';
-                    if (isPaidNow && paymentSplit) {
-                        if (paymentSplit.cashAmt > 0 && paymentSplit.bankAmt > 0) arMethod = 'Split';
-                        else if (paymentSplit.cashAmt > 0) arMethod = 'Cash';
-                        else arMethod = 'Bank';
-                    }
-                    
-                    await window.addInvoiceToReceivables(
-                        row.customer_name, 
-                        orderNo, 
-                        rentAmount, 
-                        detailsHtml, 
-                        [tripObj.trip_id, 'RENTAL_ID:' + row.id], 
-                        'RENTAL',
-                        totalPaid,
-                        arMethod
-                    );
-                }
-                
-                modal.style.display = 'none';
-                alert('Rental Invoice generated successfully!');
-                window.billingDataLoaded = false;
-                
-                if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
-                renderRentalsTable();
-            } catch(err) {
-                console.error('Error generating rental invoice:', err);
-                alert('Failed to generate invoice.');
-            } finally {
-                confirmBtn.disabled = false;
-                confirmBtn.innerHTML = '<i class="fas fa-check"></i> Generate Invoice';
-            }
-        };
-
-        modal.style.display = 'flex';
-    };
-
-    window.generateCombinedRentalInvoice = async function() {
-        const customerFilter = (document.getElementById('rental-filter-customer')?.value || '').trim().toLowerCase();
-        if (!customerFilter) {
-            alert('Please select a customer first.');
-            return;
-        }
-
-        const showAll = document.getElementById('rental-show-all')?.checked;
-        const startDateFilter = document.getElementById('rental-filter-start')?.value;
-        const endDateFilter = document.getElementById('rental-filter-end')?.value;
-
-        if (!startDateFilter || !endDateFilter) {
-            alert('Por favor, selecciona un rango de fechas (FROM y TO) para generar el invoice de ese periodo.');
-            return;
-        }
-
-        const sizeFilter = (document.getElementById('rental-filter-size')?.value || '').trim().toLowerCase();
-        const containerFilter = (document.getElementById('rental-filter-container')?.value || '').trim().toLowerCase();
-
-        // Get matching rentals
-        const matchingRentals = window.currentRentals.filter(row => {
-            if (!showAll && row.status === 'FINISHED') return false;
-            
-            const matchesCust = !customerFilter || (row.customer_name && row.customer_name.toLowerCase() === customerFilter);
-            const matchesSize = !sizeFilter || (row.size && row.size.toLowerCase() === sizeFilter);
-            const matchesCont = !containerFilter || (row.container_no && row.container_no.toLowerCase().includes(containerFilter));
-            
-            let matchesDates = true;
-            if (startDateFilter || endDateFilter) {
-                const rowStart = new Date(row.start_date); rowStart.setHours(0,0,0,0);
-                const rowEnd = (row.status === 'FINISHED' && row.final_date) ? new Date(row.final_date) : new Date();
-                rowEnd.setHours(0,0,0,0);
-                
-                const fStart = startDateFilter ? new Date(startDateFilter + 'T00:00:00') : new Date('2000-01-01T00:00:00');
-                if (startDateFilter) fStart.setHours(0,0,0,0);
-                
-                const fEnd = endDateFilter ? new Date(endDateFilter + 'T00:00:00') : new Date('2099-12-31T00:00:00');
-                if (endDateFilter) {
-                    fEnd.setDate(fEnd.getDate() + 1);
-                    fEnd.setHours(0,0,0,0);
-                }
-                
-                const overlap = (rowStart <= fEnd && rowEnd >= fStart);
-                if (!overlap) matchesDates = false;
-            }
-            
-            return matchesCust && matchesSize && matchesCont && matchesDates;
-        });
-
-        if (matchingRentals.length === 0) {
-            alert('No matching rentals found to invoice.');
-            return;
-        }
-
-        // Filter out those that already have a ghost trip for this period? 
-        // The user said: "todo lo que entre en las fechas seleccionadas es lo que debe ir en ese invoice"
-        // Let's sum it up.
-        let totalCombinedAmount = 0;
-        const processedRentals = [];
-
-        matchingRentals.forEach(row => {
-            const prepaid = getPrepaidBalance(row, startDateFilter, endDateFilter);
-            const missing = prepaid.unbilled || [];
-            const bDue = missing.length * (parseFloat(row.base_price) || 0);
-            if (bDue > 0 && missing.length) {
-                totalCombinedAmount += bDue;
-                processedRentals.push({
-                    row,
-                    amount: bDue,
-                    invoiceStart: toIsoDate(missing[0].start),
-                    invoiceEnd: toIsoDate(missing[missing.length - 1].end)
-                });
-            }
-        });
-
-        if (totalCombinedAmount <= 0) {
-            alert('These rentals are already in Accounts Receivable. Open Account to collect or write off.');
-            return;
-        }
-
-        // Reuse the modal for combined invoice
-        let modal = document.getElementById('rental-invoice-modal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'rental-invoice-modal';
-            modal.className = 'simple-modal';
-            modal.style.display = 'none';
-            document.body.appendChild(modal);
-        }
-
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header" style="background: #1e3a8a; color: white; padding: 15px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin:0; font-size: 1.1rem;"><i class="fas fa-file-invoice-dollar" style="margin-right: 8px;"></i> Generate Combined Invoice</h3>
-                    <button class="btn-close-modal" onclick="document.getElementById('rental-invoice-modal').style.display='none'" style="background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-                <div style="padding: 20px; font-size: 0.95rem; color: #334155; line-height: 1.6;">
-                    <div style="margin-bottom: 20px;">
-                        <strong style="color: #64748b;">Customer:</strong> <span style="font-weight: 600;">${matchingRentals[0].customer_name.toUpperCase()}</span><br>
-                        <strong style="color: #64748b;">Rentals Included:</strong> <span style="font-weight: 600;">${processedRentals.length}</span>
-                    </div>
-                    
-                    <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 700; color: #475569;">Total Amount:</span>
-                            <span style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">$${totalCombinedAmount.toFixed(2)}</span>
-                        </div>
-                        <div style="display: flex; gap: 15px; margin-top: 10px;">
-                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 600; color: #1e293b;">
-                                <input type="radio" name="ri-pay-status" value="PENDING" checked> Pay Later (Pending)
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 600; color: #10b981;">
-                                <input type="radio" name="ri-pay-status" value="PAID"> Paid Now
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer" style="padding: 15px 20px; background: #f1f5f9; text-align: right; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
-                    <button style="padding: 10px 15px; background: #64748b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; font-weight: 600;" onclick="document.getElementById('rental-invoice-modal').style.display='none'">Cancel</button>
-                    <button id="btn-confirm-combined-invoice" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-check"></i> Generate Invoice</button>
-                </div>
-            </div>
-        `;
-
-        const confirmBtn = document.getElementById('btn-confirm-combined-invoice');
-        confirmBtn.onclick = async function() {
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            
-            const isPaidNow = document.querySelector('input[name="ri-pay-status"]:checked').value === 'PAID';
-            const orderNo = `RENT-${Math.floor(1000 + Math.random() * 9000)}`;
-            const invoiceDate = new Date().toISOString().split('T')[0];
-            
-            let paymentSplit = null;
-            let totalPaid = 0;
-            let isFullyPaid = false;
-            
-            if (isPaidNow) {
-                paymentSplit = await window.showSplitPaymentModal(totalCombinedAmount);
-                if (!paymentSplit) {
-                    confirmBtn.disabled = false;
-                    confirmBtn.innerHTML = '<i class="fas fa-check"></i> Generate Invoice';
-                    return;
-                }
-                totalPaid = paymentSplit.cashAmt + paymentSplit.bankAmt;
-                isFullyPaid = totalPaid >= totalCombinedAmount;
-            }
-
-            try {
-                let allTripIds = [];
-                let detailsHtml = '<div style="font-size:0.85rem; color:#475569;">';
-                
-                // Fetch base trips for all containers at once if possible, or individually
-                for (const item of processedRentals) {
-                    const row = item.row;
-                    const rAmount = item.amount;
-                    
-                    let baseTrip = null;
-                    if (window.currentTrips && window.currentTrips.length > 0) {
-                        baseTrip = window.currentTrips.slice().reverse().find(t => t[3] === row.container_no);
-                    }
-                    if (!baseTrip) {
-                        try {
-                            const { data: dbTrips } = await window.db.from('trips').select('*').eq('n_cont', row.container_no).or('is_deleted.eq.false,is_deleted.is.null').order('date', { ascending: false }).limit(1);
-                            if (dbTrips && dbTrips.length > 0 && typeof window.mapTripToArray === 'function') {
-                                baseTrip = window.mapTripToArray(dbTrips[0]);
-                            }
-                        } catch (e) {}
-                    }
-                    
-                    const tripId = crypto.randomUUID();
-                    allTripIds.push(tripId);
-                    allTripIds.push('RENTAL_ID:' + row.id);
-                    
-                    const start = item.invoiceStart || startDateFilter || row._calculatedStart || row.start_date || invoiceDate;
-                    const end = item.invoiceEnd || endDateFilter || row._calculatedEnd || row.final_date || invoiceDate;
-                    const fmt = (s) => { const p = s.split('-'); return `${p[1]}/${p[2]}/${p[0]}`; };
-                    const periodLabel = `${fmt(start)} - ${fmt(end)}`;
-                    
-                    detailsHtml += `<strong>Container:</strong> ${row.container_no || '---'} (${periodLabel}) - <strong>$${rAmount.toFixed(2)}</strong><br>`;
-
-                    const tripObj = {
-                        trip_id: tripId,
-                        date: invoiceDate,
-                        order_no: baseTrip ? baseTrip[5] : orderNo, 
-                        customer: row.customer_name,
-                        pickup_address: baseTrip ? baseTrip[7] : '',
-                        delivery_place: baseTrip ? baseTrip[8] : '',
-                        note: formatRentalInvoiceNote(periodLabel, row.id),
-                        n_cont: row.container_no,
-                        yard_rate: 0, 
-                        monthly_rate: rAmount, 
-                        service_mode: 'RENTAL INVOICE',
-                        status: 'COMPLETE',
-                        st_yard: isFullyPaid ? 'PAID' : 'PEND',
-                        st_rate: 'PAID',
-                        st_sales: 'PAID',
-                        st_amount: 'PAID',
-                        st_rent: isFullyPaid ? 'PAID' : 'PEND', 
-                        has_trans: 'NO',
-                        has_sales: 'NO',
-                        invoice_sent: 'YES',
-                        paid: isFullyPaid,
-                        email: baseTrip ? (baseTrip[36] === '---' ? '' : baseTrip[36]) : '',
-                        start_date_rent: start,
-                        next_due: end
-                    };
-                    
-                    const { error: insertError } = await window.db.from('trips').insert([tripObj]);
-                    if (insertError) throw insertError;
-                    if (typeof window.mapTripToArray === 'function') {
-                        rememberRentalInvoiceTrip(window.mapTripToArray(tripObj));
-                    }
-                }
-                
-                detailsHtml += '</div>';
-                
-                if (isPaidNow && paymentSplit && window.logCashTransaction) {
-                    const desc = `Pago Factura Renta Combinada - ${orderNo}`;
-                    if (paymentSplit.cashAmt > 0) {
-                        await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: paymentSplit.cashAmt, descripcion: desc + ' [Cash]', referencia: orderNo, chofer: matchingRentals[0].customer_name });
-                    }
-                    if (paymentSplit.bankAmt > 0) {
-                        await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: paymentSplit.bankAmt, descripcion: desc + ' [Bank]', referencia: orderNo, chofer: matchingRentals[0].customer_name });
-                    }
-                }
-                
-                if (window.addInvoiceToReceivables) {
-                    let arMethod = '';
-                    if (isPaidNow && paymentSplit) {
-                        if (paymentSplit.cashAmt > 0 && paymentSplit.bankAmt > 0) arMethod = 'Split';
-                        else if (paymentSplit.cashAmt > 0) arMethod = 'Cash';
-                        else arMethod = 'Bank';
-                    }
-                    
-                    await window.addInvoiceToReceivables(
-                        matchingRentals[0].customer_name, 
-                        orderNo, 
-                        totalCombinedAmount, 
-                        detailsHtml, 
-                        allTripIds, 
-                        'RENTAL',
-                        totalPaid,
-                        arMethod
-                    );
-                }
-                
-                modal.style.display = 'none';
-                alert('Combined Rental Invoice generated successfully!');
-                window.billingDataLoaded = false;
-                
-                if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
-                renderRentalsTable();
-            } catch(err) {
-                console.error('Error generating combined invoice:', err);
-                alert('Failed to generate combined invoice.');
-            } finally {
-                confirmBtn.disabled = false;
-                confirmBtn.innerHTML = '<i class="fas fa-check"></i> Generate Invoice';
-            }
-        };
-
-        modal.style.display = 'flex';
-    };
-
     window.refreshRentalsModule = async function() {
         await window.withRefreshButton('btn-refresh-rentals', async () => {
             const data = await getRentals();
             window.currentRentals = data || [];
             await loadRentalInvoiceTrips(true);
+            await reconcileRentalTripsFromReceivables();
             await ensureRentalCycleInvoices();
             populateRentalFilterCustomerSelect();
             populateRentalFilterSizeSelect();
@@ -1852,6 +1574,7 @@
     window.renderRentalsTable = renderRentalsTable;
     window.loadRentalsData = loadRentalsData;
     window.loadRentalInvoiceTrips = loadRentalInvoiceTrips;
+    window.reconcileRentalTripsFromReceivables = reconcileRentalTripsFromReceivables;
     window.rememberRentalInvoiceTrip = rememberRentalInvoiceTrip;
     window.stripRentalIdFromNote = stripRentalIdFromNote;
     window.saveRentalData = saveRentalData;

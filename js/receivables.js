@@ -25,6 +25,7 @@ async function loadReceivables() {
             .order('date_generated', { ascending: false });
         if (error) throw error;
         window.receivablesData.invoices = data || [];
+        window._recvSettlementMap = null;
     } catch (err) {
         console.error('[Receivables] Error loading invoices:', err);
     }
@@ -52,16 +53,31 @@ function findTripRowById(tid) {
     return null;
 }
 
-function getOrderNumbersFromTripIds(tripIdsStr) {
-    if (!tripIdsStr) return '';
+function getUniqueOrderNumbersFromTripIds(tripIdsStr) {
+    if (!tripIdsStr) return [];
     const ids = tripIdsStr.split(',').map(id => id.trim()).filter(id => id && !id.startsWith('RENTAL_ID:'));
-    if (ids.length === 0) return '';
     const orders = [];
     ids.forEach(id => {
         const row = findTripRowById(id);
-        if (row && row[5] && row[5] !== '---') orders.push(row[5]);
+        if (row && row[5] && row[5] !== '---') {
+            const o = row[5].toString().trim();
+            if (o) orders.push(o);
+        }
     });
-    return [...new Set(orders)].join(', ');
+    return [...new Set(orders)];
+}
+
+function getOrderNumbersFromTripIds(tripIdsStr) {
+    return getUniqueOrderNumbersFromTripIds(tripIdsStr).join(', ');
+}
+
+function isRentalReceivableInvoice(inv) {
+    const svc = invoiceServiceKey(inv);
+    if (svc === 'RENT' || svc === 'RENTAL') return true;
+    const invNo = (inv.invoice_number || '').toString().toUpperCase();
+    if (invNo.startsWith('RENT-')) return true;
+    if ((inv.trip_ids || '').toString().includes('RENTAL_ID:')) return true;
+    return false;
 }
 
 function invoiceServiceKey(inv) {
@@ -85,26 +101,33 @@ function invoiceMatchesService(inv, filter) {
 }
 
 function getReceivableSubtitle(inv) {
-    const details = (inv.details_html || '').toString();
-    const contFromDetails = (details.match(/Container:<\/strong>\s*([^<]+)/i) || [])[1];
-    const periodFromDetails = (details.match(/Period:<\/strong>\s*([^<]+)/i) || [])[1];
-    const ids = (inv.trip_ids || '').toString().split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
-    const containers = [];
-    ids.forEach(tid => {
-        const row = findTripRowById(tid);
-        const c = row && row[3] ? row[3].toString().trim() : '';
-        if (c && c !== '---' && c !== 'TBA') containers.push(c);
-    });
-    const uniqueCont = [...new Set(containers)];
-    const containerLabel = uniqueCont.length ? uniqueCont.join(', ') : (contFromDetails || '').trim();
+    if (isRentalReceivableInvoice(inv)) {
+        const details = (inv.details_html || '').toString();
+        const contFromDetails = (details.match(/Container:<\/strong>\s*([^<]+)/i) || [])[1];
+        const periodFromDetails = (details.match(/Period:<\/strong>\s*([^<]+)/i) || [])[1];
+        const ids = (inv.trip_ids || '').toString().split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
+        const containers = [];
+        ids.forEach(tid => {
+            const row = findTripRowById(tid);
+            const c = row && row[3] ? row[3].toString().trim() : '';
+            if (c && c !== '---' && c !== 'TBA') containers.push(c);
+        });
+        const uniqueCont = [...new Set(containers)];
+        let containerLabel = '';
+        if (uniqueCont.length === 1) containerLabel = uniqueCont[0];
+        else if (uniqueCont.length > 1) containerLabel = uniqueCont[0];
+        else containerLabel = (contFromDetails || '').trim();
+        const parts = [];
+        if (containerLabel && containerLabel !== '---') parts.push(containerLabel);
+        if (periodFromDetails) parts.push(periodFromDetails.trim());
+        return parts.join(' · ');
+    }
+
+    const orders = getUniqueOrderNumbersFromTripIds(inv.trip_ids);
+    if (orders.length !== 1) return '';
     const invNo = (inv.invoice_number || '').toString();
-    const orders = getOrderNumbersFromTripIds(inv.trip_ids);
-    const orderLabel = (orders && orders !== invNo) ? orders : '';
-    const parts = [];
-    if (containerLabel && containerLabel !== '---') parts.push(containerLabel);
-    if (periodFromDetails) parts.push(periodFromDetails.trim());
-    else if (orderLabel) parts.push(orderLabel);
-    return parts.join(' · ');
+    if (orders[0] === invNo) return '';
+    return orders[0];
 }
 
 function invoiceMatchesOrder(inv, search) {
@@ -121,6 +144,25 @@ function invoiceMatchesOrder(inv, search) {
     return hay.includes(q);
 }
 
+function invoiceMatchesContainer(inv, search) {
+    if (!search || !search.trim()) return true;
+    const q = search.trim().toUpperCase();
+    const details = (inv.details_html || '').toString().replace(/<[^>]+>/g, ' ');
+    const ids = (inv.trip_ids || '').toString().split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
+    const fromTrips = [];
+    ids.forEach(tid => {
+        const row = findTripRowById(tid);
+        const c = row && row[3] ? row[3].toString().trim() : '';
+        if (c) fromTrips.push(c);
+    });
+    const hay = [
+        details,
+        getReceivableSubtitle(inv),
+        fromTrips.join(' ')
+    ].join(' ').toUpperCase();
+    return hay.includes(q);
+}
+
 function customerMatchesFilter(custName, filter) {
     if (!filter) return true;
     return (custName || '').toString().trim().toUpperCase() === filter.toString().trim().toUpperCase();
@@ -132,12 +174,59 @@ function isHistoryInvoice(inv) {
     return st === 'paid' || st === 'written off' || method === 'WRITE-OFF';
 }
 
+function updateReceivablesSummaryCards() {
+    const stats = window.recvSummaryStats || {};
+    const tab = window.recvActiveTab || 'pending';
+    const countLabel = document.getElementById('recv-summary-count-label');
+    const countValue = document.getElementById('recv-summary-count-value');
+    const dueLabel = document.getElementById('recv-summary-due-label');
+    const dueValue = document.getElementById('recv-summary-due-value');
+    const dueIconWrap = document.getElementById('recv-summary-due-icon');
+    if (tab === 'history') {
+        if (countLabel) countLabel.textContent = 'Invoices in History';
+        if (countValue) countValue.textContent = String(stats.historyCount ?? 0);
+        if (dueLabel) dueLabel.textContent = 'Total Collected';
+        if (dueValue) {
+            dueValue.textContent = '$' + (stats.historyCollected ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            dueValue.style.color = '#10b981';
+        }
+        if (dueIconWrap) {
+            dueIconWrap.style.background = '#ecfdf5';
+            dueIconWrap.style.color = '#10b981';
+        }
+    } else {
+        if (countLabel) countLabel.textContent = 'Pending Invoices';
+        if (countValue) countValue.textContent = String(stats.pendingCount ?? 0);
+        if (dueLabel) dueLabel.textContent = 'Total Due';
+        if (dueValue) {
+            dueValue.textContent = '$' + (stats.pendingDue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            dueValue.style.color = '#ef4444';
+        }
+        if (dueIconWrap) {
+            dueIconWrap.style.background = '#fef2f2';
+            dueIconWrap.style.color = '#ef4444';
+        }
+    }
+}
+
 function setReceivablesTab(tab) {
     window.recvActiveTab = tab === 'history' ? 'history' : 'pending';
     const pending = document.getElementById('recv-pending');
     const history = document.getElementById('recv-history');
     if (pending) pending.style.display = window.recvActiveTab === 'history' ? 'none' : 'block';
     if (history) history.style.display = window.recvActiveTab === 'history' ? 'block' : 'none';
+    const btnPending = document.getElementById('recv-tab-pending');
+    const btnHistory = document.getElementById('recv-tab-history');
+    if (btnPending && btnHistory) {
+        if (window.recvActiveTab === 'history') {
+            btnPending.className = 'glossy-dark-btn';
+            btnHistory.className = 'glossy-blue-btn';
+        } else {
+            btnPending.className = 'glossy-blue-btn';
+            btnHistory.className = 'glossy-dark-btn';
+        }
+    }
+    updateReceivablesSummaryCards();
 }
 window.setReceivablesTab = setReceivablesTab;
 
@@ -145,6 +234,7 @@ window.resetReceivablesFilters = function() {
     window.recvCustomerFilter = '';
     window.recvServiceFilter = '';
     window.recvOrderFilter = '';
+    window.recvContainerFilter = '';
     window.renderReceivables();
 };
 
@@ -156,12 +246,14 @@ window.renderReceivables = function () {
 
     const allInvoices = window.receivablesData.invoices || [];
     const orderQ = window.recvOrderFilter;
+    const containerQ = window.recvContainerFilter;
 
     const servicesForCustomer = new Set();
     allInvoices.forEach(inv => {
         const cust = (inv.customer_name || 'UNKNOWN').toString().trim().toUpperCase() || 'UNKNOWN';
         if (window.recvCustomerFilter && !customerMatchesFilter(cust, window.recvCustomerFilter)) return;
         if (!invoiceMatchesOrder(inv, orderQ)) return;
+        if (!invoiceMatchesContainer(inv, containerQ)) return;
         const svc = invoiceServiceKey(inv);
         if (svc) servicesForCustomer.add(svc);
     });
@@ -173,6 +265,7 @@ window.renderReceivables = function () {
     allInvoices.forEach(inv => {
         if (!invoiceMatchesService(inv, window.recvServiceFilter)) return;
         if (!invoiceMatchesOrder(inv, orderQ)) return;
+        if (!invoiceMatchesContainer(inv, containerQ)) return;
         const cust = (inv.customer_name || 'UNKNOWN').toString().trim().toUpperCase() || 'UNKNOWN';
         customersForService.add(cust);
     });
@@ -181,6 +274,7 @@ window.renderReceivables = function () {
         servicesForCustomer.clear();
         allInvoices.forEach(inv => {
             if (!invoiceMatchesOrder(inv, orderQ)) return;
+            if (!invoiceMatchesContainer(inv, containerQ)) return;
             const svc = invoiceServiceKey(inv);
             if (svc) servicesForCustomer.add(svc);
         });
@@ -197,6 +291,7 @@ window.renderReceivables = function () {
     window.receivablesData.invoices.forEach(inv => {
         if (!invoiceMatchesService(inv, window.recvServiceFilter)) return;
         if (!invoiceMatchesOrder(inv, window.recvOrderFilter)) return;
+        if (!invoiceMatchesContainer(inv, containerQ)) return;
 
         const custName = (inv.customer_name || 'UNKNOWN').toString().trim().toUpperCase() || 'UNKNOWN';
         const groupKey = isHistoryInvoice(inv) ? 'history' : 'pending';
@@ -207,6 +302,8 @@ window.renderReceivables = function () {
 
     let totalPendingDue = 0;
     let totalPendingCount = 0;
+    let totalHistoryCount = 0;
+    let totalHistoryCollected = 0;
     for (const [custName, invoices] of Object.entries(grouped.pending)) {
         if (window.recvCustomerFilter && !customerMatchesFilter(custName, window.recvCustomerFilter)) continue;
         invoices.forEach(inv => {
@@ -216,6 +313,24 @@ window.renderReceivables = function () {
             totalPendingCount++;
         });
     }
+    for (const [custName, invoices] of Object.entries(grouped.history)) {
+        if (window.recvCustomerFilter && !customerMatchesFilter(custName, window.recvCustomerFilter)) continue;
+        invoices.forEach(inv => {
+            totalHistoryCount++;
+            const isWriteOff = (inv.status || '').toLowerCase() === 'written off'
+                || (inv.payment_method || '').toString().toUpperCase() === 'WRITE-OFF';
+            if (!isWriteOff) {
+                totalHistoryCollected += parseFloat(inv.amount_paid || inv.total_amount || 0);
+            }
+        });
+    }
+
+    window.recvSummaryStats = {
+        pendingCount: totalPendingCount,
+        pendingDue: totalPendingDue,
+        historyCount: totalHistoryCount,
+        historyCollected: totalHistoryCollected
+    };
 
     let html = `
     <div class="header-banner" style="margin-bottom: 20px;">
@@ -225,12 +340,12 @@ window.renderReceivables = function () {
         </div>
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
             <div class="filter-summary-card" style="margin-bottom: 0; border-color: #fca5a5; min-width: 200px;">
-                <div class="filter-summary-icon" style="background: #fef2f2; color: #ef4444;">
+                <div id="recv-summary-due-icon" class="filter-summary-icon" style="background: #fef2f2; color: #ef4444;">
                     <i class="fas fa-hand-holding-usd"></i>
                 </div>
                 <div class="filter-summary-info">
-                    <span class="filter-summary-label">Total Due</span>
-                    <span class="filter-summary-value" style="color: #ef4444;">$${totalPendingDue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span id="recv-summary-due-label" class="filter-summary-label">Total Due</span>
+                    <span id="recv-summary-due-value" class="filter-summary-value" style="color: #ef4444;">$${totalPendingDue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
             </div>
             <div class="filter-summary-card" style="margin-bottom: 0; min-width: 150px;">
@@ -238,8 +353,8 @@ window.renderReceivables = function () {
                     <i class="fas fa-file-invoice"></i>
                 </div>
                 <div class="filter-summary-info">
-                    <span class="filter-summary-label">Pending Invoices</span>
-                    <span class="filter-summary-value">${totalPendingCount}</span>
+                    <span id="recv-summary-count-label" class="filter-summary-label">Pending Invoices</span>
+                    <span id="recv-summary-count-value" class="filter-summary-value">${totalPendingCount}</span>
                 </div>
             </div>
             <button type="button" id="btn-refresh-receivables" class="btn-module-refresh" onclick="window.refreshReceivablesModule()" title="Refresh Accounts Receivable from database"><i class="fas fa-sync-alt"></i> Refresh</button>
@@ -248,8 +363,8 @@ window.renderReceivables = function () {
     </div>
     
     <div class="tabs-container" style="display:flex; gap:10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px; align-items:center;">
-        <button class="glossy-blue-btn" onclick="window.setReceivablesTab('pending')">Pending Invoices</button>
-        <button class="glossy-dark-btn" onclick="window.setReceivablesTab('history')">Payment History</button>
+        <button type="button" id="recv-tab-pending" class="glossy-blue-btn" onclick="window.setReceivablesTab('pending')">Pending Invoices</button>
+        <button type="button" id="recv-tab-history" class="glossy-dark-btn" onclick="window.setReceivablesTab('history')">Payment History</button>
         
         <select id="recv-customer-filter" onchange="window.recvCustomerFilter = this.value; window.renderReceivables();" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: auto; color:#0f172a;">
             <option value="" ${!window.recvCustomerFilter ? 'selected' : ''}>ALL CUSTOMERS</option>
@@ -261,7 +376,8 @@ window.renderReceivables = function () {
             ${servicesList.map(s => `<option value="${s}" ${window.recvServiceFilter && window.recvServiceFilter === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
 
-        <input type="text" id="recv-order-filter" placeholder="Search Order #" oninput="window.recvOrderFilter = this.value; window.renderReceivables();" value="${window.recvOrderFilter || ''}" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: 10px; color:#0f172a; width: 160px;" autofocus>
+        <input type="text" id="recv-container-filter" placeholder="Container #" oninput="window.recvContainerFilter = this.value; window.renderReceivables();" value="${(window.recvContainerFilter || '').replace(/"/g, '&quot;')}" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: 10px; color:#0f172a; width: 130px;">
+        <input type="text" id="recv-order-filter" placeholder="Search Order #" oninput="window.recvOrderFilter = this.value; window.renderReceivables();" value="${(window.recvOrderFilter || '').replace(/"/g, '&quot;')}" style="padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 700; outline: none; margin-left: 10px; color:#0f172a; width: 160px;" autofocus>
     </div>
     
     <!-- PENDING TAB -->
@@ -321,9 +437,9 @@ window.renderReceivables = function () {
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    <button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}')">
+                                    ${isAdmin ? `<button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}')">
                                         PAY
-                                    </button>
+                                    </button>` : ''}
                                     ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
                                     </button>` : ''}
@@ -423,17 +539,17 @@ window.renderReceivables = function () {
     html += `</div>`;
 
     const activeEl = document.activeElement;
-    const isOrderFilterFocused = activeEl && activeEl.id === 'recv-order-filter';
+    const focusFilterId = activeEl && (activeEl.id === 'recv-order-filter' || activeEl.id === 'recv-container-filter') ? activeEl.id : null;
     let cursorPos = 0;
-    if (isOrderFilterFocused) {
+    if (focusFilterId) {
         cursorPos = activeEl.selectionStart;
     }
 
     container.innerHTML = html;
     setReceivablesTab(window.recvActiveTab || 'pending');
 
-    if (isOrderFilterFocused) {
-        const newEl = document.getElementById('recv-order-filter');
+    if (focusFilterId) {
+        const newEl = document.getElementById(focusFilterId);
         if (newEl) {
             newEl.focus();
             newEl.setSelectionRange(cursorPos, cursorPos);
@@ -442,6 +558,13 @@ window.renderReceivables = function () {
 };
 
 window.markReceivablePaid = function (id, balance, invoiceNumber, custName, totalAmount, amtPaid) {
+    const isAdmin = typeof window.isAdmin === 'function'
+        ? window.isAdmin()
+        : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+    if (!isAdmin) {
+        alert('Only administrators can register payments in Accounts Receivable.');
+        return;
+    }
     const inv = (window.receivablesData.invoices || []).find(i => String(i.id) === String(id));
     if (inv) {
         totalAmount = parseFloat(inv.total_amount) || 0;
@@ -579,7 +702,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             }
             const applyLocal = (arr) => {
                 if (!arr) return;
-                const local = arr.find(t => t[0] === tid);
+                const local = arr.find(t => String(t[0]) === String(tid));
                 if (!local) return;
                 if (patch.st_rent) local[31] = 'PAID';
                 if (patch.st_yard) local[30] = 'PAID';
@@ -591,6 +714,10 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             applyLocal(window.currentTrips);
             applyLocal(window.rentalInvoiceTrips);
             applyLocal(window.combinedBillingTrips);
+        }
+        window._recvSettlementMap = null;
+        if (typeof window.loadRentalInvoiceTrips === 'function') {
+            await window.loadRentalInvoiceTrips(true);
         }
         if (typeof window.renderRentalsTable === 'function') window.renderRentalsTable();
     };
@@ -628,6 +755,9 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             overlay.remove();
             await loadReceivables();
             renderReceivables();
+            if (typeof window.reconcileRentalTripsFromReceivables === 'function') {
+                await window.reconcileRentalTripsFromReceivables();
+            }
         } catch (err) {
             console.error('Error writing off invoice:', err);
             alert('Failed to write off invoice: ' + err.message);
@@ -748,6 +878,9 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             overlay.remove();
             await loadReceivables();
             renderReceivables();
+            if (typeof window.reconcileRentalTripsFromReceivables === 'function') {
+                await window.reconcileRentalTripsFromReceivables();
+            }
 
         } catch (err) {
             console.error('Error marking paid:', err);

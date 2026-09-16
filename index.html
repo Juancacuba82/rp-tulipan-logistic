@@ -27,7 +27,7 @@
     <script src="./js/realtime-sync.js?v=3" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1702" defer></script>
-    <script src="./js/delivery-calendar.js?v=1705" defer></script>
+    <script src="./js/delivery-calendar.js?v=1706" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
     <script src="./js/releases.js?v=1701" defer></script>
     <script src="./js/profit-expenses.js?v=1705" defer></script>
@@ -37,11 +37,11 @@
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
     <script src="./js/tasks.js?v=11" defer></script>
-    <script src="./js/billing-manager.js?v=23" defer></script>
-    <script src="./js/invoice-automation.js?v=18" defer></script>
+    <script src="./js/billing-manager.js?v=24" defer></script>
+    <script src="./js/invoice-automation.js?v=19" defer></script>
     <script src="./js/attendance.js?v=2" defer></script>
     <script src="./js/accounting.js?v=102" defer></script>
-    <script src="./js/receivables.js?v=25" defer></script>
+    <script src="./js/receivables.js?v=29" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
     <script src="./js/csv-import.js?v=7" defer></script>
@@ -5408,20 +5408,17 @@
                             <label class="sidebar-label-btn" style="background: #3b82f6 !important;">Amount ($)</label>
                             <input type="number" id="rental-base-price" placeholder="0.00" step="0.01">
                         </div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #10b981 !important;">Status</label>
-                            <select id="rental-status">
-                                <option value="ACTIVE">ACTIVE</option>
-                                <option value="FINISHED">FINISHED</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="sidebar-label-btn" style="background: #0f172a !important;">Payment
-                                Status</label>
-                            <select id="rental-payment-status">
-                                <option value="PENDING" selected>PENDING</option>
-                                <option value="PAID">PAID</option>
-                            </select>
+                        <div id="rental-edit-summary" class="form-group" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 0.7rem; font-weight: 800; color: #64748b;">RENTAL STATUS</span>
+                                <span id="rental-display-status" class="status-badge" style="padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; background: #10b981; color: white;">ACTIVE</span>
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 0.7rem; font-weight: 800; color: #64748b;">CYCLES / PAYMENT</span>
+                                <span id="rental-display-payment" class="status-badge" style="padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; background: #d97706; color: white;">PENDING</span>
+                            </div>
+                            <p id="rental-display-cycles" style="margin: 0 0 6px; font-size: 0.75rem; font-weight: 700; color: #334155;">—</p>
+                            <p style="margin: 0; font-size: 0.68rem; color: #64748b; font-weight: 600;">Payments and write-offs are handled in <strong>Account</strong>. Use <strong>Return to Yard</strong> to end the rental.</p>
                         </div>
                         <div class="form-group" style="margin-top: 10px;">
                             <textarea id="rental-notes" placeholder="NOTES: Enter terms, conditions or general info..."
@@ -5431,6 +5428,9 @@
                         <div style="margin-top: 20px;">
 
 
+                            <button type="button" id="btn-return-rental-yard" onclick="window.openReturnRentalToYardModal()" class="btn-add-sidebar"
+                                style="display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: #047857; border: 1px solid #065f46;">
+                                <i class="fas fa-warehouse"></i> RETURN TO YARD (END RENTAL)</button>
                             <button id="btn-save-rental" onclick="saveRentalData()" class="btn-add-sidebar"
                                 style="display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: #0f172a; border: 1px solid #334155;">UPDATE
                                 RENTAL RECORD</button>
@@ -5527,7 +5527,6 @@
                                             All (Inc. Finished)</label>
                                     </div>
                                     <div style="width: 1px; height: 20px; background: #cbd5e1;"></div>
-                                    <button id="btn-combined-invoice" onclick="window.generateRentalsInvoiceButton()" style="display: none; background: #2563eb; color: white; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar" style="margin-right: 5px;"></i> Generate Invoice</button>
                                     <button type="button" id="btn-refresh-rentals" class="btn-module-refresh" onclick="window.refreshRentalsModule()" title="Refresh Rentals from database">
                                         <i class="fas fa-sync-alt"></i> Refresh
                                     </button>
@@ -5545,12 +5544,17 @@
                                     padding: 6px 4px !important;
                                     font-size: 0.72rem !important;
                                 }
+                                /* TIME RENT column hidden for now (data still in row for later use) */
+                                #rentals-table th:nth-child(2),
+                                #rentals-table td:nth-child(2) {
+                                    display: none !important;
+                                }
                             </style>
                             <table class="drivers-report-table" id="rentals-table">
                                 <thead>
                                     <tr class="header-row" style="background: #0f172a !important;">
                                         <th>START DATE</th>
-                                        <th>TIME RENT</th>
+                                        <th class="rentals-col-time-rent">TIME RENT</th>
                                         <th>ORDER #</th>
                                         <th>SIZE</th>
                                         <th>N. CONT</th>
@@ -6840,6 +6844,11 @@
             // Email Settings button: only visible for admin
             const emailBtn = document.getElementById('btn-email-settings');
             if (emailBtn) emailBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+
+            ['btn-send-filtered-invoice', 'btn-bulk-create', 'btn-bulk-send', 'mb-btn-send-email', 'mb-btn-create-record'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !isAdmin) el.style.display = 'none';
+            });
 
             if (isAdmin) {
                 // Admin sees everything
@@ -8460,7 +8469,7 @@
     <script src="./js/form-inventor.js?v=17"></script>
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=13"></script>
-    <script src="./js/rentals.js?v=109"></script>
+    <script src="./js/rentals.js?v=117"></script>
     <script src="./js/yard-stock.js?v=115"></script>
     <!-- Hidden Rendering Container for PDF Generation -->
     <div id="receipt-pdf-render" style="position:fixed; top:-9999px; left:-9999px; width:210mm; background:white;">

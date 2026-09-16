@@ -2240,8 +2240,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 alert("Only administrators can delete records.");
                                 return;
                             }
-                            if (!confirm('¿Seguro que quieres borrar este viaje? Esta acción no se puede deshacer.')) return;
-                            await window.performOrderDeletion(rowData, false);
+                            await window.confirmAndDeleteOrder(rowData, false);
                         };
                         if ((window.currentUserRole || '').toLowerCase().trim() === 'admin') {
                             actionTd.appendChild(delBtn);
@@ -3108,7 +3107,309 @@ window.duplicateTrip = async function (tripId) {
     }
 };
 
-window.performOrderDeletion = async function(rowData, skipAlertAndReload = false) {
+function orderDeleteInventoryFlags(rowData) {
+    const wasFinalized = (rowData[41] === 'PAID' || rowData[41] === 'COMPLETE');
+    const savedDeductForDel = rowData[74];
+    let wasDeductedFromRelease;
+    if (savedDeductForDel !== null && savedDeductForDel !== undefined) {
+        wasDeductedFromRelease = (savedDeductForDel === true || savedDeductForDel === 'true');
+    } else {
+        const bookingStrDel = (rowData[65] || '').trim();
+        const bookingNumDel = bookingStrDel === '---' ? '' : bookingStrDel;
+        wasDeductedFromRelease = !bookingNumDel;
+    }
+    const isReleaseSourceForDel = (rowData[58] || 'RELEASE') === 'RELEASE';
+    const relNo = rowData[4];
+    const wouldRestockRelease = wasFinalized && relNo && relNo !== '---' && wasDeductedFromRelease && isReleaseSourceForDel;
+    const qtyVal = parseInt(rowData[53]) || 1;
+    return { wasFinalized, wouldRestockRelease, relNo, qtyVal, wasToYard: !!rowData[62] };
+}
+
+function filterRentalsForCalendarOrder(rowData, rentalList) {
+    const orderNoForDel = (rowData[5] || '---').trim();
+    const containerNoForDel = (rowData[3] || '').trim().toUpperCase();
+    if (orderNoForDel === '---') return [];
+    const orderNoLower = orderNoForDel.toLowerCase();
+    const contNoLower = containerNoForDel.toLowerCase();
+    return (rentalList || []).filter(r => {
+        if (r.is_deleted) return false;
+        const rCont = (r.container_no || '').trim().toLowerCase();
+        if (contNoLower && rCont !== contNoLower) return false;
+        const rOrder = (r.order_number || r.release_no || '').trim().toLowerCase();
+        if (rOrder === orderNoLower) return true;
+        if (orderNoLower.startsWith('ord-') && (rOrder === '' || rOrder === '---')) return true;
+        return false;
+    });
+}
+
+async function fetchRentalsForCalendarOrder(rowData) {
+    const cached = filterRentalsForCalendarOrder(rowData, window.currentRentals || []);
+    if (cached.length > 0) return cached;
+    const orderNoForDel = (rowData[5] || '---').trim();
+    const containerNoForDel = (rowData[3] || '').trim().toUpperCase();
+    if (orderNoForDel === '---' || !window.db) return [];
+    try {
+        let q = window.db.from('rentals').select('*').eq('release_no', orderNoForDel).or('is_deleted.eq.false,is_deleted.is.null');
+        if (containerNoForDel) q = q.eq('container_no', containerNoForDel);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.warn('[Calendar delete] Could not load rentals:', err);
+        return [];
+    }
+}
+
+async function fetchYardRowsForCalendarOrder(rowData) {
+    const orderNo = (rowData[5] || '---').trim();
+    const containerNo = (rowData[3] || '').trim().toUpperCase();
+    if (orderNo === '---' || !window.db) return [];
+    try {
+        let q = window.db.from('yard_stock').select('id, status, notes, origin_release, container_no')
+            .eq('origin_release', orderNo)
+            .or('is_deleted.eq.false,is_deleted.is.null');
+        if (containerNo) q = q.eq('container_no', containerNo);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.warn('[Calendar delete] Could not load yard rows:', err);
+        return [];
+    }
+}
+
+async function summarizeBillingForOrderDelete(tripId, rentals) {
+    if (typeof window.loadReceivables === 'function') {
+        const list = window.receivablesData && window.receivablesData.invoices;
+        if (!list || !list.length) await window.loadReceivables();
+    }
+    const invoices = (window.receivablesData && window.receivablesData.invoices) || [];
+    const tripIdStr = String(tripId || '');
+    const ridTags = (rentals || []).map(r => 'RENTAL_ID:' + r.id);
+    let pending = 0;
+    let paid = 0;
+    let writtenOff = 0;
+    invoices.forEach(inv => {
+        const blob = (inv.trip_ids || '').toString();
+        if (!blob) return;
+        const linkedTrip = tripIdStr && blob.includes(tripIdStr);
+        const linkedRental = ridTags.some(tag => blob.includes(tag));
+        if (!linkedTrip && !linkedRental) return;
+        const st = (inv.status || '').toLowerCase();
+        if (st === 'paid') paid += 1;
+        else if (st === 'written off') writtenOff += 1;
+        else pending += 1;
+    });
+    return { pending, paid, writtenOff, total: pending + paid + writtenOff };
+}
+
+window.assessOrderDeleteRisk = async function(rowData) {
+    const orderNo = (rowData[5] || '---').trim();
+    const containerNo = (rowData[3] || '---').trim().toUpperCase();
+    const inv = orderDeleteInventoryFlags(rowData);
+    const rentals = await fetchRentalsForCalendarOrder(rowData);
+    const yardRows = await fetchYardRowsForCalendarOrder(rowData);
+    const billing = await summarizeBillingForOrderDelete(rowData[0], rentals);
+
+    const rentalStatuses = rentals.map(r => (r.status || '').toUpperCase());
+    const hasActiveRental = rentalStatuses.includes('ACTIVE');
+    const hasFinishedRental = rentalStatuses.includes('FINISHED');
+    const returnedFromRentalYard = yardRows.some(y => /returned from rental/i.test(y.notes || ''));
+    const hasYardForOrder = yardRows.length > 0;
+
+    const bullets = [];
+    if (!inv.wasFinalized) {
+        bullets.push('La orden está pendiente: no se devolverá stock a Releases.');
+    } else if (inv.wouldRestockRelease) {
+        bullets.push(`Se sumarían ${inv.qtyVal} unidad(es) al release ${inv.relNo} en Releases.`);
+    } else if ((rowData[58] || 'RELEASE') !== 'RELEASE') {
+        bullets.push('Origen Yard/Storage: puede revertirse el ítem de yard usado en la salida.');
+    } else {
+        bullets.push('No se modificará stock en Releases (sin descuento previo o sin release).');
+    }
+
+    if (rentals.length) {
+        const stLabel = rentalStatuses.join(', ') || '—';
+        bullets.push(`Rentals: ${rentals.length} registro(s) (${stLabel}) — se marcarían como eliminados.`);
+    }
+    if (inv.wasToYard && hasYardForOrder) {
+        bullets.push('Move to Yard en Calendar: se quitaría la entrada de yard ligada a esta orden.');
+    } else if (hasYardForOrder && (hasFinishedRental || returnedFromRentalYard)) {
+        bullets.push('El contenedor está en Yard (renta finalizada): NO se quitará del Yard si solo archivas el calendario.');
+    } else if (hasYardForOrder) {
+        bullets.push('Hay fila(s) en Yard con este número de orden.');
+    }
+
+    bullets.push(
+        billing.total
+            ? `Account: ${billing.pending} pendiente(s), ${billing.paid} pagada(s), ${billing.writtenOff} write-off.`
+            : 'Account: sin facturas ligadas a esta orden/renta.'
+    );
+
+    let level = 'green';
+    let title = 'Puedes eliminar esta orden';
+    let recommendation = 'Es relativamente seguro: el efecto principal es devolver stock a Releases o quitar la orden del calendario.';
+
+    if (billing.paid > 0 || billing.writtenOff > 0) {
+        level = 'red';
+        title = 'No eliminar desde Calendar';
+        recommendation = 'Hay cobros registrados (pagado o write-off). Borrar aquí no arregla Account y rompe el historial. Usa Account para correcciones.';
+    } else if (hasFinishedRental || (hasYardForOrder && returnedFromRentalYard)) {
+        level = 'orange';
+        title = 'No conviene eliminar (renta ya cerrada / en Yard)';
+        recommendation = 'Si eliminas con reversión completa, Releases puede sumar stock de más mientras el contenedor sigue en Yard y la renta desaparece — todo descuadrado. Lo recomendado es quitar solo del calendario (sin tocar Releases ni Rentals).';
+    } else if (hasActiveRental || billing.pending > 0) {
+        level = 'yellow';
+        title = 'Eliminar con cuidado';
+        recommendation = 'Hay renta activa y/o facturas pendientes. Solo confirma si fue un error al crear la renta y el contenedor aún no terminó en Yard.';
+    } else if (inv.wasToYard || rentals.length) {
+        level = 'yellow';
+        title = 'Eliminar con cuidado';
+        recommendation = 'Hay rental o yard ligados. Revisa los puntos abajo antes de confirmar.';
+    }
+
+    return {
+        level,
+        title,
+        recommendation,
+        bullets,
+        orderNo,
+        containerNo,
+        billing,
+        rentals,
+        yardRows,
+        inv,
+        blocked: level === 'red',
+        allowFullRevert: level === 'green' || level === 'yellow',
+        allowCalendarOnly: level === 'orange' || level === 'yellow'
+    };
+};
+
+window.showOrderDeleteRiskModal = function(assessment) {
+    return new Promise(resolve => {
+        const existing = document.getElementById('order-delete-risk-modal');
+        if (existing) existing.remove();
+
+        const palette = {
+            green: { bg: '#ecfdf5', border: '#6ee7b7', accent: '#047857', icon: 'fa-check-circle' },
+            yellow: { bg: '#fefce8', border: '#fde047', accent: '#a16207', icon: 'fa-exclamation-triangle' },
+            orange: { bg: '#fff7ed', border: '#fdba74', accent: '#c2410c', icon: 'fa-exclamation-circle' },
+            red: { bg: '#fef2f2', border: '#fca5a5', accent: '#b91c1c', icon: 'fa-ban' }
+        };
+        const p = palette[assessment.level] || palette.yellow;
+
+        const wrap = document.createElement('div');
+        wrap.id = 'order-delete-risk-modal';
+        wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.85);display:flex;align-items:center;justify-content:center;z-index:100000;font-family:Outfit,sans-serif;padding:16px;';
+
+        const listHtml = assessment.bullets.map(b => `<li style="margin-bottom:8px;color:#334155;line-height:1.45;">${b}</li>`).join('');
+
+        const needTypeConfirm = assessment.level === 'yellow' && assessment.allowFullRevert;
+        const typeBlock = needTypeConfirm
+            ? `<p style="margin:12px 0 6px;font-size:0.85rem;color:#64748b;">Escribe <strong>${assessment.orderNo}</strong> para confirmar eliminación con reversión:</p>
+               <input id="order-delete-type-confirm" type="text" autocomplete="off" placeholder="Número de orden"
+                 style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;box-sizing:border-box;" />`
+            : '';
+
+        wrap.innerHTML = `
+            <div style="background:white;border-radius:16px;max-width:520px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;">
+                <div style="background:${p.bg};border-bottom:2px solid ${p.border};padding:20px 24px;">
+                    <div style="display:flex;gap:12px;align-items:flex-start;">
+                        <i class="fas ${p.icon}" style="font-size:1.5rem;color:${p.accent};margin-top:2px;"></i>
+                        <div>
+                            <h2 style="margin:0 0 6px;font-size:1.25rem;color:#0f172a;font-weight:800;">${assessment.title}</h2>
+                            <p style="margin:0;font-size:0.9rem;color:#475569;"><strong>Orden:</strong> ${assessment.orderNo} · <strong>Contenedor:</strong> ${assessment.containerNo}</p>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding:20px 24px;">
+                    <p style="margin:0 0 12px;color:${p.accent};font-weight:700;font-size:0.92rem;">${assessment.recommendation}</p>
+                    <p style="margin:0 0 8px;font-size:0.8rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;">Qué pasaría</p>
+                    <ul style="margin:0 0 16px;padding-left:20px;font-size:0.9rem;">${listHtml}</ul>
+                    ${assessment.allowCalendarOnly ? '<p style="font-size:0.82rem;color:#64748b;margin:0 0 12px;"><em>Solo quitar del calendario</em> oculta la orden aquí; no aplica los cambios de Releases, Rentals ni Yard descritos arriba.</p>' : ''}
+                    ${typeBlock}
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:16px;">
+                        <button type="button" id="order-delete-btn-cancel" class="btn-cancel" style="padding:10px 16px;">Cancelar</button>
+                        ${assessment.allowCalendarOnly && !assessment.blocked ? '<button type="button" id="order-delete-btn-calendar-only" style="padding:10px 16px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;font-weight:700;cursor:pointer;color:#334155;">Solo quitar del calendario</button>' : ''}
+                        ${assessment.allowFullRevert && !assessment.blocked && assessment.level !== 'green' ? '<button type="button" id="order-delete-btn-full" style="padding:10px 16px;background:#dc2626;color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;">Eliminar y revertir todo</button>' : ''}
+                        ${assessment.blocked ? '<button type="button" id="order-delete-btn-close" style="padding:10px 16px;background:#0f172a;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Entendido</button>' : ''}
+                        ${assessment.level === 'green' ? '<button type="button" id="order-delete-btn-full" style="padding:10px 16px;background:#059669;color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;">Eliminar orden</button>' : ''}
+                    </div>
+                </div>
+            </div>`;
+
+        document.body.appendChild(wrap);
+
+        const close = (result) => {
+            wrap.remove();
+            resolve(result);
+        };
+
+        wrap.querySelector('#order-delete-btn-cancel')?.addEventListener('click', () => close({ proceed: false }));
+        wrap.querySelector('#order-delete-btn-close')?.addEventListener('click', () => close({ proceed: false }));
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) close({ proceed: false }); });
+
+        const fullOpts = {
+            revertReleaseStock: true,
+            cleanupCalendarYardEntry: true,
+            softDeleteRentals: true,
+            revertYardSourceItem: true
+        };
+        const calendarOnlyOpts = {
+            revertReleaseStock: false,
+            cleanupCalendarYardEntry: false,
+            softDeleteRentals: false,
+            revertYardSourceItem: false
+        };
+
+        const fullBtn = wrap.querySelector('#order-delete-btn-full');
+        const typeInput = wrap.querySelector('#order-delete-type-confirm');
+
+        const tryFull = () => {
+            if (needTypeConfirm && typeInput) {
+                if (typeInput.value.trim() !== assessment.orderNo) {
+                    alert('El número de orden no coincide. Escríbelo exactamente para confirmar.');
+                    return;
+                }
+            }
+            close({ proceed: true, options: fullOpts });
+        };
+
+        if (fullBtn) {
+            if (needTypeConfirm && typeInput) {
+                fullBtn.disabled = true;
+                fullBtn.style.opacity = '0.45';
+                typeInput.addEventListener('input', () => {
+                    const ok = typeInput.value.trim() === assessment.orderNo;
+                    fullBtn.disabled = !ok;
+                    fullBtn.style.opacity = ok ? '1' : '0.45';
+                });
+            }
+            fullBtn.addEventListener('click', tryFull);
+        }
+
+        wrap.querySelector('#order-delete-btn-calendar-only')?.addEventListener('click', () => {
+            close({ proceed: true, options: calendarOnlyOpts });
+        });
+    });
+};
+
+window.confirmAndDeleteOrder = async function(rowData, skipAlertAndReload = false) {
+    const assessment = await window.assessOrderDeleteRisk(rowData);
+    const choice = await window.showOrderDeleteRiskModal(assessment);
+    if (!choice || !choice.proceed) return false;
+    await window.performOrderDeletion(rowData, skipAlertAndReload, choice.options);
+    return true;
+};
+
+window.performOrderDeletion = async function(rowData, skipAlertAndReload = false, deleteOptions = null) {
+    const opts = deleteOptions || {
+        revertReleaseStock: true,
+        cleanupCalendarYardEntry: true,
+        softDeleteRentals: true,
+        revertYardSourceItem: true
+    };
+
     // --- STOCK REVERSION LOGIC ---
     const wasFinalized = (rowData[41] === 'PAID' || rowData[41] === 'COMPLETE');
     const mode = rowData[26];
@@ -3133,7 +3434,7 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
     }
     const isReleaseSourceForDel = (rowData[58] || 'RELEASE') === 'RELEASE';
 
-    if (wasFinalized && relNo && relNo !== '---' && wasDeductedFromRelease && isReleaseSourceForDel) {
+    if (opts.revertReleaseStock && wasFinalized && relNo && relNo !== '---' && wasDeductedFromRelease && isReleaseSourceForDel) {
         console.log(`Reverting stock for deleted trip: ${relNo}, ${size}, Qty: ${qtyVal}`);
         
         // Ensure releases are loaded
@@ -3178,7 +3479,7 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
     const orderNoForDel    = rowData[5] || '---';
     const containerNoForDel = (rowData[3] || '').trim().toUpperCase();
     const wasToYardForDel   = !!rowData[62];
-    if (wasToYardForDel && orderNoForDel !== '---') {
+    if (opts.cleanupCalendarYardEntry && wasToYardForDel && orderNoForDel !== '---') {
         console.log(`Auto-deleting Yard entry for deleted order: ${orderNoForDel} / ${containerNoForDel}`);
         // Use origin_release + container_no — more reliable than the old notes-pattern search
         const yardDelQuery = containerNoForDel
@@ -3192,28 +3493,18 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
     }
 
     // --- RENTALS CLEANUP ---
-    if (orderNoForDel !== '---') {
-        if (window.currentRentals && window.currentRentals.length > 0) {
-            const orderNoLower = orderNoForDel.toLowerCase();
-            const contNoLower = containerNoForDel.toLowerCase();
-            const rentalsToDelete = window.currentRentals.filter(r => {
-                const rCont = (r.container_no || '').trim().toLowerCase();
-                if (contNoLower && rCont !== contNoLower) return false;
-                const rOrder = (r.order_number || r.release_no || '').trim().toLowerCase();
-                if (rOrder === orderNoLower) return true;
-                if (orderNoLower.startsWith('ord-') && (rOrder === '' || rOrder === '---')) return true;
-                return false;
-            });
+    if (opts.softDeleteRentals && orderNoForDel !== '---') {
+        const rentalsToDelete = filterRentalsForCalendarOrder(rowData, window.currentRentals || []);
+        if (rentalsToDelete.length > 0) {
             for (const r of rentalsToDelete) {
                 await db.from('rentals').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', r.id);
                 if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Rental ID: ${r.id}`);
-                window.currentRentals = window.currentRentals.filter(curr => curr.id !== r.id);
+                window.currentRentals = (window.currentRentals || []).filter(curr => curr.id !== r.id);
             }
-            if (rentalsToDelete.length > 0 && typeof window.renderRentalsTable === 'function') {
+            if (typeof window.renderRentalsTable === 'function') {
                 window.renderRentalsTable();
             }
-        } else {
-            // Fallback DB-only delete if cache is empty
+        } else if (window.db) {
             const rentalsDelQuery = containerNoForDel
                 ? db.from('rentals').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('release_no', orderNoForDel).eq('container_no', containerNoForDel)
                 : db.from('rentals').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('release_no', orderNoForDel);
@@ -3227,7 +3518,7 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
     const containerSourceForDel = rowData[58] || 'RELEASE';
     const yardItemIdForDel = rowData[59];
     const isYardSourceForDel = containerSourceForDel === 'YARD' || containerSourceForDel === 'STORAGE';
-    if (wasFinalized && isYardSourceForDel && yardItemIdForDel) {
+    if (opts.revertYardSourceItem && wasFinalized && isYardSourceForDel && yardItemIdForDel) {
         console.log(`Reverting yard item status for deleted order: ${yardItemIdForDel}`);
         const { data: yardItem } = await db.from('yard_stock').select('notes, lifts').eq('id', yardItemIdForDel).single();
         if (yardItem) {
@@ -3269,14 +3560,13 @@ window.deleteSelectedOrders = async function() {
     
     if (!window.selectedTripIds || window.selectedTripIds.length === 0) return;
     
-    if (!confirm(`¿Seguro que quieres borrar ${window.selectedTripIds.length} viaje(s)? Esta acción no se puede deshacer.`)) return;
-    
     let deletedCount = 0;
     try {
         for (const tripId of window.selectedTripIds) {
             const rowData = window.currentTrips.find(t => t[0] === tripId);
             if (rowData) {
-                await window.performOrderDeletion(rowData, true);
+                const ok = await window.confirmAndDeleteOrder(rowData, true);
+                if (!ok) break;
                 deletedCount++;
             }
         }
