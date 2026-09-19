@@ -363,6 +363,10 @@
 
     async function createRentalCycleInvoice(row, cycle) {
         if (!row || !cycle || !window.db) return null;
+        const isAdminUser = typeof window.isAdmin === 'function'
+            ? window.isAdmin()
+            : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+        if (!isAdminUser) return null;
         if (isRentalCycleInvoiced(row, cycle)) return null;
         const amount = parseFloat(row.base_price) || 0;
         if (amount <= 0) return null;
@@ -429,6 +433,12 @@
 
     let rentalCycleInvoiceSync = null;
     async function ensureRentalCycleInvoices() {
+        // Only admins may auto-create rental AR invoices (avoids driver/staff emails on created_by)
+        const isAdminUser = typeof window.isAdmin === 'function'
+            ? window.isAdmin()
+            : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+        if (!isAdminUser) return;
+
         if (rentalCycleInvoiceSync) return rentalCycleInvoiceSync;
         rentalCycleInvoiceSync = (async () => {
             const rows = window.currentRentals || [];

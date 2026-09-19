@@ -949,6 +949,15 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
         const tripIdsStr = Array.isArray(tripIds) ? tripIds.filter(Boolean).join(',') : (tripIds || '');
         const svcType = (serviceType || '').toString().toUpperCase().trim();
 
+        const isAdminUser = typeof window.isAdmin === 'function'
+            ? window.isAdmin()
+            : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+        // Silent auto-invoices (rentals cycles) must only be created by admins
+        if (opts.silent && !isAdminUser) {
+            console.warn(`[Receivables] Skipping silent invoice ${invoiceNumber}: only admins can auto-create AR invoices.`);
+            return;
+        }
+
         const insertPayload = {
             customer_name: customerUpper,
             invoice_number: invoiceNumber,
@@ -958,7 +967,7 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
             service_type: svcType || null,
             status: 'PENDING',
             amount_paid: 0,
-            created_by: window.userEmail || window.userName || 'Unknown'
+            created_by: opts.created_by || window.userEmail || window.userName || 'Unknown'
         };
 
         const amt = parseFloat(amountPaid) || 0;
