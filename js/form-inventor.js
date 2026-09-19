@@ -50,22 +50,27 @@
             const fCity = (document.getElementById('inv-f-city')?.value || '').trim();
 
             // Build Release Lookup Map for Purchase Prices
-            const relMap = new Map();
-            if (typeof window.currentReleases !== 'undefined') {
-                window.currentReleases.forEach(r => {
-                    if (r && r[0]) {
-                        const rNo = r[0].toString().trim();
-                        const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0, seller: '---', city: '---' };
-                        relMap.set(rNo, {
-                            p20: (parseFloat(r[8]) || 0) || existing.p20,
-                            p40: (parseFloat(r[10]) || 0) || existing.p40,
-                            p45: (parseFloat(r[12]) || 0) || existing.p45,
-                            seller: r[13] || existing.seller || '---',
-                            city: r[6] || existing.city || '---'
+            const relMap = typeof window.buildReleasePriceMap === 'function'
+                ? window.buildReleasePriceMap(window.currentReleases || [])
+                : (() => {
+                    const m = new Map();
+                    if (typeof window.currentReleases !== 'undefined') {
+                        window.currentReleases.forEach(r => {
+                            if (r && r[0]) {
+                                const rNo = r[0].toString().trim();
+                                const existing = m.get(rNo) || { p20: 0, p40: 0, p45: 0, seller: '---', city: '---' };
+                                m.set(rNo, {
+                                    p20: (parseFloat(r[8]) || 0) || existing.p20,
+                                    p40: (parseFloat(r[10]) || 0) || existing.p40,
+                                    p45: (parseFloat(r[12]) || 0) || existing.p45,
+                                    seller: r[13] || existing.seller || '---',
+                                    city: r[6] || existing.city || '---'
+                                });
+                            }
                         });
                     }
-                });
-            }
+                    return m;
+                })();
 
             // Filter: COMPLETE orders with Sales
             const filtered = logisticsData.filter(row => {
@@ -134,52 +139,13 @@
                 const salesPrice = parseFloat(row[20]) || 0;
                 const note = row[25] || '---';
 
-                // Get purchase price from release
-                let relNo = (row[4] || '').toString().trim();
-                const tripSize = (row[2] || '').toString();
-
-                // --- FIX: Yard-sourced sales — trace back to find the actual Release number.
-                // When a container is sold from Yard Stock, row[4] may contain an order number
-                // (e.g. "ORD-RQ59") because that's what yard_stock.origin_release stores.
-                // We trace: sale trip → yard item → origin order → original trip → release number.
-                if (!relMap.has(relNo)) {
-                    const containerSource = (row[58] || 'RELEASE').toString();
-                    const yardItemId    = (row[59] || '').toString();
-                    if ((containerSource === 'YARD' || containerSource === 'STORAGE') && yardItemId) {
-                        const yardItems = window.getYardStockData ? window.getYardStockData() : [];
-                        const yardItem  = yardItems.find(y => String(y.id) === String(yardItemId));
-                        if (yardItem && yardItem.origin_release) {
-                            const originOrderNo = yardItem.origin_release; // This is an ORDER number
-                            // Search ALL trips (not just filtered) for that order to get its release
-                            const allT = window.inventoryDataCache || [];
-                            const originalTrip = allT.find(t =>
-                                Array.isArray(t) &&
-                                (t[5] || '').toString().trim() === originOrderNo.toString().trim()
-                            );
-                            if (originalTrip) {
-                                const foundRelNo = (originalTrip[4] || '').toString().trim();
-                                if (foundRelNo && relMap.has(foundRelNo)) {
-                                    relNo = foundRelNo; // Use the real release number
-                                }
-                            }
-                        }
-                    }
-                }
-
-                const releaseData = relMap.get(relNo);
-
-                let unitCost = 0;
-                let seller = '---';
-                if (releaseData) {
-                    seller = releaseData.seller || '---';
-                    if (tripSize.includes('20')) unitCost = releaseData.p20;
-                    else if (tripSize.includes('40')) unitCost = releaseData.p40;
-                    else if (tripSize.includes('45')) unitCost = releaseData.p45;
-
-                    if (unitCost === 0) {
-                        unitCost = releaseData.p20 || releaseData.p40 || releaseData.p45 || 0;
-                    }
-                }
+                // Get purchase price from release (shared with Profit Report)
+                const costInfo = typeof window.resolveContainerPurchaseCost === 'function'
+                    ? window.resolveContainerPurchaseCost(row, relMap, logisticsData)
+                    : { unitCost: 0, relNo: (row[4] || '').toString().trim(), seller: '---' };
+                const unitCost = costInfo.unitCost || 0;
+                const relNo = costInfo.relNo;
+                const seller = costInfo.seller || '---';
 
                 const qty = parseInt(row[53]) || 1;
                 const totalItemSales = salesPrice * qty;
@@ -437,6 +403,7 @@
             await window.withRefreshButton('btn-refresh-inventory', async () => {
                 window.inventoryDataCache = null;
                 window.profitDataCache = null;
+                window.profitPurchaseTripCache = null;
                 if (typeof window.loadReleasesData === 'function') await window.loadReleasesData(true);
                 if (typeof window.renderInventorTable === 'function') await window.renderInventorTable();
             }, 'inventory');

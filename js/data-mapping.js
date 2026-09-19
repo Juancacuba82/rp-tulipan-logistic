@@ -224,3 +224,70 @@
 
             return obj;
         }
+
+        /** Build release# → purchase prices map (shared by Profit + Inventory). */
+        window.buildReleasePriceMap = function (releases) {
+            const relMap = new Map();
+            (releases || []).forEach(r => {
+                if (!r || !r[0]) return;
+                const rNo = r[0].toString().trim();
+                const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0, seller: '---', city: '---' };
+                relMap.set(rNo, {
+                    p20: (parseFloat(r[8]) || 0) || existing.p20,
+                    p40: (parseFloat(r[10]) || 0) || existing.p40,
+                    p45: (parseFloat(r[12]) || 0) || existing.p45,
+                    seller: r[13] || existing.seller || '---',
+                    city: r[6] || existing.city || '---'
+                });
+            });
+            return relMap;
+        };
+
+        /**
+         * Resolve container purchase unit cost for a sale trip.
+         * Yard/Storage sales may store an order# in release_no — traceback via yard item
+         * → origin order → original trip → real release#, using tripsPool (full history).
+         */
+        window.resolveContainerPurchaseCost = function (row, relMap, tripsPool) {
+            let relNo = (row[4] || '').toString().trim();
+            const tripSize = (row[2] || '').toString();
+            const map = relMap || new Map();
+
+            if (relNo && relNo !== '---' && !map.has(relNo)) {
+                const containerSource = (row[58] || 'RELEASE').toString();
+                const yardItemId = (row[59] || '').toString();
+                if ((containerSource === 'YARD' || containerSource === 'STORAGE') && yardItemId) {
+                    const yardItems = window.getYardStockData ? window.getYardStockData() : [];
+                    const yardItem = yardItems.find(y => String(y.id) === String(yardItemId));
+                    if (yardItem && yardItem.origin_release) {
+                        const originOrderNo = yardItem.origin_release.toString().trim();
+                        const pool = tripsPool || window.inventoryDataCache || window.allTripsUnfiltered || window.currentTrips || [];
+                        const originalTrip = pool.find(t =>
+                            Array.isArray(t) &&
+                            (t[5] || '').toString().trim() === originOrderNo
+                        );
+                        if (originalTrip) {
+                            const foundRelNo = (originalTrip[4] || '').toString().trim();
+                            if (foundRelNo && map.has(foundRelNo)) {
+                                relNo = foundRelNo;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const releaseData = map.get(relNo);
+            let unitCost = 0;
+            let seller = '---';
+            if (releaseData) {
+                seller = releaseData.seller || '---';
+                if (tripSize.includes('20')) unitCost = releaseData.p20;
+                else if (tripSize.includes('40')) unitCost = releaseData.p40;
+                else if (tripSize.includes('45')) unitCost = releaseData.p45;
+                if (unitCost === 0) {
+                    unitCost = releaseData.p20 || releaseData.p40 || releaseData.p45 || 0;
+                }
+            }
+
+            return { unitCost: unitCost || 0, relNo, seller, releaseData: releaseData || null };
+        };

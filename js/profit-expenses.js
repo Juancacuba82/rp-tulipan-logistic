@@ -24,6 +24,7 @@
 
         window.refreshProfitModule = async function() {
             await window.withRefreshButton('btn-refresh-profit', async () => {
+                window.profitPurchaseTripCache = null;
                 await loadExpensesData(true);
                 if (typeof window.loadReleasesData === 'function') await window.loadReleasesData(true);
                 if (typeof window.loadRentalsData === 'function') await window.loadRentalsData(true);
@@ -390,18 +391,39 @@
             const expensesData = window.currentExpenses || [];
 
             // 0. Build Release Lookup Map for Container Purchase Costs
-            const relMap = new Map();
-            (window.currentReleases || []).forEach(r => {
-                if (r && r[0]) {
-                    const rNo = r[0].toString().trim();
-                    const existing = relMap.get(rNo) || { p20: 0, p40: 0, p45: 0 };
-                    relMap.set(rNo, { 
-                        p20: (parseFloat(r[8]) || 0) || existing.p20,
-                        p40: (parseFloat(r[10]) || 0) || existing.p40,
-                        p45: (parseFloat(r[12]) || 0) || existing.p45
+            const relMap = typeof window.buildReleasePriceMap === 'function'
+                ? window.buildReleasePriceMap(window.currentReleases || [])
+                : (() => {
+                    const m = new Map();
+                    (window.currentReleases || []).forEach(r => {
+                        if (r && r[0]) {
+                            const rNo = r[0].toString().trim();
+                            const existing = m.get(rNo) || { p20: 0, p40: 0, p45: 0 };
+                            m.set(rNo, {
+                                p20: (parseFloat(r[8]) || 0) || existing.p20,
+                                p40: (parseFloat(r[10]) || 0) || existing.p40,
+                                p45: (parseFloat(r[12]) || 0) || existing.p45
+                            });
+                        }
                     });
+                    return m;
+                })();
+
+            // Full trip history for Yard→Release purchase traceback (date filters must not hide origin trips)
+            let purchaseTracePool = logisticsData;
+            if (dateFrom || dateTo) {
+                if (window.inventoryDataCache && window.inventoryDataCache.length) {
+                    purchaseTracePool = window.inventoryDataCache;
+                } else if (window.profitPurchaseTripCache && window.profitPurchaseTripCache.length) {
+                    purchaseTracePool = window.profitPurchaseTripCache;
+                } else if (typeof window.getAllTripsForProfit === 'function' && typeof window.mapTripToArray === 'function') {
+                    const fullRaw = await window.getAllTripsForProfit();
+                    window.profitPurchaseTripCache = (fullRaw || []).map(window.mapTripToArray);
+                    purchaseTracePool = window.profitPurchaseTripCache;
                 }
-            });
+            } else {
+                window.profitPurchaseTripCache = logisticsData;
+            }
 
             let totals = {
                 sales: 0,        // Gross Sales Revenue (sales_price * qty)
@@ -450,46 +472,10 @@
 
                     // A. Sales Component — Gross Revenue = sales_price * qty
                     if (hasSales && salesPrice > 0) {
-                        let relNo      = (row[4] || '').toString().trim();
-                        const tripSize   = (row[2] || '').toString();
-
-                        // --- Traceback logic for Yard-sourced sales ---
-                        if (!relMap.has(relNo)) {
-                            const containerSource = (row[58] || 'RELEASE').toString();
-                            const yardItemId    = (row[59] || '').toString();
-                            if ((containerSource === 'YARD' || containerSource === 'STORAGE') && yardItemId) {
-                                const yardItems = window.getYardStockData ? window.getYardStockData() : [];
-                                const yardItem  = yardItems.find(y => String(y.id) === String(yardItemId));
-                                if (yardItem && yardItem.origin_release) {
-                                    const originOrderNo = yardItem.origin_release;
-                                    const allT = window.allTripsUnfiltered || window.currentTrips || [];
-                                    const originalTrip = allT.find(t =>
-                                        Array.isArray(t) &&
-                                        (t[5] || '').toString().trim() === originOrderNo.toString().trim()
-                                    );
-                                    if (originalTrip) {
-                                        const foundRelNo = (originalTrip[4] || '').toString().trim();
-                                        if (foundRelNo && relMap.has(foundRelNo)) {
-                                            relNo = foundRelNo;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        const releaseData = relMap.get(relNo);
-
-                        let unitCost = 0;
-                        if (releaseData) {
-                            if (tripSize.includes('20'))      unitCost = releaseData.p20;
-                            else if (tripSize.includes('40')) unitCost = releaseData.p40;
-                            else if (tripSize.includes('45')) unitCost = releaseData.p45;
-
-                            // Fallback if specific size price is 0
-                            if (unitCost === 0) {
-                                unitCost = releaseData.p20 || releaseData.p40 || releaseData.p45 || 0;
-                            }
-                        }
+                        // Same purchase-cost resolution as Inventory (full history for Yard traceback)
+                        const unitCost = (typeof window.resolveContainerPurchaseCost === 'function')
+                            ? window.resolveContainerPurchaseCost(row, relMap, purchaseTracePool).unitCost
+                            : 0;
 
                         const totalSales = (salesPrice || 0) * (qty || 1);
                         const totalCost  = (unitCost || 0) * (qty || 1);
