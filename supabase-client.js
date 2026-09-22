@@ -252,17 +252,42 @@ async function updateRelease(id, updateData) {
 // Helper for Expenses
 async function getExpenses() {
     try {
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
-        const dateStr = threeMonthsAgo.toISOString().split('T')[0];
+        const pageSize = 1000;
+        const selectWithLine = 'id, date, category, description, amount, note, payment_method, profit_line';
+        const selectFallback = 'id, date, category, description, amount, note, payment_method';
+        let useFallback = false;
+        const all = [];
 
-        const { data, error } = await db.from('expenses')
-            .select('id, date, category, description, amount, note, payment_method')
-            .or('is_deleted.eq.false,is_deleted.is.null')
-            .gte('date', dateStr)
-            .order('date', { ascending: false });
-        if (error) throw error;
-        return data || [];
+        for (let from = 0; ; from += pageSize) {
+            const to = from + pageSize - 1;
+            const cols = useFallback ? selectFallback : selectWithLine;
+            let { data, error } = await db.from('expenses')
+                .select(cols)
+                .or('is_deleted.eq.false,is_deleted.is.null')
+                .order('date', { ascending: false })
+                .order('id', { ascending: false })
+                .range(from, to);
+
+            if (error && !useFallback && String(error.message || '').toLowerCase().includes('profit_line')) {
+                console.warn('profit_line column missing — run supabase-add-expense-profit-line.sql. Falling back.');
+                useFallback = true;
+                from -= pageSize;
+                continue;
+            }
+            if (error) throw error;
+
+            const rows = data || [];
+            if (useFallback) {
+                all.push(...rows.map(e => ({ ...e, profit_line: null })));
+            } else {
+                all.push(...rows);
+            }
+
+            if (rows.length < pageSize) break;
+        }
+
+        console.log('[EXPENSES] Loaded full history:', all.length);
+        return all;
     } catch (err) {
         console.error('Error fetching expenses:', err);
         return [];
@@ -274,6 +299,27 @@ async function addExpense(expenseData) {
     const { data, error } = await db.from('expenses').insert([expenseData]).select();
     if (error) { console.error('Error adding expense:', error); throw error; }
     return data;
+}
+
+async function updateExpenseProfitLines(ids, profitLine) {
+    if (!checkStudentPermission('expenses', 'create')) return null;
+    if (!ids || ids.length === 0) return [];
+    const line = (profitLine && String(profitLine).trim()) ? String(profitLine).trim() : null;
+    const all = [];
+    const chunkSize = 80;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const { data, error } = await db.from('expenses')
+            .update({ profit_line: line })
+            .in('id', chunk)
+            .select('id, date, category, description, amount, note, payment_method, profit_line');
+        if (error) { console.error('Error updating expense profit lines:', error); throw error; }
+        if (data) all.push(...data);
+    }
+    if (window.logActivity) {
+        window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Assigned profit_line=${line || 'null'} to ${ids.length} expense(s)`);
+    }
+    return all;
 }
 
 async function deleteExpense(expenseId) {
@@ -551,6 +597,7 @@ window.addRelease = addRelease;
 window.updateRelease = updateRelease;
 window.getExpenses = getExpenses;
 window.addExpense = addExpense;
+window.updateExpenseProfitLines = updateExpenseProfitLines;
 window.deleteExpense = deleteExpense;
 window.getFleet = getFleet;
 window.saveFleet = saveFleet;

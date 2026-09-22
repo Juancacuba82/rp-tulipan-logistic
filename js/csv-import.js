@@ -377,8 +377,14 @@ function applyHistoricalMemory() {
             return;
         }
 
-        if (lowerDesc.includes('salary') || lowerDesc.includes('payroll') || lowerDesc.includes('commission') || origDesc.includes('salary')) {
+        if (lowerDesc.includes('salary') || lowerDesc.includes('payroll') || origDesc.includes('salary')) {
             row.suggestedCategory = 'Payroll';
+            row.shouldSelect = false;
+            row.statusMessage = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> Ignorar (Autogenerado en Módulos)</span>`;
+            return;
+        }
+        if (lowerDesc.includes('commission')) {
+            row.suggestedCategory = 'Commission';
             row.shouldSelect = false;
             row.statusMessage = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> Ignorar (Autogenerado en Módulos)</span>`;
             return;
@@ -415,7 +421,9 @@ function applyHistoricalMemory() {
 
         const hist = findHistoryMatch(row, memory);
         if (hist) {
-            row.suggestedCategory = hist.category || 'Other';
+            row.suggestedCategory = window.normalizeExpenseCategory
+                ? window.normalizeExpenseCategory(hist.category || 'Other')
+                : (hist.category || 'Other');
             const catUpper = (hist.category || '').toUpperCase();
             if (catUpper === 'PAYROLL' || catUpper === 'COMMISSION') {
                 row.shouldSelect = false;
@@ -431,13 +439,21 @@ function applyHistoricalMemory() {
         if (lowerDesc.includes('progressive insurance')) {
             row.suggestedCategory = 'Insurance';
         } else if (lowerDesc.includes('ford motor credit') || lowerDesc.includes('ally financial')) {
-            row.suggestedCategory = 'Equipment & Machinery';
+            row.suggestedCategory = 'Fleet/Truck Payment';
         } else if (lowerDesc.includes("o'reilly") || lowerDesc.includes('home depot')) {
-            row.suggestedCategory = 'Maintenance & Repairs';
+            row.suggestedCategory = 'Service/Repairs';
         } else if (lowerDesc.includes('t-mobile')) {
-            row.suggestedCategory = 'Communication';
+            row.suggestedCategory = 'Utilities';
         } else if (lowerDesc.includes('fpl')) {
             row.suggestedCategory = 'Utilities';
+        } else if (lowerDesc.includes('facebook') || lowerDesc.includes('tiktok') || lowerDesc.includes('facebk')) {
+            row.suggestedCategory = 'Marketing/Ads';
+        } else if (lowerDesc.includes('sunpass') || lowerDesc.includes('e zpass') || lowerDesc.includes('ezpass')) {
+            row.suggestedCategory = 'Tolls';
+        }
+
+        if (window.normalizeExpenseCategory) {
+            row.suggestedCategory = window.normalizeExpenseCategory(row.suggestedCategory || 'Other');
         }
 
         row.isUnknown = true;
@@ -458,20 +474,22 @@ function renderCsvPreview() {
     container.style.display = 'block';
     tbody.innerHTML = '';
 
-    const catSelect = document.getElementById('exp-category');
-    const catList = document.getElementById('exp-category-list');
     let categoryOptions = '';
-
-    if (catList && catList.options) {
-        Array.from(catList.options).forEach(opt => {
-            if (opt.value) categoryOptions += `<option value="${opt.value}">${opt.value}</option>`;
-        });
-    } else if (catSelect && catSelect.options) {
-        Array.from(catSelect.options).forEach(opt => {
-            if (opt.value) categoryOptions += `<option value="${opt.value}">${opt.text || opt.value}</option>`;
+    if (window.getOfficialExpenseCategoryOptionsHtml) {
+        categoryOptions = window.getOfficialExpenseCategoryOptionsHtml('', false);
+    } else if (window.OFFICIAL_EXPENSE_CATEGORIES) {
+        window.OFFICIAL_EXPENSE_CATEGORIES.forEach(name => {
+            categoryOptions += `<option value="${name}">${name}</option>`;
         });
     } else {
-        categoryOptions = `<option value="Other">Other</option>`;
+        const catSelect = document.getElementById('exp-category');
+        if (catSelect && catSelect.options) {
+            Array.from(catSelect.options).forEach(opt => {
+                if (opt.value) categoryOptions += `<option value="${opt.value}">${opt.value}</option>`;
+            });
+        } else {
+            categoryOptions = `<option value="Other">Other</option>`;
+        }
     }
 
     window.csvParsedData.forEach((row, i) => {
@@ -493,6 +511,13 @@ function renderCsvPreview() {
             ? `<div style="font-size:0.7rem; color:#4f46e5; font-weight:800;">Miércoles de la semana</div>`
             : `<div style="font-size:0.7rem; color:#64748b; font-weight:700;">Fecha del banco</div>`;
 
+        const suggestedLine = window.suggestExpenseProfitLine
+            ? (window.suggestExpenseProfitLine(row.suggestedCategory, row.description, row.originalBankDesc || '') || '')
+            : '';
+        const profitLineOptions = window.buildProfitLineSelectOptions
+            ? window.buildProfitLineSelectOptions(suggestedLine, 'Unassigned...')
+            : `<option value="">Unassigned...</option>`;
+
         tr.className = 'csv-main-row';
         tr.setAttribute('data-csv-index', String(i));
         tr.innerHTML = `
@@ -507,6 +532,11 @@ function renderCsvPreview() {
             <td>
                 <select class="csv-category-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1;">
                     ${categoryOptions}
+                </select>
+            </td>
+            <td>
+                <select class="csv-profit-line-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight:700;">
+                    ${profitLineOptions}
                 </select>
             </td>
             <td style="text-align:right; font-weight: 900; color: #ef4444;">$${row.amount.toFixed(2)}</td>
@@ -525,6 +555,7 @@ function renderCsvPreview() {
                     <td></td>
                     <td style="font-size: 0.8rem; color: #64748b;">${formatCsvDate(sub.date)}</td>
                     <td style="font-size: 0.8rem; color: #64748b; padding-left: 25px;">&#8627; ${sub.description}</td>
+                    <td></td>
                     <td></td>
                     <td style="font-size: 0.8rem; color: #64748b; text-align:right;">$${sub.amount.toFixed(2)}</td>
                     <td></td>
@@ -597,7 +628,14 @@ window.saveSelectedCsvExpenses = async function() {
         const index = cb.getAttribute('data-index');
         const rowData = window.csvParsedData[index];
         const selectEl = document.querySelector(`.csv-category-select[data-index="${index}"]`);
-        const finalCategory = selectEl.value;
+        let finalCategory = selectEl.value;
+        if (window.normalizeExpenseCategory) finalCategory = window.normalizeExpenseCategory(finalCategory);
+        const lineSel = document.querySelector(`.csv-profit-line-select[data-index="${index}"]`);
+        const finalProfitLine = (lineSel && lineSel.value) ? lineSel.value.trim() : (
+            window.suggestExpenseProfitLine
+                ? (window.suggestExpenseProfitLine(finalCategory, rowData.description, '') || null)
+                : null
+        );
 
         let expenseNote = `Imported from Bank CSV (${rowData.bankDate || rowData.date}) - ${rowData.originalBankDesc || rowData.description}`;
 
@@ -618,7 +656,8 @@ window.saveSelectedCsvExpenses = async function() {
             description: String(rowData.description || '').substring(0, 50),
             amount: rowData.amount,
             note: expenseNote,
-            payment_method: 'bank'
+            payment_method: 'bank',
+            profit_line: finalProfitLine || null
         };
 
         try {

@@ -586,15 +586,18 @@
             const note = document.getElementById('exp-note').value || '---';
             const paymentMethodInput = document.querySelector('input[name="exp-payment-method"]:checked');
             const paymentMethod = paymentMethodInput ? paymentMethodInput.value : null;
+            const profitLine = (document.getElementById('exp-profit-line')?.value || '').trim();
 
             const btn = document.getElementById('btn-save-expense');
 
             if (!date || date === '---') return alert("Please select a date.");
+            if (!profitLine) return alert("Please select a PROFIT LINE (where this expense subtracts in Profit Report).");
             if (!cat) return alert("Please select a category.");
             if (!paymentMethod) return alert("Please select a PAYMENT METHOD (CASH or BANK / ONLINE).");
 
-            let desc = otherVal || cat;
-            const rowData = [date, cat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note, null, paymentMethod];
+            const normalizedCat = window.normalizeExpenseCategory ? window.normalizeExpenseCategory(cat) : cat;
+            let desc = otherVal || normalizedCat;
+            const rowData = [date, normalizedCat, desc, `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, note, null, paymentMethod, profitLine];
 
             try {
                 const expenseObj = mapArrayToExpense(rowData);
@@ -627,7 +630,10 @@
                 window.resetExpenseForm();
             } catch (err) {
                 console.error("Error saving expense:", err);
-                alert("Failed to save expense to database.");
+                const hint = (err && err.message && String(err.message).includes('profit_line'))
+                    ? '\n\nRun supabase-add-expense-profit-line.sql in Supabase SQL Editor first.'
+                    : '';
+                alert("Failed to save expense to database." + hint);
             }
         };
 
@@ -673,6 +679,8 @@
             window.editingExpenseId = null;
             document.getElementById('exp-date').value = '';
             document.getElementById('exp-category').selectedIndex = 0;
+            const profitSel = document.getElementById('exp-profit-line');
+            if (profitSel) profitSel.selectedIndex = 0;
             const otherGroup = document.getElementById('group-exp-other');
             if (otherGroup) otherGroup.style.display = 'block';
             document.getElementById('exp-other-desc').value = '';
@@ -690,6 +698,16 @@
 
             // Remove highlighted rows
             document.querySelectorAll('#expenses-body tr').forEach(r => r.classList.remove('editing-row'));
+        };
+
+        window.onExpenseCategoryChanged = function () {
+            const cat = document.getElementById('exp-category')?.value || '';
+            const desc = document.getElementById('exp-other-desc')?.value || '';
+            const note = document.getElementById('exp-note')?.value || '';
+            const lineSel = document.getElementById('exp-profit-line');
+            if (!lineSel || lineSel.value) return;
+            const suggested = window.suggestExpenseProfitLine ? window.suggestExpenseProfitLine(cat, desc, note) : '';
+            if (suggested) lineSel.value = suggested;
         };
 
         // New logic for Release Row addition (SUPABASE)

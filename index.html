@@ -17,20 +17,20 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=3">
+    <link rel="stylesheet" href="./style.css?v=4">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
-    <script src="./supabase-client.js?v=13"></script>
+    <script src="./supabase-client.js?v=15"></script>
     <script src="./js/data-mapping.js?v=12"></script>
     <script src="./js/realtime-sync.js?v=3" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1702" defer></script>
+    <script src="./js/data-managers.js?v=1704" defer></script>
     <script src="./js/delivery-calendar.js?v=1706" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
-    <script src="./js/releases.js?v=1701" defer></script>
-    <script src="./js/profit-expenses.js?v=1706" defer></script>
+    <script src="./js/releases.js?v=1703" defer></script>
+    <script src="./js/profit-expenses.js?v=1709" defer></script>
 
     <script src="./js/docs-receipts.js?v=1702" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
@@ -39,12 +39,12 @@
     <script src="./js/tasks.js?v=11" defer></script>
     <script src="./js/billing-manager.js?v=24" defer></script>
     <script src="./js/invoice-automation.js?v=19" defer></script>
-    <script src="./js/attendance.js?v=2" defer></script>
+    <script src="./js/attendance.js?v=3" defer></script>
     <script src="./js/accounting.js?v=102" defer></script>
     <script src="./js/receivables.js?v=30" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
-    <script src="./js/csv-import.js?v=7" defer></script>
+    <script src="./js/csv-import.js?v=9" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="./js/recycle-bin.js?v=3" defer></script>
@@ -3762,23 +3762,38 @@
                             <label class="sidebar-label-btn" style="background: #475569 !important;">DATE</label>
                             <input type="date" id="exp-date">
                         </div>
+
                         <div class="form-group">
                             <label class="sidebar-label-btn"
-                                style="background: #1e40af !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">CATEGORY</label>
+                                style="background: #0f766e !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">1. PROFIT LINE</label>
+                            <select id="exp-profit-line" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white; font-weight: 700;">
+                                <option value="">Select profit line...</option>
+                            </select>
+                            <p style="margin: 6px 0 0; font-size: 0.68rem; color: #64748b; line-height: 1.35;">
+                                Which business line this subtracts from in Profit Report.
+                            </p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="sidebar-label-btn"
+                                style="background: #1e40af !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">2. CATEGORY</label>
                             <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                                <select id="exp-category" onchange="toggleOtherExpense()" style="flex: 1; margin: 0; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white;">
+                                <select id="exp-category" onchange="toggleOtherExpense(); if(window.onExpenseCategoryChanged) window.onExpenseCategoryChanged();" style="flex: 1; margin: 0; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white;">
                                     <option value="">Select category...</option>
                                 </select>
-                                <button onclick="openExpenseCategoryManager()" class="btn-manage-inline"
+                                <button id="btn-manage-expense-categories" onclick="openExpenseCategoryManager()" class="btn-manage-inline"
                                     style="flex: 0 0 auto; height: 42px; display: flex; align-items: center; justify-content: center;">
                                     Manage
                                 </button>
                             </div>
+                            <p style="margin: 6px 0 0; font-size: 0.68rem; color: #64748b; line-height: 1.35;">
+                                Official type only. Vendor names go in Description / Note — not as new categories.
+                            </p>
                         </div>
 
                         <div class="form-group" id="group-exp-other">
-                            <label class="sidebar-label-btn" style="background: #64748b !important;">DESCRIPTION</label>
-                            <input type="text" id="exp-other-desc" placeholder="Specify expense type"
+                            <label class="sidebar-label-btn" style="background: #64748b !important;">3. DESCRIPTION</label>
+                            <input type="text" id="exp-other-desc" placeholder="Vendor, driver, or detail (e.g. Titan Fuel, Hortas)"
                                 list="expense-descriptions-list">
                             <datalist id="expense-descriptions-list"></datalist>
                         </div>
@@ -3822,10 +3837,21 @@
                                 style="font-size: 1.8rem; font-weight: 900; color: #1e293b; margin: 0; letter-spacing: -0.5px;">
                                 Recent Expenses History</h2>
                             <p style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">Audit and track operational
-                                expenditures</p>
+                                expenditures by profit line</p>
                         </div>
 
                         <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                            <div id="expense-profit-line-banner"
+                                style="display: none; align-items: center; gap: 12px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px;">
+                                <span style="font-size: 0.82rem; font-weight: 700; color: #92400e;">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span id="expense-unassigned-count">0</span> without Profit Line
+                                </span>
+                                <button type="button" onclick="openExpenseProfitLineAssignModal()"
+                                    style="background: #b45309; color: white; border: none; border-radius: 6px; padding: 6px 12px; font-weight: 800; font-size: 0.75rem; cursor: pointer;">
+                                    Assign Lines
+                                </button>
+                            </div>
                             <div class="filter-summary-card" style="margin-bottom: 0;">
                                 <div class="filter-summary-icon" style="background: #fef2f2; color: #ef4444;">
                                     <i class="fas fa-receipt"></i>
@@ -3861,6 +3887,17 @@
                                         <select id="exp-filter-category" class="form-select"
                                             onchange="renderExpensesHistory()" style="width: 180px;">
                                             <option value="">All Categories</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="attendance-input-group">
+                                    <label><i class="fas fa-sitemap"></i> PROFIT LINE</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-filter"></i>
+                                        <select id="exp-filter-profit-line" class="form-select"
+                                            onchange="renderExpensesHistory()" style="width: 180px;">
+                                            <option value="">All Profit Lines</option>
+                                            <option value="__unassigned__">Unassigned only</option>
                                         </select>
                                     </div>
                                 </div>
@@ -3914,6 +3951,7 @@
                             <thead>
                                 <tr class="header-row">
                                     <th>DATE</th>
+                                    <th>PROFIT LINE</th>
                                     <th>CATEGORY</th>
                                     <th>DESCRIPTION</th>
                                     <th>AMOUNT</th>
@@ -3995,178 +4033,49 @@
                     </div>
                 </div>
 
-                <div class="report-details-grid">
-                    <div class="breakdown-panel">
-                        <h3>Revenue Breakdown by Service</h3>
-                        <div class="breakdown-list">
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot sales"></span>
-                                    Total Sales
-                                </div>
-                                <div class="item-value" id="val-sales">$0.00</div>
+                <div class="profit-performance-wrap">
+                    <div class="profit-performance-panel">
+                        <div class="profit-performance-header">
+                            <div>
+                                <h3 style="margin:0;">Performance by Service</h3>
+                                <p style="margin:6px 0 0; color:#64748b; font-size:0.85rem;">
+                                    Margin % = how profitable each line is · Share % = size of total revenue
+                                </p>
                             </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot yard"></span>
-                                    Total Yard Services
-                                </div>
-                                <div class="item-value" id="val-yard">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #f59e0b;"></span>
-                                    Total Rentals
-                                </div>
-                                <div class="item-value" id="val-rentals">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #2dd4bf;"></span>
-                                    RP TULIPAN Total
-                                </div>
-                                <div class="item-value" id="val-tulipan">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #3b82f6;"></span>
-                                    JR SUPER CRANE Total
-                                </div>
-                                <div class="item-value" id="val-jr">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #a855f7;"></span>
-                                    CONTRACTOR Total
-                                </div>
-                                <div class="item-value" id="val-contractor">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #6366f1;"></span>
-                                    Total Storage RPTulipan
-                                </div>
-                                <div class="item-value" id="val-storage-rptulipan">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #10b981;"></span>
-                                    Total Storage Yard
-                                </div>
-                                <div class="item-value" id="val-storage-yard">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #0ea5e9;"></span>
-                                    Custom Invoices
-                                </div>
-                                <div class="item-value" id="val-custom-invoices">$0.00</div>
-                            </div>
-                            <div class="breakdown-item"
-                                style="border-top: 2px solid #1e293b; margin-top: 12px; padding-top: 12px;">
-                                <div class="item-label"
-                                    style="font-weight: 900; color: #1e293b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                                    ⬛ Total
-                                </div>
-                                <div class="item-value" id="val-revenue-total"
-                                    style="font-weight: 900; color: #1e293b; font-size: 1.05rem;">$0.00</div>
-                            </div>
-                            <div class="breakdown-item"
-                                style="border-top: 1px dashed #e2e8f0; margin-top: 15px; padding-top: 15px;">
-                                <div class="item-label"
-                                    style="font-weight: 800; color: #1e293b; text-transform: uppercase; font-size: 0.75rem;">
-                                    Costs & Expenses
-                                </div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #94a3b8;"></span>
-                                    Business Expenses
-                                </div>
-                                <div class="item-value" id="val-expenses" style="color: #ef4444;">$0.00</div>
-                            </div>
-                            <div class="breakdown-item">
-                                <div class="item-label">
-                                    <span class="dot" style="background: #be185d;"></span>
-                                    Container Purchases
-                                </div>
-                                <div class="item-value" id="val-releases" style="color: #ef4444;">$0.00</div>
-                            </div>
+                            <span id="profit-expense-assign-pct"
+                                style="display: none; font-size: 0.72rem; font-weight: 800; padding: 4px 10px; border-radius: 999px;"></span>
                         </div>
-                    </div>
-
-                    <div class="chart-panel" style="display: flex; flex-direction: column;">
-                        <h3>Revenue Distribution</h3>
-                        <div class="simple-bar-chart" style="flex: 1;">
-                            <div class="bar-group">
-                                <label>Total Sales</label>
-                                <div class="bar-container">
-                                    <div id="bar-sales" class="bar sales" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>Yard</label>
-                                <div class="bar-container">
-                                    <div id="bar-yard" class="bar yard" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>Rentals</label>
-                                <div class="bar-container">
-                                    <div id="bar-rentals" class="bar" style="width: 0%; background: #f59e0b;"></div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>RP Tulipan</label>
-                                <div class="bar-container">
-                                    <div id="bar-tulipan" class="bar" style="width: 0%; background: #2dd4bf;"></div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>JR Super Crane</label>
-                                <div class="bar-container">
-                                    <div id="bar-jr" class="bar" style="width: 0%; background: #3b82f6;"></div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>Contractor</label>
-                                <div class="bar-container">
-                                    <div id="bar-contractor" class="bar" style="width: 0%; background: #a855f7;"></div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>Storage RPTulipan</label>
-                                <div class="bar-container">
-                                    <div id="bar-storage-rptulipan" class="bar" style="width: 0%; background: #6366f1;">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>Storage Yard</label>
-                                <div class="bar-container">
-                                    <div id="bar-storage-yard" class="bar" style="width: 0%; background: #10b981;">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label>Custom Invoices</label>
-                                <div class="bar-container">
-                                    <div id="bar-custom-invoices" class="bar" style="width: 0%; background: #0ea5e9;"></div>
-                                </div>
-                            </div>
-                            <!-- Expenses section: margin-top accounts for TOTAL row + Costs & Expenses header on the left -->
-                            <div class="bar-group" style="margin-top: 116px;">
-                                <label style="color: #ef4444; font-weight: 700;">Total Expenses</label>
-                                <div class="bar-container">
-                                    <div id="bar-expenses" class="bar" style="width: 0%; background: #ef4444;"></div>
-                                </div>
-                            </div>
-                            <div class="bar-group">
-                                <label style="color: #be185d; font-weight: 700;">Container Purchases</label>
-                                <div class="bar-container">
-                                    <div id="bar-releases" class="bar" style="width: 0%; background: #be185d;"></div>
-                                </div>
-                            </div>
+                        <div class="profit-performance-scroll">
+                            <table class="profit-performance-table" id="profit-performance-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-line">LINE</th>
+                                        <th class="col-num">REVENUE</th>
+                                        <th class="col-num">COSTS</th>
+                                        <th class="col-num">NET</th>
+                                        <th class="col-pct">MARGIN %</th>
+                                        <th class="col-pct">SHARE %</th>
+                                        <th class="col-bar">MIX</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="profit-performance-body">
+                                    <!-- Filled by renderProfitReport -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="profit-performance-note">
+                            <strong>Sales costs</strong> include Container Purchases (COGS).
+                            <strong>Overhead</strong> and <strong>Unassigned</strong> lower company net but are not charged to a service line until you assign them in Expenses.
+                        </p>
+                        <!-- Keep legacy ids for any external refs / soft fallbacks -->
+                        <div id="profit-legacy-vals" style="display:none;" aria-hidden="true">
+                            <span id="val-sales"></span><span id="val-yard"></span><span id="val-rentals"></span>
+                            <span id="val-tulipan"></span><span id="val-jr"></span><span id="val-contractor"></span>
+                            <span id="val-storage-rptulipan"></span><span id="val-storage-yard"></span>
+                            <span id="val-custom-invoices"></span><span id="val-revenue-total"></span>
+                            <span id="val-expenses"></span><span id="val-exp-overhead"></span>
+                            <span id="val-exp-unassigned"></span><span id="val-releases"></span>
+                            <span id="val-exp-sales"></span><span id="val-net-sales"></span>
                         </div>
                     </div>
                 </div>
@@ -8361,21 +8270,88 @@
     <div id="expense-category-manager-modal" class="simple-modal">
         <div class="modal-content" style="border-top-color: #1e40af;">
             <div class="modal-header">
-                <h3>Manage Expense Categories</h3>
+                <h3>Expense Categories</h3>
                 <button onclick="closeExpenseCategoryManager()" class="btn-close-modal">&times;</button>
+            </div>
+            <div style="padding: 0 16px 10px;">
+                <p style="margin:0; font-size:0.75rem; color:#475569; line-height:1.4;">
+                    Official types are locked. Put vendor names in <strong>Description</strong>, not as new categories.
+                </p>
+                <button type="button" id="btn-normalize-expense-categories" onclick="normalizeAllExpenseCategories()"
+                    style="margin-top:10px; width:100%; height:38px; background:#0f766e; color:white; border:none; border-radius:6px; font-weight:800; font-size:0.78rem; cursor:pointer;">
+                    <i class="fas fa-magic"></i> Normalize expenses to official
+                </button>
             </div>
             <div id="expense-category-list-body" class="driver-list-container">
                 <!-- Categories will be listed here -->
             </div>
             <div class="modal-footer">
                 <div class="add-driver-input-row">
-                    <input type="text" id="new-expense-category-name" placeholder="ENTER NEW CATEGORY NAME...">
+                    <input type="text" id="new-expense-category-name" placeholder="CUSTOM CATEGORY (ADMIN ONLY)...">
                     <button onclick="addNewExpenseCategory()" class="btn-add-driver-confirm"
                         style="background: #1e40af;">ADD</button>
                 </div>
-                <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting a category only removes it
-                    from future entries.</p>
+                <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Prefer official list. Custom adds should be rare.</p>
             </div>
+        </div>
+    </div>
+
+    <!-- ASSIGN PROFIT LINE (bulk) MODAL -->
+    <div id="expense-profit-line-assign-modal" class="simple-modal" style="display: none;">
+        <div class="modal-content" style="border-top-color: #0f766e; max-width: 920px; width: 95%;">
+            <div class="modal-header">
+                <h3>Assign Profit Lines</h3>
+                <button onclick="closeExpenseProfitLineAssignModal()" class="btn-close-modal">&times;</button>
+            </div>
+            <div style="padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; border-bottom: 1px solid #e2e8f0;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:700; color:#334155;">
+                    <input type="checkbox" id="bulk-only-unassigned" checked onchange="renderExpenseProfitLineAssignList()">
+                    Unassigned only
+                </label>
+                <div>
+                    <label style="display:block; font-size:0.7rem; font-weight:800; color:#64748b; margin-bottom:4px;">CATEGORY</label>
+                    <select id="bulk-filter-category" onchange="renderExpenseProfitLineAssignList()"
+                        style="height:36px; min-width:160px; border-radius:6px; border:1px solid #cbd5e1; padding:0 8px;">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.7rem; font-weight:800; color:#64748b; margin-bottom:4px;">ASSIGN TO</label>
+                    <select id="bulk-profit-line-target"
+                        style="height:36px; min-width:200px; border-radius:6px; border:1px solid #cbd5e1; padding:0 8px; font-weight:700;">
+                        <option value="">Assign to...</option>
+                    </select>
+                </div>
+                <button type="button" id="btn-apply-bulk-profit-line" onclick="applyBulkExpenseProfitLine()"
+                    style="height:36px; background:#0f766e; color:white; border:none; border-radius:6px; padding:0 14px; font-weight:800; cursor:pointer;">
+                    <i class="fas fa-check"></i> Assign Selected
+                </button>
+                <button type="button" onclick="autoAssignSafeOverheadExpenses()"
+                    style="height:36px; background:#64748b; color:white; border:none; border-radius:6px; padding:0 14px; font-weight:800; cursor:pointer;">
+                    Auto Overhead
+                </button>
+                <span id="bulk-assign-summary" style="margin-left:auto; font-size:0.78rem; font-weight:700; color:#475569;"></span>
+            </div>
+            <div style="max-height: 420px; overflow: auto; padding: 0 8px 12px;">
+                <table class="drivers-report-table" style="width:100%;">
+                    <thead>
+                        <tr class="header-row">
+                            <th style="width:40px;"><input type="checkbox" checked onchange="toggleBulkProfitLineChecks(this.checked)"></th>
+                            <th>DATE</th>
+                            <th>CATEGORY</th>
+                            <th>DESCRIPTION</th>
+                            <th>AMOUNT</th>
+                            <th>LINE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulk-profit-line-body"></tbody>
+                </table>
+            </div>
+            <p style="font-size: 0.7rem; color: #64748b; margin: 0 18px 14px; line-height: 1.4;">
+                Tip: Filter by <strong>Driver Payment</strong> and assign all of one driver’s liquidaciones to
+                <strong>RP Tulipan</strong>, <strong>JR Super Crane</strong>, or <strong>Contractor</strong>.
+                Fuel / Tolls usually go to the company that used them, or Overhead if shared.
+            </p>
         </div>
     </div>
 
@@ -9588,6 +9564,7 @@
                                 <th>Date</th>
                                 <th>Description (Bank)</th>
                                 <th>Suggested Category</th>
+                                <th>Profit Line</th>
                                 <th style="text-align: right;">Amount</th>
                                 <th>Status / Suggestion</th>
                             </tr>

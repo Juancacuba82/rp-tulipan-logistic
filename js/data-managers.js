@@ -1352,19 +1352,104 @@
                 console.error("Delete err:", err);
             }
         };
-        // --- EXPENSE CATEGORY MANAGEMENT LOGIC ---
+        // --- EXPENSE CATEGORY MANAGEMENT (official controlled list) ---
         let currentExpenseCategories = [];
+
+        window.OFFICIAL_EXPENSE_CATEGORIES = [
+            'Fuel',
+            'Tolls',
+            'Service/Repairs',
+            'Driver Payment',
+            'Commission',
+            'Payroll',
+            'Insurance',
+            'Rent',
+            'Utilities',
+            'Taxes/Licenses',
+            'Marketing/Ads',
+            'Office/Supplies',
+            'Fleet/Truck Payment',
+            'Equipment',
+            'Professional Services',
+            'Other'
+        ];
+
+        // Legacy / free-text names → official category
+        window.EXPENSE_CATEGORY_ALIASES = {
+            'commission': 'Commission',
+            'driver payment': 'Driver Payment',
+            'fuel': 'Fuel',
+            'tolls': 'Tolls',
+            'sunpass tolls': 'Tolls',
+            'e-zpass tolls': 'Tolls',
+            'service/repairs': 'Service/Repairs',
+            'maintenance': 'Service/Repairs',
+            'maintenance & repairs': 'Service/Repairs',
+            'paint purchase & labor': 'Service/Repairs',
+            'payroll': 'Payroll',
+            'insurance': 'Insurance',
+            'progressive insurance': 'Insurance',
+            'rent': 'Rent',
+            'utilities': 'Utilities',
+            'fpl electricity': 'Utilities',
+            'taxes/licenses': 'Taxes/Licenses',
+            'facebook ads': 'Marketing/Ads',
+            'tiktok ads': 'Marketing/Ads',
+            'marketing': 'Marketing/Ads',
+            'ads': 'Marketing/Ads',
+            'office & yard supplies / maintenance': 'Office/Supplies',
+            'office/supplies': 'Office/Supplies',
+            'office': 'Office/Supplies',
+            'monthly trucks payment': 'Fleet/Truck Payment',
+            'fleet': 'Fleet/Truck Payment',
+            'fleet/truck payment': 'Fleet/Truck Payment',
+            'equipment': 'Equipment',
+            'equipment & machinery': 'Equipment',
+            'hortas & associates': 'Professional Services',
+            'professional services': 'Professional Services',
+            'operating expenses': 'Other',
+            'revisar': 'Other',
+            'communication': 'Other',
+            'other': 'Other'
+        };
+
+        window.isOfficialExpenseCategory = function (name) {
+            const n = (name || '').toString().trim().toLowerCase();
+            return window.OFFICIAL_EXPENSE_CATEGORIES.some(c => c.toLowerCase() === n);
+        };
+
+        window.normalizeExpenseCategory = function (name) {
+            const raw = (name || '').toString().trim();
+            if (!raw || raw === '---') return 'Other';
+            if (window.isOfficialExpenseCategory(raw)) {
+                return window.OFFICIAL_EXPENSE_CATEGORIES.find(c => c.toLowerCase() === raw.toLowerCase()) || raw;
+            }
+            const alias = window.EXPENSE_CATEGORY_ALIASES[raw.toLowerCase()];
+            if (alias) return alias;
+            return 'Other';
+        };
+
+        window.getOfficialExpenseCategoryOptionsHtml = function (selected, includeEmpty) {
+            const sel = (selected || '').toString().trim();
+            let html = includeEmpty ? `<option value="">${includeEmpty === true ? 'Select category...' : includeEmpty}</option>` : '';
+            window.OFFICIAL_EXPENSE_CATEGORIES.forEach(name => {
+                html += `<option value="${name}" ${sel === name ? 'selected' : ''}>${name}</option>`;
+            });
+            // Keep a legacy value selectable while editing an old row
+            if (sel && !window.isOfficialExpenseCategory(sel)) {
+                html += `<option value="${sel}" selected>${sel} (legacy)</option>`;
+            }
+            return html;
+        };
 
         window.loadExpenseCategoriesData = async function () {
             if (!db) return;
             try {
-                // 1. Load current categories from Supabase
                 const { data, error } = await db.from('expense_categories').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
 
                 if (error) {
                     console.error("Supabase error loading categories:", error);
-                    const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
-                    currentExpenseCategories = defaults.map((name, i) => ({ id: i, name }));
+                    currentExpenseCategories = window.OFFICIAL_EXPENSE_CATEGORIES.map((name, i) => ({ id: `local-${i}`, name, _system: true }));
                     refreshExpenseCategorySelects();
                     return;
                 }
@@ -1372,107 +1457,96 @@
                 let finalCategories = data || [];
                 const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
 
-                // 2. Check if we have local categories to migrate/sync - ADMIN ONLY
+                // Ensure official categories exist (admin seeds missing ones)
                 if (isAdmin) {
-                    try {
-                        const localRaw = localStorage.getItem('rp_expense_categories');
-                        if (localRaw) {
-                            const localData = JSON.parse(localRaw);
-                            if (Array.isArray(localData) && localData.length > 0) {
-                                const missingInDb = localData.filter(localCat =>
-                                    !finalCategories.some(dbCat => dbCat.name.toLowerCase() === localCat.name.toLowerCase())
-                                );
-
-                                if (missingInDb.length > 0) {
-                                    console.log(`Syncing ${missingInDb.length} local categories to Supabase...`);
-                                    const toInsert = missingInDb.map(c => ({ name: c.name }));
-                                    // OPT: Use .select() on insert to get IDs back directly, avoids a second query
-                                    const { data: insertedData, error: syncError } = await db.from('expense_categories').insert(toInsert).select();
-                                    if (!syncError && insertedData) {
-                                        finalCategories = [...finalCategories, ...insertedData].sort((a, b) => a.name.localeCompare(b.name));
-                                    } else if (syncError) {
-                                        console.error("Failed to sync local categories:", syncError);
-                                    }
-                                }
-                            }
+                    const missingOfficial = window.OFFICIAL_EXPENSE_CATEGORIES.filter(name =>
+                        !finalCategories.some(c => (c.name || '').toLowerCase() === name.toLowerCase())
+                    );
+                    if (missingOfficial.length > 0) {
+                        const { data: seeded, error: seedErr } = await db.from('expense_categories')
+                            .insert(missingOfficial.map(name => ({ name })))
+                            .select();
+                        if (!seedErr && seeded) {
+                            finalCategories = [...finalCategories, ...seeded];
+                        } else if (seedErr) {
+                            console.warn('Could not seed official categories:', seedErr);
                         }
-                    } catch (e) {
-                        console.warn("Could not sync local categories:", e);
-                    }
-
-                    // 3. If still empty (new DB), seed with defaults - ADMIN ONLY
-                    if (finalCategories.length === 0) {
-                        const defaults = ["Fuel", "Service/Repairs", "Tolls", "Insurance", "Payroll", "Utilities", "Taxes/Licenses", "Other"];
-                        const seedObjs = defaults.map(name => ({ name: name }));
-                        const { data: seededData } = await db.from('expense_categories').insert(seedObjs).select();
-                        finalCategories = seededData || finalCategories;
                     }
                 }
 
-                currentExpenseCategories = finalCategories;
+                // Prefer official list order for UI; keep extra DB cats marked non-system
+                const byLower = new Map();
+                finalCategories.forEach(c => byLower.set((c.name || '').toLowerCase(), c));
+                const ordered = [];
+                window.OFFICIAL_EXPENSE_CATEGORIES.forEach(name => {
+                    const found = byLower.get(name.toLowerCase());
+                    if (found) ordered.push({ ...found, _system: true });
+                    else ordered.push({ id: `pending-${name}`, name, _system: true });
+                });
+                finalCategories.forEach(c => {
+                    if (!window.isOfficialExpenseCategory(c.name)) {
+                        ordered.push({ ...c, _system: false });
+                    }
+                });
+
+                currentExpenseCategories = ordered;
                 refreshExpenseCategorySelects();
             } catch (err) {
                 console.error("Critical error in loadExpenseCategoriesData:", err);
             }
         };
 
-
-
         window.refreshExpenseCategorySelects = function() {
-            const expList = document.getElementById('exp-category-list');
-            const expFilt = document.getElementById('exp-filter-category');
-            
-            // Generate unique categories from both currentExpenseCategories and existing expenses
-            const uniqueCategories = new Set();
-            if (currentExpenseCategories) {
-                currentExpenseCategories.forEach(c => uniqueCategories.add(c.name));
-            }
-            if (window.currentExpenses) {
-                window.currentExpenses.forEach(row => {
-                    const cat = row[1];
-                    if (cat && cat !== '---' && cat.trim() !== '') {
-                        uniqueCategories.add(cat.trim());
-                    }
-                });
-            }
+            const official = window.OFFICIAL_EXPENSE_CATEGORIES.slice();
 
-            // Convert to array and sort alphabetically
-            const sortedCategories = Array.from(uniqueCategories).sort((a, b) => a.localeCompare(b));
-            
-            // Populate select
+            // Legacy categories still present on expenses (for filter only)
+            const legacy = new Set();
+            (window.currentExpenses || []).forEach(row => {
+                const cat = (row[1] || '').toString().trim();
+                if (cat && cat !== '---' && !window.isOfficialExpenseCategory(cat)) legacy.add(cat);
+            });
+
             const expSelect = document.getElementById('exp-category');
             if (expSelect) {
                 const currentValue = expSelect.value;
-                expSelect.innerHTML = '<option value="">Select category...</option>';
-                sortedCategories.forEach(catName => {
-                    const opt = document.createElement('option');
-                    opt.value = catName;
-                    opt.textContent = catName;
-                    expSelect.appendChild(opt);
-                });
-                // Restore selection if it still exists
-                if (uniqueCategories.has(currentValue)) {
-                    expSelect.value = currentValue;
-                }
+                expSelect.innerHTML = window.getOfficialExpenseCategoryOptionsHtml(currentValue, 'Select category...');
             }
 
-            // Populate filter select
+            const expFilt = document.getElementById('exp-filter-category');
             if (expFilt) {
                 const currentVal = expFilt.value;
-                expFilt.innerHTML = '<option value="">All Categories</option>';
-                sortedCategories.forEach(catName => {
-                    const opt = document.createElement('option');
-                    opt.value = catName;
-                    opt.textContent = catName;
-                    expFilt.appendChild(opt);
-                });
+                let html = '<option value="">All Categories</option>';
+                html += '<optgroup label="Official">';
+                official.forEach(name => { html += `<option value="${name}">${name}</option>`; });
+                html += '</optgroup>';
+                if (legacy.size > 0) {
+                    html += '<optgroup label="Legacy (normalize these)">';
+                    [...legacy].sort((a, b) => a.localeCompare(b)).forEach(name => {
+                        html += `<option value="${name}">${name}</option>`;
+                    });
+                    html += '</optgroup>';
+                }
+                expFilt.innerHTML = html;
                 if (currentVal) expFilt.value = currentVal;
             }
+
+            // CSV import selects if open
+            document.querySelectorAll('.csv-category-select').forEach(sel => {
+                const prev = sel.value;
+                const normalized = window.normalizeExpenseCategory(prev);
+                sel.innerHTML = window.getOfficialExpenseCategoryOptionsHtml(normalized || prev, false);
+                if (prev && !sel.value) sel.value = normalized;
+            });
         };
 
         const refreshExpenseCategorySelects = window.refreshExpenseCategorySelects;
 
         window.openExpenseCategoryManager = function () {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role !== 'admin') {
+                alert('Only administrators can manage expense categories.\n\nUse the official list in the Category dropdown. Put vendor names in Description / Note.');
+                return;
+            }
             document.getElementById('expense-category-manager-modal').style.display = 'flex';
             renderExpenseCategoryManagerList();
         };
@@ -1484,32 +1558,61 @@
             const container = document.getElementById('expense-category-list-body');
             if (!container) return;
             container.innerHTML = '';
-            currentExpenseCategories.forEach(s => {
+
+            const officialBlock = document.createElement('div');
+            officialBlock.style.cssText = 'padding:8px 4px 12px; font-size:0.72rem; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.04em;';
+            officialBlock.textContent = 'Official system categories';
+            container.appendChild(officialBlock);
+
+            currentExpenseCategories.filter(s => s._system).forEach(s => {
                 const item = document.createElement('div');
                 item.className = 'driver-item';
                 item.innerHTML = `
-                    <span>${s.name}</span>
-                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteExpenseCategory('${s.id}')" class="btn-del-driver" title="Delete Category">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>` : ''}
+                    <span>${s.name} <small style="color:#64748b;font-weight:600;">(system)</small></span>
+                    <span style="color:#94a3b8;font-size:0.7rem;font-weight:700;">LOCKED</span>
                 `;
                 container.appendChild(item);
             });
+
+            const extras = currentExpenseCategories.filter(s => !s._system);
+            if (extras.length > 0) {
+                const legacyBlock = document.createElement('div');
+                legacyBlock.style.cssText = 'padding:16px 4px 8px; font-size:0.72rem; font-weight:800; color:#b45309; text-transform:uppercase; letter-spacing:0.04em;';
+                legacyBlock.textContent = 'Legacy / custom (prefer Normalize)';
+                container.appendChild(legacyBlock);
+                extras.forEach(s => {
+                    const item = document.createElement('div');
+                    item.className = 'driver-item';
+                    const mapped = window.normalizeExpenseCategory(s.name);
+                    item.innerHTML = `
+                        <span>${s.name}<br><small style="color:#64748b;">→ maps to ${mapped}</small></span>
+                        <button onclick="deleteExpenseCategory('${s.id}')" class="btn-del-driver" title="Delete Category">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
+                    container.appendChild(item);
+                });
+            }
         }
 
         window.addNewExpenseCategory = async function () {
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot manage expense categories.");
+            if (role !== 'admin') {
+                alert('Only administrators can add categories. Prefer Description for vendors / details.');
                 return;
             }
             const input = document.getElementById('new-expense-category-name');
-            const name = input.value.trim();
+            const name = (input?.value || '').trim();
             if (!name) return;
 
+            if (!confirm(
+                `Add custom category "${name}"?\n\n` +
+                `Prefer the official list when possible.\n` +
+                `Do NOT create categories for vendor names (put those in Description).`
+            )) return;
+
             try {
-                // Check for duplicates locally
-                if (currentExpenseCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+                if (currentExpenseCategories.some(c => (c.name || '').toLowerCase() === name.toLowerCase())) {
                     alert('This category already exists.');
                     return;
                 }
@@ -1517,14 +1620,7 @@
                 const { data: inserted, error } = await db.from('expense_categories').insert([{ name: name }]).select();
                 if (error) throw error;
 
-                if (inserted && inserted[0]) {
-                    currentExpenseCategories.push(inserted[0]);
-                    currentExpenseCategories.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-                }
-
                 input.value = '';
-                refreshExpenseCategorySelects();
-                renderExpenseCategoryManagerList();
                 await loadExpenseCategoriesData();
                 renderExpenseCategoryManagerList();
             } catch (err) {
@@ -1539,7 +1635,12 @@
                 alert("Only administrators can delete records.");
                 return;
             }
-            if (!confirm("Are you sure you want to delete this category?")) return;
+            const cat = currentExpenseCategories.find(c => String(c.id) === String(id));
+            if (cat && cat._system) {
+                alert('Official system categories cannot be deleted.');
+                return;
+            }
+            if (!confirm("Delete this legacy category from the list? Existing expenses keep their text until you Normalize.")) return;
             try {
                 const { error } = await db.from('expense_categories').delete().eq('id', id);
                 if (error) throw error;
@@ -1549,6 +1650,70 @@
             } catch (err) {
                 console.error("Failed to delete category:", err);
                 alert("Error deleting category.");
+            }
+        };
+
+        /** Remap all expense.category values to official names (admin). */
+        window.normalizeAllExpenseCategories = async function () {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role !== 'admin') {
+                alert('Only administrators can normalize categories.');
+                return;
+            }
+            if (!window.currentExpenses || window.currentExpenses.length === 0) {
+                if (typeof window.loadExpensesData === 'function') await window.loadExpensesData(true);
+            }
+            const rows = window.currentExpenses || [];
+            const toFix = rows.filter(r => {
+                const raw = (r[1] || '').toString().trim();
+                if (!raw || raw === '---') return false;
+                return window.normalizeExpenseCategory(raw) !== raw;
+            });
+            if (toFix.length === 0) {
+                alert('All loaded expenses already use official category names.');
+                return;
+            }
+            if (!confirm(`Normalize ${toFix.length} expense(s) to official categories?\n\nExample: "Facebook Ads" → Marketing/Ads, "COMMISSION" → Commission.`)) return;
+
+            const btn = document.getElementById('btn-normalize-expense-categories');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Normalizing...'; }
+
+            try {
+                // Group by target category for fewer updates
+                const byTarget = new Map();
+                toFix.forEach(r => {
+                    const target = window.normalizeExpenseCategory(r[1]);
+                    if (!byTarget.has(target)) byTarget.set(target, []);
+                    byTarget.get(target).push(r[5]);
+                });
+
+                let updated = 0;
+                for (const [target, ids] of byTarget.entries()) {
+                    const chunkSize = 80;
+                    for (let i = 0; i < ids.length; i += chunkSize) {
+                        const chunk = ids.slice(i, i + chunkSize);
+                        const { error } = await db.from('expenses').update({ category: target }).in('id', chunk);
+                        if (error) throw error;
+                        updated += chunk.length;
+                        chunk.forEach(id => {
+                            const row = window.currentExpenses.find(r => r[5] === id);
+                            if (row) row[1] = target;
+                        });
+                    }
+                }
+
+                if (window.logActivity) {
+                    window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Normalized ${updated} expense categories to official list`);
+                }
+                refreshExpenseCategorySelects();
+                if (typeof window.renderExpensesHistory === 'function') window.renderExpensesHistory();
+                renderExpenseCategoryManagerList();
+                alert(`Normalized ${updated} expense(s) to official categories.`);
+            } catch (err) {
+                console.error(err);
+                alert('Normalize failed: ' + (err.message || err));
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i> Normalize expenses to official'; }
             }
         };
 
@@ -1623,25 +1788,32 @@
         }
 
         // --- EXPENSE DATA MAPPERS ---
+        // Indexes: 0 date, 1 category, 2 description, 3 amount, 4 note, 5 id, 6 payment_method, 7 profit_line
         function mapExpenseToArray(e) {
             return [
                 e.date || '---', e.category || '---', e.description || '---',
                 `$${(e.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, e.note || '---',
                 e.id,
-                e.payment_method || 'cash' // Index 6: 'cash' | 'bank'
+                e.payment_method || 'cash',
+                e.profit_line || ''
             ];
         }
 
         function mapArrayToExpense(row) {
+            const profitLine = (row[7] || '').toString().trim();
             return {
                 date: (row[0] === '---' || !row[0]) ? null : row[0],
                 category: row[1],
                 description: row[2],
                 amount: parseFloat(row[3].replace('$', '').replace(/,/g, '')) || 0,
                 note: row[4],
-                payment_method: row[6] || 'cash'
+                payment_method: row[6] || 'cash',
+                profit_line: profitLine || null
             };
         }
+
+        window.mapExpenseToArray = mapExpenseToArray;
+        window.mapArrayToExpense = mapArrayToExpense;
 
         // --- RELEASE DATA MAPPERS ---
         function mapReleaseToArray(r) {
