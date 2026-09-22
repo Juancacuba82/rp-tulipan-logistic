@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=5">
+    <link rel="stylesheet" href="./style.css?v=6">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -30,7 +30,7 @@
     <script src="./js/delivery-calendar.js?v=1706" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1710" defer></script>
+    <script src="./js/profit-expenses.js?v=1711" defer></script>
 
     <script src="./js/docs-receipts.js?v=1702" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
@@ -55,13 +55,57 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"
         defer></script>
     <style>
-        #expenses-view #exp-category {
-            height: 42px !important;
+        /* line-height must NOT equal height on <select> — Chrome/Edge hide the label */
+        #expenses-view .sidebar-form select {
             min-height: 42px !important;
-            padding: 0 12px !important;
+            height: auto !important;
+            padding: 10px 36px 10px 12px !important;
             font-size: 0.9rem !important;
-            line-height: normal !important;
+            line-height: 1.35 !important;
             box-sizing: border-box !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+            font-weight: 700 !important;
+            opacity: 1 !important;
+            color-scheme: light !important;
+        }
+
+        #expenses-view #exp-profit-line {
+            width: 100% !important;
+            display: block !important;
+        }
+
+        #expenses-view #exp-category {
+            flex: 1 1 0 !important;
+            min-width: 120px !important;
+            width: auto !important;
+            display: block !important;
+        }
+
+        #expenses-view .sidebar-form select option {
+            color: #0f172a !important;
+            background: #ffffff !important;
+        }
+
+        #expenses-view .exp-field-readout {
+            margin: 0;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #0f766e;
+            line-height: 1.3;
+        }
+
+        #expenses-view .sidebar-form .form-group.exp-stack {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 6px !important;
+        }
+
+        #expenses-view .sidebar-form .form-group.exp-stack > .sidebar-label-btn {
+            width: 100% !important;
+            flex: none !important;
+            margin-bottom: 0 !important;
         }
 
         /* Glossy 3D Button Style */
@@ -3763,22 +3807,23 @@
                             <input type="date" id="exp-date">
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group exp-stack">
                             <label class="sidebar-label-btn"
-                                style="background: #0f766e !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">1. PROFIT LINE</label>
-                            <select id="exp-profit-line" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white; font-weight: 700;">
+                                style="background: #0f766e !important;">1. PROFIT LINE</label>
+                            <select id="exp-profit-line" onchange="if(window.refreshExpenseFormReadouts) window.refreshExpenseFormReadouts();">
                                 <option value="">Select profit line...</option>
                             </select>
-                            <p style="margin: 6px 0 0; font-size: 0.68rem; color: #64748b; line-height: 1.35;">
+                            <p id="exp-profit-line-readout" class="exp-field-readout" aria-live="polite"></p>
+                            <p style="margin: 0; font-size: 0.68rem; color: #64748b; line-height: 1.35;">
                                 Which business line this subtracts from in Profit Report.
                             </p>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group exp-stack">
                             <label class="sidebar-label-btn"
-                                style="background: #1e40af !important; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; width: 100%; flex: none;">2. CATEGORY</label>
+                                style="background: #1e40af !important;">2. CATEGORY</label>
                             <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                                <select id="exp-category" onchange="toggleOtherExpense(); if(window.onExpenseCategoryChanged) window.onExpenseCategoryChanged();" style="flex: 1; margin: 0; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: white;">
+                                <select id="exp-category" onchange="toggleOtherExpense(); if(window.onExpenseCategoryChanged) window.onExpenseCategoryChanged(); if(window.refreshExpenseFormReadouts) window.refreshExpenseFormReadouts();" style="flex: 1; margin: 0;">
                                     <option value="">Select category...</option>
                                 </select>
                                 <button id="btn-manage-expense-categories" onclick="openExpenseCategoryManager()" class="btn-manage-inline"
@@ -3786,7 +3831,8 @@
                                     Manage
                                 </button>
                             </div>
-                            <p style="margin: 6px 0 0; font-size: 0.68rem; color: #64748b; line-height: 1.35;">
+                            <p id="exp-category-readout" class="exp-field-readout" aria-live="polite"></p>
+                            <p style="margin: 0; font-size: 0.68rem; color: #64748b; line-height: 1.35;">
                                 Official type only. Vendor names go in Description / Note — not as new categories.
                             </p>
                         </div>

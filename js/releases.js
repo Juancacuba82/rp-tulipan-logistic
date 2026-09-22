@@ -698,6 +698,8 @@
 
             // Remove highlighted rows
             document.querySelectorAll('#expenses-body tr').forEach(r => r.classList.remove('editing-row'));
+
+            if (typeof window.refreshExpenseFormReadouts === 'function') window.refreshExpenseFormReadouts();
         };
 
         window.onExpenseCategoryChanged = function () {

@@ -56,6 +56,22 @@
             return html;
         };
 
+        window.refreshExpenseFormReadouts = function () {
+            const setReadout = (selectId, readoutId) => {
+                const sel = document.getElementById(selectId);
+                const ro = document.getElementById(readoutId);
+                if (!sel || !ro) return;
+                if (!sel.value) {
+                    ro.textContent = '';
+                    return;
+                }
+                const opt = sel.options[sel.selectedIndex];
+                ro.textContent = opt ? `Selected: ${opt.textContent}` : '';
+            };
+            setReadout('exp-profit-line', 'exp-profit-line-readout');
+            setReadout('exp-category', 'exp-category-readout');
+        };
+
         window.fillExpenseProfitLineSelects = function () {
             const formSel = document.getElementById('exp-profit-line');
             if (formSel) {
@@ -75,6 +91,7 @@
                 bulkSel.innerHTML = window.buildProfitLineSelectOptions(prev, 'Assign to...');
                 if (prev) bulkSel.value = prev;
             }
+            if (typeof window.refreshExpenseFormReadouts === 'function') window.refreshExpenseFormReadouts();
         };
 
         window.updateExpenseProfitLineBanner = function () {
@@ -373,14 +390,16 @@
             document.getElementById('exp-date').value = rowData[0] || '';
             const cat = rowData[1];
             const sel = document.getElementById('exp-category');
-            
+
             // Handle Category Selection — prefer official name when editing legacy rows
             if (sel) {
                 const normalized = window.normalizeExpenseCategory ? window.normalizeExpenseCategory(cat) : cat;
                 if (typeof window.refreshExpenseCategorySelects === 'function') window.refreshExpenseCategorySelects();
-                sel.value = window.isOfficialExpenseCategory && window.isOfficialExpenseCategory(cat) ? cat : (normalized || cat || '');
+                const officialPick = normalized && window.isOfficialExpenseCategory && window.isOfficialExpenseCategory(normalized)
+                    ? normalized
+                    : '';
+                sel.value = officialPick || normalized || cat || '';
                 if (!sel.value && cat) {
-                    // force legacy option
                     sel.innerHTML = (window.getOfficialExpenseCategoryOptionsHtml
                         ? window.getOfficialExpenseCategoryOptionsHtml(cat, 'Select category...')
                         : sel.innerHTML);
@@ -399,13 +418,25 @@
             const pm = rowData[6] || 'cash';
             if (window.selectExpensePaymentMethod) window.selectExpensePaymentMethod(pm);
 
-            // Profit line (index 7)
+            // Profit line (index 7) — rebuild options before setting value
+            if (typeof window.fillExpenseProfitLineSelects === 'function') window.fillExpenseProfitLineSelects();
             const lineSel = document.getElementById('exp-profit-line');
             if (lineSel) {
                 const existing = (rowData[7] || '').toString().trim();
                 const suggested = existing || window.suggestExpenseProfitLine(rowData[1], rowData[2], rowData[4]);
-                lineSel.value = suggested;
+                if (suggested) lineSel.value = suggested;
+                if (existing && lineSel.value !== existing) {
+                    const meta = window.getExpenseProfitLineMeta ? window.getExpenseProfitLineMeta(existing) : { label: existing };
+                    const opt = document.createElement('option');
+                    opt.value = existing;
+                    opt.textContent = meta.label || existing;
+                    opt.selected = true;
+                    lineSel.appendChild(opt);
+                    lineSel.value = existing;
+                }
             }
+
+            if (typeof window.refreshExpenseFormReadouts === 'function') window.refreshExpenseFormReadouts();
 
             // Update Button
             const btn = document.getElementById('btn-save-expense');
