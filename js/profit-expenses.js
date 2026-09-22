@@ -671,7 +671,16 @@
                 if (dateTo && periodStart && periodStart > dateTo) return;
                 totals.rentals += parseFloat(row[27]) || 0;
             });
-            // 2. Process Business Expenses (allocate by profit_line)
+            // 2. Process Business Expenses (allocate by profit_line + category breakdown)
+            const costsByLineCategory = {}; // { lineKey: { CategoryName: amount } }
+            const bumpLineCat = (lineKey, category, amount) => {
+                if (!costsByLineCategory[lineKey]) costsByLineCategory[lineKey] = {};
+                const catName = (window.normalizeExpenseCategory
+                    ? window.normalizeExpenseCategory(category)
+                    : (category || 'Other')) || 'Other';
+                costsByLineCategory[lineKey][catName] = (costsByLineCategory[lineKey][catName] || 0) + amount;
+            };
+
             expensesData.forEach(row => {
                 const rowDate = row[0];
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
@@ -679,15 +688,20 @@
                     const amount = parseFloat(amountStr) || 0;
                     totals.expenses += amount;
                     const line = (row[7] || '').toString().trim();
+                    const category = row[1];
                     if (line && totals.expenseByLine.hasOwnProperty(line)) {
                         totals.expenseByLine[line] += amount;
+                        bumpLineCat(line, category, amount);
                     } else if (line) {
                         totals.expenseByLine.overhead += amount;
+                        bumpLineCat('overhead', category, amount);
                     } else {
                         totals.expenseByLine.unassigned += amount;
+                        bumpLineCat('unassigned', category, amount);
                     }
                 }
             });
+            totals.costsByLineCategory = costsByLineCategory;
 
             // 2.5 Accrued yard storage from Yard Stock (days + entry/exit lifts, by location)
             if (typeof window.getYardStockData === 'function' && typeof window.calculateDynamicYardCosts === 'function') {
@@ -907,6 +921,77 @@
                 } else {
                     pctEl.style.display = 'none';
                 }
+            }
+
+            // 6. Right panel — Where the money went (cost mix by category per line)
+            const costMixEl = document.getElementById('profit-costmix-body');
+            if (costMixEl) {
+                const byLineCat = totals.costsByLineCategory || {};
+                const mixSections = [
+                    ...serviceRows.map(r => ({
+                        key: r.key,
+                        label: r.label,
+                        color: r.color,
+                        // Sales: merge expense categories + container purchases
+                        extraItems: r.key === 'sales' && (totals.releases || 0) > 0
+                            ? [{ name: 'Container Purchases', amount: totals.releases }]
+                            : []
+                    })),
+                    { key: 'overhead', label: 'Overhead / General', color: '#64748b', extraItems: [] },
+                    { key: 'unassigned', label: 'Unassigned', color: '#f59e0b', extraItems: [] }
+                ];
+
+                const buildItems = (section) => {
+                    const map = { ...(byLineCat[section.key] || {}) };
+                    (section.extraItems || []).forEach(it => {
+                        map[it.name] = (map[it.name] || 0) + (it.amount || 0);
+                    });
+                    return Object.entries(map)
+                        .map(([name, amount]) => ({ name, amount: amount || 0 }))
+                        .filter(it => it.amount > 0)
+                        .sort((a, b) => b.amount - a.amount);
+                };
+
+                let mixHtml = '';
+                let anySection = false;
+                mixSections.forEach(section => {
+                    const items = buildItems(section);
+                    if (items.length === 0) return;
+                    anySection = true;
+                    const lineTotal = items.reduce((s, it) => s + it.amount, 0);
+                    const top = items[0];
+                    mixHtml += `<div class="costmix-block">
+                        <div class="costmix-block-head">
+                            <span class="pp-dot" style="background:${section.color}"></span>
+                            <span class="costmix-block-title">${section.label}</span>
+                            <span class="costmix-block-total">${money(lineTotal)}</span>
+                        </div>
+                        <div class="costmix-rows">`;
+                    items.forEach(it => {
+                        const pct = lineTotal > 0 ? (it.amount / lineTotal) * 100 : 0;
+                        mixHtml += `<div class="costmix-row">
+                            <div class="costmix-row-top">
+                                <span class="costmix-cat">${it.name}</span>
+                                <span class="costmix-amt">−${money(it.amount)}</span>
+                            </div>
+                            <div class="costmix-bar-track">
+                                <div class="costmix-bar-fill" style="width:${pct}%; background:${section.color}"></div>
+                            </div>
+                            <div class="costmix-pct">${pct.toFixed(1)}% of this line</div>
+                        </div>`;
+                    });
+                    mixHtml += `</div>
+                        <div class="costmix-top-note">Most spent: <strong>${top.name}</strong> (${((top.amount / lineTotal) * 100).toFixed(1)}%)</div>
+                    </div>`;
+                });
+
+                if (!anySection) {
+                    mixHtml = `<div class="costmix-empty">
+                        No costs in this date range yet.<br>
+                        Assign Profit Lines in Expenses to see the mix here.
+                    </div>`;
+                }
+                costMixEl.innerHTML = mixHtml;
             }
             } catch (err) {
                 console.error("CRITICAL ERROR in renderProfitReport:", err);

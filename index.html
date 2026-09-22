@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=4">
+    <link rel="stylesheet" href="./style.css?v=5">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -30,7 +30,7 @@
     <script src="./js/delivery-calendar.js?v=1706" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1709" defer></script>
+    <script src="./js/profit-expenses.js?v=1710" defer></script>
 
     <script src="./js/docs-receipts.js?v=1702" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
@@ -4076,6 +4076,20 @@
                             <span id="val-expenses"></span><span id="val-exp-overhead"></span>
                             <span id="val-exp-unassigned"></span><span id="val-releases"></span>
                             <span id="val-exp-sales"></span><span id="val-net-sales"></span>
+                        </div>
+                    </div>
+
+                    <div class="profit-costmix-panel">
+                        <div class="profit-performance-header">
+                            <div>
+                                <h3 style="margin:0;">Where the money went</h3>
+                                <p style="margin:6px 0 0; color:#64748b; font-size:0.85rem;">
+                                    Cost mix by category inside each line · % of that line
+                                </p>
+                            </div>
+                        </div>
+                        <div id="profit-costmix-body" class="profit-costmix-body">
+                            <!-- Filled by renderProfitReport -->
                         </div>
                     </div>
                 </div>

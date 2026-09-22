@@ -2767,13 +2767,121 @@ main {
 /* Profit Report — Performance table */
 .profit-performance-wrap {
     margin-top: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.9fr);
+    gap: 20px;
+    align-items: start;
 }
 
-.profit-performance-panel {
+.profit-performance-panel,
+.profit-costmix-panel {
     background: white;
     padding: 24px 28px 18px;
     border-radius: 12px;
     border: 1px solid #e2e8f0;
+    min-width: 0;
+}
+
+.profit-costmix-body {
+    max-height: 720px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.costmix-block {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: #f8fafc;
+}
+
+.costmix-block-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.costmix-block-title {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #1e293b;
+    flex: 1;
+}
+
+.costmix-block-total {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #ef4444;
+    font-variant-numeric: tabular-nums;
+}
+
+.costmix-row {
+    margin-bottom: 10px;
+}
+
+.costmix-row:last-child {
+    margin-bottom: 0;
+}
+
+.costmix-row-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+}
+
+.costmix-cat {
+    font-weight: 700;
+    color: #334155;
+}
+
+.costmix-amt {
+    font-weight: 800;
+    color: #b91c1c;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.costmix-bar-track {
+    height: 7px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.costmix-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    min-width: 2px;
+}
+
+.costmix-pct {
+    margin-top: 3px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.costmix-top-note {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #cbd5e1;
+    font-size: 0.72rem;
+    color: #475569;
+}
+
+.costmix-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px dashed #cbd5e1;
 }
 
 .profit-performance-header {
@@ -2971,8 +3079,19 @@ main {
     line-height: 1.45;
 }
 
+@media (max-width: 1100px) {
+    .profit-performance-wrap {
+        grid-template-columns: 1fr;
+    }
+
+    .profit-costmix-body {
+        max-height: none;
+    }
+}
+
 @media (max-width: 768px) {
-    .profit-performance-panel {
+    .profit-performance-panel,
+    .profit-costmix-panel {
         padding: 16px;
     }
 }
