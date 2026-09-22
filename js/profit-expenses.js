@@ -1,16 +1,40 @@
-        // --- Expense → Profit Report allocation ---
+        // --- Expense → Profit Report allocation (5 official profit lines) ---
         window.EXPENSE_PROFIT_LINES = [
-            { id: 'sales', label: 'Sales', short: 'Sales', color: '#f97316' },
-            { id: 'yard', label: 'Yard Services', short: 'Yard', color: '#22c55e' },
-            { id: 'rentals', label: 'Rentals', short: 'Rentals', color: '#f59e0b' },
-            { id: 'tulipan', label: 'RP Tulipan', short: 'RP Tulipan', color: '#2dd4bf' },
-            { id: 'jr', label: 'JR Super Crane', short: 'JR Crane', color: '#3b82f6' },
-            { id: 'contractor', label: 'Contractor', short: 'Contractor', color: '#a855f7' },
-            { id: 'storage_tulipan', label: 'Storage RPTulipan', short: 'Stor. RP', color: '#6366f1' },
-            { id: 'storage_yard', label: 'Storage Yard', short: 'Stor. Yard', color: '#10b981' },
-            { id: 'custom_invoices', label: 'Custom Invoices', short: 'Custom Inv.', color: '#0ea5e9' },
-            { id: 'overhead', label: 'Overhead / General', short: 'Overhead', color: '#64748b' }
+            { id: 'rpt_transportation', label: 'RP Tulipan Transportation', short: 'Transport', color: '#2dd4bf' },
+            { id: 'rpt_sales', label: 'RP Tulipan Sales', short: 'Sales', color: '#f59e0b' },
+            { id: 'rpt_operating', label: 'RP Tulipan Operating expenses', short: 'Operating', color: '#64748b' },
+            { id: 'rpt_yard', label: 'RP Tulipan Yard Service', short: 'Yard', color: '#06b6d4' },
+            { id: 'contractors', label: 'Contractors', short: 'Contractors', color: '#a855f7' }
         ];
+
+        /** Revenue rows that receive equal shares of rpt_operating (no direct expense lines). */
+        window.PROFIT_OPERATING_ALLOC_REVENUE_KEYS = [
+            'jr', 'rentals', 'storage_tulipan', 'storage_yard', 'custom_invoices'
+        ];
+        const OPERATING_ALLOC_LABEL = 'Operating allocation (equal share)';
+
+        window.PROFIT_LINE_LEGACY_TO_CANONICAL = {
+            sales: 'rpt_sales',
+            yard: 'rpt_yard',
+            tulipan: 'rpt_transportation',
+            overhead: 'rpt_operating',
+            contractor: 'contractors',
+            jr: 'rpt_operating',
+            rentals: 'rpt_operating',
+            storage_tulipan: 'rpt_operating',
+            storage_yard: 'rpt_operating',
+            custom_invoices: 'rpt_operating'
+        };
+
+        window.normalizeExpenseProfitLine = function (line) {
+            const key = (line || '').toString().trim();
+            if (!key) return '';
+            if (window.PROFIT_LINE_LEGACY_TO_CANONICAL[key]) {
+                return window.PROFIT_LINE_LEGACY_TO_CANONICAL[key];
+            }
+            if (window.EXPENSE_PROFIT_LINES.some(l => l.id === key)) return key;
+            return 'rpt_operating';
+        };
 
         const OVERHEAD_CATEGORIES = new Set([
             'utilities', 'taxes/licenses', 'insurance', 'payroll', 'rent',
@@ -31,16 +55,22 @@
             const cat = (category || '').toString().trim().toLowerCase();
             const blob = `${category || ''} ${description || ''} ${note || ''}`.toUpperCase();
 
-            if (OVERHEAD_CATEGORIES.has(cat)) return 'overhead';
+            if (OVERHEAD_CATEGORIES.has(cat)) return 'rpt_operating';
+            if (cat === 'fuel') return 'rpt_transportation';
+            if (cat === 'commission') return 'rpt_sales';
+            if (cat === 'driver payment') {
+                if (/\bCONTRACTOR\b|\bEXTERNAL\b|\b1099\b/i.test(blob)) return 'contractors';
+                return 'rpt_transportation';
+            }
 
-            if (blob.includes('JR SUPER') || blob.includes('JR CRANE')) return 'jr';
-            if (blob.includes('CONTRACTOR')) return 'contractor';
-            if (blob.includes('RP TULIPAN') || blob.includes('RPTULIPAN') || blob.includes('RP TULIPÁN')) return 'tulipan';
-            if (blob.includes('STORAGE YARD')) return 'storage_yard';
-            if (blob.includes('STORAGE') && blob.includes('TULIPAN')) return 'storage_tulipan';
-            if (/\bRENTAL/.test(blob)) return 'rentals';
-            if (/\bYARD\b/.test(blob) && !blob.includes('STORAGE')) return 'yard';
-            if (/\bSALES?\b/.test(blob) || blob.includes('CONTAINER PURCHASE')) return 'sales';
+            if (blob.includes('CONTRACTOR') && (cat === 'driver payment' || /DRIVER|PAYMENT|SETTLEMENT/.test(blob))) {
+                return 'contractors';
+            }
+            if (/\bYARD\b/.test(blob) && !blob.includes('STORAGE')) return 'rpt_yard';
+            if (/\bSALES?\b/.test(blob) || blob.includes('CONTAINER PURCHASE')) return 'rpt_sales';
+            if (blob.includes('RP TULIPAN') || blob.includes('RPTULIPAN') || blob.includes('RP TULIPÁN')) {
+                return 'rpt_transportation';
+            }
 
             return '';
         };
@@ -185,8 +215,11 @@
                 const matchDate = (!fromDate || rowDate >= fromDate) && (!toDate || rowDate <= toDate);
                 const matchCat = !category || rowCat === category
                     || (window.normalizeExpenseCategory && window.normalizeExpenseCategory(rowCat) === category);
+                const canonLine = window.normalizeExpenseProfitLine
+                    ? window.normalizeExpenseProfitLine(rowLine)
+                    : rowLine;
                 const matchLine = !profitLineFilter
-                    || (profitLineFilter === '__unassigned__' ? !rowLine : rowLine === profitLineFilter);
+                    || (profitLineFilter === '__unassigned__' ? !rowLine : canonLine === profitLineFilter);
                 const driverRegex = driverName ? new RegExp(`\\b${driverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i') : null;
                 const matchDriver = !driverName || driverRegex.test(rowDesc) || driverRegex.test(rowNote);
                 const matchSearch = !search || rowDesc.includes(search) || rowNote.includes(search);
@@ -606,8 +639,12 @@
                 customInvoices: 0, // Marked custom receipts from Docs
                 expenses: 0,     // Business expenses (all)
                 expenseByLine: {
-                    sales: 0, yard: 0, rentals: 0, tulipan: 0, jr: 0, contractor: 0,
-                    storage_tulipan: 0, storage_yard: 0, custom_invoices: 0, overhead: 0, unassigned: 0
+                    rpt_transportation: 0,
+                    rpt_sales: 0,
+                    rpt_operating: 0,
+                    rpt_yard: 0,
+                    contractors: 0,
+                    unassigned: 0
                 },
                 releases: 0      // Informational: total container purchase cost in COMPLETE orders
             };
@@ -718,20 +755,34 @@
                     const amountStr = row[3] ? row[3].replace('$', '').replace(/,/g, '') : '0';
                     const amount = parseFloat(amountStr) || 0;
                     totals.expenses += amount;
-                    const line = (row[7] || '').toString().trim();
+                    const rawLine = (row[7] || '').toString().trim();
+                    const line = rawLine
+                        ? (window.normalizeExpenseProfitLine ? window.normalizeExpenseProfitLine(rawLine) : rawLine)
+                        : '';
                     const category = row[1];
                     if (line && totals.expenseByLine.hasOwnProperty(line)) {
                         totals.expenseByLine[line] += amount;
                         bumpLineCat(line, category, amount);
-                    } else if (line) {
-                        totals.expenseByLine.overhead += amount;
-                        bumpLineCat('overhead', category, amount);
-                    } else {
+                    } else if (!line) {
                         totals.expenseByLine.unassigned += amount;
                         bumpLineCat('unassigned', category, amount);
+                    } else {
+                        totals.expenseByLine.rpt_operating += amount;
+                        bumpLineCat('rpt_operating', category, amount);
                     }
                 }
             });
+
+            const operatingPool = totals.expenseByLine.rpt_operating || 0;
+            const allocN = window.PROFIT_OPERATING_ALLOC_REVENUE_KEYS.length || 1;
+            const operatingShare = operatingPool / allocN;
+            if (operatingShare > 0) {
+                window.PROFIT_OPERATING_ALLOC_REVENUE_KEYS.forEach(revKey => {
+                    bumpLineCat(revKey, OPERATING_ALLOC_LABEL, operatingShare);
+                });
+            }
+            totals.operatingPool = operatingPool;
+            totals.operatingShare = operatingShare;
             totals.costsByLineCategory = costsByLineCategory;
 
             // 2.5 Accrued yard storage from Yard Stock (days + entry/exit lifts, by location)
@@ -795,18 +846,20 @@
             const money = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
             const ebl = totals.expenseByLine;
-            const salesCosts = (ebl.sales || 0) + (totals.releases || 0);
+            const opShare = totals.operatingShare || 0;
+            const opShareNote = opShare > 0 ? `incl. operating ${money(opShare)}` : '';
+            const salesCosts = (ebl.rpt_sales || 0) + (totals.releases || 0);
 
             const serviceRows = [
-                { key: 'sales', label: 'Total Sales', color: '#f59e0b', revenue: totals.sales, costs: salesCosts, costNote: totals.releases > 0 ? `incl. containers ${money(totals.releases)}` : '' },
-                { key: 'yard', label: 'Yard Services', color: '#06b6d4', revenue: totals.yard, costs: ebl.yard || 0 },
-                { key: 'rentals', label: 'Rentals', color: '#ec4899', revenue: totals.rentals, costs: ebl.rentals || 0 },
-                { key: 'tulipan', label: 'RP Tulipan', color: '#2dd4bf', revenue: totals.tulipan, costs: ebl.tulipan || 0 },
-                { key: 'jr', label: 'JR Super Crane', color: '#3b82f6', revenue: totals.jr, costs: ebl.jr || 0 },
-                { key: 'contractor', label: 'Contractor', color: '#a855f7', revenue: totals.contractor, costs: ebl.contractor || 0 },
-                { key: 'storage_tulipan', label: 'Storage RPTulipan', color: '#6366f1', revenue: totals.storageTulipan, costs: ebl.storage_tulipan || 0 },
-                { key: 'storage_yard', label: 'Storage Yard', color: '#10b981', revenue: totals.storageYard, costs: ebl.storage_yard || 0 },
-                { key: 'custom_invoices', label: 'Custom Invoices', color: '#0ea5e9', revenue: totals.customInvoices || 0, costs: ebl.custom_invoices || 0 }
+                { key: 'sales', label: 'RP Tulipan Sales', color: '#f59e0b', revenue: totals.sales, costs: salesCosts, costNote: totals.releases > 0 ? `incl. containers ${money(totals.releases)}` : '' },
+                { key: 'yard', label: 'RP Tulipan Yard Service', color: '#06b6d4', revenue: totals.yard, costs: ebl.rpt_yard || 0 },
+                { key: 'rentals', label: 'Rentals', color: '#ec4899', revenue: totals.rentals, costs: opShare, costNote: opShareNote },
+                { key: 'tulipan', label: 'RP Tulipan Transportation', color: '#2dd4bf', revenue: totals.tulipan, costs: ebl.rpt_transportation || 0 },
+                { key: 'jr', label: 'JR Super Crane', color: '#3b82f6', revenue: totals.jr, costs: opShare, costNote: opShareNote },
+                { key: 'contractor', label: 'Contractors (transport revenue)', color: '#a855f7', revenue: totals.contractor, costs: (ebl.contractors || 0) + opShare, costNote: opShareNote },
+                { key: 'storage_tulipan', label: 'Storage RPTulipan', color: '#6366f1', revenue: totals.storageTulipan, costs: opShare, costNote: opShareNote },
+                { key: 'storage_yard', label: 'Storage Yard', color: '#10b981', revenue: totals.storageYard, costs: opShare, costNote: opShareNote },
+                { key: 'custom_invoices', label: 'Custom Invoices', color: '#0ea5e9', revenue: totals.customInvoices || 0, costs: opShare, costNote: opShareNote }
             ];
 
             const maxMix = Math.max(...serviceRows.map(r => Math.max(r.revenue || 0, r.costs || 0)), totalGlobalExpenses, 1);
@@ -873,11 +926,16 @@
                 let html = serviceRows.map(renderServiceRow).join('');
 
                 html += `<tr class="pp-section-row"><td colspan="7">Company-level costs</td></tr>`;
-                html += renderCostOnlyRow({
-                    label: 'Overhead / General',
-                    color: '#64748b',
-                    amount: ebl.overhead || 0
-                });
+                const operatingPool = totals.operatingPool || 0;
+                if (operatingPool > 0) {
+                    html += `<tr class="pp-insight-row pp-operating-note">
+                        <td colspan="7">
+                            <strong>RP Tulipan Operating expenses</strong> (${money(operatingPool)} in period) allocated
+                            <strong> equally</strong> across JR Super Crane, Rentals, Storage RPTulipan, Storage Yard, and Custom Invoices
+                            (${money(opShare)} each). Fuel and fleet costs stay on <strong>Transportation</strong>.
+                        </td>
+                    </tr>`;
+                }
                 html += renderCostOnlyRow({
                     label: 'Unassigned (assign in Expenses)',
                     color: '#f59e0b',
@@ -933,7 +991,7 @@
             setText('val-custom-invoices', money(totals.customInvoices || 0));
             setText('val-revenue-total', money(totalRevenue));
             setText('val-expenses', money(totals.expenses));
-            setText('val-exp-overhead', money(ebl.overhead));
+            setText('val-exp-overhead', money(ebl.rpt_operating));
             setText('val-exp-unassigned', money(ebl.unassigned));
             setText('val-releases', money(totals.releases));
             setText('val-exp-sales', salesCosts > 0 ? `−${money(salesCosts)}` : '—');
@@ -958,17 +1016,22 @@
             const costMixEl = document.getElementById('profit-costmix-body');
             if (costMixEl) {
                 const byLineCat = totals.costsByLineCategory || {};
+                const costMixDataKey = {
+                    sales: 'rpt_sales',
+                    yard: 'rpt_yard',
+                    tulipan: 'rpt_transportation',
+                    contractor: 'contractors'
+                };
                 const mixSections = [
                     ...serviceRows.map(r => ({
-                        key: r.key,
+                        key: costMixDataKey[r.key] || r.key,
                         label: r.label,
                         color: r.color,
-                        // Sales: merge expense categories + container purchases
                         extraItems: r.key === 'sales' && (totals.releases || 0) > 0
                             ? [{ name: 'Container Purchases', amount: totals.releases }]
                             : []
                     })),
-                    { key: 'overhead', label: 'Overhead / General', color: '#64748b', extraItems: [] },
+                    { key: 'rpt_operating', label: 'Operating pool (before equal split)', color: '#64748b', extraItems: [] },
                     { key: 'unassigned', label: 'Unassigned', color: '#f59e0b', extraItems: [] }
                 ];
 
@@ -1160,28 +1223,28 @@
                 .filter(r => !(r[7] || '').toString().trim())
                 .filter(r => {
                     const suggested = window.suggestExpenseProfitLine(r[1], r[2], r[4]);
-                    return suggested === 'overhead';
+                    return suggested === 'rpt_operating';
                 })
                 .map(r => r[5]);
             if (ids.length === 0) {
-                alert('No unassigned expenses match safe overhead rules (Utilities, Taxes/Licenses, Insurance, Payroll).');
+                alert('No unassigned expenses match safe operating rules (Utilities, Taxes/Licenses, Insurance, Payroll).');
                 return;
             }
-            if (!confirm(`Auto-assign ${ids.length} expense(s) to Overhead / General?`)) return;
+            if (!confirm(`Auto-assign ${ids.length} expense(s) to RP Tulipan Operating expenses?`)) return;
             try {
-                const updated = await window.updateExpenseProfitLines(ids, 'overhead');
+                const updated = await window.updateExpenseProfitLines(ids, 'rpt_operating');
                 const byId = new Map((updated || []).map(e => [e.id, e]));
                 window.currentExpenses = (window.currentExpenses || []).map(row => {
                     if (!ids.includes(row[5]) && !ids.includes(String(row[5]))) return row;
                     const fresh = byId.get(row[5]) || byId.get(String(row[5]));
                     if (fresh && window.mapExpenseToArray) return window.mapExpenseToArray(fresh);
                     const copy = row.slice();
-                    copy[7] = 'overhead';
+                    copy[7] = 'rpt_operating';
                     return copy;
                 });
                 window.renderExpensesHistory();
                 window.renderExpenseProfitLineAssignList();
-                alert(`Assigned ${ids.length} expense(s) to Overhead.`);
+                alert(`Assigned ${ids.length} expense(s) to Operating expenses.`);
             } catch (err) {
                 console.error(err);
                 alert('Auto-assign failed. Run supabase-add-expense-profit-line.sql in Supabase first.\n\n' + (err.message || err));

@@ -2438,6 +2438,14 @@ main {
     padding: 30px 20px;
 }
 
+#profit-report-view .report-container {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 24px clamp(16px, 2.5vw, 40px) 32px;
+    box-sizing: border-box;
+}
+
 .report-header {
     display: flex;
     justify-content: space-between;
@@ -2773,6 +2781,11 @@ main {
     align-items: start;
 }
 
+#profit-report-view .profit-performance-wrap {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    gap: 24px;
+}
+
 .profit-performance-panel,
 .profit-costmix-panel {
     background: white;
@@ -2897,10 +2910,46 @@ main {
     overflow-x: auto;
 }
 
+#profit-report-view .profit-performance-scroll {
+    overflow-x: visible;
+}
+
 .profit-performance-table {
     width: 100%;
     border-collapse: collapse;
     min-width: 860px;
+}
+
+#profit-report-view .profit-performance-table {
+    min-width: 0;
+    table-layout: fixed;
+}
+
+#profit-report-view .profit-performance-table .col-line {
+    width: 24%;
+    min-width: 0;
+}
+
+#profit-report-view .profit-performance-table .col-num {
+    width: 14%;
+}
+
+#profit-report-view .profit-performance-table .col-pct {
+    width: 11%;
+}
+
+#profit-report-view .profit-performance-table .col-bar {
+    width: 12%;
+}
+
+#profit-report-view .pp-label {
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+#profit-report-view .pp-cost-note {
+    white-space: normal;
+    line-height: 1.2;
 }
 
 .profit-performance-table thead th {
@@ -3084,8 +3133,23 @@ main {
         grid-template-columns: 1fr;
     }
 
+    #profit-report-view .profit-performance-wrap {
+        grid-template-columns: 1fr;
+    }
+
     .profit-costmix-body {
         max-height: none;
+    }
+}
+
+@media (max-width: 900px) {
+    #profit-report-view .profit-performance-scroll {
+        overflow-x: auto;
+    }
+
+    #profit-report-view .profit-performance-table {
+        min-width: 680px;
+        table-layout: auto;
     }
 }
 

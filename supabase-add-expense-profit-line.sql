@@ -3,8 +3,8 @@
 -- Paste in Supabase → SQL Editor → Run
 -- =============================================================================
 -- Adds profit_line so each expense can subtract from the matching Profit row:
---   sales | yard | rentals | tulipan | jr | contractor |
---   storage_tulipan | storage_yard | custom_invoices | overhead
+--   rpt_transportation | rpt_sales | rpt_operating | rpt_yard | contractors
+--   (Run supabase-migrate-profit-lines-5.sql to convert legacy values.)
 -- NULL / empty = Unassigned (still counts in total, shown separately)
 -- =============================================================================
 
@@ -12,7 +12,7 @@ ALTER TABLE public.expenses
   ADD COLUMN IF NOT EXISTS profit_line text;
 
 COMMENT ON COLUMN public.expenses.profit_line IS
-  'Profit Report allocation: sales|yard|rentals|tulipan|jr|contractor|storage_tulipan|storage_yard|custom_invoices|overhead';
+  'Profit line: rpt_transportation|rpt_sales|rpt_operating|rpt_yard|contractors';
 
 CREATE INDEX IF NOT EXISTS idx_expenses_profit_line
   ON public.expenses (profit_line)
@@ -20,13 +20,17 @@ CREATE INDEX IF NOT EXISTS idx_expenses_profit_line
 
 -- Auto-assign safe overhead categories (existing rows only where still empty)
 UPDATE public.expenses
-SET profit_line = 'overhead'
+SET profit_line = 'rpt_operating'
 WHERE (profit_line IS NULL OR trim(profit_line) = '')
   AND lower(trim(coalesce(category, ''))) IN (
     'utilities',
     'taxes/licenses',
     'insurance',
-    'payroll'
+    'payroll',
+    'rent',
+    'office/supplies',
+    'marketing/ads',
+    'professional services'
   )
   AND (is_deleted IS NOT TRUE);
 

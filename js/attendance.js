@@ -799,7 +799,7 @@ window.loadAttendanceData = async function(force = false) {
                     description: `Salary Payment - ${employeeName}`,
                     amount: parseFloat(amount),
                     note: `Period: ${periodLabel} | Email: ${employeeEmail}`,
-                    profit_line: 'overhead'
+                    profit_line: 'rpt_operating'
                 };
 
                 const { error } = await window.db.from('expenses').insert([expenseObj]);

@@ -1790,17 +1790,24 @@
         // --- EXPENSE DATA MAPPERS ---
         // Indexes: 0 date, 1 category, 2 description, 3 amount, 4 note, 5 id, 6 payment_method, 7 profit_line
         function mapExpenseToArray(e) {
+            const rawLine = e.profit_line || '';
+            const profitLine = (typeof window.normalizeExpenseProfitLine === 'function')
+                ? window.normalizeExpenseProfitLine(rawLine)
+                : rawLine;
             return [
                 e.date || '---', e.category || '---', e.description || '---',
                 `$${(e.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, e.note || '---',
                 e.id,
                 e.payment_method || 'cash',
-                e.profit_line || ''
+                profitLine || ''
             ];
         }
 
         function mapArrayToExpense(row) {
-            const profitLine = (row[7] || '').toString().trim();
+            const rawLine = (row[7] || '').toString().trim();
+            const profitLine = (typeof window.normalizeExpenseProfitLine === 'function')
+                ? window.normalizeExpenseProfitLine(rawLine)
+                : rawLine;
             return {
                 date: (row[0] === '---' || !row[0]) ? null : row[0],
                 category: row[1],

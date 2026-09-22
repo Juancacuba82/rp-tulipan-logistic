@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=6">
+    <link rel="stylesheet" href="./style.css?v=7">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -26,11 +26,11 @@
     <script src="./js/data-mapping.js?v=12"></script>
     <script src="./js/realtime-sync.js?v=3" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1704" defer></script>
+    <script src="./js/data-managers.js?v=1705" defer></script>
     <script src="./js/delivery-calendar.js?v=1706" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1711" defer></script>
+    <script src="./js/profit-expenses.js?v=1720" defer></script>
 
     <script src="./js/docs-receipts.js?v=1702" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
@@ -39,7 +39,7 @@
     <script src="./js/tasks.js?v=11" defer></script>
     <script src="./js/billing-manager.js?v=24" defer></script>
     <script src="./js/invoice-automation.js?v=19" defer></script>
-    <script src="./js/attendance.js?v=3" defer></script>
+    <script src="./js/attendance.js?v=4" defer></script>
     <script src="./js/accounting.js?v=102" defer></script>
     <script src="./js/receivables.js?v=30" defer></script>
     <!-- CSV Import and PapaParse -->
@@ -4111,7 +4111,8 @@
                         </div>
                         <p class="profit-performance-note">
                             <strong>Sales costs</strong> include Container Purchases (COGS).
-                            <strong>Overhead</strong> and <strong>Unassigned</strong> lower company net but are not charged to a service line until you assign them in Expenses.
+                            <strong>Operating expenses</strong> are split equally across JR, Rentals, and Storage/Custom revenue lines.
+                            Assign every expense to one of the <strong>5 profit lines</strong>; <strong>Unassigned</strong> still lowers company net.
                         </p>
                         <!-- Keep legacy ids for any external refs / soft fallbacks -->
                         <div id="profit-legacy-vals" style="display:none;" aria-hidden="true">
@@ -8388,7 +8389,7 @@
                 </button>
                 <button type="button" onclick="autoAssignSafeOverheadExpenses()"
                     style="height:36px; background:#64748b; color:white; border:none; border-radius:6px; padding:0 14px; font-weight:800; cursor:pointer;">
-                    Auto Overhead
+                    Auto Operating
                 </button>
                 <span id="bulk-assign-summary" style="margin-left:auto; font-size:0.78rem; font-weight:700; color:#475569;"></span>
             </div>
@@ -8408,9 +8409,8 @@
                 </table>
             </div>
             <p style="font-size: 0.7rem; color: #64748b; margin: 0 18px 14px; line-height: 1.4;">
-                Tip: Filter by <strong>Driver Payment</strong> and assign all of one driver’s liquidaciones to
-                <strong>RP Tulipan</strong>, <strong>JR Super Crane</strong>, or <strong>Contractor</strong>.
-                Fuel / Tolls usually go to the company that used them, or Overhead if shared.
+                Tip: <strong>Fuel</strong> → RP Tulipan Transportation. External driver pay → <strong>Contractors</strong>.
+                Rent / Insurance / Payroll → <strong>Operating expenses</strong> (split equally on JR, Rentals, Storage, Custom in Profit Report).
             </p>
         </div>
     </div>
