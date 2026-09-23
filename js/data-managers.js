@@ -1352,8 +1352,7 @@
                 console.error("Delete err:", err);
             }
         };
-        // --- EXPENSE CATEGORY MANAGEMENT (official controlled list) ---
-        let currentExpenseCategories = [];
+        // --- EXPENSE CATEGORIES (code-defined only; not editable in the UI) ---
 
         window.OFFICIAL_EXPENSE_CATEGORIES = [
             'Fuel',
@@ -1361,26 +1360,27 @@
             'Service/Repairs',
             'Driver Payment',
             'Driver Salary',
-            'Fleet R&M',
+            'Repairs/Maintenance/parts/labor',
             'Truck Payments',
             'Truck Insurance',
             'Hauling Profit',
             'Commission',
             'Commissions',
             'Inventory Purchase',
-            'Repair Materials',
+            'Repair/Materials/Tools',
             'Certifications (CSC Inspections)',
+            'Work Travel Expense',
             'Sales Profit',
-            'Paint Supplies',
+            'Paint/Purchase/Supplies',
             'Paint Labor',
-            'Tools & Gear',
+            'Parts/Paint/Tools',
             'Service Profit',
             'Yard Rent',
-            'Software',
+            'Software/Apps',
             'Marketing',
-            'Admin Payroll',
+            'Employee Payment',
             'Profesional Service',
-            'Office Supplies',
+            'Office/Yard Supplies',
             'Transport Service',
             'Profit',
             'Payroll',
@@ -1402,36 +1402,33 @@
                 'Fuel',
                 'Driver Salary',
                 'Tolls',
-                'Fleet R&M',
+                'Repairs/Maintenance/parts/labor',
                 'Truck Payments',
-                'Truck Insurance',
-                'Hauling Profit'
+                'Truck Insurance'
             ],
             rpt_sales: [
                 'Commissions',
                 'Inventory Purchase',
-                'Repair Materials',
-                'Certifications (CSC Inspections)',
-                'Sales Profit'
+                'Repair/Materials/Tools',
+                'Certifications (CSC Inspections)'
             ],
             rpt_yard: [
-                'Paint Supplies',
+                'Paint/Purchase/Supplies',
                 'Paint Labor',
-                'Tools & Gear',
-                'Service Profit'
+                'Parts/Paint/Tools'
             ],
             rpt_operating: [
                 'Yard Rent',
-                'Software',
+                'Software/Apps',
                 'Utilities',
                 'Marketing',
-                'Admin Payroll',
+                'Employee Payment',
                 'Profesional Service',
-                'Office Supplies'
+                'Office/Yard Supplies',
+                'Work Travel Expense'
             ],
             contractors: [
-                'Transport Service',
-                'Profit'
+                'Transport Service'
             ]
         };
 
@@ -1455,7 +1452,8 @@
                 const transportMap = {
                     'Driver Payment': 'Driver Salary',
                     'Fleet/Truck Payment': 'Truck Payments',
-                    'Service/Repairs': 'Fleet R&M',
+                    'Service/Repairs': 'Repairs/Maintenance/parts/labor',
+                    'Fleet R&M': 'Repairs/Maintenance/parts/labor',
                     'Insurance': 'Truck Insurance'
                 };
                 if (transportMap[c]) return transportMap[c];
@@ -1463,8 +1461,9 @@
             if (line === 'rpt_sales') {
                 const salesMap = {
                     'Commission': 'Commissions',
-                    'Service/Repairs': 'Repair Materials',
-                    'Equipment': 'Repair Materials'
+                    'Service/Repairs': 'Repair/Materials/Tools',
+                    'Equipment': 'Repair/Materials/Tools',
+                    'Repair Materials': 'Repair/Materials/Tools'
                 };
                 if (salesMap[c]) return salesMap[c];
                 const blob = (category || '').toString().toUpperCase();
@@ -1474,18 +1473,23 @@
             if (line === 'rpt_yard') {
                 const yardMap = {
                     'Service/Repairs': 'Paint Labor',
-                    'Office/Supplies': 'Paint Supplies',
-                    'Equipment': 'Tools & Gear'
+                    'Office/Supplies': 'Paint/Purchase/Supplies',
+                    'Paint Supplies': 'Paint/Purchase/Supplies',
+                    'Equipment': 'Parts/Paint/Tools',
+                    'Tools & Gear': 'Parts/Paint/Tools'
                 };
                 if (yardMap[c]) return yardMap[c];
             }
             if (line === 'rpt_operating') {
                 const operatingMap = {
                     'Rent': 'Yard Rent',
-                    'Payroll': 'Admin Payroll',
+                    'Payroll': 'Employee Payment',
+                    'Admin Payroll': 'Employee Payment',
                     'Marketing/Ads': 'Marketing',
                     'Professional Services': 'Profesional Service',
-                    'Office/Supplies': 'Office Supplies'
+                    'Office/Supplies': 'Office/Yard Supplies',
+                    'Office Supplies': 'Office/Yard Supplies',
+                    'Software': 'Software/Apps'
                 };
                 if (operatingMap[c]) return operatingMap[c];
             }
@@ -1508,32 +1512,45 @@
             'inventory purchase': 'Inventory Purchase',
             'container purchase': 'Inventory Purchase',
             'container purchases': 'Inventory Purchase',
-            'repair materials': 'Repair Materials',
+            'repair materials': 'Repair/Materials/Tools',
+            'repair/materials/tools': 'Repair/Materials/Tools',
             'certifications (csc inspections)': 'Certifications (CSC Inspections)',
             'csc inspections': 'Certifications (CSC Inspections)',
             'csc inspection': 'Certifications (CSC Inspections)',
+            'work travel expense': 'Work Travel Expense',
+            'work travel': 'Work Travel Expense',
+            'travel expense': 'Work Travel Expense',
             'sales profit': 'Sales Profit',
-            'paint supplies': 'Paint Supplies',
+            'paint supplies': 'Paint/Purchase/Supplies',
+            'paint/purchasesupplies': 'Paint/Purchase/Supplies',
+            'paint/purchase/supplies': 'Paint/Purchase/Supplies',
             'paint labor': 'Paint Labor',
             'paint purchase & labor': 'Paint Labor',
-            'tools & gear': 'Tools & Gear',
-            'tools and gear': 'Tools & Gear',
+            'tools & gear': 'Parts/Paint/Tools',
+            'tools and gear': 'Parts/Paint/Tools',
+            'parts/paint/tools': 'Parts/Paint/Tools',
             'service profit': 'Service Profit',
             'yard rent': 'Yard Rent',
-            'software': 'Software',
+            'software': 'Software/Apps',
+            'software/apps': 'Software/Apps',
             'marketing': 'Marketing',
             'marketing/ads': 'Marketing',
-            'admin payroll': 'Admin Payroll',
+            'admin payroll': 'Employee Payment',
+            'employee payment': 'Employee Payment',
             'profesional service': 'Profesional Service',
             'professional service': 'Profesional Service',
             'professional services': 'Profesional Service',
-            'office supplies': 'Office Supplies',
+            'office supplies': 'Office/Yard Supplies',
+            'office/yard supplies': 'Office/Yard Supplies',
             'transport service': 'Transport Service',
             'contractor profit': 'Profit',
             'driver payment': 'Driver Payment',
             'driver salary': 'Driver Salary',
-            'fleet r&m': 'Fleet R&M',
-            'fleet r and m': 'Fleet R&M',
+            'fleet r&m': 'Repairs/Maintenance/parts/labor',
+            'fleet r and m': 'Repairs/Maintenance/parts/labor',
+            'fleet repairs & maintenance/parts/labor': 'Repairs/Maintenance/parts/labor',
+            'fleet repairs & maintenance': 'Repairs/Maintenance/parts/labor',
+            'repairs/maintenance/parts/labor': 'Repairs/Maintenance/parts/labor',
             'truck payments': 'Truck Payments',
             'truck insurance': 'Truck Insurance',
             'hauling profit': 'Hauling Profit',
@@ -1624,60 +1641,6 @@
             if (typeof window.refreshExpenseFormReadouts === 'function') window.refreshExpenseFormReadouts();
         };
 
-        window.loadExpenseCategoriesData = async function () {
-            if (!db) return;
-            try {
-                const { data, error } = await db.from('expense_categories').select('*').or('is_deleted.eq.false,is_deleted.is.null').order('name', { ascending: true });
-
-                if (error) {
-                    console.error("Supabase error loading categories:", error);
-                    currentExpenseCategories = window.OFFICIAL_EXPENSE_CATEGORIES.map((name, i) => ({ id: `local-${i}`, name, _system: true }));
-                    refreshExpenseCategorySelects();
-                    return;
-                }
-
-                let finalCategories = data || [];
-                const isAdmin = (window.currentUserRole || '').toLowerCase().trim() === 'admin';
-
-                // Ensure official categories exist (admin seeds missing ones)
-                if (isAdmin) {
-                    const missingOfficial = window.OFFICIAL_EXPENSE_CATEGORIES.filter(name =>
-                        !finalCategories.some(c => (c.name || '').toLowerCase() === name.toLowerCase())
-                    );
-                    if (missingOfficial.length > 0) {
-                        const { data: seeded, error: seedErr } = await db.from('expense_categories')
-                            .insert(missingOfficial.map(name => ({ name })))
-                            .select();
-                        if (!seedErr && seeded) {
-                            finalCategories = [...finalCategories, ...seeded];
-                        } else if (seedErr) {
-                            console.warn('Could not seed official categories:', seedErr);
-                        }
-                    }
-                }
-
-                // Prefer official list order for UI; keep extra DB cats marked non-system
-                const byLower = new Map();
-                finalCategories.forEach(c => byLower.set((c.name || '').toLowerCase(), c));
-                const ordered = [];
-                window.OFFICIAL_EXPENSE_CATEGORIES.forEach(name => {
-                    const found = byLower.get(name.toLowerCase());
-                    if (found) ordered.push({ ...found, _system: true });
-                    else ordered.push({ id: `pending-${name}`, name, _system: true });
-                });
-                finalCategories.forEach(c => {
-                    if (!window.isOfficialExpenseCategory(c.name)) {
-                        ordered.push({ ...c, _system: false });
-                    }
-                });
-
-                currentExpenseCategories = ordered;
-                refreshExpenseCategorySelects();
-            } catch (err) {
-                console.error("Critical error in loadExpenseCategoriesData:", err);
-            }
-        };
-
         window.refreshExpenseCategorySelects = function() {
             const official = window.OFFICIAL_EXPENSE_CATEGORIES.slice();
 
@@ -1731,184 +1694,6 @@
         };
 
         const refreshExpenseCategorySelects = window.refreshExpenseCategorySelects;
-
-        window.openExpenseCategoryManager = function () {
-            const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role !== 'admin') {
-                alert('Only administrators can manage expense categories.\n\nUse the official list in the Category dropdown. Put vendor names in Description / Note.');
-                return;
-            }
-            document.getElementById('expense-category-manager-modal').style.display = 'flex';
-            renderExpenseCategoryManagerList();
-        };
-        window.closeExpenseCategoryManager = function () {
-            document.getElementById('expense-category-manager-modal').style.display = 'none';
-        };
-
-        function renderExpenseCategoryManagerList() {
-            const container = document.getElementById('expense-category-list-body');
-            if (!container) return;
-            container.innerHTML = '';
-
-            const officialBlock = document.createElement('div');
-            officialBlock.style.cssText = 'padding:8px 4px 12px; font-size:0.72rem; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.04em;';
-            officialBlock.textContent = 'Official system categories';
-            container.appendChild(officialBlock);
-
-            currentExpenseCategories.filter(s => s._system).forEach(s => {
-                const item = document.createElement('div');
-                item.className = 'driver-item';
-                item.innerHTML = `
-                    <span>${s.name} <small style="color:#64748b;font-weight:600;">(system)</small></span>
-                    <span style="color:#94a3b8;font-size:0.7rem;font-weight:700;">LOCKED</span>
-                `;
-                container.appendChild(item);
-            });
-
-            const extras = currentExpenseCategories.filter(s => !s._system);
-            if (extras.length > 0) {
-                const legacyBlock = document.createElement('div');
-                legacyBlock.style.cssText = 'padding:16px 4px 8px; font-size:0.72rem; font-weight:800; color:#b45309; text-transform:uppercase; letter-spacing:0.04em;';
-                legacyBlock.textContent = 'Legacy / custom (prefer Normalize)';
-                container.appendChild(legacyBlock);
-                extras.forEach(s => {
-                    const item = document.createElement('div');
-                    item.className = 'driver-item';
-                    const mapped = window.normalizeExpenseCategory(s.name);
-                    item.innerHTML = `
-                        <span>${s.name}<br><small style="color:#64748b;">→ maps to ${mapped}</small></span>
-                        <button onclick="deleteExpenseCategory('${s.id}')" class="btn-del-driver" title="Delete Category">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    `;
-                    container.appendChild(item);
-                });
-            }
-        }
-
-        window.addNewExpenseCategory = async function () {
-            const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role !== 'admin') {
-                alert('Only administrators can add categories. Prefer Description for vendors / details.');
-                return;
-            }
-            const input = document.getElementById('new-expense-category-name');
-            const name = (input?.value || '').trim();
-            if (!name) return;
-
-            if (!confirm(
-                `Add custom category "${name}"?\n\n` +
-                `Prefer the official list when possible.\n` +
-                `Do NOT create categories for vendor names (put those in Description).`
-            )) return;
-
-            try {
-                if (currentExpenseCategories.some(c => (c.name || '').toLowerCase() === name.toLowerCase())) {
-                    alert('This category already exists.');
-                    return;
-                }
-
-                const { data: inserted, error } = await db.from('expense_categories').insert([{ name: name }]).select();
-                if (error) throw error;
-
-                input.value = '';
-                await loadExpenseCategoriesData();
-                renderExpenseCategoryManagerList();
-            } catch (err) {
-                console.error("Failed to add category:", err);
-                alert("Error adding category: " + (err.message || "Unknown error"));
-            }
-        };
-
-        window.deleteExpenseCategory = async function (id) {
-            const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role !== 'admin') {
-                alert("Only administrators can delete records.");
-                return;
-            }
-            const cat = currentExpenseCategories.find(c => String(c.id) === String(id));
-            if (cat && cat._system) {
-                alert('Official system categories cannot be deleted.');
-                return;
-            }
-            if (!confirm("Delete this legacy category from the list? Existing expenses keep their text until you Normalize.")) return;
-            try {
-                const { error } = await db.from('expense_categories').delete().eq('id', id);
-                if (error) throw error;
-                if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Expense Category ID: ${id}`);
-                await loadExpenseCategoriesData();
-                renderExpenseCategoryManagerList();
-            } catch (err) {
-                console.error("Failed to delete category:", err);
-                alert("Error deleting category.");
-            }
-        };
-
-        /** Remap all expense.category values to official names (admin). */
-        window.normalizeAllExpenseCategories = async function () {
-            const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role !== 'admin') {
-                alert('Only administrators can normalize categories.');
-                return;
-            }
-            if (!window.currentExpenses || window.currentExpenses.length === 0) {
-                if (typeof window.loadExpensesData === 'function') await window.loadExpensesData(true);
-            }
-            const rows = window.currentExpenses || [];
-            const toFix = rows.filter(r => {
-                const raw = (r[1] || '').toString().trim();
-                if (!raw || raw === '---') return false;
-                return window.normalizeExpenseCategory(raw) !== raw;
-            });
-            if (toFix.length === 0) {
-                alert('All loaded expenses already use official category names.');
-                return;
-            }
-            if (!confirm(`Normalize ${toFix.length} expense(s) to official categories?\n\nExample: "Facebook Ads" → Marketing/Ads, "COMMISSION" → Commission.`)) return;
-
-            const btn = document.getElementById('btn-normalize-expense-categories');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Normalizing...'; }
-
-            try {
-                // Group by target category for fewer updates
-                const byTarget = new Map();
-                toFix.forEach(r => {
-                    const target = window.normalizeExpenseCategory(r[1]);
-                    if (!byTarget.has(target)) byTarget.set(target, []);
-                    byTarget.get(target).push(r[5]);
-                });
-
-                let updated = 0;
-                for (const [target, ids] of byTarget.entries()) {
-                    const chunkSize = 80;
-                    for (let i = 0; i < ids.length; i += chunkSize) {
-                        const chunk = ids.slice(i, i + chunkSize);
-                        const { error } = await db.from('expenses').update({ category: target }).in('id', chunk);
-                        if (error) throw error;
-                        updated += chunk.length;
-                        chunk.forEach(id => {
-                            const row = window.currentExpenses.find(r => r[5] === id);
-                            if (row) row[1] = target;
-                        });
-                    }
-                }
-
-                if (window.logActivity) {
-                    window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Normalized ${updated} expense categories to official list`);
-                }
-                refreshExpenseCategorySelects();
-                if (typeof window.renderExpensesHistory === 'function') window.renderExpensesHistory();
-                renderExpenseCategoryManagerList();
-                alert(`Normalized ${updated} expense(s) to official categories.`);
-            } catch (err) {
-                console.error(err);
-                alert('Normalize failed: ' + (err.message || err));
-            } finally {
-                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-magic"></i> Normalize expenses to official'; }
-            }
-        };
-
-
 
         function calculateFinalPay(company, grossPay) {
             if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {

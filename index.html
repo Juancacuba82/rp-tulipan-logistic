@@ -3822,18 +3822,12 @@
                         <div class="form-group exp-stack">
                             <label class="sidebar-label-btn"
                                 style="background: #1e40af !important;">2. CATEGORY</label>
-                            <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                                <select id="exp-category" onchange="toggleOtherExpense(); if(window.onExpenseCategoryChanged) window.onExpenseCategoryChanged(); if(window.refreshExpenseFormReadouts) window.refreshExpenseFormReadouts();" style="flex: 1; margin: 0;">
-                                    <option value="">Select category...</option>
-                                </select>
-                                <button id="btn-manage-expense-categories" onclick="openExpenseCategoryManager()" class="btn-manage-inline"
-                                    style="flex: 0 0 auto; height: 42px; display: flex; align-items: center; justify-content: center;">
-                                    Manage
-                                </button>
-                            </div>
+                            <select id="exp-category" onchange="toggleOtherExpense(); if(window.onExpenseCategoryChanged) window.onExpenseCategoryChanged(); if(window.refreshExpenseFormReadouts) window.refreshExpenseFormReadouts();">
+                                <option value="">Select category...</option>
+                            </select>
                             <p id="exp-category-readout" class="exp-field-readout" aria-live="polite"></p>
                             <p style="margin: 0; font-size: 0.68rem; color: #64748b; line-height: 1.35;">
-                                Official type only. Vendor names go in Description / Note — not as new categories.
+                                Official type only. Vendor names go in Description / Note.
                             </p>
                         </div>
 
@@ -7001,7 +6995,6 @@
             'depots': () => typeof loadDepotsData === 'function' && loadDepotsData(),
             'sellers': () => typeof loadSellersData === 'function' && loadSellersData(),
             'container_sizes': () => typeof loadContainerSizesData === 'function' && loadContainerSizesData(),
-            'expense_categories': () => typeof loadExpenseCategoriesData === 'function' && loadExpenseCategoriesData(),
             'rentals': () => typeof loadRentalsData === 'function' && loadRentalsData(),
             'call_logs': () => typeof loadCallsData === 'function' && loadCallsData(true)
         };
@@ -7018,7 +7011,7 @@
         // --- REALTIME SUBSCRIPTION (Miami -> Argentina Sync) ---
         (function setupRealtime() {
             if (!db) return;
-            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'expense_categories', 'cust-invoice', 'rentals', 'call_logs'];
+            const channels = ['trips', 'releases', 'expenses', 'fleet', 'drivers', 'customers', 'pickup_addresses', 'companies', 'depots', 'sellers', 'container_sizes', 'cust-invoice', 'rentals', 'call_logs'];
             channels.forEach(table => {
                 db.channel(`${table}_changes`)
                     .on('postgres_changes', { event: '*', schema: 'public', table: table }, payload => {
@@ -7414,7 +7407,7 @@
                         if (window.loadStaffProfiles) window.loadStaffProfiles();
                         if (window.loadCompaniesData) window.loadCompaniesData();
                         if (window.loadContainerSizesData) window.loadContainerSizesData();
-                        if (window.loadExpenseCategoriesData) window.loadExpenseCategoriesData();
+                        if (window.refreshExpenseCategorySelects) window.refreshExpenseCategorySelects();
                     }
                 }, 50);
             } else {
@@ -8323,36 +8316,6 @@
                 </div>
                 <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Tip: Deleting a company only removes it from
                     future entries.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- EXPENSE CATEGORY MANAGEMENT MODAL -->
-    <div id="expense-category-manager-modal" class="simple-modal">
-        <div class="modal-content" style="border-top-color: #1e40af;">
-            <div class="modal-header">
-                <h3>Expense Categories</h3>
-                <button onclick="closeExpenseCategoryManager()" class="btn-close-modal">&times;</button>
-            </div>
-            <div style="padding: 0 16px 10px;">
-                <p style="margin:0; font-size:0.75rem; color:#475569; line-height:1.4;">
-                    Official types are locked. Put vendor names in <strong>Description</strong>, not as new categories.
-                </p>
-                <button type="button" id="btn-normalize-expense-categories" onclick="normalizeAllExpenseCategories()"
-                    style="margin-top:10px; width:100%; height:38px; background:#0f766e; color:white; border:none; border-radius:6px; font-weight:800; font-size:0.78rem; cursor:pointer;">
-                    <i class="fas fa-magic"></i> Normalize expenses to official
-                </button>
-            </div>
-            <div id="expense-category-list-body" class="driver-list-container">
-                <!-- Categories will be listed here -->
-            </div>
-            <div class="modal-footer">
-                <div class="add-driver-input-row">
-                    <input type="text" id="new-expense-category-name" placeholder="CUSTOM CATEGORY (ADMIN ONLY)...">
-                    <button onclick="addNewExpenseCategory()" class="btn-add-driver-confirm"
-                        style="background: #1e40af;">ADD</button>
-                </div>
-                <p style="font-size: 0.65rem; color: #64748b; margin: 0;">* Prefer official list. Custom adds should be rare.</p>
             </div>
         </div>
     </div>
