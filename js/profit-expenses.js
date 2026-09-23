@@ -1014,80 +1014,181 @@
                 }
             }
 
-            // 6. Right panel — Where the money went (cost mix by category per line)
-            const costMixEl = document.getElementById('profit-costmix-body');
-            if (costMixEl) {
+            // 6. Right panel — 5-part circle (profit lines) + Net Profit in the center
+            const wheelEl = document.getElementById('profit-wheel-body');
+            if (wheelEl) {
                 const byLineCat = totals.costsByLineCategory || {};
-                const costMixDataKey = {
-                    sales: 'rpt_sales',
-                    yard: 'rpt_yard',
-                    tulipan: 'rpt_transportation',
-                    contractor: 'contractors'
-                };
-                const mixSections = [
-                    ...serviceRows.map(r => ({
-                        key: costMixDataKey[r.key] || r.key,
-                        label: r.label,
-                        color: r.color,
-                        extraItems: r.key === 'sales' && (totals.releases || 0) > 0
-                            ? [{ name: 'Container Purchases', amount: totals.releases }]
-                            : []
-                    })),
-                    { key: 'rpt_operating', label: 'Operating pool (before equal split)', color: '#64748b', extraItems: [] },
-                    { key: 'unassigned', label: 'Unassigned', color: '#f59e0b', extraItems: [] }
-                ];
+                const operatingRevenue = (totals.jr || 0) + (totals.rentals || 0)
+                    + (totals.storageTulipan || 0) + (totals.storageYard || 0) + (totals.customInvoices || 0);
 
-                const buildItems = (section) => {
-                    const map = { ...(byLineCat[section.key] || {}) };
-                    (section.extraItems || []).forEach(it => {
-                        map[it.name] = (map[it.name] || 0) + (it.amount || 0);
-                    });
-                    return Object.entries(map)
-                        .map(([name, amount]) => ({ name, amount: amount || 0 }))
-                        .filter(it => it.amount > 0)
-                        .sort((a, b) => b.amount - a.amount);
+                const moneyShort = (n) => {
+                    const v = n || 0;
+                    const sign = v < 0 ? '−' : '';
+                    return `${sign}$${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+                };
+                const esc = (s) => String(s || '')
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const isDarkHex = (hex) => {
+                    const c = (hex || '#888').replace('#', '');
+                    if (c.length !== 6) return false;
+                    const r = parseInt(c.slice(0, 2), 16);
+                    const g = parseInt(c.slice(2, 4), 16);
+                    const b = parseInt(c.slice(4, 6), 16);
+                    return (0.299 * r + 0.587 * g + 0.114 * b) < 160;
+                };
+                const polar = (cx, cy, r, deg) => {
+                    const rad = (deg * Math.PI) / 180;
+                    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+                };
+                const donutSlice = (cx, cy, rInner, rOuter, a0, a1) => {
+                    const o0 = polar(cx, cy, rOuter, a0);
+                    const o1 = polar(cx, cy, rOuter, a1);
+                    const i1 = polar(cx, cy, rInner, a1);
+                    const i0 = polar(cx, cy, rInner, a0);
+                    return `M ${o0.x.toFixed(2)} ${o0.y.toFixed(2)} A ${rOuter} ${rOuter} 0 0 1 ${o1.x.toFixed(2)} ${o1.y.toFixed(2)} L ${i1.x.toFixed(2)} ${i1.y.toFixed(2)} A ${rInner} ${rInner} 0 0 0 ${i0.x.toFixed(2)} ${i0.y.toFixed(2)} Z`;
+                };
+                const mixWhite = (hex, t) => {
+                    const c = (hex || '#888888').replace('#', '');
+                    if (c.length !== 6) return hex;
+                    const ch = (i) => parseInt(c.slice(i, i + 2), 16);
+                    const m = (v) => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0');
+                    return `#${m(ch(0))}${m(ch(2))}${m(ch(4))}`;
+                };
+                const normDeg = (d) => ((d % 360) + 360) % 360;
+
+                const catAmount = (lineId, catName) => {
+                    const map = byLineCat[lineId] || {};
+                    if (map[catName] != null) return map[catName] || 0;
+                    const want = catName.toLowerCase();
+                    const hit = Object.keys(map).find(k => k.toLowerCase() === want);
+                    return hit ? (map[hit] || 0) : 0;
                 };
 
-                let mixHtml = '';
-                let anySection = false;
-                mixSections.forEach(section => {
-                    const items = buildItems(section);
-                    if (items.length === 0) return;
-                    anySection = true;
-                    const lineTotal = items.reduce((s, it) => s + it.amount, 0);
-                    const top = items[0];
-                    mixHtml += `<div class="costmix-block">
-                        <div class="costmix-block-head">
-                            <span class="pp-dot" style="background:${section.color}"></span>
-                            <span class="costmix-block-title">${section.label}</span>
-                            <span class="costmix-block-total">${money(lineTotal)}</span>
-                        </div>
-                        <div class="costmix-rows">`;
-                    items.forEach(it => {
-                        const pct = lineTotal > 0 ? (it.amount / lineTotal) * 100 : 0;
-                        mixHtml += `<div class="costmix-row">
-                            <div class="costmix-row-top">
-                                <span class="costmix-cat">${it.name}</span>
-                                <span class="costmix-amt">−${money(it.amount)}</span>
-                            </div>
-                            <div class="costmix-bar-track">
-                                <div class="costmix-bar-fill" style="width:${pct}%; background:${section.color}"></div>
-                            </div>
-                            <div class="costmix-pct">${pct.toFixed(1)}% of this line</div>
-                        </div>`;
+                const lineSlices = (window.EXPENSE_PROFIT_LINES || []).map(meta => {
+                    let revenue = 0;
+                    const extraCats = [];
+                    if (meta.id === 'rpt_transportation') revenue = totals.tulipan || 0;
+                    else if (meta.id === 'rpt_sales') {
+                        revenue = totals.sales || 0;
+                        if ((totals.releases || 0) > 0) {
+                            extraCats.push({ name: 'Container Purchases', amount: totals.releases });
+                        }
+                    } else if (meta.id === 'rpt_operating') revenue = operatingRevenue;
+                    else if (meta.id === 'rpt_yard') revenue = totals.yard || 0;
+                    else if (meta.id === 'contractors') revenue = totals.contractor || 0;
+
+                    const official = (typeof window.getExpenseCategoriesForProfitLine === 'function')
+                        ? window.getExpenseCategoriesForProfitLine(meta.id)
+                        : [];
+                    const cats = official.map(name => ({ name, amount: catAmount(meta.id, name) }));
+                    extraCats.forEach(ex => {
+                        if (!cats.some(c => c.name.toLowerCase() === ex.name.toLowerCase())) {
+                            cats.push(ex);
+                        }
                     });
-                    mixHtml += `</div>
-                        <div class="costmix-top-note">Most spent: <strong>${top.name}</strong> (${((top.amount / lineTotal) * 100).toFixed(1)}%)</div>
-                    </div>`;
+                    const extraCost = extraCats.reduce((s, c) => s + (c.amount || 0), 0);
+                    const costs = (ebl[meta.id] || 0) + extraCost;
+                    const net = revenue - costs;
+                    return {
+                        id: meta.id,
+                        label: meta.label,
+                        short: meta.short,
+                        color: meta.color,
+                        revenue,
+                        costs,
+                        net,
+                        cats
+                    };
                 });
 
-                if (!anySection) {
-                    mixHtml = `<div class="costmix-empty">
-                        No costs in this date range yet.<br>
-                        Assign Profit Lines in Expenses to see the mix here.
+                const netSum = lineSlices.reduce((s, sl) => s + (sl.net || 0), 0);
+                const slices = lineSlices;
+                const sliceDeg = 360 / Math.max(slices.length, 1);
+
+                const size = 560;
+                const pad = 78;
+                const cx = size / 2;
+                const cy = size / 2;
+                const rOuter = 198;
+                const rInner = 78;
+                const start0 = -90;
+
+                let svg = `<svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Profit lines circle">`;
+
+                slices.forEach((sl, i) => {
+                    const a0 = start0 + i * sliceDeg;
+                    const a1 = a0 + sliceDeg;
+                    const nCats = Math.max(sl.cats.length, 1);
+                    const catDeg = sliceDeg / nCats;
+                    const dark = isDarkHex(sl.color);
+                    const catFill = dark ? '#f8fafc' : '#0f172a';
+                    const mutedFill = dark ? '#e2e8f0' : '#334155';
+
+                    sl.cats.forEach((cat, ci) => {
+                        const c0 = a0 + ci * catDeg;
+                        const c1 = c0 + catDeg;
+                        const fill = mixWhite(sl.color, ci % 2 === 0 ? 0.04 : 0.22);
+                        svg += `<path class="profit-wheel-slice" d="${donutSlice(cx, cy, rInner, rOuter, c0, c1)}" fill="${fill}">
+                            <title>${esc(sl.label)} · ${esc(cat.name)}${cat.amount ? ' −' + money(cat.amount) : ''}</title>
+                        </path>`;
+                    });
+
+                    sl.cats.forEach((cat, ci) => {
+                        if (ci === 0) return;
+                        const ang = a0 + ci * catDeg;
+                        const p0 = polar(cx, cy, rInner, ang);
+                        const p1 = polar(cx, cy, rOuter, ang);
+                        svg += `<line x1="${p0.x.toFixed(1)}" y1="${p0.y.toFixed(1)}" x2="${p1.x.toFixed(1)}" y2="${p1.y.toFixed(1)}" stroke="rgba(255,255,255,0.85)" stroke-width="1.4" />`;
+                    });
+
+                    sl.cats.forEach((cat, ci) => {
+                        const mid = a0 + (ci + 0.5) * catDeg;
+                        const pt = polar(cx, cy, (rInner + rOuter) / 2, mid);
+                        let rot = mid;
+                        const nd = normDeg(mid);
+                        if (nd > 90 && nd < 270) rot = mid + 180;
+                        const short = cat.name.length > 16 ? cat.name.slice(0, 14) + '…' : cat.name;
+                        const amt = cat.amount || 0;
+                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${amt ? catFill : mutedFill}">
+                            <tspan x="0" y="${amt > 0 ? -3 : 2}">${esc(short)}</tspan>
+                            ${amt > 0 ? `<tspan x="0" y="8" fill="${dark ? '#fecaca' : '#7f1d1d'}" font-weight="800">−${moneyShort(amt)}</tspan>` : ''}
+                        </text>`;
+                    });
+
+                    const path = donutSlice(cx, cy, rInner, rOuter, a0, a1);
+                    svg += `<path class="profit-wheel-slice-stroke" d="${path}" stroke-width="3.5" />`;
+                });
+
+                slices.forEach((sl, i) => {
+                    const a0 = start0 + i * sliceDeg;
+                    const mid = a0 + sliceDeg / 2;
+                    const lp = polar(cx, cy, rOuter + 42, mid);
+                    const nd = normDeg(mid);
+                    let anchor = 'middle';
+                    if (nd > 25 && nd < 155) anchor = 'start';
+                    else if (nd > 205 && nd < 335) anchor = 'end';
+                    const netFill = sl.net >= 0 ? '#166534' : '#991b1b';
+                    svg += `<text class="profit-wheel-title" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y - 6).toFixed(1)}" fill="#0f172a">${esc(sl.short)}</text>`;
+                    svg += `<text class="profit-wheel-title-net" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y + 8).toFixed(1)}" fill="${netFill}">${moneyShort(sl.net)}</text>`;
+                });
+
+                const holeFill = netSum >= 0 ? '#ecfdf5' : '#fef2f2';
+                const holeText = netSum >= 0 ? '#166534' : '#991b1b';
+                svg += `<circle cx="${cx}" cy="${cy}" r="${rInner - 2}" fill="${holeFill}" stroke="#fff" stroke-width="4" />`;
+                svg += `<text text-anchor="middle" x="${cx}" y="${cy - 8}" fill="#64748b" font-size="10" font-weight="800">NET PROFIT</text>`;
+                svg += `<text text-anchor="middle" x="${cx}" y="${cy + 16}" fill="${holeText}" font-size="16" font-weight="900">${moneyShort(netSum)}</text>`;
+                svg += `</svg>`;
+
+                let legend = `<div class="profit-wheel-legend">`;
+                slices.forEach(sl => {
+                    legend += `<div class="profit-wheel-legend-item">
+                        <span class="pp-dot" style="background:${sl.color}"></span>
+                        <span title="${esc(sl.label)}">${esc(sl.label)} · ${moneyShort(sl.net)}</span>
                     </div>`;
-                }
-                costMixEl.innerHTML = mixHtml;
+                });
+                legend += `</div>`;
+
+                wheelEl.innerHTML = svg + legend;
             }
             } catch (err) {
                 console.error("CRITICAL ERROR in renderProfitReport:", err);
