@@ -1000,8 +1000,10 @@
                     const o1 = polar(cx, cy, rOuter, a1);
                     const i1 = polar(cx, cy, rInner, a1);
                     const i0 = polar(cx, cy, rInner, a0);
-                    return `M ${o0.x.toFixed(2)} ${o0.y.toFixed(2)} A ${rOuter} ${rOuter} 0 0 1 ${o1.x.toFixed(2)} ${o1.y.toFixed(2)} L ${i1.x.toFixed(2)} ${i1.y.toFixed(2)} A ${rInner} ${rInner} 0 0 0 ${i0.x.toFixed(2)} ${i0.y.toFixed(2)} Z`;
+                    const largeArc = (a1 - a0) > 180 ? 1 : 0;
+                    return `M ${o0.x.toFixed(2)} ${o0.y.toFixed(2)} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${o1.x.toFixed(2)} ${o1.y.toFixed(2)} L ${i1.x.toFixed(2)} ${i1.y.toFixed(2)} A ${rInner} ${rInner} 0 ${largeArc} 0 ${i0.x.toFixed(2)} ${i0.y.toFixed(2)} Z`;
                 };
+
                 const mixHex = (fromHex, toHex, t) => {
                     const parse = (hex) => {
                         const c = (hex || '#888888').replace('#', '');
@@ -1083,108 +1085,293 @@
                 });
 
                 const netSum = lineSlices.reduce((s, sl) => s + (sl.net || 0), 0);
-                const slices = lineSlices;
-                const sliceDeg = 360 / Math.max(slices.length, 1);
 
-                const size = 760;
-                const pad = 110;
-                const cx = size / 2;
-                const cy = size / 2;
-                const rOuter = 268;
-                const rInner = 102;
-                const start0 = -90;
+                // Store globally so drill-down re-renders can access updated data
+                window._profitWheelLineSlices = lineSlices;
+                window._profitWheelNetSum = netSum;
 
-                let svg = `<svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Profit lines circle">`;
+                // Create / reuse floating tooltip element
+                let tooltipEl = document.getElementById('profit-wheel-tooltip');
+                if (!tooltipEl) {
+                    tooltipEl = document.createElement('div');
+                    tooltipEl.id = 'profit-wheel-tooltip';
+                    tooltipEl.style.cssText = 'position:fixed;pointer-events:none;display:none;z-index:9999;background:#0f172a;color:#f8fafc;padding:10px 14px;border-radius:10px;font-size:0.82rem;font-family:inherit;box-shadow:0 8px 32px rgba(0,0,0,0.45);max-width:240px;line-height:1.6;border:1px solid #1e293b;';
+                    document.body.appendChild(tooltipEl);
+                }
 
-                slices.forEach((sl, i) => {
-                    const a0 = start0 + i * sliceDeg;
-                    const a1 = a0 + sliceDeg;
-                    const nCats = Math.max(sl.cats.length, 1);
-                    const catDeg = sliceDeg / nCats;
-                    const expenseCount = sl.cats.filter(c => c.kind !== 'profit').length;
+                // ── OVERVIEW (sin textos internos; tooltip al hover; clic para desglosar) ──
+                window._renderProfitWheelOverview = function () {
+                    const slices = window._profitWheelLineSlices;
+                    const netSumVal = window._profitWheelNetSum;
+                    const size = 760, pad = 110, cx = size / 2, cy = size / 2;
+                    const rOuter = 268, rInner = 102, start0 = -90;
+                    const sliceDeg = 360 / Math.max(slices.length, 1);
 
-                    sl.cats.forEach((cat, ci) => {
-                        const c0 = a0 + ci * catDeg;
+                    let svg = `<svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Profit lines circle" style="cursor:pointer;">`;
+
+                    slices.forEach((sl, i) => {
+                        const a0 = start0 + i * sliceDeg;
+                        const a1 = a0 + sliceDeg;
+                        const nCats = Math.max(sl.cats.length, 1);
+                        const catDeg = sliceDeg / nCats;
+                        const expenseCount = sl.cats.filter(c => c.kind !== 'profit').length;
+
+                        // Porciones de sub-categoría — SIN etiquetas de texto
+                        sl.cats.forEach((cat, ci) => {
+                            const c0 = a0 + ci * catDeg;
+                            const c1 = c0 + catDeg;
+                            const fill = cat.kind === 'profit'
+                                ? (cat.amount >= 0 ? '#16a34a' : '#b91c1c')
+                                : expenseRed(ci, Math.max(expenseCount, 1));
+                            const signed = cat.kind === 'profit'
+                                ? moneyShort(cat.amount)
+                                : (cat.amount ? '−' + moneyShort(cat.amount) : '');
+                            svg += `<path class="profit-wheel-slice pwh-interactive"
+                                d="${donutSlice(cx, cy, rInner, rOuter, c0, c1)}"
+                                fill="${fill}"
+                                data-line-id="${esc(sl.id)}"
+                                data-line-label="${esc(sl.short)}"
+                                data-line-revenue="${esc(moneyShort(sl.revenue))}"
+                                data-cat="${esc(cat.name)}"
+                                data-amount="${esc(signed)}"
+                                data-kind="${cat.kind}"
+                                style="cursor:pointer;">
+                            </path>`;
+                        });
+
+                        // Divisores entre sub-categorías
+                        sl.cats.forEach((_c, ci) => {
+                            if (ci === 0) return;
+                            const ang = a0 + ci * catDeg;
+                            const p0 = polar(cx, cy, rInner, ang);
+                            const p1 = polar(cx, cy, rOuter, ang);
+                            svg += `<line x1="${p0.x.toFixed(1)}" y1="${p0.y.toFixed(1)}" x2="${p1.x.toFixed(1)}" y2="${p1.y.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" pointer-events="none"/>`;
+                        });
+
+                        // Textos internos: Importe y Porcentaje (SIN nombres)
+                        const totalAmt = sl.cats.reduce((sum, c) => sum + Math.abs(c.amount || 0), 0);
+                        sl.cats.forEach((cat, ci) => {
+                            const amt = cat.amount || 0;
+                            if (amt === 0 && cat.kind !== 'profit') return;
+
+                            const mid = a0 + (ci + 0.5) * catDeg;
+                            const pt = polar(cx, cy, (rInner + rOuter) / 2, mid);
+                            let rot = mid;
+                            const nd = normDeg(mid);
+                            if (nd > 90 && nd < 270) rot = mid + 180;
+                            
+                            const rawPct = totalAmt > 0 ? (Math.abs(amt) / totalAmt) * 100 : 0;
+                            const pct = totalAmt > 0 ? Math.round(rawPct) + '%' : '';
+
+                            const fill = cat.kind === 'profit'
+                                ? '#16a34a'
+                                : expenseRed(ci, Math.max(expenseCount, 1));
+                            const dark = isDarkHex(fill);
+                            const amtFill = cat.kind === 'profit'
+                                ? (amt >= 0 ? '#dcfce7' : '#fee2e2')
+                                : (dark ? '#fecaca' : '#7f1d1d');
+                            const labelFill = dark ? '#f8fafc' : '#0f172a';
+                            const amtText = cat.kind === 'profit'
+                                ? moneyShort(amt)
+                                : (amt > 0 ? `−${moneyShort(amt)}` : '');
+
+                            svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" pointer-events="none" text-anchor="middle">
+                                ${amtText ? `<tspan x="0" y="-2" fill="${amtFill}" font-weight="800" font-size="12">${amtText}</tspan>` : ''}
+                                ${pct ? `<tspan x="0" y="12" fill="${labelFill}" font-weight="600" font-size="10">${pct}</tspan>` : ''}
+                            </text>`;
+                        });
+
+                        // Borde de sección
+                        svg += `<path class="profit-wheel-slice-stroke" d="${donutSlice(cx, cy, rInner, rOuter, a0, a1)}" stroke-width="3.5" pointer-events="none"/>`;
+                    });
+
+                    // Etiquetas externas (nombre de línea + ingreso total) — se mantienen
+                    slices.forEach((sl, i) => {
+                        const a0 = start0 + i * sliceDeg;
+                        const mid = a0 + sliceDeg / 2;
+                        const lp = polar(cx, cy, rOuter + 58, mid);
+                        const nd = normDeg(mid);
+                        let anchor = 'middle';
+                        if (nd > 25 && nd < 155) anchor = 'start';
+                        else if (nd > 205 && nd < 335) anchor = 'end';
+                        svg += `<text class="profit-wheel-title" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y - 8).toFixed(1)}" fill="#0f172a" pointer-events="none">${esc(sl.short)}</text>`;
+                        svg += `<text class="profit-wheel-title-net" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y + 12).toFixed(1)}" fill="#166534" pointer-events="none">${moneyShort(sl.revenue)}</text>`;
+                    });
+
+                    // Centro con NET PROFIT
+                    const holeFill = netSumVal >= 0 ? '#ecfdf5' : '#fef2f2';
+                    const holeText = netSumVal >= 0 ? '#166534' : '#991b1b';
+                    svg += `<circle cx="${cx}" cy="${cy}" r="${rInner - 2}" fill="${holeFill}" stroke="#fff" stroke-width="4" pointer-events="none"/>`;
+                    svg += `<text text-anchor="middle" x="${cx}" y="${cy - 10}" fill="#64748b" font-size="13" font-weight="800" pointer-events="none">NET PROFIT</text>`;
+                    svg += `<text text-anchor="middle" x="${cx}" y="${cy + 20}" fill="${holeText}" font-size="22" font-weight="900" pointer-events="none">${moneyShort(netSumVal)}</text>`;
+                    svg += `</svg>`;
+
+                    let legend = `<div class="profit-wheel-legend">`;
+                    slices.forEach(sl => {
+                        legend += `<div class="profit-wheel-legend-item profit-wheel-legend-clickable" data-line-id="${esc(sl.id)}" style="cursor:pointer;" title="Clic para desglosar">
+                            <span class="pp-dot" style="background:${sl.color}"></span>
+                            <span>${esc(sl.label)} · ${moneyShort(sl.revenue)}</span>
+                        </div>`;
+                    });
+                    legend += `</div>`;
+
+                    wheelEl.innerHTML = svg + legend;
+
+                    // Eventos: tooltip al hover
+                    const svgEl = wheelEl.querySelector('svg');
+                    if (svgEl) {
+                        svgEl.addEventListener('mousemove', (e) => {
+                            const path = e.target.closest('.pwh-interactive');
+                            if (!path) { tooltipEl.style.display = 'none'; return; }
+                            const lineLabel = path.getAttribute('data-line-label');
+                            const lineRevenue = path.getAttribute('data-line-revenue');
+                            const cat = path.getAttribute('data-cat');
+                            const amount = path.getAttribute('data-amount');
+                            const kind = path.getAttribute('data-kind');
+                            const isProfit = kind === 'profit';
+                            const isNeg = (amount || '').includes('−');
+                            tooltipEl.innerHTML = `
+                                <div style="font-size:0.68rem;color:#64748b;margin-bottom:4px;letter-spacing:0.04em;">CLIC PARA DESGLOSAR</div>
+                                <div style="font-weight:800;font-size:1rem;color:#f8fafc;margin-bottom:2px;">${lineLabel}</div>
+                                <div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">Ingresos: ${lineRevenue}</div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                                    <span style="color:#cbd5e1;font-size:0.8rem;">${cat}</span>
+                                    <span style="font-weight:800;font-size:0.9rem;color:${isProfit ? (isNeg ? '#f87171' : '#4ade80') : '#f87171'};">${amount || '—'}</span>
+                                </div>`;
+                            tooltipEl.style.display = 'block';
+                            tooltipEl.style.left = (e.clientX + 18) + 'px';
+                            tooltipEl.style.top = Math.max(8, e.clientY - 30) + 'px';
+                        });
+                        svgEl.addEventListener('mouseleave', () => { tooltipEl.style.display = 'none'; });
+                        // Clic en porción → drill-down
+                        svgEl.addEventListener('click', (e) => {
+                            const path = e.target.closest('.pwh-interactive');
+                            if (!path) return;
+                            const lineId = path.getAttribute('data-line-id');
+                            if (lineId) window._renderProfitWheelDrillDown(lineId);
+                        });
+                    }
+                    // Clic en leyenda también abre drill-down
+                    wheelEl.querySelectorAll('.profit-wheel-legend-clickable').forEach(el => {
+                        el.addEventListener('click', () => {
+                            const lineId = el.getAttribute('data-line-id');
+                            if (lineId) window._renderProfitWheelDrillDown(lineId);
+                        });
+                    });
+                };
+
+                // ── DRILL-DOWN (la línea seleccionada llena 360°; porciones proporcionales) ──
+                window._renderProfitWheelDrillDown = function (lineId) {
+                    tooltipEl.style.display = 'none';
+                    const slices = window._profitWheelLineSlices;
+                    const sl = slices.find(s => s.id === lineId);
+                    if (!sl) return;
+
+                    const size = 760, pad = 110, cx = size / 2, cy = size / 2;
+                    const rOuter = 268, rInner = 102, start0 = -90;
+
+                    // Usar todas las categorías, igual que en la vista general (sin filtrar)
+                    const catsRaw = sl.cats;
+                    const expenseCount = catsRaw.filter(c => c.kind !== 'profit').length;
+                    const catDeg = 360 / Math.max(catsRaw.length, 1);
+                    const totalAmt = catsRaw.reduce((s, c) => s + Math.abs(c.amount || 0), 0);
+
+                    let svg = `<svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Desglose: ${esc(sl.label)}" style="cursor:default;">`;
+
+                    catsRaw.forEach((cat, ci) => {
+                        const c0 = start0 + ci * catDeg;
                         const c1 = c0 + catDeg;
+
                         const fill = cat.kind === 'profit'
                             ? (cat.amount >= 0 ? '#16a34a' : '#b91c1c')
                             : expenseRed(ci, Math.max(expenseCount, 1));
-                        const signed = cat.kind === 'profit'
-                            ? money(cat.amount)
-                            : (cat.amount ? '−' + money(cat.amount) : '');
-                        svg += `<path class="profit-wheel-slice" d="${donutSlice(cx, cy, rInner, rOuter, c0, c1)}" fill="${fill}">
-                            <title>${esc(sl.label)} · ${esc(cat.name)}${signed ? ' ' + signed : ''}</title>
-                        </path>`;
-                    });
-
-                    sl.cats.forEach((cat, ci) => {
-                        if (ci === 0) return;
-                        const ang = a0 + ci * catDeg;
-                        const p0 = polar(cx, cy, rInner, ang);
-                        const p1 = polar(cx, cy, rOuter, ang);
-                        svg += `<line x1="${p0.x.toFixed(1)}" y1="${p0.y.toFixed(1)}" x2="${p1.x.toFixed(1)}" y2="${p1.y.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" />`;
-                    });
-
-                    sl.cats.forEach((cat, ci) => {
-                        const mid = a0 + (ci + 0.5) * catDeg;
-                        const pt = polar(cx, cy, (rInner + rOuter) / 2, mid);
-                        let rot = mid;
-                        const nd = normDeg(mid);
-                        if (nd > 90 && nd < 270) rot = mid + 180;
-                        const short = cat.name.length > 20 ? cat.name.slice(0, 18) + '…' : cat.name;
+                        
                         const amt = cat.amount || 0;
-                        const fill = cat.kind === 'profit'
-                            ? '#16a34a'
-                            : expenseRed(ci, Math.max(expenseCount, 1));
-                        const dark = isDarkHex(fill);
-                        const labelFill = dark ? '#f8fafc' : '#0f172a';
-                        const mutedFill = dark ? '#e2e8f0' : '#334155';
-                        const amtFill = cat.kind === 'profit'
-                            ? (amt >= 0 ? '#dcfce7' : '#fee2e2')
-                            : (dark ? '#fecaca' : '#7f1d1d');
-                        const amtText = cat.kind === 'profit'
+                        const signed = cat.kind === 'profit'
                             ? moneyShort(amt)
                             : (amt > 0 ? `−${moneyShort(amt)}` : '');
-                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${amt || cat.kind === 'profit' ? labelFill : mutedFill}">
-                            <tspan x="0" y="${amtText ? -5 : 3}">${esc(short)}</tspan>
-                            ${amtText ? `<tspan x="0" y="11" fill="${amtFill}" font-weight="800">${amtText}</tspan>` : ''}
+
+                        svg += `<path class="profit-wheel-slice pwh-drill"
+                            d="${donutSlice(cx, cy, rInner, rOuter, c0, c1)}"
+                            fill="${fill}"
+                            data-cat="${esc(cat.name)}"
+                            data-amount="${esc(signed)}"
+                            data-kind="${cat.kind}">
+                        </path>`;
+
+                        // Divisor al inicio de la porción
+                        const pd0 = polar(cx, cy, rInner, c0);
+                        const pd1 = polar(cx, cy, rOuter, c0);
+                        svg += `<line x1="${pd0.x.toFixed(1)}" y1="${pd0.y.toFixed(1)}" x2="${pd1.x.toFixed(1)}" y2="${pd1.y.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" pointer-events="none"/>`;
+
+                        // Etiqueta (siempre mostrar, con nombre, monto y porcentaje)
+                        const mid = (c0 + c1) / 2;
+                        const pt = polar(cx, cy, (rInner + rOuter) / 2, mid);
+                        let rot = mid;
+                        if (normDeg(mid) > 90 && normDeg(mid) < 270) rot = mid + 180;
+                        
+                        const rawPct = (totalAmt > 0 && amt !== 0) ? (Math.abs(amt) / totalAmt) * 100 : 0;
+                        const pct = (totalAmt > 0 && amt !== 0) ? Math.round(rawPct) + '%' : '';
+                        
+                        const labelFill = isDarkHex(fill) ? '#f8fafc' : '#0f172a';
+                        const amtFill = cat.kind === 'profit'
+                            ? (amt >= 0 ? '#dcfce7' : '#fee2e2')
+                            : (isDarkHex(fill) ? '#fecaca' : '#7f1d1d');
+                        const short = cat.name.length > 20 ? cat.name.slice(0, 18) + '…' : cat.name;
+                        
+                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${labelFill}" pointer-events="none" text-anchor="middle">
+                            <tspan x="0" y="${signed || pct ? -8 : 3}">${esc(short)}</tspan>
+                            ${signed ? `<tspan x="0" y="6" fill="${amtFill}" font-weight="800">${esc(signed)}</tspan>` : ''}
+                            ${pct ? `<tspan x="0" y="20" fill="${labelFill}" font-weight="600" font-size="10">${pct}</tspan>` : ''}
                         </text>`;
                     });
 
-                    const path = donutSlice(cx, cy, rInner, rOuter, a0, a1);
-                    svg += `<path class="profit-wheel-slice-stroke" d="${path}" stroke-width="3.5" />`;
-                });
+                    // Centro: botón volver + resumen de línea
+                    const holeFill = sl.net >= 0 ? '#ecfdf5' : '#fef2f2';
+                    const holeText = sl.net >= 0 ? '#166634' : '#991b1b';
+                    svg += `<circle class="pwh-back-btn" cx="${cx}" cy="${cy}" r="${rInner - 2}" fill="${holeFill}" stroke="#fff" stroke-width="4" style="cursor:pointer;"/>`;
+                    svg += `<text text-anchor="middle" x="${cx}" y="${cy - 30}" fill="#64748b" font-size="11" font-weight="700" pointer-events="none">← VOLVER</text>`;
+                    svg += `<text text-anchor="middle" x="${cx}" y="${cy - 12}" fill="#0f172a" font-size="13" font-weight="900" pointer-events="none">${esc(sl.short.toUpperCase())}</text>`;
+                    svg += `<text text-anchor="middle" x="${cx}" y="${cy + 8}" fill="#166534" font-size="11" font-weight="600" pointer-events="none">Rev: ${moneyShort(sl.revenue)}</text>`;
+                    svg += `<text text-anchor="middle" x="${cx}" y="${cy + 26}" fill="${holeText}" font-size="18" font-weight="900" pointer-events="none">${moneyShort(sl.net)}</text>`;
+                    svg += `</svg>`;
 
-                slices.forEach((sl, i) => {
-                    const a0 = start0 + i * sliceDeg;
-                    const mid = a0 + sliceDeg / 2;
-                    const lp = polar(cx, cy, rOuter + 58, mid);
-                    const nd = normDeg(mid);
-                    let anchor = 'middle';
-                    if (nd > 25 && nd < 155) anchor = 'start';
-                    else if (nd > 205 && nd < 335) anchor = 'end';
-                    svg += `<text class="profit-wheel-title" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y - 8).toFixed(1)}" fill="#0f172a">${esc(sl.short)}</text>`;
-                    svg += `<text class="profit-wheel-title-net" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y + 12).toFixed(1)}" fill="#166534">${moneyShort(sl.revenue)}</text>`;
-                });
-
-                const holeFill = netSum >= 0 ? '#ecfdf5' : '#fef2f2';
-                const holeText = netSum >= 0 ? '#166534' : '#991b1b';
-                svg += `<circle cx="${cx}" cy="${cy}" r="${rInner - 2}" fill="${holeFill}" stroke="#fff" stroke-width="4" />`;
-                svg += `<text text-anchor="middle" x="${cx}" y="${cy - 10}" fill="#64748b" font-size="13" font-weight="800">NET PROFIT</text>`;
-                svg += `<text text-anchor="middle" x="${cx}" y="${cy + 20}" fill="${holeText}" font-size="22" font-weight="900">${moneyShort(netSum)}</text>`;
-                svg += `</svg>`;
-
-                let legend = `<div class="profit-wheel-legend">`;
-                slices.forEach(sl => {
-                    legend += `<div class="profit-wheel-legend-item">
-                        <span class="pp-dot" style="background:${sl.color}"></span>
-                        <span title="${esc(sl.label)}">${esc(sl.label)} · ${moneyShort(sl.revenue)}</span>
+                    const backBtnHtml = `<div style="text-align:center;margin-top:10px;">
+                        <button id="pwh-back-overview-btn" style="background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:8px;padding:7px 20px;font-size:0.82rem;font-weight:700;color:#334155;cursor:pointer;">← Volver al resumen</button>
                     </div>`;
-                });
-                legend += `</div>`;
 
-                wheelEl.innerHTML = svg + legend;
+                    wheelEl.innerHTML = svg + backBtnHtml;
+
+                    const svgEl = wheelEl.querySelector('svg');
+                    if (svgEl) {
+                        svgEl.addEventListener('mousemove', (e) => {
+                            const path = e.target.closest('.pwh-drill');
+                            if (!path) { tooltipEl.style.display = 'none'; return; }
+                            const cat = path.getAttribute('data-cat');
+                            const amount = path.getAttribute('data-amount');
+                            const kind = path.getAttribute('data-kind');
+                            const isProfit = kind === 'profit';
+                            const isNeg = (amount || '').includes('−');
+                            tooltipEl.innerHTML = `
+                                <div style="font-weight:800;font-size:0.95rem;color:#f8fafc;margin-bottom:4px;">${cat}</div>
+                                <div style="font-size:1.05rem;font-weight:900;color:${isProfit ? (isNeg ? '#f87171' : '#4ade80') : '#f87171'};">${amount || '—'}</div>`;
+                            tooltipEl.style.display = 'block';
+                            tooltipEl.style.left = (e.clientX + 18) + 'px';
+                            tooltipEl.style.top = Math.max(8, e.clientY - 30) + 'px';
+                        });
+                        svgEl.addEventListener('mouseleave', () => { tooltipEl.style.display = 'none'; });
+                        svgEl.addEventListener('click', (e) => {
+                            if (e.target.closest('.pwh-back-btn')) window._renderProfitWheelOverview();
+                        });
+                    }
+                    const backEl = document.getElementById('pwh-back-overview-btn');
+                    if (backEl) backEl.addEventListener('click', () => window._renderProfitWheelOverview());
+                };
+
+                // Render inicial — modo overview
+                window._renderProfitWheelOverview();
             }
+
             } catch (err) {
                 console.error("CRITICAL ERROR in renderProfitReport:", err);
                 const titleEl = document.querySelector('#profit-report-view h2');

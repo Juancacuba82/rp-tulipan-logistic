@@ -1408,7 +1408,6 @@
             ],
             rpt_sales: [
                 'Commissions',
-                'Inventory Purchase',
                 'Repair/Materials/Tools',
                 'Certifications (CSC Inspections)'
             ],
@@ -1467,7 +1466,6 @@
                 };
                 if (salesMap[c]) return salesMap[c];
                 const blob = (category || '').toString().toUpperCase();
-                if (c === 'Other' && /CONTAINER|INVENTORY|PURCHASE|COGS/.test(blob)) return 'Inventory Purchase';
                 if (c === 'Other' && /CSC|CERTIF|INSPECTION/.test(blob)) return 'Certifications (CSC Inspections)';
             }
             if (line === 'rpt_yard') {
