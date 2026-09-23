@@ -422,26 +422,8 @@
             // Fill form
             document.getElementById('exp-date').value = rowData[0] || '';
             const cat = rowData[1];
-            const sel = document.getElementById('exp-category');
 
-            // Handle Category Selection — prefer official name when editing legacy rows
-            if (sel) {
-                const normalized = window.normalizeExpenseCategory ? window.normalizeExpenseCategory(cat) : cat;
-                if (typeof window.refreshExpenseCategorySelects === 'function') window.refreshExpenseCategorySelects();
-                const officialPick = normalized && window.isOfficialExpenseCategory && window.isOfficialExpenseCategory(normalized)
-                    ? normalized
-                    : '';
-                sel.value = officialPick || normalized || cat || '';
-                if (!sel.value && cat) {
-                    sel.innerHTML = (window.getOfficialExpenseCategoryOptionsHtml
-                        ? window.getOfficialExpenseCategoryOptionsHtml(cat, 'Select category...')
-                        : sel.innerHTML);
-                    sel.value = cat;
-                }
-            }
-            
             document.getElementById('exp-other-desc').value = rowData[2] || '';
-            if (typeof window.toggleOtherExpense === 'function') window.toggleOtherExpense();
 
             const amountStr = (rowData[3] || '0').replace('$', '').replace(/,/g, '');
             document.getElementById('exp-amount').value = parseFloat(amountStr) || 0;
@@ -451,9 +433,10 @@
             const pm = rowData[6] || 'cash';
             if (window.selectExpensePaymentMethod) window.selectExpensePaymentMethod(pm);
 
-            // Profit line (index 7) — rebuild options before setting value
+            // Profit line first (category dropdown depends on it)
             if (typeof window.fillExpenseProfitLineSelects === 'function') window.fillExpenseProfitLineSelects();
             const lineSel = document.getElementById('exp-profit-line');
+            let profitLineVal = '';
             if (lineSel) {
                 const existing = (rowData[7] || '').toString().trim();
                 const suggested = existing || window.suggestExpenseProfitLine(rowData[1], rowData[2], rowData[4]);
@@ -467,7 +450,26 @@
                     lineSel.appendChild(opt);
                     lineSel.value = existing;
                 }
+                profitLineVal = lineSel.value || '';
             }
+
+            const sel = document.getElementById('exp-category');
+            if (sel) {
+                const mapped = window.mapCategoryForProfitLine
+                    ? window.mapCategoryForProfitLine(cat, profitLineVal)
+                    : (window.normalizeExpenseCategory ? window.normalizeExpenseCategory(cat) : cat);
+                sel.innerHTML = window.getOfficialExpenseCategoryOptionsHtml
+                    ? window.getOfficialExpenseCategoryOptionsHtml(mapped || cat, 'Select category...', profitLineVal)
+                    : sel.innerHTML;
+                const allowed = window.getExpenseCategoriesForProfitLine
+                    ? window.getExpenseCategoriesForProfitLine(profitLineVal)
+                    : [];
+                if (mapped && allowed.includes(mapped)) sel.value = mapped;
+                else if (cat && Array.from(sel.options).some(o => o.value === cat)) sel.value = cat;
+                else if (mapped && Array.from(sel.options).some(o => o.value === mapped)) sel.value = mapped;
+            }
+
+            if (typeof window.toggleOtherExpense === 'function') window.toggleOtherExpense();
 
             if (typeof window.refreshExpenseFormReadouts === 'function') window.refreshExpenseFormReadouts();
 

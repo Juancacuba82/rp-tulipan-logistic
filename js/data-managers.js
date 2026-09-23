@@ -1360,7 +1360,29 @@
             'Tolls',
             'Service/Repairs',
             'Driver Payment',
+            'Driver Salary',
+            'Fleet R&M',
+            'Truck Payments',
+            'Truck Insurance',
+            'Hauling Profit',
             'Commission',
+            'Commissions',
+            'Inventory Purchase',
+            'Repair Materials',
+            'Certifications (CSC Inspections)',
+            'Sales Profit',
+            'Paint Supplies',
+            'Paint Labor',
+            'Tools & Gear',
+            'Service Profit',
+            'Yard Rent',
+            'Software',
+            'Marketing',
+            'Admin Payroll',
+            'Profesional Service',
+            'Office Supplies',
+            'Transport Service',
+            'Profit',
             'Payroll',
             'Insurance',
             'Rent',
@@ -1374,10 +1396,147 @@
             'Other'
         ];
 
+        /** Category dropdown on Expenses form — scoped by profit line (more lines added later). */
+        window.EXPENSE_CATEGORIES_BY_PROFIT_LINE = {
+            rpt_transportation: [
+                'Fuel',
+                'Driver Salary',
+                'Tolls',
+                'Fleet R&M',
+                'Truck Payments',
+                'Truck Insurance',
+                'Hauling Profit'
+            ],
+            rpt_sales: [
+                'Commissions',
+                'Inventory Purchase',
+                'Repair Materials',
+                'Certifications (CSC Inspections)',
+                'Sales Profit'
+            ],
+            rpt_yard: [
+                'Paint Supplies',
+                'Paint Labor',
+                'Tools & Gear',
+                'Service Profit'
+            ],
+            rpt_operating: [
+                'Yard Rent',
+                'Software',
+                'Utilities',
+                'Marketing',
+                'Admin Payroll',
+                'Profesional Service',
+                'Office Supplies'
+            ],
+            contractors: [
+                'Transport Service',
+                'Profit'
+            ]
+        };
+
+        window.getExpenseCategoriesForProfitLine = function (profitLine) {
+            const line = (typeof window.normalizeExpenseProfitLine === 'function')
+                ? window.normalizeExpenseProfitLine(profitLine)
+                : (profitLine || '').toString().trim();
+            const scoped = window.EXPENSE_CATEGORIES_BY_PROFIT_LINE[line];
+            if (scoped && scoped.length) return scoped.slice();
+            return window.OFFICIAL_EXPENSE_CATEGORIES.slice();
+        };
+
+        window.mapCategoryForProfitLine = function (category, profitLine) {
+            const line = (typeof window.normalizeExpenseProfitLine === 'function')
+                ? window.normalizeExpenseProfitLine(profitLine)
+                : (profitLine || '').toString().trim();
+            const c = window.normalizeExpenseCategory
+                ? window.normalizeExpenseCategory(category)
+                : (category || '').toString().trim();
+            if (line === 'rpt_transportation') {
+                const transportMap = {
+                    'Driver Payment': 'Driver Salary',
+                    'Fleet/Truck Payment': 'Truck Payments',
+                    'Service/Repairs': 'Fleet R&M',
+                    'Insurance': 'Truck Insurance'
+                };
+                if (transportMap[c]) return transportMap[c];
+            }
+            if (line === 'rpt_sales') {
+                const salesMap = {
+                    'Commission': 'Commissions',
+                    'Service/Repairs': 'Repair Materials',
+                    'Equipment': 'Repair Materials'
+                };
+                if (salesMap[c]) return salesMap[c];
+                const blob = (category || '').toString().toUpperCase();
+                if (c === 'Other' && /CONTAINER|INVENTORY|PURCHASE|COGS/.test(blob)) return 'Inventory Purchase';
+                if (c === 'Other' && /CSC|CERTIF|INSPECTION/.test(blob)) return 'Certifications (CSC Inspections)';
+            }
+            if (line === 'rpt_yard') {
+                const yardMap = {
+                    'Service/Repairs': 'Paint Labor',
+                    'Office/Supplies': 'Paint Supplies',
+                    'Equipment': 'Tools & Gear'
+                };
+                if (yardMap[c]) return yardMap[c];
+            }
+            if (line === 'rpt_operating') {
+                const operatingMap = {
+                    'Rent': 'Yard Rent',
+                    'Payroll': 'Admin Payroll',
+                    'Marketing/Ads': 'Marketing',
+                    'Professional Services': 'Profesional Service',
+                    'Office/Supplies': 'Office Supplies'
+                };
+                if (operatingMap[c]) return operatingMap[c];
+            }
+            if (line === 'contractors') {
+                const contractorMap = {
+                    'Driver Payment': 'Transport Service',
+                    'Fuel': 'Transport Service',
+                    'Tolls': 'Transport Service',
+                    'Service/Repairs': 'Transport Service'
+                };
+                if (contractorMap[c]) return contractorMap[c];
+            }
+            return c;
+        };
+
         // Legacy / free-text names → official category
         window.EXPENSE_CATEGORY_ALIASES = {
             'commission': 'Commission',
+            'commissions': 'Commissions',
+            'inventory purchase': 'Inventory Purchase',
+            'container purchase': 'Inventory Purchase',
+            'container purchases': 'Inventory Purchase',
+            'repair materials': 'Repair Materials',
+            'certifications (csc inspections)': 'Certifications (CSC Inspections)',
+            'csc inspections': 'Certifications (CSC Inspections)',
+            'csc inspection': 'Certifications (CSC Inspections)',
+            'sales profit': 'Sales Profit',
+            'paint supplies': 'Paint Supplies',
+            'paint labor': 'Paint Labor',
+            'paint purchase & labor': 'Paint Labor',
+            'tools & gear': 'Tools & Gear',
+            'tools and gear': 'Tools & Gear',
+            'service profit': 'Service Profit',
+            'yard rent': 'Yard Rent',
+            'software': 'Software',
+            'marketing': 'Marketing',
+            'marketing/ads': 'Marketing',
+            'admin payroll': 'Admin Payroll',
+            'profesional service': 'Profesional Service',
+            'professional service': 'Profesional Service',
+            'professional services': 'Profesional Service',
+            'office supplies': 'Office Supplies',
+            'transport service': 'Transport Service',
+            'contractor profit': 'Profit',
             'driver payment': 'Driver Payment',
+            'driver salary': 'Driver Salary',
+            'fleet r&m': 'Fleet R&M',
+            'fleet r and m': 'Fleet R&M',
+            'truck payments': 'Truck Payments',
+            'truck insurance': 'Truck Insurance',
+            'hauling profit': 'Hauling Profit',
             'fuel': 'Fuel',
             'tolls': 'Tolls',
             'sunpass tolls': 'Tolls',
@@ -1429,17 +1588,40 @@
             return 'Other';
         };
 
-        window.getOfficialExpenseCategoryOptionsHtml = function (selected, includeEmpty) {
+        window.getOfficialExpenseCategoryOptionsHtml = function (selected, includeEmpty, profitLine) {
             const sel = (selected || '').toString().trim();
+            const list = (profitLine !== undefined && profitLine !== null && String(profitLine).trim() !== '')
+                ? window.getExpenseCategoriesForProfitLine(profitLine)
+                : window.OFFICIAL_EXPENSE_CATEGORIES;
             let html = includeEmpty ? `<option value="">${includeEmpty === true ? 'Select category...' : includeEmpty}</option>` : '';
-            window.OFFICIAL_EXPENSE_CATEGORIES.forEach(name => {
+            list.forEach(name => {
                 html += `<option value="${name}" ${sel === name ? 'selected' : ''}>${name}</option>`;
             });
-            // Keep a legacy value selectable while editing an old row
+            const inList = list.some(n => n === sel);
+            if (sel && !inList && window.isOfficialExpenseCategory(sel)) {
+                html += `<option value="${sel}" selected>${sel}</option>`;
+            }
             if (sel && !window.isOfficialExpenseCategory(sel)) {
                 html += `<option value="${sel}" selected>${sel} (legacy)</option>`;
             }
             return html;
+        };
+
+        window.onExpenseProfitLineChanged = function () {
+            const catSel = document.getElementById('exp-category');
+            const prev = catSel ? catSel.value : '';
+            const line = document.getElementById('exp-profit-line')?.value || '';
+            if (typeof window.refreshExpenseCategorySelects === 'function') {
+                window.refreshExpenseCategorySelects();
+            }
+            if (catSel && prev && line) {
+                const mapped = window.mapCategoryForProfitLine ? window.mapCategoryForProfitLine(prev, line) : prev;
+                const allowed = window.getExpenseCategoriesForProfitLine(line);
+                if (allowed.includes(mapped)) catSel.value = mapped;
+                else if (allowed.includes(prev)) catSel.value = prev;
+            }
+            if (typeof window.onExpenseCategoryChanged === 'function') window.onExpenseCategoryChanged();
+            if (typeof window.refreshExpenseFormReadouts === 'function') window.refreshExpenseFormReadouts();
         };
 
         window.loadExpenseCategoriesData = async function () {
@@ -1509,7 +1691,16 @@
             const expSelect = document.getElementById('exp-category');
             if (expSelect) {
                 const currentValue = expSelect.value;
-                expSelect.innerHTML = window.getOfficialExpenseCategoryOptionsHtml(currentValue, 'Select category...');
+                const profitLine = document.getElementById('exp-profit-line')?.value || '';
+                expSelect.innerHTML = window.getOfficialExpenseCategoryOptionsHtml(
+                    currentValue,
+                    'Select category...',
+                    profitLine || undefined
+                );
+                if (currentValue) {
+                    const hasOpt = Array.from(expSelect.options).some(o => o.value === currentValue);
+                    if (hasOpt) expSelect.value = currentValue;
+                }
             }
 
             const expFilt = document.getElementById('exp-filter-category');
