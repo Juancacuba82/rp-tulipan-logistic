@@ -1107,14 +1107,25 @@
                     const rOuter = 268, rInner = 102, start0 = -90;
                     const sliceDeg = 360 / Math.max(slices.length, 1);
 
-                    let svg = `<svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Profit lines circle" style="cursor:pointer;">`;
+                    let svg = `
+                    <style>
+                    .profit-wheel-svg.is-hovering .pwh-group { opacity: 0.25; transition: opacity 0.3s ease, filter 0.3s ease; }
+                    .profit-wheel-svg.is-hovering .pwh-group.is-active { opacity: 1; filter: drop-shadow(0 0 10px rgba(0,0,0,0.15)); }
+                    .pwh-group { transition: opacity 0.3s ease, filter 0.3s ease; }
+                    </style>
+                    <svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Profit lines circle" style="cursor:pointer;">`;
+
+                    const gapDeg = 3.5;
 
                     slices.forEach((sl, i) => {
-                        const a0 = start0 + i * sliceDeg;
-                        const a1 = a0 + sliceDeg;
+                        const a0 = start0 + i * sliceDeg + gapDeg / 2;
+                        const usableDeg = sliceDeg - gapDeg;
+                        const a1 = a0 + usableDeg;
                         const nCats = Math.max(sl.cats.length, 1);
-                        const catDeg = sliceDeg / nCats;
+                        const catDeg = usableDeg / nCats;
                         const expenseCount = sl.cats.filter(c => c.kind !== 'profit').length;
+
+                        svg += `<g class="pwh-group" data-line-id="${esc(sl.id)}">`;
 
                         // Porciones de sub-categoría — SIN etiquetas de texto
                         sl.cats.forEach((cat, ci) => {
@@ -1183,19 +1194,18 @@
 
                         // Borde de sección
                         svg += `<path class="profit-wheel-slice-stroke" d="${donutSlice(cx, cy, rInner, rOuter, a0, a1)}" stroke-width="3.5" pointer-events="none"/>`;
-                    });
 
-                    // Etiquetas externas (nombre de línea + ingreso total) — se mantienen
-                    slices.forEach((sl, i) => {
-                        const a0 = start0 + i * sliceDeg;
-                        const mid = a0 + sliceDeg / 2;
-                        const lp = polar(cx, cy, rOuter + 58, mid);
-                        const nd = normDeg(mid);
+                        // Etiquetas externas (nombre de línea + ingreso total)
+                        const midOuter = start0 + i * sliceDeg + sliceDeg / 2;
+                        const lp = polar(cx, cy, rOuter + 58, midOuter);
+                        const nd = normDeg(midOuter);
                         let anchor = 'middle';
                         if (nd > 25 && nd < 155) anchor = 'start';
                         else if (nd > 205 && nd < 335) anchor = 'end';
                         svg += `<text class="profit-wheel-title" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y - 8).toFixed(1)}" fill="#0f172a" pointer-events="none">${esc(sl.short)}</text>`;
                         svg += `<text class="profit-wheel-title-net" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y + 12).toFixed(1)}" fill="#166534" pointer-events="none">${moneyShort(sl.revenue)}</text>`;
+
+                        svg += `</g>`; // Cierra pwh-group
                     });
 
                     // Centro con NET PROFIT
@@ -1217,10 +1227,24 @@
 
                     wheelEl.innerHTML = svg + legend;
 
-                    // Eventos: tooltip al hover
+                    // Eventos: hover effect y tooltip
                     const svgEl = wheelEl.querySelector('svg');
                     if (svgEl) {
                         svgEl.addEventListener('mousemove', (e) => {
+                            // Dimming de otras secciones
+                            const group = e.target.closest('.pwh-group');
+                            if (group) {
+                                svgEl.classList.add('is-hovering');
+                                svgEl.querySelectorAll('.pwh-group').forEach(g => {
+                                    if (g === group) g.classList.add('is-active');
+                                    else g.classList.remove('is-active');
+                                });
+                            } else {
+                                svgEl.classList.remove('is-hovering');
+                                svgEl.querySelectorAll('.pwh-group').forEach(g => g.classList.remove('is-active'));
+                            }
+
+                            // Lógica del Tooltip
                             const path = e.target.closest('.pwh-interactive');
                             if (!path) { tooltipEl.style.display = 'none'; return; }
                             const lineLabel = path.getAttribute('data-line-label');
@@ -1242,7 +1266,11 @@
                             tooltipEl.style.left = (e.clientX + 18) + 'px';
                             tooltipEl.style.top = Math.max(8, e.clientY - 30) + 'px';
                         });
-                        svgEl.addEventListener('mouseleave', () => { tooltipEl.style.display = 'none'; });
+                        svgEl.addEventListener('mouseleave', () => { 
+                            tooltipEl.style.display = 'none'; 
+                            svgEl.classList.remove('is-hovering');
+                            svgEl.querySelectorAll('.pwh-group').forEach(g => g.classList.remove('is-active'));
+                        });
                         // Clic en porción → drill-down
                         svgEl.addEventListener('click', (e) => {
                             const path = e.target.closest('.pwh-interactive');
@@ -1319,10 +1347,10 @@
                             : (isDarkHex(fill) ? '#fecaca' : '#7f1d1d');
                         const short = cat.name.length > 20 ? cat.name.slice(0, 18) + '…' : cat.name;
                         
-                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${labelFill}" pointer-events="none" text-anchor="middle">
-                            <tspan x="0" y="${signed || pct ? -8 : 3}">${esc(short)}</tspan>
-                            ${signed ? `<tspan x="0" y="6" fill="${amtFill}" font-weight="800">${esc(signed)}</tspan>` : ''}
-                            ${pct ? `<tspan x="0" y="20" fill="${labelFill}" font-weight="600" font-size="10">${pct}</tspan>` : ''}
+                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${labelFill}" pointer-events="none" text-anchor="middle" font-size="15">
+                            <tspan x="0" y="${signed || pct ? -12 : 3}" font-weight="700">${esc(short)}</tspan>
+                            ${signed ? `<tspan x="0" y="8" fill="${amtFill}" font-weight="800" font-size="16">${esc(signed)}</tspan>` : ''}
+                            ${pct ? `<tspan x="0" y="26" fill="${labelFill}" font-weight="700" font-size="14">${pct}</tspan>` : ''}
                         </text>`;
                     });
 
