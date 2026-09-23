@@ -843,83 +843,42 @@
                 }
             }
 
-            // 5. Performance table — revenue / costs / net / margin% / share%
-            // Sales costs include Container Purchases (COGS) so Sales margin is realistic.
+            // 5. Performance table — line / revenue
             const money = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
             const ebl = totals.expenseByLine;
             const opShare = totals.operatingShare || 0;
-            const opShareNote = opShare > 0 ? `incl. operating ${money(opShare)}` : '';
             const salesCosts = (ebl.rpt_sales || 0) + (totals.releases || 0);
 
             const serviceRows = [
-                { key: 'sales', label: 'RP Tulipan Sales', color: '#f59e0b', revenue: totals.sales, costs: salesCosts, costNote: totals.releases > 0 ? `incl. containers ${money(totals.releases)}` : '' },
+                { key: 'sales', label: 'RP Tulipan Sales', color: '#f59e0b', revenue: totals.sales, costs: salesCosts },
                 { key: 'yard', label: 'RP Tulipan Yard Service', color: '#06b6d4', revenue: totals.yard, costs: ebl.rpt_yard || 0 },
-                { key: 'rentals', label: 'Rentals', color: '#ec4899', revenue: totals.rentals, costs: opShare, costNote: opShareNote },
+                { key: 'rentals', label: 'Rentals', color: '#ec4899', revenue: totals.rentals, costs: opShare },
                 { key: 'tulipan', label: 'RP Tulipan Transportation', color: '#2dd4bf', revenue: totals.tulipan, costs: ebl.rpt_transportation || 0 },
-                { key: 'jr', label: 'JR Super Crane', color: '#3b82f6', revenue: totals.jr, costs: opShare, costNote: opShareNote },
-                { key: 'contractor', label: 'Contractors (transport revenue)', color: '#a855f7', revenue: totals.contractor, costs: (ebl.contractors || 0) + opShare, costNote: opShareNote },
-                { key: 'storage_tulipan', label: 'Storage RPTulipan', color: '#6366f1', revenue: totals.storageTulipan, costs: opShare, costNote: opShareNote },
-                { key: 'storage_yard', label: 'Storage Yard', color: '#10b981', revenue: totals.storageYard, costs: opShare, costNote: opShareNote },
-                { key: 'custom_invoices', label: 'Custom Invoices', color: '#0ea5e9', revenue: totals.customInvoices || 0, costs: opShare, costNote: opShareNote }
+                { key: 'jr', label: 'JR Super Crane', color: '#3b82f6', revenue: totals.jr, costs: opShare },
+                { key: 'contractor', label: 'Contractors (transport revenue)', color: '#a855f7', revenue: totals.contractor, costs: (ebl.contractors || 0) + opShare },
+                { key: 'storage_tulipan', label: 'Storage RPTulipan', color: '#6366f1', revenue: totals.storageTulipan, costs: opShare },
+                { key: 'storage_yard', label: 'Storage Yard', color: '#10b981', revenue: totals.storageYard, costs: opShare },
+                { key: 'custom_invoices', label: 'Custom Invoices', color: '#0ea5e9', revenue: totals.customInvoices || 0, costs: opShare }
             ];
 
-            const maxMix = Math.max(...serviceRows.map(r => Math.max(r.revenue || 0, r.costs || 0)), totalGlobalExpenses, 1);
-
-            const pctBadge = (pct, emptyLabel = '—') => {
-                if (pct === null || pct === undefined || !isFinite(pct)) {
-                    return `<span class="pp-pct muted">${emptyLabel}</span>`;
-                }
-                const cls = pct >= 0 ? 'positive' : 'negative';
-                const sign = pct > 0 ? '+' : '';
-                return `<span class="pp-pct ${cls}">${sign}${pct.toFixed(1)}%</span>`;
-            };
-
             const renderServiceRow = (row) => {
-                const net = (row.revenue || 0) - (row.costs || 0);
-                const margin = row.revenue > 0 ? (net / row.revenue) * 100 : null;
-                const share = totalRevenue > 0 ? ((row.revenue || 0) / totalRevenue) * 100 : 0;
-                const revW = ((row.revenue || 0) / maxMix) * 100;
-                const costW = ((row.costs || 0) / maxMix) * 100;
-                const note = row.costNote
-                    ? `<div class="pp-cost-note">${row.costNote}</div>`
-                    : '';
                 return `<tr class="pp-service-row" data-line="${row.key}">
                     <td class="col-line">
                         <div class="pp-line-cell"><span class="pp-dot" style="background:${row.color}"></span><span class="pp-label">${row.label}</span></div>
                     </td>
                     <td class="col-num">${money(row.revenue)}</td>
-                    <td class="col-num cost">${row.costs > 0 ? '−' + money(row.costs) : '—'}${note}</td>
-                    <td class="col-num net ${net >= 0 ? 'pos' : 'neg'}">${money(net)}</td>
-                    <td class="col-pct">${pctBadge(margin)}</td>
-                    <td class="col-pct"><span class="pp-share">${share.toFixed(1)}%</span></td>
-                    <td class="col-bar">
-                        <div class="pp-mix">
-                            <div class="pp-mix-rev" style="width:${revW}%; background:${row.color}"></div>
-                            <div class="pp-mix-cost" style="width:${costW}%"></div>
-                        </div>
-                    </td>
                 </tr>`;
             };
 
             const renderCostOnlyRow = (opts) => {
                 const amt = opts.amount || 0;
                 if (opts.hideIfZero && amt <= 0) return '';
-                const costW = (amt / maxMix) * 100;
                 return `<tr class="pp-cost-row ${opts.extraClass || ''}" ${opts.id ? `id="${opts.id}"` : ''}>
                     <td class="col-line">
                         <div class="pp-line-cell"><span class="pp-dot" style="background:${opts.color}"></span><span class="pp-label">${opts.label}</span></div>
                     </td>
                     <td class="col-num muted">—</td>
-                    <td class="col-num cost">−${money(amt)}</td>
-                    <td class="col-num net neg">−${money(amt)}</td>
-                    <td class="col-pct"><span class="pp-pct muted">—</span></td>
-                    <td class="col-pct"><span class="pp-share muted">—</span></td>
-                    <td class="col-bar">
-                        <div class="pp-mix">
-                            <div class="pp-mix-cost" style="width:${costW}%; background:${opts.color}"></div>
-                        </div>
-                    </td>
                 </tr>`;
             };
 
@@ -927,11 +886,11 @@
             if (body) {
                 let html = serviceRows.map(renderServiceRow).join('');
 
-                html += `<tr class="pp-section-row"><td colspan="7">Company-level costs</td></tr>`;
+                html += `<tr class="pp-section-row"><td colspan="2">Company-level costs</td></tr>`;
                 const operatingPool = totals.operatingPool || 0;
                 if (operatingPool > 0) {
                     html += `<tr class="pp-insight-row pp-operating-note">
-                        <td colspan="7">
+                        <td colspan="2">
                             <strong>RP Tulipan Operating expenses</strong> (${money(operatingPool)} in period) allocated
                             <strong> equally</strong> across JR Super Crane, Rentals, Storage RPTulipan, Storage Yard, and Custom Invoices
                             (${money(opShare)} each). Fuel and fleet costs stay on <strong>Transportation</strong>.
@@ -950,11 +909,6 @@
                 html += `<tr class="pp-total-row">
                     <td class="col-line"><span class="pp-label">COMPANY TOTAL</span></td>
                     <td class="col-num">${money(totalRevenue)}</td>
-                    <td class="col-num cost">−${money(totalGlobalExpenses)}</td>
-                    <td class="col-num net ${netProfit >= 0 ? 'pos' : 'neg'}">${money(netProfit)}</td>
-                    <td class="col-pct">${pctBadge(totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : null)}</td>
-                    <td class="col-pct"><span class="pp-share">100%</span></td>
-                    <td class="col-bar"></td>
                 </tr>`;
 
                 // Best margin callout among lines with meaningful revenue
@@ -969,7 +923,7 @@
                 if (ranked.length > 0) {
                     const best = ranked[0];
                     html += `<tr class="pp-insight-row">
-                        <td colspan="7">
+                        <td colspan="2">
                             Best margin: <strong>${best.label}</strong> at
                             <strong style="color:${best.margin >= 0 ? '#15803d' : '#b91c1c'}">${best.margin >= 0 ? '+' : ''}${best.margin.toFixed(1)}%</strong>
                             (Net ${money(best.net)}) · Largest share:
@@ -1018,7 +972,8 @@
             const wheelEl = document.getElementById('profit-wheel-body');
             if (wheelEl) {
                 const byLineCat = totals.costsByLineCategory || {};
-                const operatingRevenue = (totals.jr || 0) + (totals.rentals || 0)
+                // Operating revenue is support lines only. Super Crane rides with Transport (not Operating).
+                const operatingRevenue = (totals.rentals || 0)
                     + (totals.storageTulipan || 0) + (totals.storageYard || 0) + (totals.customInvoices || 0);
 
                 const moneyShort = (n) => {
@@ -1047,27 +1002,45 @@
                     const i0 = polar(cx, cy, rInner, a0);
                     return `M ${o0.x.toFixed(2)} ${o0.y.toFixed(2)} A ${rOuter} ${rOuter} 0 0 1 ${o1.x.toFixed(2)} ${o1.y.toFixed(2)} L ${i1.x.toFixed(2)} ${i1.y.toFixed(2)} A ${rInner} ${rInner} 0 0 0 ${i0.x.toFixed(2)} ${i0.y.toFixed(2)} Z`;
                 };
-                const mixWhite = (hex, t) => {
-                    const c = (hex || '#888888').replace('#', '');
-                    if (c.length !== 6) return hex;
-                    const ch = (i) => parseInt(c.slice(i, i + 2), 16);
-                    const m = (v) => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0');
-                    return `#${m(ch(0))}${m(ch(2))}${m(ch(4))}`;
+                const mixHex = (fromHex, toHex, t) => {
+                    const parse = (hex) => {
+                        const c = (hex || '#888888').replace('#', '');
+                        return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)];
+                    };
+                    const a = parse(fromHex);
+                    const b = parse(toHex);
+                    const m = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+                    return `#${m.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+                };
+                const expenseRed = (i, n) => {
+                    const t = n <= 1 ? 0 : i / (n - 1);
+                    return mixHex('#7f1d1d', '#fecaca', t);
                 };
                 const normDeg = (d) => ((d % 360) + 360) % 360;
 
-                const catAmount = (lineId, catName) => {
-                    const map = byLineCat[lineId] || {};
-                    if (map[catName] != null) return map[catName] || 0;
-                    const want = catName.toLowerCase();
-                    const hit = Object.keys(map).find(k => k.toLowerCase() === want);
-                    return hit ? (map[hit] || 0) : 0;
+                const mappedCatTotals = (lineId) => {
+                    const raw = byLineCat[lineId] || {};
+                    const official = (typeof window.getExpenseCategoriesForProfitLine === 'function')
+                        ? window.getExpenseCategoriesForProfitLine(lineId)
+                        : [];
+                    const sums = {};
+                    official.forEach(name => { sums[name] = 0; });
+                    Object.keys(raw).forEach(cat => {
+                        const mapped = (typeof window.mapCategoryForProfitLine === 'function')
+                            ? window.mapCategoryForProfitLine(cat, lineId)
+                            : cat;
+                        const hit = official.find(n => n.toLowerCase() === String(mapped || '').toLowerCase());
+                        if (!hit) return;
+                        sums[hit] = (sums[hit] || 0) + (raw[cat] || 0);
+                    });
+                    return { official, sums };
                 };
 
                 const lineSlices = (window.EXPENSE_PROFIT_LINES || []).map(meta => {
                     let revenue = 0;
                     const extraCats = [];
-                    if (meta.id === 'rpt_transportation') revenue = totals.tulipan || 0;
+                    // Transport outer total = RP Tulipan + Super Crane. Contractors stay their own wedge.
+                    if (meta.id === 'rpt_transportation') revenue = (totals.tulipan || 0) + (totals.jr || 0);
                     else if (meta.id === 'rpt_sales') {
                         revenue = totals.sales || 0;
                         if ((totals.releases || 0) > 0) {
@@ -1077,18 +1050,26 @@
                     else if (meta.id === 'rpt_yard') revenue = totals.yard || 0;
                     else if (meta.id === 'contractors') revenue = totals.contractor || 0;
 
-                    const official = (typeof window.getExpenseCategoriesForProfitLine === 'function')
-                        ? window.getExpenseCategoriesForProfitLine(meta.id)
-                        : [];
-                    const cats = official.map(name => ({ name, amount: catAmount(meta.id, name) }));
+                    const { official, sums } = mappedCatTotals(meta.id);
                     extraCats.forEach(ex => {
-                        if (!cats.some(c => c.name.toLowerCase() === ex.name.toLowerCase())) {
-                            cats.push(ex);
-                        }
+                        const hit = official.find(n => n.toLowerCase() === ex.name.toLowerCase());
+                        const key = hit || ex.name;
+                        sums[key] = (sums[key] || 0) + (ex.amount || 0);
                     });
+
+                    const expenseCats = official
+                        .map(name => ({ name, amount: sums[name] || 0, kind: 'expense' }));
+                    extraCats.forEach(ex => {
+                        const existing = expenseCats.find(c => c.name.toLowerCase() === ex.name.toLowerCase());
+                        if (existing) return;
+                        expenseCats.push({ name: ex.name, amount: sums[ex.name] || ex.amount || 0, kind: 'expense' });
+                    });
+                    expenseCats.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+
                     const extraCost = extraCats.reduce((s, c) => s + (c.amount || 0), 0);
                     const costs = (ebl[meta.id] || 0) + extraCost;
                     const net = revenue - costs;
+                    const cats = expenseCats.concat([{ name: 'Profit', amount: net, kind: 'profit' }]);
                     return {
                         id: meta.id,
                         label: meta.label,
@@ -1105,12 +1086,12 @@
                 const slices = lineSlices;
                 const sliceDeg = 360 / Math.max(slices.length, 1);
 
-                const size = 560;
-                const pad = 78;
+                const size = 760;
+                const pad = 110;
                 const cx = size / 2;
                 const cy = size / 2;
-                const rOuter = 198;
-                const rInner = 78;
+                const rOuter = 268;
+                const rInner = 102;
                 const start0 = -90;
 
                 let svg = `<svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Profit lines circle">`;
@@ -1120,16 +1101,19 @@
                     const a1 = a0 + sliceDeg;
                     const nCats = Math.max(sl.cats.length, 1);
                     const catDeg = sliceDeg / nCats;
-                    const dark = isDarkHex(sl.color);
-                    const catFill = dark ? '#f8fafc' : '#0f172a';
-                    const mutedFill = dark ? '#e2e8f0' : '#334155';
+                    const expenseCount = sl.cats.filter(c => c.kind !== 'profit').length;
 
                     sl.cats.forEach((cat, ci) => {
                         const c0 = a0 + ci * catDeg;
                         const c1 = c0 + catDeg;
-                        const fill = mixWhite(sl.color, ci % 2 === 0 ? 0.04 : 0.22);
+                        const fill = cat.kind === 'profit'
+                            ? (cat.amount >= 0 ? '#16a34a' : '#b91c1c')
+                            : expenseRed(ci, Math.max(expenseCount, 1));
+                        const signed = cat.kind === 'profit'
+                            ? money(cat.amount)
+                            : (cat.amount ? '−' + money(cat.amount) : '');
                         svg += `<path class="profit-wheel-slice" d="${donutSlice(cx, cy, rInner, rOuter, c0, c1)}" fill="${fill}">
-                            <title>${esc(sl.label)} · ${esc(cat.name)}${cat.amount ? ' −' + money(cat.amount) : ''}</title>
+                            <title>${esc(sl.label)} · ${esc(cat.name)}${signed ? ' ' + signed : ''}</title>
                         </path>`;
                     });
 
@@ -1138,7 +1122,7 @@
                         const ang = a0 + ci * catDeg;
                         const p0 = polar(cx, cy, rInner, ang);
                         const p1 = polar(cx, cy, rOuter, ang);
-                        svg += `<line x1="${p0.x.toFixed(1)}" y1="${p0.y.toFixed(1)}" x2="${p1.x.toFixed(1)}" y2="${p1.y.toFixed(1)}" stroke="rgba(255,255,255,0.85)" stroke-width="1.4" />`;
+                        svg += `<line x1="${p0.x.toFixed(1)}" y1="${p0.y.toFixed(1)}" x2="${p1.x.toFixed(1)}" y2="${p1.y.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" />`;
                     });
 
                     sl.cats.forEach((cat, ci) => {
@@ -1147,11 +1131,23 @@
                         let rot = mid;
                         const nd = normDeg(mid);
                         if (nd > 90 && nd < 270) rot = mid + 180;
-                        const short = cat.name.length > 16 ? cat.name.slice(0, 14) + '…' : cat.name;
+                        const short = cat.name.length > 20 ? cat.name.slice(0, 18) + '…' : cat.name;
                         const amt = cat.amount || 0;
-                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${amt ? catFill : mutedFill}">
-                            <tspan x="0" y="${amt > 0 ? -3 : 2}">${esc(short)}</tspan>
-                            ${amt > 0 ? `<tspan x="0" y="8" fill="${dark ? '#fecaca' : '#7f1d1d'}" font-weight="800">−${moneyShort(amt)}</tspan>` : ''}
+                        const fill = cat.kind === 'profit'
+                            ? '#16a34a'
+                            : expenseRed(ci, Math.max(expenseCount, 1));
+                        const dark = isDarkHex(fill);
+                        const labelFill = dark ? '#f8fafc' : '#0f172a';
+                        const mutedFill = dark ? '#e2e8f0' : '#334155';
+                        const amtFill = cat.kind === 'profit'
+                            ? (amt >= 0 ? '#dcfce7' : '#fee2e2')
+                            : (dark ? '#fecaca' : '#7f1d1d');
+                        const amtText = cat.kind === 'profit'
+                            ? moneyShort(amt)
+                            : (amt > 0 ? `−${moneyShort(amt)}` : '');
+                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${amt || cat.kind === 'profit' ? labelFill : mutedFill}">
+                            <tspan x="0" y="${amtText ? -5 : 3}">${esc(short)}</tspan>
+                            ${amtText ? `<tspan x="0" y="11" fill="${amtFill}" font-weight="800">${amtText}</tspan>` : ''}
                         </text>`;
                     });
 
@@ -1162,28 +1158,27 @@
                 slices.forEach((sl, i) => {
                     const a0 = start0 + i * sliceDeg;
                     const mid = a0 + sliceDeg / 2;
-                    const lp = polar(cx, cy, rOuter + 42, mid);
+                    const lp = polar(cx, cy, rOuter + 58, mid);
                     const nd = normDeg(mid);
                     let anchor = 'middle';
                     if (nd > 25 && nd < 155) anchor = 'start';
                     else if (nd > 205 && nd < 335) anchor = 'end';
-                    const netFill = sl.net >= 0 ? '#166534' : '#991b1b';
-                    svg += `<text class="profit-wheel-title" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y - 6).toFixed(1)}" fill="#0f172a">${esc(sl.short)}</text>`;
-                    svg += `<text class="profit-wheel-title-net" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y + 8).toFixed(1)}" fill="${netFill}">${moneyShort(sl.net)}</text>`;
+                    svg += `<text class="profit-wheel-title" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y - 8).toFixed(1)}" fill="#0f172a">${esc(sl.short)}</text>`;
+                    svg += `<text class="profit-wheel-title-net" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y + 12).toFixed(1)}" fill="#166534">${moneyShort(sl.revenue)}</text>`;
                 });
 
                 const holeFill = netSum >= 0 ? '#ecfdf5' : '#fef2f2';
                 const holeText = netSum >= 0 ? '#166534' : '#991b1b';
                 svg += `<circle cx="${cx}" cy="${cy}" r="${rInner - 2}" fill="${holeFill}" stroke="#fff" stroke-width="4" />`;
-                svg += `<text text-anchor="middle" x="${cx}" y="${cy - 8}" fill="#64748b" font-size="10" font-weight="800">NET PROFIT</text>`;
-                svg += `<text text-anchor="middle" x="${cx}" y="${cy + 16}" fill="${holeText}" font-size="16" font-weight="900">${moneyShort(netSum)}</text>`;
+                svg += `<text text-anchor="middle" x="${cx}" y="${cy - 10}" fill="#64748b" font-size="13" font-weight="800">NET PROFIT</text>`;
+                svg += `<text text-anchor="middle" x="${cx}" y="${cy + 20}" fill="${holeText}" font-size="22" font-weight="900">${moneyShort(netSum)}</text>`;
                 svg += `</svg>`;
 
                 let legend = `<div class="profit-wheel-legend">`;
                 slices.forEach(sl => {
                     legend += `<div class="profit-wheel-legend-item">
                         <span class="pp-dot" style="background:${sl.color}"></span>
-                        <span title="${esc(sl.label)}">${esc(sl.label)} · ${moneyShort(sl.net)}</span>
+                        <span title="${esc(sl.label)}">${esc(sl.label)} · ${moneyShort(sl.revenue)}</span>
                     </div>`;
                 });
                 legend += `</div>`;
@@ -1354,11 +1349,61 @@
             }
         };
 
+        window.initProfitPanelToggles = function () {
+            const wrap = document.getElementById('profit-panels-wrap');
+            if (!wrap || wrap.dataset.toggleBound === '1') return;
+            wrap.dataset.toggleBound = '1';
+            const storageKey = 'profitReportPanelState';
+            const labels = {
+                perf: 'Performance by Service',
+                wheel: 'Profit Lines Circle'
+            };
+
+            const readState = () => {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                    return { perf: !!saved.perf, wheel: !!saved.wheel };
+                } catch (e) {
+                    return { perf: false, wheel: false };
+                }
+            };
+
+            const applyState = (state) => {
+                wrap.classList.toggle('perf-collapsed', state.perf);
+                wrap.classList.toggle('wheel-collapsed', state.wheel);
+                wrap.querySelectorAll('[data-panel]').forEach((panel) => {
+                    const key = panel.getAttribute('data-panel');
+                    const collapsed = !!state[key];
+                    panel.classList.toggle('is-collapsed', collapsed);
+                    const btn = panel.querySelector(`[data-profit-panel="${key}"]`);
+                    if (!btn) return;
+                    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                    btn.title = collapsed ? `Show ${labels[key]}` : `Minimize ${labels[key]}`;
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.className = collapsed ? 'fas fa-plus' : 'fas fa-minus';
+                });
+            };
+
+            let state = readState();
+            wrap.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-profit-panel]');
+                if (!btn) return;
+                const key = btn.getAttribute('data-profit-panel');
+                if (key !== 'perf' && key !== 'wheel') return;
+                state[key] = !state[key];
+                try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch (err) { /* ignore */ }
+                applyState(state);
+            });
+            applyState(state);
+        };
+
         // Populate profit-line dropdowns once DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
                 if (typeof window.fillExpenseProfitLineSelects === 'function') window.fillExpenseProfitLineSelects();
+                if (typeof window.initProfitPanelToggles === 'function') window.initProfitPanelToggles();
             });
-        } else if (typeof window.fillExpenseProfitLineSelects === 'function') {
-            window.fillExpenseProfitLineSelects();
+        } else {
+            if (typeof window.fillExpenseProfitLineSelects === 'function') window.fillExpenseProfitLineSelects();
+            if (typeof window.initProfitPanelToggles === 'function') window.initProfitPanelToggles();
         }

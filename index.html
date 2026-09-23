@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=7">
+    <link rel="stylesheet" href="./style.css?v=9">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -30,7 +30,7 @@
     <script src="./js/delivery-calendar.js?v=1706" defer></script>
     <script src="./js/driver-settlements.js?v=1702" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1724" defer></script>
+    <script src="./js/profit-expenses.js?v=1728" defer></script>
 
     <script src="./js/docs-receipts.js?v=1702" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
@@ -4073,64 +4073,75 @@
                     </div>
                 </div>
 
-                <div class="profit-performance-wrap">
-                    <div class="profit-performance-panel">
+                <div class="profit-performance-wrap" id="profit-panels-wrap">
+                    <div class="profit-performance-panel" data-panel="perf">
                         <div class="profit-performance-header">
                             <div>
                                 <h3 style="margin:0;">Performance by Service</h3>
-                                <p style="margin:6px 0 0; color:#64748b; font-size:0.85rem;">
-                                    Margin % = how profitable each line is · Share % = size of total revenue
+                                <p class="profit-panel-subtitle">
+                                    Revenue by service line
                                 </p>
                             </div>
-                            <span id="profit-expense-assign-pct"
-                                style="display: none; font-size: 0.72rem; font-weight: 800; padding: 4px 10px; border-radius: 999px;"></span>
+                            <div class="profit-panel-header-actions">
+                                <span id="profit-expense-assign-pct"
+                                    style="display: none; font-size: 0.72rem; font-weight: 800; padding: 4px 10px; border-radius: 999px;"></span>
+                                <button type="button" class="profit-panel-toggle" data-profit-panel="perf"
+                                    aria-expanded="true" title="Minimize Performance by Service">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="profit-performance-scroll">
-                            <table class="profit-performance-table" id="profit-performance-table">
-                                <thead>
-                                    <tr>
-                                        <th class="col-line">LINE</th>
-                                        <th class="col-num">REVENUE</th>
-                                        <th class="col-num">COSTS</th>
-                                        <th class="col-num">NET</th>
-                                        <th class="col-pct">MARGIN %</th>
-                                        <th class="col-pct">SHARE %</th>
-                                        <th class="col-bar">MIX</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="profit-performance-body">
-                                    <!-- Filled by renderProfitReport -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <p class="profit-performance-note">
-                            <strong>Sales costs</strong> include Container Purchases (COGS).
-                            <strong>Operating expenses</strong> are split equally across JR, Rentals, and Storage/Custom revenue lines.
-                            Assign every expense to one of the <strong>5 profit lines</strong>; <strong>Unassigned</strong> still lowers company net.
-                        </p>
-                        <!-- Keep legacy ids for any external refs / soft fallbacks -->
-                        <div id="profit-legacy-vals" style="display:none;" aria-hidden="true">
-                            <span id="val-sales"></span><span id="val-yard"></span><span id="val-rentals"></span>
-                            <span id="val-tulipan"></span><span id="val-jr"></span><span id="val-contractor"></span>
-                            <span id="val-storage-rptulipan"></span><span id="val-storage-yard"></span>
-                            <span id="val-custom-invoices"></span><span id="val-revenue-total"></span>
-                            <span id="val-expenses"></span><span id="val-exp-overhead"></span>
-                            <span id="val-exp-unassigned"></span><span id="val-releases"></span>
-                            <span id="val-exp-sales"></span><span id="val-net-sales"></span>
+                        <div class="profit-card-body">
+                            <div class="profit-performance-scroll">
+                                <table class="profit-performance-table" id="profit-performance-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-line">LINE</th>
+                                            <th class="col-num">REVENUE</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="profit-performance-body">
+                                        <!-- Filled by renderProfitReport -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="profit-performance-note">
+                                <strong>Sales costs</strong> include Container Purchases (COGS).
+                                <strong>Operating expenses</strong> are split equally across JR, Rentals, and Storage/Custom revenue lines.
+                                Assign every expense to one of the <strong>5 profit lines</strong>; <strong>Unassigned</strong> still lowers company net.
+                            </p>
+                            <!-- Keep legacy ids for any external refs / soft fallbacks -->
+                            <div id="profit-legacy-vals" style="display:none;" aria-hidden="true">
+                                <span id="val-sales"></span><span id="val-yard"></span><span id="val-rentals"></span>
+                                <span id="val-tulipan"></span><span id="val-jr"></span><span id="val-contractor"></span>
+                                <span id="val-storage-rptulipan"></span><span id="val-storage-yard"></span>
+                                <span id="val-custom-invoices"></span><span id="val-revenue-total"></span>
+                                <span id="val-expenses"></span><span id="val-exp-overhead"></span>
+                                <span id="val-exp-unassigned"></span><span id="val-releases"></span>
+                                <span id="val-exp-sales"></span><span id="val-net-sales"></span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="profit-wheel-panel">
+                    <div class="profit-wheel-panel" data-panel="wheel">
                         <div class="profit-performance-header">
                             <div>
                                 <h3 style="margin:0;">Profit Lines Circle</h3>
-                                <p style="margin:6px 0 0; color:#64748b; font-size:0.85rem;">
+                                <p class="profit-panel-subtitle">
                                     Each slice is split by category · names sit outside the circle
                                 </p>
                             </div>
+                            <div class="profit-panel-header-actions">
+                                <button type="button" class="profit-panel-toggle" data-profit-panel="wheel"
+                                    aria-expanded="true" title="Minimize Profit Lines Circle">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div id="profit-wheel-body" class="profit-wheel-body">
-                            <!-- Filled by renderProfitReport -->
+                        <div class="profit-card-body">
+                            <div id="profit-wheel-body" class="profit-wheel-body">
+                                <!-- Filled by renderProfitReport -->
+                            </div>
                         </div>
                     </div>
                 </div>
