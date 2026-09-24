@@ -1,10 +1,10 @@
         // --- Expense → Profit Report allocation (5 official profit lines) ---
         window.EXPENSE_PROFIT_LINES = [
-            { id: 'rpt_transportation', label: 'RP Tulipan Transportation', short: 'Transport', color: '#2dd4bf' },
-            { id: 'rpt_sales', label: 'RP Tulipan Sales', short: 'Sales', color: '#f59e0b' },
-            { id: 'rpt_operating', label: 'RP Tulipan Operating expenses', short: 'Operating', color: '#64748b' },
-            { id: 'rpt_yard', label: 'RP Tulipan Yard Service', short: 'Yard', color: '#06b6d4' },
-            { id: 'contractors', label: 'Contractors', short: 'Contractors', color: '#a855f7' }
+            { id: 'rpt_transportation', label: 'RP TULIPAN TRANSPORTATION', short: 'TRANSPORT', color: '#2dd4bf' },
+            { id: 'rpt_sales', label: 'RP TULIPAN SALES', short: 'SALES', color: '#f59e0b' },
+            { id: 'rpt_operating', label: 'RP TULIPAN OPERATING EXPENSES', short: 'OPERATING', color: '#64748b' },
+            { id: 'rpt_yard', label: 'RP TULIPAN YARD SERVICE', short: 'YARD', color: '#06b6d4' },
+            { id: 'contractors', label: 'CONTRACTORS', short: 'CONTRACTORS', color: '#a855f7' }
         ];
 
         /** Revenue rows that receive equal shares of rpt_operating (no direct expense lines). */

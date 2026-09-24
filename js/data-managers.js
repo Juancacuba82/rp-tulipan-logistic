@@ -1355,79 +1355,55 @@
         // --- EXPENSE CATEGORIES (code-defined only; not editable in the UI) ---
 
         window.OFFICIAL_EXPENSE_CATEGORIES = [
-            'Fuel',
-            'Tolls',
-            'Service/Repairs',
-            'Driver Payment',
-            'Driver Salary',
-            'Repairs/Maintenance/parts/labor',
-            'Truck Payments',
-            'Truck Insurance',
-            'Hauling Profit',
-            'Commission',
-            'Commissions',
-            'Inventory Purchase',
-            'Repair/Materials/Tools',
-            'Certifications (CSC Inspections)',
-            'Work Travel Expense',
-            'Sales Profit',
-            'Paint/Purchase/Supplies',
-            'Paint Labor',
-            'Parts/Paint/Tools',
-            'Service Profit',
-            'Yard Rent',
-            'Software/Apps',
-            'Marketing',
-            'Employee Payment',
-            'Profesional Service',
-            'Office/Yard Supplies',
-            'Transport Service',
-            'Profit',
-            'Payroll',
-            'Insurance',
-            'Rent',
-            'Utilities',
-            'Taxes/Licenses',
-            'Marketing/Ads',
-            'Office/Supplies',
-            'Fleet/Truck Payment',
-            'Equipment',
-            'Professional Services',
+            'DRIVER PAYMENT',
+            'DIESEL',
+            'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'TRUKS PAYMENT',
+            'TRUKS INSURANCE',
+            'TOLLS',
+            'COMMISSION',
+            'YARD RENT',
+            'SOFTWARE & APPS',
+            'PAYROLL',
+            'OFFICE / YARD SUPPLIES',
+            'TOOLS',
+            'CONTAINERS SUPPLIES',
+            'MARKETING',
+            'OTHER EXPENSES',
+            'PAINT PURCHASE',
+            'UTILITIES',
             'Other'
         ];
 
         /** Category dropdown on Expenses form — scoped by profit line (more lines added later). */
         window.EXPENSE_CATEGORIES_BY_PROFIT_LINE = {
             rpt_transportation: [
-                'Fuel',
-                'Driver Salary',
-                'Tolls',
-                'Repairs/Maintenance/parts/labor',
-                'Truck Payments',
-                'Truck Insurance'
+                'DRIVER PAYMENT',
+                'DIESEL',
+                'REPAIR / MAINTENANCE / PARTS & LABOR',
+                'TRUKS PAYMENT',
+                'TRUKS INSURANCE',
+                'TOLLS'
             ],
             rpt_sales: [
-                'Commissions',
-                'Repair/Materials/Tools',
-                'Certifications (CSC Inspections)'
+                'COMMISSION'
             ],
             rpt_yard: [
-                'Paint/Purchase/Supplies',
-                'Paint Labor',
-                'Parts/Paint/Tools'
+                'PAINT PURCHASE'
             ],
             rpt_operating: [
-                'Yard Rent',
-                'Software/Apps',
-                'Utilities',
-                'Marketing',
-                'Employee Payment',
-                'Profesional Service',
-                'Office/Yard Supplies',
-                'Work Travel Expense'
+                'YARD RENT',
+                'SOFTWARE & APPS',
+                'PAYROLL',
+                'OFFICE / YARD SUPPLIES',
+                'TOOLS',
+                'CONTAINERS SUPPLIES',
+                'MARKETING',
+                'OTHER EXPENSES',
+                'UTILITIES'
             ],
             contractors: [
-                'Transport Service'
+                'DRIVER PAYMENT'
             ]
         };
 
@@ -1449,54 +1425,59 @@
                 : (category || '').toString().trim();
             if (line === 'rpt_transportation') {
                 const transportMap = {
-                    'Driver Payment': 'Driver Salary',
-                    'Fleet/Truck Payment': 'Truck Payments',
-                    'Service/Repairs': 'Repairs/Maintenance/parts/labor',
-                    'Fleet R&M': 'Repairs/Maintenance/parts/labor',
-                    'Insurance': 'Truck Insurance'
+                    'Driver Salary': 'DRIVER PAYMENT',
+                    'Driver Payment': 'DRIVER PAYMENT',
+                    'Fleet/Truck Payment': 'TRUKS PAYMENT',
+                    'Truck Payments': 'TRUKS PAYMENT',
+                    'Service/Repairs': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+                    'Repairs/Maintenance/parts/labor': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+                    'Fleet R&M': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+                    'Insurance': 'TRUKS INSURANCE',
+                    'Truck Insurance': 'TRUKS INSURANCE',
+                    'Fuel': 'DIESEL',
+                    'Tolls': 'TOLLS'
                 };
                 if (transportMap[c]) return transportMap[c];
             }
             if (line === 'rpt_sales') {
                 const salesMap = {
-                    'Commission': 'Commissions',
-                    'Service/Repairs': 'Repair/Materials/Tools',
-                    'Equipment': 'Repair/Materials/Tools',
-                    'Repair Materials': 'Repair/Materials/Tools'
+                    'Commissions': 'COMMISSION',
+                    'Commission': 'COMMISSION'
                 };
                 if (salesMap[c]) return salesMap[c];
-                const blob = (category || '').toString().toUpperCase();
-                if (c === 'Other' && /CSC|CERTIF|INSPECTION/.test(blob)) return 'Certifications (CSC Inspections)';
             }
             if (line === 'rpt_yard') {
                 const yardMap = {
-                    'Service/Repairs': 'Paint Labor',
-                    'Office/Supplies': 'Paint/Purchase/Supplies',
-                    'Paint Supplies': 'Paint/Purchase/Supplies',
-                    'Equipment': 'Parts/Paint/Tools',
-                    'Tools & Gear': 'Parts/Paint/Tools'
+                    'Service/Repairs': 'PAINT PURCHASE',
+                    'Office/Supplies': 'PAINT PURCHASE',
+                    'Paint Supplies': 'PAINT PURCHASE',
+                    'Paint/Purchase/Supplies': 'PAINT PURCHASE'
                 };
                 if (yardMap[c]) return yardMap[c];
             }
             if (line === 'rpt_operating') {
                 const operatingMap = {
-                    'Rent': 'Yard Rent',
-                    'Payroll': 'Employee Payment',
-                    'Admin Payroll': 'Employee Payment',
-                    'Marketing/Ads': 'Marketing',
-                    'Professional Services': 'Profesional Service',
-                    'Office/Supplies': 'Office/Yard Supplies',
-                    'Office Supplies': 'Office/Yard Supplies',
-                    'Software': 'Software/Apps'
+                    'Rent': 'YARD RENT',
+                    'Yard Rent': 'YARD RENT',
+                    'Payroll': 'PAYROLL',
+                    'Admin Payroll': 'PAYROLL',
+                    'Employee Payment': 'PAYROLL',
+                    'Marketing/Ads': 'MARKETING',
+                    'Marketing': 'MARKETING',
+                    'Professional Services': 'OTHER EXPENSES',
+                    'Profesional Service': 'OTHER EXPENSES',
+                    'Office/Supplies': 'OFFICE / YARD SUPPLIES',
+                    'Office Supplies': 'OFFICE / YARD SUPPLIES',
+                    'Software': 'SOFTWARE & APPS',
+                    'Utilities': 'UTILITIES',
+                    'FPL Electricity': 'UTILITIES'
                 };
                 if (operatingMap[c]) return operatingMap[c];
             }
             if (line === 'contractors') {
                 const contractorMap = {
-                    'Driver Payment': 'Transport Service',
-                    'Fuel': 'Transport Service',
-                    'Tolls': 'Transport Service',
-                    'Service/Repairs': 'Transport Service'
+                    'Driver Payment': 'DRIVER PAYMENT',
+                    'Transport Service': 'DRIVER PAYMENT'
                 };
                 if (contractorMap[c]) return contractorMap[c];
             }
@@ -1505,86 +1486,90 @@
 
         // Legacy / free-text names → official category
         window.EXPENSE_CATEGORY_ALIASES = {
-            'commission': 'Commission',
-            'commissions': 'Commissions',
-            'inventory purchase': 'Inventory Purchase',
-            'container purchase': 'Inventory Purchase',
-            'container purchases': 'Inventory Purchase',
-            'repair materials': 'Repair/Materials/Tools',
-            'repair/materials/tools': 'Repair/Materials/Tools',
-            'certifications (csc inspections)': 'Certifications (CSC Inspections)',
-            'csc inspections': 'Certifications (CSC Inspections)',
-            'csc inspection': 'Certifications (CSC Inspections)',
-            'work travel expense': 'Work Travel Expense',
-            'work travel': 'Work Travel Expense',
-            'travel expense': 'Work Travel Expense',
-            'sales profit': 'Sales Profit',
-            'paint supplies': 'Paint/Purchase/Supplies',
-            'paint/purchasesupplies': 'Paint/Purchase/Supplies',
-            'paint/purchase/supplies': 'Paint/Purchase/Supplies',
-            'paint labor': 'Paint Labor',
-            'paint purchase & labor': 'Paint Labor',
-            'tools & gear': 'Parts/Paint/Tools',
-            'tools and gear': 'Parts/Paint/Tools',
-            'parts/paint/tools': 'Parts/Paint/Tools',
-            'service profit': 'Service Profit',
-            'yard rent': 'Yard Rent',
-            'software': 'Software/Apps',
-            'software/apps': 'Software/Apps',
-            'marketing': 'Marketing',
-            'marketing/ads': 'Marketing',
-            'admin payroll': 'Employee Payment',
-            'employee payment': 'Employee Payment',
-            'profesional service': 'Profesional Service',
-            'professional service': 'Profesional Service',
-            'professional services': 'Profesional Service',
-            'office supplies': 'Office/Yard Supplies',
-            'office/yard supplies': 'Office/Yard Supplies',
-            'transport service': 'Transport Service',
-            'contractor profit': 'Profit',
-            'driver payment': 'Driver Payment',
-            'driver salary': 'Driver Salary',
-            'fleet r&m': 'Repairs/Maintenance/parts/labor',
-            'fleet r and m': 'Repairs/Maintenance/parts/labor',
-            'fleet repairs & maintenance/parts/labor': 'Repairs/Maintenance/parts/labor',
-            'fleet repairs & maintenance': 'Repairs/Maintenance/parts/labor',
-            'repairs/maintenance/parts/labor': 'Repairs/Maintenance/parts/labor',
-            'truck payments': 'Truck Payments',
-            'truck insurance': 'Truck Insurance',
-            'hauling profit': 'Hauling Profit',
-            'fuel': 'Fuel',
-            'tolls': 'Tolls',
-            'sunpass tolls': 'Tolls',
-            'e-zpass tolls': 'Tolls',
-            'service/repairs': 'Service/Repairs',
-            'maintenance': 'Service/Repairs',
-            'maintenance & repairs': 'Service/Repairs',
-            'paint purchase & labor': 'Service/Repairs',
-            'payroll': 'Payroll',
-            'insurance': 'Insurance',
-            'progressive insurance': 'Insurance',
-            'rent': 'Rent',
-            'utilities': 'Utilities',
-            'fpl electricity': 'Utilities',
-            'taxes/licenses': 'Taxes/Licenses',
-            'facebook ads': 'Marketing/Ads',
-            'tiktok ads': 'Marketing/Ads',
-            'marketing': 'Marketing/Ads',
-            'ads': 'Marketing/Ads',
-            'office & yard supplies / maintenance': 'Office/Supplies',
-            'office/supplies': 'Office/Supplies',
-            'office': 'Office/Supplies',
-            'monthly trucks payment': 'Fleet/Truck Payment',
-            'fleet': 'Fleet/Truck Payment',
-            'fleet/truck payment': 'Fleet/Truck Payment',
-            'equipment': 'Equipment',
-            'equipment & machinery': 'Equipment',
-            'hortas & associates': 'Professional Services',
-            'professional services': 'Professional Services',
-            'operating expenses': 'Other',
-            'revisar': 'Other',
-            'communication': 'Other',
-            'other': 'Other'
+            'commission': 'COMMISSION',
+            'commissions': 'COMMISSION',
+            'inventory purchase': 'CONTAINERS SUPPLIES',
+            'container purchase': 'CONTAINERS SUPPLIES',
+            'container purchases': 'CONTAINERS SUPPLIES',
+            'repair materials': 'TOOLS',
+            'repair/materials/tools': 'TOOLS',
+            'certifications (csc inspections)': 'OTHER EXPENSES',
+            'csc inspections': 'OTHER EXPENSES',
+            'csc inspection': 'OTHER EXPENSES',
+            'work travel expense': 'OTHER EXPENSES',
+            'work travel': 'OTHER EXPENSES',
+            'travel expense': 'OTHER EXPENSES',
+            'sales profit': 'OTHER EXPENSES',
+            'paint supplies': 'PAINT PURCHASE',
+            'paint/purchasesupplies': 'PAINT PURCHASE',
+            'paint/purchase/supplies': 'PAINT PURCHASE',
+            'paint labor': 'PAINT PURCHASE',
+            'paint purchase & labor': 'PAINT PURCHASE',
+            'tools & gear': 'TOOLS',
+            'tools and gear': 'TOOLS',
+            'parts/paint/tools': 'TOOLS',
+            'service profit': 'OTHER EXPENSES',
+            'yard rent': 'YARD RENT',
+            'software': 'SOFTWARE & APPS',
+            'software/apps': 'SOFTWARE & APPS',
+            'software & apps': 'SOFTWARE & APPS',
+            'marketing': 'MARKETING',
+            'marketing/ads': 'MARKETING',
+            'admin payroll': 'PAYROLL',
+            'employee payment': 'PAYROLL',
+            'profesional service': 'OTHER EXPENSES',
+            'professional service': 'OTHER EXPENSES',
+            'professional services': 'OTHER EXPENSES',
+            'office supplies': 'OFFICE / YARD SUPPLIES',
+            'office/yard supplies': 'OFFICE / YARD SUPPLIES',
+            'transport service': 'DRIVER PAYMENT',
+            'contractor profit': 'OTHER EXPENSES',
+            'driver payment': 'DRIVER PAYMENT',
+            'driver salary': 'DRIVER PAYMENT',
+            'fleet r&m': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'fleet r and m': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'fleet repairs & maintenance/parts/labor': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'fleet repairs & maintenance': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'repairs/maintenance/parts/labor': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'truck payments': 'TRUKS PAYMENT',
+            'truks payment': 'TRUKS PAYMENT',
+            'truck insurance': 'TRUKS INSURANCE',
+            'truks insurance': 'TRUKS INSURANCE',
+            'hauling profit': 'OTHER EXPENSES',
+            'fuel': 'DIESEL',
+            'diesel': 'DIESEL',
+            'tolls': 'TOLLS',
+            'sunpass tolls': 'TOLLS',
+            'e-zpass tolls': 'TOLLS',
+            'service/repairs': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'maintenance': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'maintenance & repairs': 'REPAIR / MAINTENANCE / PARTS & LABOR',
+            'payroll': 'PAYROLL',
+            'insurance': 'TRUKS INSURANCE',
+            'progressive insurance': 'TRUKS INSURANCE',
+            'rent': 'YARD RENT',
+            'utilities': 'UTILITIES',
+            'fpl electricity': 'UTILITIES',
+            'taxes/licenses': 'OTHER EXPENSES',
+            'facebook ads': 'MARKETING',
+            'tiktok ads': 'MARKETING',
+            'ads': 'MARKETING',
+            'office & yard supplies / maintenance': 'OFFICE / YARD SUPPLIES',
+            'office/supplies': 'OFFICE / YARD SUPPLIES',
+            'office': 'OFFICE / YARD SUPPLIES',
+            'monthly trucks payment': 'TRUKS PAYMENT',
+            'fleet': 'TRUKS PAYMENT',
+            'fleet/truck payment': 'TRUKS PAYMENT',
+            'equipment': 'TOOLS',
+            'equipment & machinery': 'TOOLS',
+            'hortas & associates': 'OTHER EXPENSES',
+            'operating expenses': 'OTHER EXPENSES',
+            'revisar': 'OTHER EXPENSES',
+            'communication': 'OTHER EXPENSES',
+            'other': 'Other',
+            'other expenses': 'OTHER EXPENSES',
+            'containers supplies': 'CONTAINERS SUPPLIES',
+            'repair / maintenance / parts & labor': 'REPAIR / MAINTENANCE / PARTS & LABOR'
         };
 
         window.isOfficialExpenseCategory = function (name) {
