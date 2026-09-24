@@ -910,8 +910,15 @@
                     <td class="col-num">${money(totalRevenue)}</td>
                 </tr>`;
 
-                // Best margin callout among lines with meaningful revenue
-                const ranked = serviceRows
+                // Best margin callout — use the 4 profit-line groups (not the 9 service rows)
+                // so sub-lines like Rentals/JR/Storage don't inflate margins (they have costs=0)
+                const profitLineMargins = [
+                    { label: 'RP Tulipan Sales', revenue: (totals.sales || 0), costs: salesCosts },
+                    { label: 'RP Tulipan Yard', revenue: (totals.yard || 0), costs: ebl.rpt_yard || 0 },
+                    { label: 'RP Tulipan Transport', revenue: (totals.tulipan || 0) + (totals.jr || 0), costs: ebl.rpt_transportation || 0 },
+                    { label: 'Contractors', revenue: totals.contractor || 0, costs: ebl.contractors || 0 }
+                ];
+                const ranked = profitLineMargins
                     .filter(r => (r.revenue || 0) > 0)
                     .map(r => ({
                         ...r,
@@ -926,7 +933,7 @@
                             Best margin: <strong>${best.label}</strong> at
                             <strong style="color:${best.margin >= 0 ? '#15803d' : '#b91c1c'}">${best.margin >= 0 ? '+' : ''}${best.margin.toFixed(1)}%</strong>
                             (Net ${money(best.net)}) · Largest share:
-                            <strong>${[...serviceRows].sort((a, b) => (b.revenue || 0) - (a.revenue || 0))[0].label}</strong>
+                            <strong>${[...profitLineMargins].sort((a, b) => (b.revenue || 0) - (a.revenue || 0))[0].label}</strong>
                         </td>
                     </tr>`;
                 }
@@ -975,7 +982,7 @@
                 const moneyShort = (n) => {
                     const v = n || 0;
                     const sign = v < 0 ? '−' : '';
-                    return `${sign}$${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+                    return `${sign}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 };
                 const esc = (s) => String(s || '')
                     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1021,9 +1028,11 @@
                     const official = (typeof window.getExpenseCategoriesForProfitLine === 'function')
                         ? window.getExpenseCategoriesForProfitLine(lineId)
                         : [];
-                    
-                    if (!official.includes('OPERATING EXPENSES')) {
-                        official.push('OPERATING EXPENSES');
+                        
+                    if (['rpt_transportation', 'rpt_sales', 'rpt_yard'].includes(lineId)) {
+                        if (!official.includes('OPERATING EXPENSES')) {
+                            official.push('OPERATING EXPENSES');
+                        }
                     }
 
                     const sums = {};
@@ -1045,11 +1054,11 @@
                     // Transport outer total = RP Tulipan + Super Crane. Contractors stay their own wedge.
                     if (meta.id === 'rpt_transportation') revenue = (totals.tulipan || 0) + (totals.jr || 0);
                     else if (meta.id === 'rpt_sales') {
-                        revenue = (totals.sales || 0) + (totals.rentals || 0) + (totals.customInvoices || 0);
+                        revenue = (totals.sales || 0);
                         if ((totals.releases || 0) > 0) {
                             extraCats.push({ name: 'Container Purchases', amount: totals.releases });
                         }
-                    } else if (meta.id === 'rpt_yard') revenue = (totals.yard || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0);
+                    } else if (meta.id === 'rpt_yard') revenue = (totals.yard || 0);
                     else if (meta.id === 'contractors') revenue = totals.contractor || 0;
 
                     const { official, sums } = mappedCatTotals(meta.id);
@@ -1084,11 +1093,20 @@
                     };
                 });
 
-                const netSum = lineSlices.reduce((s, sl) => s + (sl.net || 0), 0);
+                // Rentals and Custom Invoices are standalone revenue (no expenses)
+                // Add them back to netSum so wheel NET PROFIT matches the Summary Card
+                const standaloneRevenue = (totals.rentals || 0) + (totals.customInvoices || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0);
+                const netSum = lineSlices.reduce((s, sl) => s + (sl.net || 0), 0) + standaloneRevenue - (ebl.unassigned || 0);
 
                 // Store globally so drill-down re-renders can access updated data
                 window._profitWheelLineSlices = lineSlices;
                 window._profitWheelNetSum = netSum;
+                window._profitWheelStandaloneItems = [
+                    { label: 'Rentals', amount: totals.rentals || 0, color: '#ec4899' },
+                    { label: 'Custom Invoices', amount: totals.customInvoices || 0, color: '#0ea5e9' },
+                    { label: 'Storage RPTulipan', amount: totals.storageTulipan || 0, color: '#6366f1' },
+                    { label: 'Storage Yard', amount: totals.storageYard || 0, color: '#10b981' }
+                ].filter(it => it.amount > 0);
 
                 // Create / reuse floating tooltip element
                 let tooltipEl = document.getElementById('profit-wheel-tooltip');
@@ -1115,7 +1133,7 @@
                     </style>
                     <svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Profit lines circle" style="cursor:pointer;">`;
 
-                    const gapDeg = 3.5;
+                    const gapDeg = 0;
 
                     slices.forEach((sl, i) => {
                         const a0 = start0 + i * sliceDeg + gapDeg / 2;
@@ -1156,7 +1174,7 @@
                             const ang = a0 + ci * catDeg;
                             const p0 = polar(cx, cy, rInner, ang);
                             const p1 = polar(cx, cy, rOuter, ang);
-                            svg += `<line x1="${p0.x.toFixed(1)}" y1="${p0.y.toFixed(1)}" x2="${p1.x.toFixed(1)}" y2="${p1.y.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" pointer-events="none"/>`;
+                            svg += `<line x1="${p0.x.toFixed(1)}" y1="${p0.y.toFixed(1)}" x2="${p1.x.toFixed(1)}" y2="${p1.y.toFixed(1)}" stroke="#ffffff" stroke-width="2" pointer-events="none"/>`;
                         });
 
                         // Textos internos: Importe y Porcentaje (SIN nombres)
@@ -1172,7 +1190,7 @@
                             if (nd > 90 && nd < 270) rot = mid + 180;
                             
                             const rawPct = totalAmt > 0 ? (Math.abs(amt) / totalAmt) * 100 : 0;
-                            const pct = totalAmt > 0 ? Math.round(rawPct) + '%' : '';
+                            const pct = totalAmt > 0 ? rawPct.toFixed(2) + '%' : '';
 
                             const fill = cat.kind === 'profit'
                                 ? '#16a34a'
@@ -1192,16 +1210,16 @@
                             </text>`;
                         });
 
-                        // Borde de sección
-                        svg += `<path class="profit-wheel-slice-stroke" d="${donutSlice(cx, cy, rInner, rOuter, a0, a1)}" stroke-width="3.5" pointer-events="none"/>`;
+                        // Borde de sección (colored separator)
+                        svg += `<path class="profit-wheel-slice-stroke" d="${donutSlice(cx, cy, rInner, rOuter, a0, a1)}" style="stroke: #000000; stroke-width: 4px;" pointer-events="none"/>`;
 
                         // Etiquetas externas (nombre de línea + ingreso total)
                         const midOuter = start0 + i * sliceDeg + sliceDeg / 2;
                         const lp = polar(cx, cy, rOuter + 58, midOuter);
                         const nd = normDeg(midOuter);
                         let anchor = 'middle';
-                        if (nd > 25 && nd < 155) anchor = 'start';
-                        else if (nd > 205 && nd < 335) anchor = 'end';
+                        if (lp.x > cx + 10) anchor = 'start';
+                        else if (lp.x < cx - 10) anchor = 'end';
                         svg += `<text class="profit-wheel-title" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y - 8).toFixed(1)}" fill="#0f172a" pointer-events="none">${esc(sl.short)}</text>`;
                         svg += `<text class="profit-wheel-title-net" text-anchor="${anchor}" x="${lp.x.toFixed(1)}" y="${(lp.y + 12).toFixed(1)}" fill="#166534" pointer-events="none">${moneyShort(sl.revenue)}</text>`;
 
@@ -1216,16 +1234,24 @@
                     svg += `<text text-anchor="middle" x="${cx}" y="${cy + 20}" fill="${holeText}" font-size="22" font-weight="900" pointer-events="none">${moneyShort(netSumVal)}</text>`;
                     svg += `</svg>`;
 
-                    let legend = `<div class="profit-wheel-legend">`;
-                    slices.forEach(sl => {
-                        legend += `<div class="profit-wheel-legend-item profit-wheel-legend-clickable" data-line-id="${esc(sl.id)}" style="cursor:pointer;" title="Clic para desglosar">
-                            <span class="pp-dot" style="background:${sl.color}"></span>
-                            <span>${esc(sl.label)} · ${moneyShort(sl.revenue)}</span>
-                        </div>`;
-                    });
-                    legend += `</div>`;
+                    // Standalone revenue items (no expenses) — shown absolute top-left
+                    let standalone = '';
+                    const stItems = window._profitWheelStandaloneItems || [];
+                    if (stItems.length > 0) {
+                        standalone += `<div style="position:absolute;top:0;left:0;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);z-index:10;">`;
+                        standalone += `<div style="font-size:0.68rem;font-weight:700;color:#94a3b8;margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase;">Standalone Revenue (no expenses)</div>`;
+                        stItems.forEach(it => {
+                            standalone += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">`;
+                            standalone += `<span class="pp-dot" style="background:${it.color}"></span>`;
+                            standalone += `<span style="font-size:0.82rem;font-weight:600;color:#334155;">${it.label}</span>`;
+                            standalone += `<span style="margin-left:auto;font-size:0.88rem;font-weight:800;color:#166534;">${moneyShort(it.amount)}</span>`;
+                            standalone += `</div>`;
+                        });
+                        standalone += `</div>`;
+                    }
 
-                    wheelEl.innerHTML = svg + legend;
+                    wheelEl.style.position = 'relative';
+                    wheelEl.innerHTML = svg + standalone;
 
                     // Eventos: hover effect y tooltip
                     const svgEl = wheelEl.querySelector('svg');
@@ -1301,14 +1327,18 @@
                     // Usar todas las categorías, igual que en la vista general (sin filtrar)
                     const catsRaw = sl.cats;
                     const expenseCount = catsRaw.filter(c => c.kind !== 'profit').length;
-                    const catDeg = 360 / Math.max(catsRaw.length, 1);
                     const totalAmt = catsRaw.reduce((s, c) => s + Math.abs(c.amount || 0), 0);
 
                     let svg = `<svg class="profit-wheel-svg" viewBox="${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}" role="img" aria-label="Desglose: ${esc(sl.label)}" style="cursor:default;">`;
 
+                    let currentAngle = start0;
+
                     catsRaw.forEach((cat, ci) => {
-                        const c0 = start0 + ci * catDeg;
+                        const absAmt = Math.abs(cat.amount || 0);
+                        const catDeg = totalAmt > 0 ? (absAmt / totalAmt) * 360 : (360 / Math.max(catsRaw.length, 1));
+                        const c0 = currentAngle;
                         const c1 = c0 + catDeg;
+                        currentAngle = c1;
 
                         const fill = cat.kind === 'profit'
                             ? (cat.amount >= 0 ? '#16a34a' : '#b91c1c')
@@ -1330,7 +1360,7 @@
                         // Divisor al inicio de la porción
                         const pd0 = polar(cx, cy, rInner, c0);
                         const pd1 = polar(cx, cy, rOuter, c0);
-                        svg += `<line x1="${pd0.x.toFixed(1)}" y1="${pd0.y.toFixed(1)}" x2="${pd1.x.toFixed(1)}" y2="${pd1.y.toFixed(1)}" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" pointer-events="none"/>`;
+                        svg += `<line x1="${pd0.x.toFixed(1)}" y1="${pd0.y.toFixed(1)}" x2="${pd1.x.toFixed(1)}" y2="${pd1.y.toFixed(1)}" stroke="#ffffff" stroke-width="2" pointer-events="none"/>`;
 
                         // Etiqueta (siempre mostrar, con nombre, monto y porcentaje)
                         const mid = (c0 + c1) / 2;
@@ -1339,19 +1369,20 @@
                         if (normDeg(mid) > 90 && normDeg(mid) < 270) rot = mid + 180;
                         
                         const rawPct = (totalAmt > 0 && amt !== 0) ? (Math.abs(amt) / totalAmt) * 100 : 0;
-                        const pct = (totalAmt > 0 && amt !== 0) ? Math.round(rawPct) + '%' : '';
+                        const pct = (totalAmt > 0 && amt !== 0) ? rawPct.toFixed(2) + '%' : '';
                         
                         const labelFill = isDarkHex(fill) ? '#f8fafc' : '#0f172a';
                         const amtFill = cat.kind === 'profit'
                             ? (amt >= 0 ? '#dcfce7' : '#fee2e2')
                             : (isDarkHex(fill) ? '#fecaca' : '#7f1d1d');
                         const short = cat.name.length > 20 ? cat.name.slice(0, 18) + '…' : cat.name;
-                        
-                        svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${labelFill}" pointer-events="none" text-anchor="middle" font-size="15">
-                            <tspan x="0" y="${signed || pct ? -12 : 3}" font-weight="700">${esc(short)}</tspan>
-                            ${signed ? `<tspan x="0" y="8" fill="${amtFill}" font-weight="800" font-size="16">${esc(signed)}</tspan>` : ''}
-                            ${pct ? `<tspan x="0" y="26" fill="${labelFill}" font-weight="700" font-size="14">${pct}</tspan>` : ''}
-                        </text>`;
+                        if (catDeg >= 15) {
+                            svg += `<text class="profit-wheel-cat" transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${rot.toFixed(1)})" fill="${labelFill}" pointer-events="none" text-anchor="middle" font-size="15">
+                                <tspan x="0" y="${signed || pct ? -12 : 3}" font-weight="700">${esc(short)}</tspan>
+                                ${signed ? `<tspan x="0" y="8" fill="${amtFill}" font-weight="800" font-size="16">${esc(signed)}</tspan>` : ''}
+                                ${pct ? `<tspan x="0" y="26" fill="${labelFill}" font-weight="700" font-size="14">${pct}</tspan>` : ''}
+                            </text>`;
+                        }
                     });
 
                     // Centro: botón volver + resumen de línea
