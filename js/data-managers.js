@@ -1372,6 +1372,7 @@
             'OTHER EXPENSES',
             'PAINT PURCHASE',
             'UTILITIES',
+            'OPERATING EXPENSES',
             'Other'
         ];
 
@@ -1384,15 +1385,18 @@
                 'TRUKS PAYMENT',
                 'TRUKS INSURANCE',
                 'TOLLS',
-                'OTHER EXPENSES'
+                'OTHER EXPENSES',
+                'OPERATING EXPENSES'
             ],
             rpt_sales: [
                 'COMMISSION',
-                'OTHER EXPENSES'
+                'OTHER EXPENSES',
+                'OPERATING EXPENSES'
             ],
             rpt_yard: [
                 'PAINT PURCHASE',
-                'OTHER EXPENSES'
+                'OTHER EXPENSES',
+                'OPERATING EXPENSES'
             ],
             rpt_operating: [
                 'YARD RENT',
@@ -1407,7 +1411,8 @@
             ],
             contractors: [
                 'DRIVER PAYMENT',
-                'OTHER EXPENSES'
+                'OTHER EXPENSES',
+                'OPERATING EXPENSES'
             ]
         };
 
@@ -1567,7 +1572,6 @@
             'equipment': 'TOOLS',
             'equipment & machinery': 'TOOLS',
             'hortas & associates': 'OTHER EXPENSES',
-            'operating expenses': 'OTHER EXPENSES',
             'revisar': 'OTHER EXPENSES',
             'communication': 'OTHER EXPENSES',
             'other': 'Other',
