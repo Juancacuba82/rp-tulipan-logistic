@@ -400,7 +400,7 @@ function applyHistoricalMemory() {
         // Standing business rules: yard diesel vs roadside fuel
         if (row.isTitan || lowerDesc === 'crystal fuel' || origDesc.includes('titan fuel')) {
             row.description = 'CRYSTAL FUEL';
-            row.suggestedCategory = 'DIESEL';
+            row.suggestedCategory = 'FUEL';
             row.shouldSelect = true;
             const hist = findHistoryMatch(row, memory);
             row.statusMessage = hist
@@ -410,7 +410,7 @@ function applyHistoricalMemory() {
         }
 
         if (row.groupKey === 'GAS STATIONS') {
-            row.suggestedCategory = 'DIESEL';
+            row.suggestedCategory = 'FUEL';
             row.shouldSelect = true;
             const hist = findHistoryMatch(row, memory);
             row.statusMessage = hist

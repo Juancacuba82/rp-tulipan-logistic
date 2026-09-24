@@ -1356,7 +1356,7 @@
 
         window.OFFICIAL_EXPENSE_CATEGORIES = [
             'DRIVER PAYMENT',
-            'DIESEL',
+            'FUEL',
             'REPAIR / MAINTENANCE / PARTS & LABOR',
             'TRUKS PAYMENT',
             'TRUKS INSURANCE',
@@ -1379,7 +1379,7 @@
         window.EXPENSE_CATEGORIES_BY_PROFIT_LINE = {
             rpt_transportation: [
                 'DRIVER PAYMENT',
-                'DIESEL',
+                'FUEL',
                 'REPAIR / MAINTENANCE / PARTS & LABOR',
                 'TRUKS PAYMENT',
                 'TRUKS INSURANCE',
@@ -1434,7 +1434,7 @@
                     'Fleet R&M': 'REPAIR / MAINTENANCE / PARTS & LABOR',
                     'Insurance': 'TRUKS INSURANCE',
                     'Truck Insurance': 'TRUKS INSURANCE',
-                    'Fuel': 'DIESEL',
+                    'Fuel': 'FUEL',
                     'Tolls': 'TOLLS'
                 };
                 if (transportMap[c]) return transportMap[c];
@@ -1536,8 +1536,8 @@
             'truck insurance': 'TRUKS INSURANCE',
             'truks insurance': 'TRUKS INSURANCE',
             'hauling profit': 'OTHER EXPENSES',
-            'fuel': 'DIESEL',
-            'diesel': 'DIESEL',
+            'fuel': 'FUEL',
+            'diesel': 'FUEL',
             'tolls': 'TOLLS',
             'sunpass tolls': 'TOLLS',
             'e-zpass tolls': 'TOLLS',
