@@ -378,13 +378,13 @@ function applyHistoricalMemory() {
         }
 
         if (lowerDesc.includes('salary') || lowerDesc.includes('payroll') || origDesc.includes('salary')) {
-            row.suggestedCategory = 'Payroll';
+            row.suggestedCategory = 'PAYROLL';
             row.shouldSelect = false;
             row.statusMessage = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> Ignorar (Autogenerado en Módulos)</span>`;
             return;
         }
         if (lowerDesc.includes('commission')) {
-            row.suggestedCategory = 'Commission';
+            row.suggestedCategory = 'COMMISSION';
             row.shouldSelect = false;
             row.statusMessage = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> Ignorar (Autogenerado en Módulos)</span>`;
             return;
@@ -400,7 +400,7 @@ function applyHistoricalMemory() {
         // Standing business rules: yard diesel vs roadside fuel
         if (row.isTitan || lowerDesc === 'crystal fuel' || origDesc.includes('titan fuel')) {
             row.description = 'CRYSTAL FUEL';
-            row.suggestedCategory = 'Fuel';
+            row.suggestedCategory = 'DIESEL';
             row.shouldSelect = true;
             const hist = findHistoryMatch(row, memory);
             row.statusMessage = hist
@@ -410,7 +410,7 @@ function applyHistoricalMemory() {
         }
 
         if (row.groupKey === 'GAS STATIONS') {
-            row.suggestedCategory = 'Fuel';
+            row.suggestedCategory = 'DIESEL';
             row.shouldSelect = true;
             const hist = findHistoryMatch(row, memory);
             row.statusMessage = hist
@@ -437,19 +437,19 @@ function applyHistoricalMemory() {
 
         // Category hints only — do not auto-check vendors the client has never registered
         if (lowerDesc.includes('progressive insurance')) {
-            row.suggestedCategory = 'Insurance';
+            row.suggestedCategory = 'TRUKS INSURANCE';
         } else if (lowerDesc.includes('ford motor credit') || lowerDesc.includes('ally financial')) {
-            row.suggestedCategory = 'Fleet/Truck Payment';
+            row.suggestedCategory = 'TRUKS PAYMENT';
         } else if (lowerDesc.includes("o'reilly") || lowerDesc.includes('home depot')) {
-            row.suggestedCategory = 'Service/Repairs';
+            row.suggestedCategory = 'REPAIR / MAINTENANCE / PARTS & LABOR';
         } else if (lowerDesc.includes('t-mobile')) {
-            row.suggestedCategory = 'Utilities';
+            row.suggestedCategory = 'UTILITIES';
         } else if (lowerDesc.includes('fpl')) {
-            row.suggestedCategory = 'Utilities';
+            row.suggestedCategory = 'UTILITIES';
         } else if (lowerDesc.includes('facebook') || lowerDesc.includes('tiktok') || lowerDesc.includes('facebk')) {
-            row.suggestedCategory = 'Marketing/Ads';
+            row.suggestedCategory = 'MARKETING';
         } else if (lowerDesc.includes('sunpass') || lowerDesc.includes('e zpass') || lowerDesc.includes('ezpass')) {
-            row.suggestedCategory = 'Tolls';
+            row.suggestedCategory = 'TOLLS';
         }
 
         if (window.normalizeExpenseCategory) {
@@ -518,6 +518,11 @@ function renderCsvPreview() {
             ? window.buildProfitLineSelectOptions(suggestedLine, 'Unassigned...')
             : `<option value="">Unassigned...</option>`;
 
+        let rowCategoryOptions = categoryOptions;
+        if (window.getOfficialExpenseCategoryOptionsHtml) {
+            rowCategoryOptions = window.getOfficialExpenseCategoryOptionsHtml(row.suggestedCategory, false, suggestedLine);
+        }
+
         tr.className = 'csv-main-row';
         tr.setAttribute('data-csv-index', String(i));
         tr.innerHTML = `
@@ -531,11 +536,11 @@ function renderCsvPreview() {
             </td>
             <td>
                 <select class="csv-category-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1;">
-                    ${categoryOptions}
+                    ${rowCategoryOptions}
                 </select>
             </td>
             <td>
-                <select class="csv-profit-line-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight:700;">
+                <select class="csv-profit-line-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight:700;" onchange="window.updateCsvRowCategories(${i})">
                     ${profitLineOptions}
                 </select>
             </td>
@@ -570,6 +575,32 @@ function renderCsvPreview() {
     });
     updateCsvTotal();
 }
+
+window.updateCsvRowCategories = function(index) {
+    const plSelect = document.querySelector(`.csv-profit-line-select[data-index="${index}"]`);
+    const catSelect = document.querySelector(`.csv-category-select[data-index="${index}"]`);
+    if (!plSelect || !catSelect || !window.getOfficialExpenseCategoryOptionsHtml) return;
+
+    const currentCat = catSelect.value;
+    const line = plSelect.value;
+    
+    let mappedCat = currentCat;
+    if (window.mapCategoryForProfitLine) {
+        mappedCat = window.mapCategoryForProfitLine(currentCat, line);
+    }
+    
+    catSelect.innerHTML = window.getOfficialExpenseCategoryOptionsHtml(mappedCat, false, line);
+    
+    // Ensure the mapped or closest valid value is selected
+    const allowed = Array.from(catSelect.options).map(o => o.value);
+    if (allowed.includes(mappedCat)) {
+        catSelect.value = mappedCat;
+    } else if (allowed.includes(currentCat)) {
+        catSelect.value = currentCat;
+    } else if (allowed.length > 0) {
+        catSelect.selectedIndex = 0;
+    }
+};
 
 window.toggleSubRows = function(className, spanEl) {
     const rows = document.querySelectorAll('.' + className);

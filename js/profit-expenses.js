@@ -38,7 +38,9 @@
 
         const OVERHEAD_CATEGORIES = new Set([
             'utilities', 'taxes/licenses', 'insurance', 'payroll', 'rent',
-            'office/supplies', 'marketing/ads', 'professional services'
+            'office/supplies', 'marketing/ads', 'professional services',
+            'yard rent', 'software & apps', 'office / yard supplies', 'tools',
+            'containers supplies', 'marketing', 'other expenses'
         ]);
 
         window.getExpenseProfitLineMeta = function (id) {
@@ -56,7 +58,7 @@
             const blob = `${category || ''} ${description || ''} ${note || ''}`.toUpperCase();
 
             if (OVERHEAD_CATEGORIES.has(cat)) return 'rpt_operating';
-            if (cat === 'fuel') return 'rpt_transportation';
+            if (cat === 'fuel' || cat === 'diesel') return 'rpt_transportation';
             if (cat === 'commission') return 'rpt_sales';
             if (cat === 'driver payment') {
                 if (/\bCONTRACTOR\b|\bEXTERNAL\b|\b1099\b/i.test(blob)) return 'contractors';
