@@ -1383,13 +1383,16 @@
                 'REPAIR / MAINTENANCE / PARTS & LABOR',
                 'TRUKS PAYMENT',
                 'TRUKS INSURANCE',
-                'TOLLS'
+                'TOLLS',
+                'OTHER EXPENSES'
             ],
             rpt_sales: [
-                'COMMISSION'
+                'COMMISSION',
+                'OTHER EXPENSES'
             ],
             rpt_yard: [
-                'PAINT PURCHASE'
+                'PAINT PURCHASE',
+                'OTHER EXPENSES'
             ],
             rpt_operating: [
                 'YARD RENT',
@@ -1403,7 +1406,8 @@
                 'UTILITIES'
             ],
             contractors: [
-                'DRIVER PAYMENT'
+                'DRIVER PAYMENT',
+                'OTHER EXPENSES'
             ]
         };
 
