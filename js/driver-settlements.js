@@ -862,13 +862,27 @@
                 const expenseDescription = `Liquidación de ${driverNameFinal} - ${expenseDate}`;
                 const noteBase = `Auto-generated from Driver Settlement ID: ${targetSettlementId || 'Unknown'}`;
 
+                // --- NEW PROFIT LINE LOGIC ---
+                let driverCompany = 'CONTRACTOR';
+                const sourceTrips = (window.driverReportTrips && window.driverReportTrips.length > 0) ? window.driverReportTrips : (window.currentTrips || []);
+                const driverTrip = sourceTrips.find(t => (t[17] || '').toString().toUpperCase().trim() === driverNameFinal);
+                if (driverTrip) {
+                    driverCompany = (driverTrip[16] || '').toString().toUpperCase().trim();
+                }
+
+                let profitLine = 'contractors'; // Default for Contractors
+                if (driverCompany === 'RP TULIPAN' || driverCompany === 'JR SUPER CRANE') {
+                    profitLine = 'rpt_transportation';
+                }
+                // -----------------------------
+
                 if (window.mapArrayToExpense && window.addExpense) {
                     const buildExpenseObj = (amount, pm, label) => {
                         const desc = label || expenseDescription;
                         const rowData = [
-                            expenseDate, 'Driver Payment', desc,
+                            expenseDate, 'DRIVER PAYMENT', desc,
                             `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-                            noteBase, null, pm
+                            noteBase, null, pm, profitLine
                         ];
                         return window.mapArrayToExpense(rowData);
                     };
