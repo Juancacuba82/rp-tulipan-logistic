@@ -1389,10 +1389,12 @@
             ],
             rpt_sales: [
                 'COMMISSION',
+                'CONTAINERS SUPPLIES',
                 'OTHER EXPENSES'
             ],
             rpt_yard: [
                 'PAINT PURCHASE',
+                'CONTAINERS SUPPLIES',
                 'OTHER EXPENSES'
             ],
             rpt_operating: [
@@ -1401,7 +1403,6 @@
                 'PAYROLL',
                 'OFFICE / YARD SUPPLIES',
                 'TOOLS',
-                'CONTAINERS SUPPLIES',
                 'MARKETING',
                 'OTHER EXPENSES',
                 'UTILITIES'

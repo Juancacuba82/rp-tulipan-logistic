@@ -38,7 +38,7 @@
             'utilities', 'taxes/licenses', 'insurance', 'payroll', 'rent',
             'office/supplies', 'marketing/ads', 'professional services',
             'yard rent', 'software & apps', 'office / yard supplies', 'tools',
-            'containers supplies', 'marketing', 'other expenses'
+            'marketing', 'other expenses'
         ]);
 
         window.getExpenseProfitLineMeta = function (id) {
