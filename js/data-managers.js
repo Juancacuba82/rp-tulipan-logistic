@@ -1475,7 +1475,8 @@
                     'Office Supplies': 'OFFICE / YARD SUPPLIES',
                     'Software': 'SOFTWARE & APPS',
                     'Utilities': 'UTILITIES',
-                    'FPL Electricity': 'UTILITIES'
+                    'FPL Electricity': 'UTILITIES',
+                    'CONTAINERS SUPPLIES': 'OTHER EXPENSES'
                 };
                 if (operatingMap[c]) return operatingMap[c];
             }
