@@ -778,14 +778,62 @@ window.loadAttendanceData = async function(force = false) {
             const confirmMsg = `Register salary payment of $${parseFloat(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} for ${employeeName}?\n\nThis will create an expense record in Expense Management.`;
             if (!confirm(confirmMsg)) return;
 
+            // Show custom modal to select payment method
+            const paymentMethodResult = await new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0'; overlay.style.left = '0'; overlay.style.width = '100%'; overlay.style.height = '100%';
+                overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                overlay.style.display = 'flex'; overlay.style.justifyContent = 'center'; overlay.style.alignItems = 'center';
+                overlay.style.zIndex = '99999';
+
+                const modal = document.createElement('div');
+                modal.style.background = 'white'; modal.style.padding = '25px'; modal.style.borderRadius = '12px';
+                modal.style.textAlign = 'center'; modal.style.minWidth = '320px'; modal.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
+                
+                modal.innerHTML = `
+                    <h3 style="margin-top: 0; color: #1e293b; font-size: 1.2rem;">Select Payment Method</h3>
+                    <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 20px;">Paying <b>$${parseFloat(amount).toFixed(2)}</b> to ${employeeName}</p>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button id="pm-bank" style="padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem;">BANK / ONLINE</button>
+                        <button id="pm-cash" style="padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem;">CASH</button>
+                        <button id="pm-split" style="padding: 12px; background: #f59e0b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem;">SPLIT (Cash + Bank)</button>
+                        <button id="pm-cancel" style="padding: 12px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; margin-top: 10px;">CANCEL</button>
+                    </div>
+                `;
+
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+
+                const cleanup = () => document.body.removeChild(overlay);
+
+                modal.querySelector('#pm-bank').onclick = () => { cleanup(); resolve({ method: 'bank' }); };
+                modal.querySelector('#pm-cash').onclick = () => { cleanup(); resolve({ method: 'cash' }); };
+                modal.querySelector('#pm-cancel').onclick = () => { cleanup(); resolve(null); };
+                
+                modal.querySelector('#pm-split').onclick = () => {
+                    const cashStr = prompt(`SPLIT PAYMENT: Total is $${parseFloat(amount).toFixed(2)}.\nHow much of this is paid in CASH?`);
+                    if (cashStr === null) return; // don't close modal if cancelled
+                    const cashAmt = parseFloat(cashStr);
+                    if (isNaN(cashAmt) || cashAmt <= 0 || cashAmt > amount) {
+                        alert('Invalid cash amount.');
+                        return;
+                    }
+                    cleanup();
+                    resolve({ method: 'split', cashAmount: cashAmt, bankAmount: amount - cashAmt });
+                };
+            });
+
+            if (!paymentMethodResult) return; // User cancelled
+
             try {
                 // --- DUPLICATE CHECK ---
-                const fullNote = `Period: ${periodLabel} | Email: ${employeeEmail}`;
+                const baseNote = `Period: ${periodLabel} | Email: ${employeeEmail}`;
                 const { data: existing, error: checkError } = await window.db.from('expenses')
                     .select('id')
-                    .eq('category', 'Payroll')
-                    .eq('description', `Salary Payment - ${employeeName}`)
-                    .eq('note', fullNote);
+                    .eq('category', 'PAYROLL')
+                    .ilike('description', `Salary Payment%${employeeName}%`)
+                    .ilike('note', `%${baseNote}%`);
 
                 if (checkError) throw checkError;
 
@@ -793,16 +841,45 @@ window.loadAttendanceData = async function(force = false) {
                     alert(`ERROR: Ya existe un registro de pago para ${employeeName} en el periodo ${periodLabel} en el módulo de Gastos.\n\nNo se creará un duplicado.`);
                     return;
                 }
-                const expenseObj = {
-                    date: today,
-                    category: 'Payroll',
-                    description: `Salary Payment - ${employeeName}`,
-                    amount: parseFloat(amount),
-                    note: `Period: ${periodLabel} | Email: ${employeeEmail}`,
-                    profit_line: 'rpt_operating'
-                };
 
-                const { error } = await window.db.from('expenses').insert([expenseObj]);
+                const expenseObjs = [];
+                
+                if (paymentMethodResult.method === 'split') {
+                    if (paymentMethodResult.cashAmount > 0) {
+                        expenseObjs.push({
+                            date: today,
+                            category: 'PAYROLL',
+                            description: `Salary Payment (Cash) - ${employeeName}`,
+                            amount: paymentMethodResult.cashAmount,
+                            note: `${baseNote} | SPLIT`,
+                            profit_line: 'rpt_operating',
+                            payment_method: 'cash'
+                        });
+                    }
+                    if (paymentMethodResult.bankAmount > 0) {
+                        expenseObjs.push({
+                            date: today,
+                            category: 'PAYROLL',
+                            description: `Salary Payment (Bank) - ${employeeName}`,
+                            amount: paymentMethodResult.bankAmount,
+                            note: `${baseNote} | SPLIT`,
+                            profit_line: 'rpt_operating',
+                            payment_method: 'bank'
+                        });
+                    }
+                } else {
+                    expenseObjs.push({
+                        date: today,
+                        category: 'PAYROLL',
+                        description: `Salary Payment - ${employeeName}`,
+                        amount: parseFloat(amount),
+                        note: baseNote,
+                        profit_line: 'rpt_operating',
+                        payment_method: paymentMethodResult.method
+                    });
+                }
+
+                const { error } = await window.db.from('expenses').insert(expenseObjs);
                 if (error) throw error;
 
                 alert(`✅ Payment of $${parseFloat(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} registered for ${employeeName}.\n\nYou can find it in Expense Management.`);
