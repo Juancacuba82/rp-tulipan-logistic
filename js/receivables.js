@@ -91,6 +91,143 @@ function invoiceServiceKey(inv) {
     return '';
 }
 
+function parseInvoiceServiceTokens(inv) {
+    const key = invoiceServiceKey(inv);
+    if (!key) return [];
+    const upper = key.toUpperCase();
+    if (upper === 'ALL' || upper === 'ALL SERVICES') return [];
+    return upper.split(/[,+/]+/).map(s => s.trim()).filter(Boolean);
+}
+
+function paidPatchForServiceTokens(tokens) {
+    const patch = { paid: true };
+    const knownHit = (tokens || []).some(t => /TRANSPORT|TRANS|RATE|YARD|SALES|RENT|STORAGE/.test(t));
+    const addAll = !tokens || !tokens.length || !knownHit;
+    const has = (name) => addAll || tokens.some(t => t === name || t.startsWith(name + ' '));
+    if (addAll || has('TRANSPORT') || has('TRANS') || (tokens || []).includes('RATE')) patch.st_rate = 'PAID';
+    if (addAll || has('YARD')) patch.st_yard = 'PAID';
+    if (addAll || has('SALES')) patch.st_sales = 'PAID';
+    if (addAll || has('RENT') || has('RENTAL')) patch.st_rent = 'PAID';
+    if (addAll || has('STORAGE') || tokens.includes('YARD STORAGE')) {
+        patch.st_amount = 'PAID';
+        patch.st_rent = 'PAID';
+        patch.st_yard = 'PAID';
+    }
+    patch.st_tax = 'PAID';
+    return patch;
+}
+
+function applyPaidPatchToTripRow(local, patch) {
+    if (!local || !patch) return false;
+    let changed = false;
+    if (patch.st_yard && local[30] !== 'PAID') { local[30] = 'PAID'; changed = true; }
+    if (patch.st_rent && local[31] !== 'PAID') { local[31] = 'PAID'; changed = true; }
+    if (patch.st_rate && local[32] !== 'PAID') { local[32] = 'PAID'; changed = true; }
+    if (patch.st_sales && local[33] !== 'PAID') { local[33] = 'PAID'; changed = true; }
+    if (patch.st_amount && local[34] !== 'PAID') { local[34] = 'PAID'; changed = true; }
+    if (patch.st_tax && local[52] !== 'PAID') { local[52] = 'PAID'; changed = true; }
+    if (patch.note) local[25] = patch.note;
+    return changed;
+}
+
+window.settleLinkedTripsFromReceivable = async function (invoiceRecord, writeOffReason, opts) {
+    if (!invoiceRecord || !invoiceRecord.trip_ids || !window.db) return;
+    const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
+    const normalTrips = tripIdList.filter(t => !t.startsWith('RENTAL_ID:'));
+    if (!normalTrips.length) return;
+
+    const tokens = parseInvoiceServiceTokens(invoiceRecord);
+    const cols = paidPatchForServiceTokens(tokens);
+    const svcType = (invoiceRecord.service_type || '').toUpperCase();
+    const reasonNote = writeOffReason ? ` | WRITE-OFF: ${writeOffReason}` : ' | WRITE-OFF';
+
+    for (const tid of normalTrips) {
+        const patch = { ...cols };
+        try {
+            const { data: tripRows } = await window.db.from('trips')
+                .select('note, service_mode, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax')
+                .eq('trip_id', tid)
+                .limit(1);
+            const tripRow = (tripRows && tripRows[0]) || null;
+            const mode = (tripRow?.service_mode || '').toString().toUpperCase();
+            if (mode === 'RENTAL INVOICE' || svcType.includes('RENTAL') || tokens.includes('RENT') || tokens.includes('RENTAL')) {
+                patch.st_rent = 'PAID';
+                if (writeOffReason) patch.note = ((tripRow && tripRow.note) ? tripRow.note : '') + reasonNote;
+            }
+            const alreadyPaid = tripRow &&
+                (!patch.st_yard || tripRow.st_yard === 'PAID') &&
+                (!patch.st_rent || tripRow.st_rent === 'PAID') &&
+                (!patch.st_rate || tripRow.st_rate === 'PAID') &&
+                (!patch.st_sales || tripRow.st_sales === 'PAID') &&
+                (!patch.st_amount || tripRow.st_amount === 'PAID') &&
+                (!patch.st_tax || tripRow.st_tax === 'PAID') &&
+                !patch.note;
+            if (!alreadyPaid) {
+                await window.db.from('trips').update(patch).eq('trip_id', tid);
+            }
+        } catch (e) {
+            console.warn('[Receivables] Could not settle trip', tid, e);
+        }
+        const applyLocal = (arr) => {
+            if (!arr) return;
+            const local = arr.find(t => String(t[0]) === String(tid));
+            applyPaidPatchToTripRow(local, patch);
+        };
+        applyLocal(window.currentTrips);
+        applyLocal(window.rentalInvoiceTrips);
+        applyLocal(window.combinedBillingTrips);
+        applyLocal(window.allTripsUnfiltered);
+    }
+    window._recvSettlementMap = null;
+    if (opts && opts.silent) return;
+    if (typeof window.loadRentalInvoiceTrips === 'function') {
+        await window.loadRentalInvoiceTrips(true);
+    }
+    if (typeof window.renderRentalsTable === 'function') window.renderRentalsTable();
+    if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+};
+
+window.reconcileTripsFromPaidReceivables = async function () {
+    const list = (window.receivablesData && window.receivablesData.invoices) || [];
+    if (!list.length) return;
+
+    const billingRows = window.combinedBillingTrips || [];
+    const billingIds = new Set(billingRows.map(r => String(r[0])));
+    const byTrip = new Map();
+
+    for (const inv of list) {
+        if (!isHistoryInvoice(inv) || !inv.trip_ids) continue;
+        const tokens = parseInvoiceServiceTokens(inv);
+        const ids = inv.trip_ids.split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
+        ids.forEach(tid => {
+            if (billingIds.size && !billingIds.has(String(tid))) return;
+            const prev = byTrip.get(tid) || new Set();
+            if (!tokens.length) prev.add('__ALL__');
+            else tokens.forEach(t => prev.add(t));
+            byTrip.set(tid, prev);
+        });
+    }
+
+    for (const [tid, tokenSet] of byTrip) {
+        const tokens = tokenSet.has('__ALL__') ? [] : [...tokenSet];
+        const patch = paidPatchForServiceTokens(tokens);
+        const local = billingRows.find(t => String(t[0]) === String(tid));
+        const needs = !local ||
+            (patch.st_yard && local[30] !== 'PAID') ||
+            (patch.st_rent && local[31] !== 'PAID') ||
+            (patch.st_rate && local[32] !== 'PAID') ||
+            (patch.st_sales && local[33] !== 'PAID') ||
+            (patch.st_amount && local[34] !== 'PAID') ||
+            (patch.st_tax && local[52] !== 'PAID');
+        if (!needs) continue;
+        await window.settleLinkedTripsFromReceivable(
+            { trip_ids: tid, service_type: tokens.join(',') },
+            null,
+            { silent: true }
+        );
+    }
+};
+
 function invoiceMatchesService(inv, filter) {
     if (!filter) return true;
     const f = filter.toUpperCase().trim();
@@ -411,7 +548,7 @@ window.renderReceivables = function () {
                         <tbody>
             `;
             invoices.forEach(inv => {
-                const d = inv.date_generated ? new Date(inv.date_generated).toLocaleDateString() : 'N/A';
+                const d = inv.date_generated ? (window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(inv.date_generated) : inv.date_generated) : 'N/A';
                 const displayInvNo = inv.invoice_number ? inv.invoice_number.toString() : 'N/A';
                 
                 let orderNoExtracted = '';
@@ -489,7 +626,7 @@ window.renderReceivables = function () {
                         <tbody>
             `;
             invoices.forEach(inv => {
-                const d = inv.paid_date ? new Date(inv.paid_date).toLocaleDateString() : 'N/A';
+                const d = inv.paid_date ? (window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(inv.paid_date) : inv.paid_date) : 'N/A';
                 const displayInvNo = (inv.invoice_number || '---').toString();
                 
                 let orderNoExtracted = '';
@@ -671,55 +808,9 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     let currentPaymentAmount = balance;
 
     const markLinkedRentalTripsSettled = async (invoiceRecord, writeOffReason) => {
-        if (!invoiceRecord || !invoiceRecord.trip_ids || !window.db) return;
-        const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
-        const normalTrips = tripIdList.filter(t => !t.startsWith('RENTAL_ID:'));
-        const svcType = (invoiceRecord.service_type || '').toUpperCase();
-        const serviceColumnMap = {
-            'TRANSPORT': { st_rate: 'PAID' },
-            'YARD': { st_yard: 'PAID' },
-            'YARD STORAGE': { st_yard: 'PAID' },
-            'SALES': { st_sales: 'PAID' },
-            'RENT': { st_rent: 'PAID' },
-            'RENTAL': { st_rent: 'PAID' },
-            'STORAGE': { st_amount: 'PAID' }
-        };
-        const cols = serviceColumnMap[svcType] || { st_rate: 'PAID' };
-        const reasonNote = writeOffReason ? ` | WRITE-OFF: ${writeOffReason}` : ' | WRITE-OFF';
-        for (const tid of normalTrips) {
-            const patch = { ...cols, paid: true };
-            try {
-                const { data: tripRows } = await window.db.from('trips').select('note, service_mode').eq('trip_id', tid).limit(1);
-                const tripRow = (tripRows && tripRows[0]) || null;
-                const mode = (tripRow?.service_mode || '').toString().toUpperCase();
-                if (mode === 'RENTAL INVOICE' || svcType === 'RENTAL' || svcType === 'RENT') {
-                    patch.st_rent = 'PAID';
-                    if (writeOffReason) patch.note = ((tripRow && tripRow.note) ? tripRow.note : '') + reasonNote;
-                }
-                await window.db.from('trips').update(patch).eq('trip_id', tid);
-            } catch (e) {
-                console.warn('[Receivables] Could not settle trip', tid, e);
-            }
-            const applyLocal = (arr) => {
-                if (!arr) return;
-                const local = arr.find(t => String(t[0]) === String(tid));
-                if (!local) return;
-                if (patch.st_rent) local[31] = 'PAID';
-                if (patch.st_yard) local[30] = 'PAID';
-                if (patch.st_rate) local[32] = 'PAID';
-                if (patch.st_sales) local[33] = 'PAID';
-                if (patch.st_amount) local[34] = 'PAID';
-                if (patch.note) local[25] = patch.note;
-            };
-            applyLocal(window.currentTrips);
-            applyLocal(window.rentalInvoiceTrips);
-            applyLocal(window.combinedBillingTrips);
+        if (typeof window.settleLinkedTripsFromReceivable === 'function') {
+            await window.settleLinkedTripsFromReceivable(invoiceRecord, writeOffReason);
         }
-        window._recvSettlementMap = null;
-        if (typeof window.loadRentalInvoiceTrips === 'function') {
-            await window.loadRentalInvoiceTrips(true);
-        }
-        if (typeof window.renderRentalsTable === 'function') window.renderRentalsTable();
     };
 
     const processWriteOff = async () => {
@@ -758,6 +849,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             if (typeof window.reconcileRentalTripsFromReceivables === 'function') {
                 await window.reconcileRentalTripsFromReceivables();
             }
+            if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
         } catch (err) {
             console.error('Error writing off invoice:', err);
             alert('Failed to write off invoice: ' + err.message);
@@ -881,6 +973,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             if (typeof window.reconcileRentalTripsFromReceivables === 'function') {
                 await window.reconcileRentalTripsFromReceivables();
             }
+            if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
 
         } catch (err) {
             console.error('Error marking paid:', err);

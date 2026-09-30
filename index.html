@@ -23,7 +23,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=15"></script>
-    <script src="./js/data-mapping.js?v=12"></script>
+    <script src="./js/data-mapping.js?v=14"></script>
     <script src="./js/realtime-sync.js?v=3" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1710" defer></script>
@@ -2342,22 +2342,28 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="attendance-input-group">
+                                <div class="attendance-input-group calendar-date-filter"
+                                    onclick="openCalendarDatePicker('f-from-date')">
                                     <label><i class="far fa-calendar-alt"></i> FROM DATE</label>
-                                    <div class="attendance-field-with-icon">
+                                    <div class="attendance-field-with-icon calendar-date-wrap">
                                         <i class="fas fa-calendar-day"></i>
-                                        <input type="date" id="f-from-date" class="form-input"
-                                            onchange="if(window.loadTableData) window.loadTableData()"
-                                            style="width: 100%;">
+                                        <input type="text" id="f-from-date-display" class="form-input"
+                                            placeholder="mm/dd/yyyy" readonly tabindex="-1"
+                                            style="width: 100%; cursor: pointer;">
+                                        <input type="date" id="f-from-date" class="calendar-date-native" lang="en-US"
+                                            onchange="syncCalendarDateDisplay('f-from-date'); if(window.loadTableData) window.loadTableData()">
                                     </div>
                                 </div>
-                                <div class="attendance-input-group">
+                                <div class="attendance-input-group calendar-date-filter"
+                                    onclick="openCalendarDatePicker('f-to-date')">
                                     <label><i class="far fa-calendar-check"></i> TO DATE</label>
-                                    <div class="attendance-field-with-icon">
+                                    <div class="attendance-field-with-icon calendar-date-wrap">
                                         <i class="fas fa-calendar-check"></i>
-                                        <input type="date" id="f-to-date" class="form-input"
-                                            onchange="if(window.loadTableData) window.loadTableData()"
-                                            style="width: 100%;">
+                                        <input type="text" id="f-to-date-display" class="form-input"
+                                            placeholder="mm/dd/yyyy" readonly tabindex="-1"
+                                            style="width: 100%; cursor: pointer;">
+                                        <input type="date" id="f-to-date" class="calendar-date-native" lang="en-US"
+                                            onchange="syncCalendarDateDisplay('f-to-date'); if(window.loadTableData) window.loadTableData()">
                                     </div>
                                 </div>
 

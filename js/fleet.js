@@ -34,7 +34,7 @@
                 }
                 
                 data.forEach(row => {
-                    const date = new Date(row.created_at).toLocaleDateString();
+                    const date = window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(row.created_at) : new Date(row.created_at).toLocaleDateString();
                     const tr = document.createElement('tr');
                     tr.style.borderBottom = '1px solid #f1f5f9';
                     tr.innerHTML = `

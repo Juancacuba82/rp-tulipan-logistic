@@ -2685,7 +2685,6 @@ window.addEventListener('resize', () => {
 });
 setTimeout(syncTopScroll, 1000);
 
-
 // ============================================================
 // NEARBY TRUCKS FINDER — Uses Google Distance Matrix API
 // Scans PENDING orders across ALL dates and finds trucks with

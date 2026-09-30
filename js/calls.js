@@ -869,7 +869,7 @@ function buildCallButton(c) {
         if (isToday) {
             dateStr = lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         } else {
-            dateStr = lastDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            dateStr = (window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(lastDate.toISOString()) : lastDate.toLocaleDateString()) + ' ' + lastDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         }
 
         const byName = (c.calling_by || '').split(' ')[0];

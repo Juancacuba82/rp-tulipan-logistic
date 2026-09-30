@@ -650,9 +650,51 @@ main {
     z-index: 12;
 }
 
-#logistics-table .header-row th {
-    position: sticky;
+.calendar-date-filter,
+.calendar-date-filter label,
+.calendar-date-filter input {
+    cursor: pointer;
+}
+
+.calendar-date-wrap {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.calendar-date-wrap input[type="text"] {
+    cursor: pointer;
+}
+
+.calendar-date-native {
+    position: absolute;
+    left: 0;
     top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+    margin: 0;
+    border: none;
+    background: transparent;
+}
+
+.form-group > .calendar-date-wrap,
+#calendar-view .trip-entry-form .form-group .calendar-date-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.form-group .calendar-date-wrap input[type="text"],
+#calendar-view .trip-entry-form .form-group .calendar-date-wrap input[type="text"] {
+    width: 100%;
+    cursor: pointer;
+}
+
+.date-inputs-wrap .calendar-date-wrap {
+    width: 130px;
+    flex: 0 0 auto;
 }
 
 @media screen and (max-width: 1024px) {

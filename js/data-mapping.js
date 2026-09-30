@@ -291,3 +291,145 @@
 
             return { unitCost: unitCost || 0, relNo, seller, releaseData: releaseData || null };
         };
+
+window.openCalendarDatePicker = function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try {
+        if (typeof el.showPicker === 'function') el.showPicker();
+        else el.focus();
+    } catch (e) {
+        el.focus();
+    }
+};
+
+window.syncCalendarDateDisplay = function (id) {
+    const dateEl = document.getElementById(id);
+    const disp = document.getElementById(id + '-display');
+    if (!dateEl || !disp) return;
+    const iso = dateEl.value || '';
+    if (!iso) {
+        disp.value = '';
+        return;
+    }
+    const formatted = window.formatDateMMDDYYYY(iso);
+    disp.value = formatted === '---' ? '' : formatted;
+};
+
+function hookMdyDateValueSetter() {
+    if (window._mdyValueHooked) return;
+    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (!desc || !desc.set || !desc.get) return;
+    window._mdyValueHooked = true;
+    Object.defineProperty(HTMLInputElement.prototype, 'value', {
+        configurable: true,
+        enumerable: desc.enumerable,
+        get: desc.get,
+        set: function (v) {
+            desc.set.call(this, v);
+            if (this.dataset && this.dataset.mdyFilter && this.id) {
+                window.syncCalendarDateDisplay(this.id);
+            }
+        }
+    });
+}
+
+window.enhanceDateFilterInput = function (input) {
+    if (!input || input.type !== 'date') return;
+    hookMdyDateValueSetter();
+    if (!input.id) {
+        window._mdyAutoId = (window._mdyAutoId || 0) + 1;
+        input.id = 'mdy-date-' + window._mdyAutoId;
+    }
+    if (input.dataset.mdyFilter === '1') {
+        window.syncCalendarDateDisplay(input.id);
+        return;
+    }
+    input.dataset.mdyFilter = '1';
+    const id = input.id;
+    const isReadonly = input.readOnly || input.disabled;
+
+    if (document.getElementById(id + '-display')) {
+        input.classList.add('calendar-date-native');
+        window.syncCalendarDateDisplay(id);
+        return;
+    }
+
+    const display = document.createElement('input');
+    display.type = 'text';
+    display.id = id + '-display';
+    display.className = (input.className || '').replace('calendar-date-native', '').trim();
+    display.placeholder = 'mm/dd/yyyy';
+    display.readOnly = true;
+    display.tabIndex = -1;
+    display.style.boxSizing = 'border-box';
+    ['width', 'height', 'padding', 'fontSize', 'fontWeight', 'border', 'borderRadius', 'background', 'color'].forEach((prop) => {
+        if (input.style[prop]) display.style[prop] = input.style[prop];
+    });
+    if (!display.style.width) display.style.width = '100%';
+    display.style.cursor = isReadonly ? 'not-allowed' : 'pointer';
+
+    let wrap = input.parentElement;
+    if (!wrap.classList.contains('calendar-date-wrap')) {
+        const inner = document.createElement('div');
+        inner.className = 'calendar-date-wrap';
+        wrap.insertBefore(inner, input);
+        inner.appendChild(display);
+        inner.appendChild(input);
+        wrap = inner;
+    } else {
+        wrap.insertBefore(display, input);
+    }
+
+    input.className = 'calendar-date-native';
+    if (isReadonly) input.style.pointerEvents = 'none';
+    const group = wrap.closest('.attendance-input-group') || wrap.closest('.form-group') || wrap.parentElement;
+    if (group) group.classList.add('calendar-date-filter');
+
+    if (!isReadonly) {
+        wrap.addEventListener('click', function (e) {
+            if (e) e.stopPropagation();
+            window.openCalendarDatePicker(id);
+        });
+    }
+    input.addEventListener('change', function () {
+        window.syncCalendarDateDisplay(id);
+    });
+    window.syncCalendarDateDisplay(id);
+};
+
+window.enhanceAllDateFilters = function () {
+    document.querySelectorAll('input[type="date"]').forEach(function (el) {
+        window.enhanceDateFilterInput(el);
+    });
+};
+
+if (!window._mdyDateObserver) {
+    window._mdyDateObserver = new MutationObserver(function (mutations) {
+        for (let i = 0; i < mutations.length; i++) {
+            const nodes = mutations[i].addedNodes;
+            for (let j = 0; j < nodes.length; j++) {
+                const n = nodes[j];
+                if (!n || n.nodeType !== 1) continue;
+                if (n.matches && n.matches('input[type="date"]')) window.enhanceDateFilterInput(n);
+                if (n.querySelectorAll) {
+                    n.querySelectorAll('input[type="date"]').forEach(window.enhanceDateFilterInput);
+                }
+            }
+        }
+    });
+}
+
+function startMdyDateEnhancer() {
+    window.enhanceAllDateFilters();
+    if (document.body && !window._mdyDateObserverStarted) {
+        window._mdyDateObserverStarted = true;
+        window._mdyDateObserver.observe(document.body, { childList: true, subtree: true });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startMdyDateEnhancer);
+} else {
+    startMdyDateEnhancer();
+}

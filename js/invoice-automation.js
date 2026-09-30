@@ -72,9 +72,6 @@
      * Renders (or updates) the alert banner in the billing view.
      */
     window.renderIncompleteOrdersBanner = function () {
-        const existing = document.getElementById('invoice-incomplete-banner');
-        if (existing) existing.remove();
-
         // Use billingRows to respect the current table filters, fallback to currentTrips
         const trips = (typeof window.billingRows !== 'undefined') ? window.billingRows : (window.currentTrips || []);
         const incomplete = [];
@@ -94,7 +91,20 @@
             }
         });
 
-        if (incomplete.length === 0) return;  // nothing to flag
+        const existing = document.getElementById('invoice-incomplete-banner');
+        if (incomplete.length === 0) {
+            if (existing) existing.remove();
+            window._incompleteBannerSig = '';
+            return;
+        }
+
+        const sig = incomplete.map(({ row, reasons }) =>
+            `${(row[5] || '').toString().toUpperCase()}|${(reasons || []).join(',')}`
+        ).join('||');
+        if (existing && window._incompleteBannerSig === sig) return;
+
+        if (existing) existing.remove();
+        window._incompleteBannerSig = sig;
 
         const container = document.getElementById('billing-center-view');
         if (!container) return;
@@ -109,7 +119,6 @@
             padding: 16px 20px;
             margin: 0 20px 20px;
             position: relative;
-            animation: bannerSlideIn 0.4s ease;
         `;
 
         // Build list items

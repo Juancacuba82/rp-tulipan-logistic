@@ -629,7 +629,7 @@
             const metodoBadge = badgeHtml;
 
             const dateStr = t.created_at
-                ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+                ? (window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(t.created_at) : t.created_at)
                 : '---';
             const timeStr = t.created_at
                 ? new Date(t.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })

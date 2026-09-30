@@ -30,7 +30,6 @@
 
     window.initBillingCenter = async function(force = false) {
         if (!force && window.billingDataLoaded && window.combinedBillingTrips.length > 0) {
-            // Already loaded, just render from memory
             if (typeof window.renderBillingTable === 'function') {
                 window.renderBillingTable();
             }
@@ -79,6 +78,20 @@
         }
         
         window.billingDataLoaded = true;
+        try {
+            if (!window._billingArReconcileDone || force) {
+                if (typeof window.loadReceivables === 'function') {
+                    const haveRecv = window.receivablesData && Array.isArray(window.receivablesData.invoices) && window.receivablesData.invoices.length > 0;
+                    if (!haveRecv) await window.loadReceivables();
+                }
+                if (typeof window.reconcileTripsFromPaidReceivables === 'function') {
+                    await window.reconcileTripsFromPaidReceivables();
+                }
+                window._billingArReconcileDone = true;
+            }
+        } catch (e) {
+            console.warn('[Billing] Could not reconcile paid AR invoices onto trips:', e);
+        }
         if (typeof window.renderBillingTable === 'function') {
             window.renderBillingTable();
         }
@@ -124,8 +137,9 @@
     }
 
     function fmtDate(ds) {
+        if (window.formatDateMMDDYYYY) return window.formatDateMMDDYYYY(ds);
         if (!ds || ds === '---') return '---';
-        const p = ds.split('-');
+        const p = String(ds).split('T')[0].split('-');
         if (p.length !== 3) return ds;
         return `${p[1]}/${p[2]}/${p[0]}`;
     }

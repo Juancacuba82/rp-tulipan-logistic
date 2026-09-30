@@ -90,7 +90,7 @@ function rbFmtDay(val) {
     if (!s) return '';
     const d = new Date(s.includes('T') ? s : s + 'T12:00:00');
     if (isNaN(d.getTime())) return s;
-    return d.toLocaleDateString('es-US', { day: '2-digit', month: 'short', year: 'numeric' });
+    return window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(s) : d.toLocaleDateString('en-US');
 }
 
 function rbFmtWhen(val) {
@@ -98,7 +98,9 @@ function rbFmtWhen(val) {
     if (!s) return 'Fecha desconocida';
     const d = new Date(s);
     if (isNaN(d.getTime())) return s;
-    return d.toLocaleString('es-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const day = window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(s) : d.toLocaleDateString('en-US');
+    return day + ' ' + time;
 }
 
 function rbFmtMoney(val) {
