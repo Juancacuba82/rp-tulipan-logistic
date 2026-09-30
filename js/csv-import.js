@@ -474,24 +474,6 @@ function renderCsvPreview() {
     container.style.display = 'block';
     tbody.innerHTML = '';
 
-    let categoryOptions = '';
-    if (window.getOfficialExpenseCategoryOptionsHtml) {
-        categoryOptions = window.getOfficialExpenseCategoryOptionsHtml('', false);
-    } else if (window.OFFICIAL_EXPENSE_CATEGORIES) {
-        window.OFFICIAL_EXPENSE_CATEGORIES.forEach(name => {
-            categoryOptions += `<option value="${name}">${name}</option>`;
-        });
-    } else {
-        const catSelect = document.getElementById('exp-category');
-        if (catSelect && catSelect.options) {
-            Array.from(catSelect.options).forEach(opt => {
-                if (opt.value) categoryOptions += `<option value="${opt.value}">${opt.value}</option>`;
-            });
-        } else {
-            categoryOptions = `<option value="Other">Other</option>`;
-        }
-    }
-
     window.csvParsedData.forEach((row, i) => {
         const tr = document.createElement('tr');
         if (row.isRecurring || row.isDuplicate) {
@@ -518,9 +500,11 @@ function renderCsvPreview() {
             ? window.buildProfitLineSelectOptions(suggestedLine, 'Unassigned...')
             : `<option value="">Unassigned...</option>`;
 
-        let rowCategoryOptions = categoryOptions;
-        if (window.getOfficialExpenseCategoryOptionsHtml) {
-            rowCategoryOptions = window.getOfficialExpenseCategoryOptionsHtml(row.suggestedCategory, false, suggestedLine);
+        let rowCategoryOptions = `<option value="">Select profit line first...</option>`;
+        if (suggestedLine && window.getOfficialExpenseCategoryOptionsHtml) {
+            rowCategoryOptions = window.getOfficialExpenseCategoryOptionsHtml(
+                row.suggestedCategory, 'Select category...', suggestedLine
+            );
         }
 
         tr.className = 'csv-main-row';
@@ -535,13 +519,13 @@ function renderCsvPreview() {
                 <div class="csv-ai-slot" data-index="${i}">${renderCsvAiBlock(row, i)}</div>
             </td>
             <td>
-                <select class="csv-category-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1;">
-                    ${rowCategoryOptions}
+                <select class="csv-profit-line-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight:700;" onchange="window.updateCsvRowCategories(${i})">
+                    ${profitLineOptions}
                 </select>
             </td>
             <td>
-                <select class="csv-profit-line-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight:700;" onchange="window.updateCsvRowCategories(${i})">
-                    ${profitLineOptions}
+                <select class="csv-category-select" data-index="${i}" style="width:100%; padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1;">
+                    ${rowCategoryOptions}
                 </select>
             </td>
             <td style="text-align:right; font-weight: 900; color: #ef4444;">$${row.amount.toFixed(2)}</td>
@@ -569,9 +553,7 @@ function renderCsvPreview() {
             });
         }
 
-        const selectEl = tr.querySelector('.csv-category-select');
-        selectEl.value = row.suggestedCategory;
-        if (!selectEl.value) selectEl.value = 'Other';
+        window.updateCsvRowCategories(i);
     });
     updateCsvTotal();
 }
@@ -579,26 +561,37 @@ function renderCsvPreview() {
 window.updateCsvRowCategories = function(index) {
     const plSelect = document.querySelector(`.csv-profit-line-select[data-index="${index}"]`);
     const catSelect = document.querySelector(`.csv-category-select[data-index="${index}"]`);
-    if (!plSelect || !catSelect || !window.getOfficialExpenseCategoryOptionsHtml) return;
+    if (!plSelect || !catSelect) return;
 
-    const currentCat = catSelect.value;
-    const line = plSelect.value;
-    
+    const row = (window.csvParsedData || [])[index];
+    const currentCat = catSelect.value || (row && row.suggestedCategory) || '';
+    const line = (plSelect.value || '').trim();
+
+    if (!line) {
+        catSelect.innerHTML = `<option value="">Select profit line first...</option>`;
+        catSelect.disabled = true;
+        return;
+    }
+
+    catSelect.disabled = false;
     let mappedCat = currentCat;
     if (window.mapCategoryForProfitLine) {
         mappedCat = window.mapCategoryForProfitLine(currentCat, line);
     }
-    
-    catSelect.innerHTML = window.getOfficialExpenseCategoryOptionsHtml(mappedCat, false, line);
-    
-    // Ensure the mapped or closest valid value is selected
+
+    if (window.getOfficialExpenseCategoryOptionsHtml) {
+        catSelect.innerHTML = window.getOfficialExpenseCategoryOptionsHtml(
+            mappedCat, 'Select category...', line
+        );
+    }
+
     const allowed = Array.from(catSelect.options).map(o => o.value);
     if (allowed.includes(mappedCat)) {
         catSelect.value = mappedCat;
     } else if (allowed.includes(currentCat)) {
         catSelect.value = currentCat;
-    } else if (allowed.length > 0) {
-        catSelect.selectedIndex = 0;
+    } else {
+        catSelect.value = '';
     }
 };
 
