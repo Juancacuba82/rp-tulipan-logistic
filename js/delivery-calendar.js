@@ -2661,6 +2661,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         // (Realtime and initial load are sufficient for 8+ concurrent users)
 
 // Helper for Dual Scrollbars in Calendar
+// Bidirectional scrollLeft assignment without a lock causes 1px ping-pong
+// (jitter on the top bar + table flicker) because of subpixel rounding.
+let _dualScrollBound = false;
+let _dualScrollSource = null;
+
 function syncTopScroll() {
     const topContainer = document.getElementById('top-scrollbar-container');
     const topDummy = document.getElementById('top-scrollbar-dummy');
@@ -2669,21 +2674,42 @@ function syncTopScroll() {
 
     if (!topContainer || !topDummy || !tableContainer || !table) return;
 
-    // Only show if table is wider than container
-    if (table.offsetWidth > tableContainer.offsetWidth) {
+    const contentWidth = tableContainer.scrollWidth;
+    const needsScroll = contentWidth > tableContainer.clientWidth + 1;
+
+    if (needsScroll) {
         topContainer.style.display = 'block';
-        topDummy.style.width = table.offsetWidth + 'px';
-        
-        // Sync scroll events
-        topContainer.onscroll = () => {
-            tableContainer.scrollLeft = topContainer.scrollLeft;
-        };
-        tableContainer.onscroll = () => {
+        const dummyWidth = contentWidth + 'px';
+        if (topDummy.style.width !== dummyWidth) {
+            topDummy.style.width = dummyWidth;
+        }
+        if (Math.abs(topContainer.scrollLeft - tableContainer.scrollLeft) > 0.5) {
             topContainer.scrollLeft = tableContainer.scrollLeft;
-        };
+        }
     } else {
         topContainer.style.display = 'none';
     }
+
+    if (_dualScrollBound) return;
+    _dualScrollBound = true;
+
+    const bindPair = (from, to, id) => {
+        from.addEventListener('scroll', () => {
+            if (_dualScrollSource && _dualScrollSource !== id) return;
+            _dualScrollSource = id;
+            if (to.scrollLeft !== from.scrollLeft) {
+                to.scrollLeft = from.scrollLeft;
+            }
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    _dualScrollSource = null;
+                });
+            });
+        }, { passive: true });
+    };
+
+    bindPair(topContainer, tableContainer, 'top');
+    bindPair(tableContainer, topContainer, 'table');
 }
 
 // PERF FIX: Debounce resize event so syncTopScroll only fires once after resize ends

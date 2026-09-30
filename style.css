@@ -3869,7 +3869,13 @@ main {
 #inv-table-container {
     contain: layout style;
     overflow-anchor: none;
+    overscroll-behavior-x: contain;
     /* Prevents scroll jumps on content changes */
+}
+
+#top-scrollbar-container {
+    overscroll-behavior-x: contain;
+    scrollbar-gutter: auto;
 }
 
 /* Promote sidebar and modals to their own GPU layers to prevent backdrop-filter
