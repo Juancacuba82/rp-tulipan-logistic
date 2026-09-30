@@ -530,6 +530,8 @@ main {
     height: calc(100vh - 60px);
     /* Synchronized with new compact padding */
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     background-color: #f0f2f5;
     overflow: hidden;
 }
@@ -578,9 +580,11 @@ main {
 /* Right Panel: Area (Flexible) */
 .table-area {
     flex: 1;
+    min-width: 0;
     display: block;
     /* Change from flex to block to allow natural content scroll */
     padding: 20px;
+    overflow-x: hidden;
     overflow-y: auto;
     height: 100%;
     /* Ensure it fills parent height */
@@ -605,13 +609,63 @@ main {
     -webkit-overflow-scrolling: touch;
 }
 
+/* Calendar grid: filters stay put; table fills remaining height so H+V bars stay on screen */
+#calendar-view .table-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+}
+
+#calendar-view .table-area > .attendance-toolbar-modern {
+    flex-shrink: 0;
+}
+
+#calendar-table-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+#calendar-table-container.is-hscrolling #table-body tr {
+    pointer-events: none;
+}
+
 #logistics-table {
     width: 100%;
     min-width: 3000px;
-    /* Wide logistics table */
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-family: var(--font-main);
     font-size: 0.8rem;
+}
+
+#logistics-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 12;
+}
+
+#logistics-table .header-row th {
+    position: sticky;
+    top: 0;
+}
+
+@media screen and (max-width: 1024px) {
+    #calendar-view .table-area {
+        overflow: hidden !important;
+        min-height: 65vh;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    #calendar-table-container {
+        min-height: 50vh;
+    }
 }
 
 .header-row th {
@@ -3865,17 +3919,15 @@ main {
 
 /* CSS Containment: prevents table reflows from propagating to the rest of the document.
    When the table updates internally, the browser can skip layout/style recalc outside it. */
-#calendar-table-container,
 #inv-table-container {
     contain: layout style;
     overflow-anchor: none;
     overscroll-behavior-x: contain;
-    /* Prevents scroll jumps on content changes */
 }
 
-#top-scrollbar-container {
+#calendar-table-container {
+    overflow-anchor: none;
     overscroll-behavior-x: contain;
-    scrollbar-gutter: auto;
 }
 
 /* Promote sidebar and modals to their own GPU layers to prevent backdrop-filter
