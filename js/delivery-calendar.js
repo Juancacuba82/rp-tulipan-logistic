@@ -67,21 +67,23 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 await updateTrip(tripId, updateData);
                 
-                // Update local state instead of full reload
-                if (window.currentTrips) {
-                    const localTrip = window.currentTrips.find(t => t[0] === tripId);
-                    if (localTrip) {
-                        // We need to map the fieldName back to the correct array index if we want to update the UI perfectly.
-                        // However, for now, we'll do a lighter loadTableData or just update the currentDocTrip.
-                        // To be safe and efficient, we update the local object and refresh the Doc Preview.
-                        const fieldMap = {
-                            'st_yard': 30, 'st_rent': 31, 'st_rate': 32, 'st_sales': 33, 'st_amount': 34,
-                            'status': 41, 'paid': 34 // approximate
-                        };
-                        const idx = fieldMap[fieldName];
-                        if (idx !== undefined) localTrip[idx] = value;
-                    }
+                // Update local state instead of full reload.
+                // Every cached pool must be updated or Billing keeps showing stale debt.
+                const fieldMap = {
+                    'st_yard': 30, 'st_rent': 31, 'st_rate': 32, 'st_sales': 33, 'st_amount': 34,
+                    'take_tax': 49, 'st_tax': 52,
+                    'status': 41, 'paid': 34 // approximate
+                };
+                const idx = fieldMap[fieldName];
+                if (idx !== undefined) {
+                    [window.currentTrips, window.combinedBillingTrips, window.allTripsUnfiltered, window.rentalInvoiceTrips]
+                        .forEach(pool => {
+                            if (!pool) return;
+                            const localTrip = pool.find(t => t && t[0] === tripId);
+                            if (localTrip) localTrip[idx] = value;
+                        });
                 }
+                if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
 
                 // --- DOCUMENT PREVIEW SYNC ---
                 if (window.currentDocTrip && window.currentDocTrip[0] === tripId) {
@@ -404,7 +406,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     document.getElementById('in-yard-cash').checked, document.getElementById('in-rate-cash').checked, document.getElementById('in-sales-cash').checked,
                     document.getElementById('in-showtax')?.checked || false, parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0,
                     document.getElementById('in-hideamounts')?.checked || false, document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND',
-                    newQtyVal, existingSig, existingPhotos, existingSigDriver, (document.getElementById('in-sendemail')?.checked ? 'YES' : (document.getElementById('in-invoice-sent')?.value || 'NO')),
+                    newQtyVal, existingSig, existingPhotos, existingSigDriver, 'NO',
                     containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard,
                     null, null, // indices 63-64: invoice_last_sent, invoice_reminder_count
                     (document.getElementById('in-booking')?.value || '---').toUpperCase(), // 65: booking_no
@@ -455,6 +457,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 
                 // CRITICAL FIX: Ensure dbObj has the correct trip_id so the local cache preserves it
                 dbObj.trip_id = finalTripId;
+
+                // Billing owns invoice tracking. Calendar must never overwrite those columns
+                // (receipt email is not a customer invoice).
+                delete dbObj.invoice_sent;
+                delete dbObj.invoice_last_sent;
+                delete dbObj.invoice_reminder_count;
+                delete dbObj.invoiced_services;
 
                 console.log("Saving order via RPC sync...", { tripId: finalTripId, isMoveToYard });
                 
@@ -721,9 +730,18 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if (savedIndex !== null) {
                     // OPTIMIZED UPDATE: Update the local array and the specific row UI
+                    const prevRow = (window.currentTrips || []).find(t => t[0] === finalTripId)
+                        || (window.allTripsUnfiltered || []).find(t => t[0] === finalTripId)
+                        || (window.currentTrips || [])[savedIndex];
                     const updatedRowData = window.mapTripToArray(dbObj);
                     // Ensure the trip_id (which is at index 0) is preserved correctly
                     updatedRowData[0] = finalTripId;
+                    if (prevRow) {
+                        updatedRowData[57] = prevRow[57];
+                        updatedRowData[63] = prevRow[63];
+                        updatedRowData[64] = prevRow[64];
+                        updatedRowData[75] = prevRow[75];
+                    }
                     
                     if (window.currentTrips) {
                         const idxInCurrent = window.currentTrips.findIndex(t => t[0] === finalTripId);

@@ -152,7 +152,10 @@
         const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
         const yardRate = !isYardStorage ? (parseFloat(row[13]) || 0) : 0;
         const takeTax  = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
-        const hasRent  = (parseFloat(row[27]) || 0) > 0.01;
+        // Rent is billed only on ghost RENTAL INVOICE trips from the Rentals module.
+        // Calendar trips often keep a leftover monthly_rate; that is not a receivable.
+        const isRentalInvoice = (row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE';
+        const hasRent  = isRentalInvoice && (parseFloat(row[27]) || 0) > 0.01;
         const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
 
         if (hasTrans && row[32] !== 'PAID') return true;
@@ -164,6 +167,54 @@
 
         return false;
     }
+
+    function isRowServicePaid(row, service) {
+        switch (service) {
+            case 'TRANSPORT': return row[32] === 'PAID';
+            case 'SALES': return row[33] === 'PAID';
+            // Storage shares the yard payment flag
+            case 'YARD':
+            case 'STORAGE': return row[30] === 'PAID';
+            case 'RENT': return row[31] === 'PAID';
+            default: return false;
+        }
+    }
+
+    function rowHasServiceAmount(row, service) {
+        const orderNo = (row[5] || '---').toString().toUpperCase();
+        const isYardStorage = orderNo.startsWith('YRD-');
+        const qty = parseInt(row[53]) || 1;
+        switch (service) {
+            case 'TRANSPORT':
+                return row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+            case 'SALES':
+                return row[43] === 'YES' && ((parseFloat(row[20]) || 0) * qty) > 0;
+            case 'YARD':
+                return !isYardStorage && (parseFloat(row[13]) || 0) > 0;
+            case 'STORAGE':
+                return isYardStorage && (parseFloat(row[13]) || 0) > 0;
+            case 'RENT': {
+                const mrate = ((row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE')
+                    ? (parseFloat(row[27]) || 0)
+                    : 0;
+                return mrate > 0;
+            }
+            default:
+                return false;
+        }
+    }
+
+    function anyUnpaidBillingService(rows, service) {
+        return (rows || []).some(r => rowHasServiceAmount(r, service) && !isRowServicePaid(r, service));
+    }
+
+    function shouldInvoiceRowService(row, service, includePaidFallback) {
+        if (!rowHasServiceAmount(row, service)) return false;
+        if (isRowServicePaid(row, service)) return !!includePaidFallback;
+        return true;
+    }
+    window.anyUnpaidBillingService = anyUnpaidBillingService;
+    window.shouldInvoiceRowService = shouldInvoiceRowService;
 
     function getBillingRowActiveServices(row) {
         const orderNoUpper = (row[5] || '---').toString().toUpperCase();
@@ -530,21 +581,21 @@
             
             let isOrderPendingPayment = false;
 
-            // Calculate pending portions for total due
+            // Calculate pending portions for total due.
+            // Storage shares the yard flag (row[30]); only rent uses row[31].
             let rowSubtotalOwed = 0;
             if (totalYard > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
             if (totalTrans > 0.01 && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
             if (totalSales > 0.01 && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
-            // Assuming row[31] (in-rentpaid) handles both Storage and Rent
-            if ((totalStorage > 0.01 || totalRent > 0.01) && row[31] !== 'PAID') {
-                rowSubtotalOwed += (totalStorage + totalRent);
-            }
-            
+            if (totalStorage > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalStorage;
+            if (totalRent > 0.01 && row[31] !== 'PAID') rowSubtotalOwed += totalRent;
+
+            // Tax only applies to the services that are still unpaid
             const takeTax = row[49] === true || row[49] === 'true' || row[49] === 'YES' || row[49] === 'on' || row[49] === 1;
             let rowTaxOwed = 0;
             if (takeTax && row[52] !== 'PAID') {
                 const taxPct = parseFloat(row[50]) || 0;
-                rowTaxOwed = ((totalTrans + totalSales + totalYard + totalStorage + totalRent) * taxPct) / 100;
+                rowTaxOwed = (rowSubtotalOwed * taxPct) / 100;
             }
             
             totalOwedAmount += (rowSubtotalOwed + rowTaxOwed);
@@ -601,17 +652,25 @@
 
             const cs     = 'padding: 11px 13px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-weight: 700; color: #0f172a;';
             
-            const fmtSrv = (amt, isInv, defaultColor) => {
+            const fmtSrv = (amt, isInv, isPaid, defaultColor) => {
                 if (amt <= 0) return '';
+                if (isPaid) {
+                    return `<span title="Service already paid" style="display:inline-flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;">
+                        <span style="color:#94a3b8;text-decoration:line-through;font-weight:700;">${fmtMoney(amt)}</span>
+                        <span style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:1px 6px;border-radius:999px;font-size:0.62rem;font-weight:800;letter-spacing:0.02em;">PAID</span>
+                    </span>`;
+                }
                 if (isInv) return `<span style="color:#2563eb;font-weight:900;" title="Invoice sent for this service">${fmtMoney(amt)} <i class="fas fa-check-circle" style="font-size:0.75rem;"></i></span>`;
                 return `<span style="color:${defaultColor};">${fmtMoney(amt)}</span>`;
             };
 
-            const htmlYard = fmtSrv(totalYard, invoiced.includes('YARD'), '#f59e0b');
-            const htmlTrans = fmtSrv(totalTrans, invoiced.includes('TRANSPORT'), '#1e40af');
-            const htmlSales = fmtSrv(totalSales, invoiced.includes('SALES'), '#10b981');
-            const htmlStorage = fmtSrv(totalStorage, invoiced.includes('STORAGE'), '#e11d48');
-            const htmlRent = fmtSrv(totalRent, invoiced.includes('RENT'), '#7c3aed');
+            const htmlYard = fmtSrv(totalYard, invoiced.includes('YARD'), row[30] === 'PAID', '#f59e0b');
+            const htmlTrans = fmtSrv(totalTrans, invoiced.includes('TRANSPORT'), row[32] === 'PAID', '#1e40af');
+            const htmlSales = fmtSrv(totalSales, invoiced.includes('SALES'), row[33] === 'PAID', '#10b981');
+            const htmlStorage = fmtSrv(totalStorage, invoiced.includes('STORAGE'), row[30] === 'PAID', '#e11d48');
+            const htmlRent = fmtSrv(totalRent, invoiced.includes('RENT'), row[31] === 'PAID', '#7c3aed');
+
+            const rowDue = rowSubtotalOwed + rowTaxOwed;
 
             // Validation badge (Guardian check)
             const validBadge = window.getInvoiceValidationBadge
@@ -662,7 +721,7 @@
                 <td style="${cs}">${htmlSales}</td>
                 <td style="${cs}">${htmlStorage}</td>
                 <td style="${cs}">${htmlRent}</td>
-                <td style="${cs} font-size:1rem; font-weight:900; color:#1e293b;">${fmtMoney(grandTotal)}</td>
+                <td style="${cs} font-size:1rem; font-weight:900; color:${rowDue > 0.01 ? '#dc2626' : '#15803d'};">${fmtMoney(rowDue)}</td>
                 <td style="${cs}">${invBadge}</td>
                 <td style="${cs}">${validBadge}</td>
                 <td style="${cs} font-size:0.7rem; color:#475569;">${lastSentText}</td>
@@ -1325,47 +1384,39 @@
             } else if (isPreviewOnly !== 'BULK') {
                 const fService = (document.getElementById('bc-f-service')?.value || '').trim();
 
-                let hasTrans = false, hasRent = false, hasSales = false, hasStorage = false, hasYard = false;
-                rows.forEach(r => {
-                    const orderNo = (r[5] && r[5] !== '---') ? r[5].toString().toUpperCase() : '';
-                    const isYardStorageRow = orderNo.startsWith('YRD-');
-                    let rYard = parseFloat(r[13]) || 0;
-                    let rTrans = parseFloat(r[18]) || 0;
-                    const rQty = parseInt(r[53]) || 1;
-                    let rSales = (parseFloat(r[20]) || 0) * rQty;
-                    let rStorage = 0;
-                    if (isYardStorageRow) { rStorage = rYard; rYard = 0; }
-                    let mrate = parseFloat(r[27]) || 0;
-                    let rRent = ((r[26] || '').toString().toUpperCase() === 'RENTAL INVOICE' && mrate > 0) ? mrate : 0;
-                    
-                    if (rTrans > 0 && r[42] === 'YES') hasTrans = true;
-                    if (rYard > 0) hasYard = true;
-                    if (rSales > 0 && r[43] === 'YES') hasSales = true;
-                    if (rStorage > 0) hasStorage = true;
-                    if (rRent > 0) hasRent = true;
-                });
+                const hasTrans = rows.some(r => rowHasServiceAmount(r, 'TRANSPORT'));
+                const hasRent = rows.some(r => rowHasServiceAmount(r, 'RENT'));
+                const hasSales = rows.some(r => rowHasServiceAmount(r, 'SALES'));
+                const hasStorage = rows.some(r => rowHasServiceAmount(r, 'STORAGE'));
+                const hasYard = rows.some(r => rowHasServiceAmount(r, 'YARD'));
+                let unpaidTrans = anyUnpaidBillingService(rows, 'TRANSPORT');
+                let unpaidRent = anyUnpaidBillingService(rows, 'RENT');
+                let unpaidSales = anyUnpaidBillingService(rows, 'SALES');
+                let unpaidStorage = anyUnpaidBillingService(rows, 'STORAGE');
+                let unpaidYard = anyUnpaidBillingService(rows, 'YARD');
+
+                // Everything is already collected: this can only be a reprint,
+                // so show the order as it was billed instead of an empty invoice.
+                if (!unpaidTrans && !unpaidRent && !unpaidSales && !unpaidStorage && !unpaidYard) {
+                    unpaidTrans = hasTrans;
+                    unpaidRent = hasRent;
+                    unpaidSales = hasSales;
+                    unpaidStorage = hasStorage;
+                    unpaidYard = hasYard;
+                }
 
                 if (fService !== '') {
-                    if (cbTrans) { cbTrans.checked = (fService === 'TRANSPORT'); cbTrans.disabled = true; }
-                    if (cbRent) { cbRent.checked = (fService === 'RENT'); cbRent.disabled = true; }
-                    if (cbSales) { cbSales.checked = (fService === 'SALES'); cbSales.disabled = true; }
-                    if (cbStorage) { cbStorage.checked = (fService === 'STORAGE'); cbStorage.disabled = true; }
-                    if (cbYard) { cbYard.checked = (fService === 'YARD'); cbYard.disabled = true; }
+                    if (cbTrans) { cbTrans.checked = (fService === 'TRANSPORT') && unpaidTrans; cbTrans.disabled = true; }
+                    if (cbRent) { cbRent.checked = (fService === 'RENT') && unpaidRent; cbRent.disabled = true; }
+                    if (cbSales) { cbSales.checked = (fService === 'SALES') && unpaidSales; cbSales.disabled = true; }
+                    if (cbStorage) { cbStorage.checked = (fService === 'STORAGE') && unpaidStorage; cbStorage.disabled = true; }
+                    if (cbYard) { cbYard.checked = (fService === 'YARD') && unpaidYard; cbYard.disabled = true; }
                 } else {
-                    const countPresent = [hasTrans, hasRent, hasSales, hasStorage, hasYard].filter(v => v).length;
-                    if (countPresent <= 1) {
-                        if (cbTrans) { cbTrans.checked = hasTrans; cbTrans.disabled = true; }
-                        if (cbRent) { cbRent.checked = hasRent; cbRent.disabled = true; }
-                        if (cbSales) { cbSales.checked = hasSales; cbSales.disabled = true; }
-                        if (cbStorage) { cbStorage.checked = hasStorage; cbStorage.disabled = true; }
-                        if (cbYard) { cbYard.checked = hasYard; cbYard.disabled = true; }
-                    } else {
-                        if (cbTrans) { cbTrans.checked = hasTrans; cbTrans.disabled = !hasTrans; }
-                        if (cbRent) { cbRent.checked = hasRent; cbRent.disabled = !hasRent; }
-                        if (cbSales) { cbSales.checked = hasSales; cbSales.disabled = !hasSales; }
-                        if (cbStorage) { cbStorage.checked = hasStorage; cbStorage.disabled = !hasStorage; }
-                        if (cbYard) { cbYard.checked = hasYard; cbYard.disabled = !hasYard; }
-                    }
+                    if (cbTrans) { cbTrans.checked = unpaidTrans; cbTrans.disabled = !hasTrans; }
+                    if (cbRent) { cbRent.checked = unpaidRent; cbRent.disabled = !hasRent; }
+                    if (cbSales) { cbSales.checked = unpaidSales; cbSales.disabled = !hasSales; }
+                    if (cbStorage) { cbStorage.checked = unpaidStorage; cbStorage.disabled = !hasStorage; }
+                    if (cbYard) { cbYard.checked = unpaidYard; cbYard.disabled = !hasYard; }
                 }
             }
 
@@ -1576,8 +1627,20 @@
         const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
         const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
         const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
+        // When re-opening an invoice from history we must reproduce it exactly as issued,
+        // so already-paid services stay on the document.
+        const reprintAsIssued = !!window.isMasterBillingReadOnly;
+        const includePaidTrans = incTrans && (reprintAsIssued || !anyUnpaidBillingService(rows, 'TRANSPORT'));
+        const includePaidRent = incRent && (reprintAsIssued || !anyUnpaidBillingService(rows, 'RENT'));
+        const includePaidSales = incSales && (reprintAsIssued || !anyUnpaidBillingService(rows, 'SALES'));
+        const includePaidStorage = incStorage && (reprintAsIssued || !anyUnpaidBillingService(rows, 'STORAGE'));
+        const includePaidYard = incYard && (reprintAsIssued || !anyUnpaidBillingService(rows, 'YARD'));
+
+        let invoiceTaxTotal = 0;
+        let invoiceTaxPct = 0;
 
         rows.forEach(r => {
+            let rowBilledTotal = 0;
             const orderNo = (r[5] || '').toString().toUpperCase();
             const bookingNo = (r[65] && r[65] !== '---') ? r[65].toString().trim().toUpperCase() : '---';
             const containerNo = (r[3] && r[3] !== '---') ? r[3].toString().trim() : '---';
@@ -1653,10 +1716,11 @@
                 }
             }
 
-            if (incTrans && (fService === '' || fService === 'TRANSPORT') && rTrans > 0 && r[42] === 'YES') {
+            if (incTrans && (fService === '' || fService === 'TRANSPORT') && shouldInvoiceRowService(r, 'TRANSPORT', includePaidTrans)) {
                 addGroup('TRANSPORT', grpSalesTrans, rTrans, rQty, rTrans * rQty, customKey);
+                rowBilledTotal += rTrans * rQty;
             }
-            if (incYard && (fService === '' || fService === 'YARD') && rYard > 0) {
+            if (incYard && (fService === '' || fService === 'YARD') && shouldInvoiceRowService(r, 'YARD', includePaidYard)) {
                 let parsed = false;
                 const sizeHtml = size ? ` <span style="color:#64748b;">(${size})</span>` : '';
                 if (r[12] && r[12] !== '---') {
@@ -1669,6 +1733,7 @@
                                 if (price > 0) {
                                     const yKey = customKey ? `${customKey}|${normStr(baseDesc)}` : null;
                                     addGroup('YARD', baseDesc + sizeHtml + locHtml, price, rQty, price * rQty, yKey);
+                                    rowBilledTotal += price * rQty;
                                 }
                             });
                             parsed = true;
@@ -1682,19 +1747,33 @@
                     const uCost = rYard / rQty;
                     const yKey = customKey ? `${customKey}|${normStr(yardServiceName)}` : null;
                     addGroup('YARD', yardServiceName + sizeHtml + locHtml, uCost, rQty, rYard, yKey);
+                    rowBilledTotal += rYard;
                 }
             }
-            if (incSales && (fService === '' || fService === 'SALES') && rSales > 0 && r[43] === 'YES') {
+            if (incSales && (fService === '' || fService === 'SALES') && shouldInvoiceRowService(r, 'SALES', includePaidSales)) {
                 const uCost = rSales / rQty;
                 addGroup('SALES', grpSalesTrans, uCost, rQty, rSales, customKey);
+                rowBilledTotal += rSales;
             }
-            if (incStorage && (fService === '' || fService === 'STORAGE') && rStorage > 0) {
+            if (incStorage && (fService === '' || fService === 'STORAGE') && shouldInvoiceRowService(r, 'STORAGE', includePaidStorage)) {
                 addGroup('STORAGE', grpYardStorageRent, rStorage, 1, rStorage, customKey);
+                rowBilledTotal += rStorage;
             }
-            if (incRent && (fService === '' || fService === 'RENT') && rRent > 0) {
+            if (incRent && (fService === '' || fService === 'RENT') && rRent > 0 && shouldInvoiceRowService(r, 'RENT', includePaidRent)) {
                 const sizeHtml = size ? ` <span style="color:#64748b;">(${size})</span>` : '';
                 const rKey = customKey ? `${customKey}|CONTAINER_RENTAL` : null;
                 addGroup('RENT', 'CONTAINER RENTAL' + sizeHtml + locHtml, rRent, 1, rRent, rKey);
+                rowBilledTotal += rRent;
+            }
+
+            // Tax is charged only on what this invoice is actually billing
+            const rowTakesTax = r[49] === true || r[49] === 'true' || r[49] === 'YES' || r[49] === 'on' || r[49] === 1;
+            if (rowTakesTax && r[52] !== 'PAID' && rowBilledTotal > 0) {
+                const pct = parseFloat(r[50]) || 0;
+                if (pct > 0) {
+                    invoiceTaxTotal += (rowBilledTotal * pct) / 100;
+                    invoiceTaxPct = pct;
+                }
             }
         });
 
@@ -1782,6 +1861,23 @@
         renderService('STORAGE', 'STORAGE SERVICE', 'STOR');
         renderService('RENT', 'CONTAINER RENTAL', 'RENT');
 
+        const subtotalRow = document.getElementById('mb-subtotal-row');
+        const taxRow = document.getElementById('mb-tax-row');
+        if (invoiceTaxTotal > 0.004) {
+            const subtotalEl = document.getElementById('mb-subtotal');
+            if (subtotalEl) subtotalEl.textContent = `$${grandTotal.toFixed(2)}`;
+            const taxRateEl = document.getElementById('mb-tax-rate');
+            if (taxRateEl) taxRateEl.textContent = `${invoiceTaxPct}`;
+            const taxAmtEl = document.getElementById('mb-tax-amount');
+            if (taxAmtEl) taxAmtEl.textContent = `$${invoiceTaxTotal.toFixed(2)}`;
+            if (subtotalRow) subtotalRow.style.display = 'flex';
+            if (taxRow) taxRow.style.display = 'flex';
+            grandTotal += invoiceTaxTotal;
+        } else {
+            if (subtotalRow) subtotalRow.style.display = 'none';
+            if (taxRow) taxRow.style.display = 'none';
+        }
+
         document.getElementById('mb-total').textContent = `${grandTotal.toFixed(2)}`;
 
         if (activeServices > 1) {
@@ -1826,6 +1922,10 @@
                 const invNo = window.currentMasterInvoiceNo || 'INV';
                 const totalText = document.getElementById('mb-total')?.textContent || '0';
                 const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
+                if (totalNum <= 0) {
+                    alert('Esta factura no tiene monto a cobrar. Todos los servicios seleccionados ya están pagados.');
+                    return;
+                }
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
                 const tripIds = (window.currentBillingOrderRows || []).map(r => r[0]).filter(Boolean);
                 
@@ -1840,11 +1940,13 @@
                 svcFilter += `|GROUP:${groupByVal}`;
                 if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
                 
-                await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
-                
-                // Actualizar contadores y status localmente y en la base de datos para que se marque el check azul
-                const nowIso = new Date().toISOString();
-                
+                const savedToAr = await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                if (!savedToAr) {
+                    alert(`No se pudo guardar la factura ${invNo} en Accounts Receivable (el número ya existe o hubo un error).\n\nCambie el número de factura e intente de nuevo. Las órdenes NO fueron marcadas como facturadas.`);
+                    return;
+                }
+
+                // Mark services as invoiced in Billing. Last Sent is only written when the email actually goes out.
                 const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
                 const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
                 const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
@@ -1854,37 +1956,35 @@
                 for (const row of (window.currentBillingOrderRows || [])) {
                     const tripId = row[0];
                     if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
-                        const currentCount = parseInt(row[64]) || 0;
-                        const newCount = currentCount + 1;
+                        const billingRows = window.currentBillingOrderRows || [];
+                        const includePaidTrans = incTrans && !anyUnpaidBillingService(billingRows, 'TRANSPORT');
+                        const includePaidRent = incRent && !anyUnpaidBillingService(billingRows, 'RENT');
+                        const includePaidSales = incSales && !anyUnpaidBillingService(billingRows, 'SALES');
+                        const includePaidStorage = incStorage && !anyUnpaidBillingService(billingRows, 'STORAGE');
+                        const includePaidYard = incYard && !anyUnpaidBillingService(billingRows, 'YARD');
 
                         let invoiced = row[75] ? row[75].split(',') : [];
-                        if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
-                        if (incYard && (parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
-                        if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
-                        if (incRent && (parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
-                        if (incStorage && (parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+                        if (incTrans && shouldInvoiceRowService(row, 'TRANSPORT', includePaidTrans)) invoiced.push('TRANSPORT');
+                        if (incYard && shouldInvoiceRowService(row, 'YARD', includePaidYard)) invoiced.push('YARD');
+                        if (incSales && shouldInvoiceRowService(row, 'SALES', includePaidSales)) invoiced.push('SALES');
+                        if (incRent && shouldInvoiceRowService(row, 'RENT', includePaidRent)) invoiced.push('RENT');
+                        if (incStorage && shouldInvoiceRowService(row, 'STORAGE', includePaidStorage)) invoiced.push('STORAGE');
                         
                         invoiced = [...new Set(invoiced)].filter(Boolean);
                         const newInvoicedServices = invoiced.join(',');
 
                         await window.db.from('trips').update({
                             invoice_sent: 'YES',
-                            invoice_last_sent: nowIso,
-                            invoice_reminder_count: newCount,
                             invoiced_services: newInvoicedServices
                         }).eq('trip_id', tripId);
 
                         row[57] = 'YES';
-                        row[63] = nowIso;
-                        row[64] = newCount;
                         row[75] = newInvoicedServices;
 
                         if (window.allTripsUnfiltered) {
                             const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
                             if (ufRow) {
                                 ufRow[57] = 'YES';
-                                ufRow[63] = nowIso;
-                                ufRow[64] = newCount;
                                 ufRow[75] = newInvoicedServices;
                             }
                         }
@@ -2006,55 +2106,51 @@
                 const totalNum = parseFloat(totalText.replace(/[^0-9.-]+/g,"")) || 0;
                 const detailsHtml = document.getElementById('mb-services-container')?.innerHTML || '';
                 const tripIds = [singleRow[0]]; // Only this row
-                let svcFilter = document.getElementById('bc-f-service')?.value || '';
+
+                // Record exactly which services this invoice bills, so that collecting it
+                // later never settles a service the customer was not charged for.
+                const currentFilter = (document.getElementById('bc-f-service')?.value || '').trim();
+                const billedServices = (!currentFilter || currentFilter === 'ALL')
+                    ? ['TRANSPORT', 'YARD', 'SALES', 'RENT', 'STORAGE']
+                        .filter(s => shouldInvoiceRowService(singleRow, s, false))
+                    : (shouldInvoiceRowService(singleRow, currentFilter, false) ? [currentFilter] : []);
+
+                if (billedServices.length === 0) {
+                    console.warn('[Billing] Skipping bulk invoice: nothing left to bill for', singleRow[5]);
+                    continue;
+                }
+
+                let svcFilter = billedServices.join(',');
                 svcFilter += '|GROUP:ORDER';
                 if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
 
                 if (window.addInvoiceToReceivables) {
-                    await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                    const savedToAr = await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                    if (!savedToAr) {
+                        console.warn(`[Billing] Invoice ${invNo} was not stored in AR; leaving order ${singleRow[5]} as pending.`);
+                        continue;
+                    }
                 }
 
-                // Update row status locally and in DB
-                const nowIso = new Date().toISOString();
+                // Update row status locally and in DB (AR record only — not an email send)
                 const tripId = singleRow[0];
-                if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
-                    const currentCount = parseInt(singleRow[64]) || 0;
-                    const newCount = currentCount + 1;
-                    
+                if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) { 
                     let invoiced = singleRow[75] ? singleRow[75].split(',') : [];
-                    // Here we assume it invoices everything since it's a bulk creation. Wait, we should probably check what the current filter is!
-                    // Wait, they asked for the same behavior. If they click "bulk create", they didn't even open the modal. So we should use the main table filter.
-                    const currentFilter = document.getElementById('bc-f-service')?.value || '';
-                    if (!currentFilter || currentFilter === 'ALL') {
-                        if (singleRow[42] === 'YES' && (parseFloat(singleRow[18]) || 0) > 0) invoiced.push('TRANSPORT');
-                        if ((parseFloat(singleRow[13]) || 0) > 0) invoiced.push('YARD');
-                        if (singleRow[43] === 'YES' && (parseFloat(singleRow[20]) || 0) > 0) invoiced.push('SALES');
-                        if ((parseFloat(singleRow[27]) || 0) > 0) invoiced.push('RENT');
-                        if ((parseFloat(singleRow[14]) || 0) > 0) invoiced.push('STORAGE');
-                    } else {
-                        if (!invoiced.includes(currentFilter)) invoiced.push(currentFilter);
-                    }
-                    invoiced = [...new Set(invoiced)].filter(Boolean);
+                    invoiced = [...new Set(invoiced.concat(billedServices))].filter(Boolean);
                     const newInvoicedServices = invoiced.join(',');
 
                     await window.db.from('trips').update({
                         invoice_sent: 'YES',
-                        invoice_last_sent: nowIso,
-                        invoice_reminder_count: newCount,
                         invoiced_services: newInvoicedServices
                     }).eq('trip_id', tripId);
 
                     singleRow[57] = 'YES';
-                    singleRow[63] = nowIso;
-                    singleRow[64] = newCount;
                     singleRow[75] = newInvoicedServices;
 
                     if (window.allTripsUnfiltered) {
                         const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
                         if (ufRow) {
                             ufRow[57] = 'YES';
-                            ufRow[63] = nowIso;
-                            ufRow[64] = newCount;
                             ufRow[75] = newInvoicedServices;
                         }
                     }

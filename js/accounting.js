@@ -201,17 +201,38 @@
                 if (cashLedgerRefs.has(inv.invoice_number)) {
                     if (inv.trip_ids) {
                         const tids = inv.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
-                        let sType = (inv.service_type || '').toUpperCase();
-                        
+
+                        // service_type looks like "TRANSPORT,SALES|GROUP:ORDER|COMPANY:RP_TULIPAN"
+                        const sTypeClean = (inv.service_type || '')
+                            .toUpperCase()
+                            .replace(/\|COMPANY:[^|]*/g, '')
+                            .split('|GROUP:')[0]
+                            .trim();
+                        const tokens = sTypeClean
+                            .split(/[,+/]+/)
+                            .map(s => s.trim())
+                            .filter(Boolean);
+
+                        const covered = new Set();
+                        let recognised = false;
+                        tokens.forEach(tok => {
+                            if (/TRANSPORT|TRANS|RATE/.test(tok)) { covered.add('TRANSPORT'); recognised = true; }
+                            if (/SALES|SALE/.test(tok)) { covered.add('SALES'); recognised = true; }
+                            if (/YARD|STORAGE|STOR/.test(tok)) { covered.add('YARD'); recognised = true; }
+                            // Rent is not part of this income loop, but it is a valid
+                            // service: seeing it must not trigger the "covers all" fallback.
+                            if (/RENT/.test(tok)) recognised = true;
+                        });
+                        // Only an unknown or empty service type means the invoice covered everything
+                        if (!recognised) {
+                            covered.add('SALES');
+                            covered.add('TRANSPORT');
+                            covered.add('YARD');
+                        }
+
                         tids.forEach(tid => {
                             if (!coveredServices[tid]) coveredServices[tid] = new Set();
-                            if (sType === 'ALL' || sType === '') {
-                                coveredServices[tid].add('SALES');
-                                coveredServices[tid].add('TRANSPORT');
-                                coveredServices[tid].add('YARD');
-                            } else {
-                                coveredServices[tid].add(sType);
-                            }
+                            covered.forEach(s => coveredServices[tid].add(s));
                         });
                     }
                 }

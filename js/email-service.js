@@ -553,22 +553,32 @@
 
             // Update every trip row that belongs to this order
             const tripIds = rows.map(r => r[0]).filter(Boolean);
+            const nowIso = new Date().toISOString();
 
             // Fire all updates in parallel
             await Promise.all(
-                tripIds.map(id =>
-                    db.from('trips').update({ invoice_sent: 'YES' }).eq('trip_id', id)
-                )
+                tripIds.map(id => {
+                    const local = (window.combinedBillingTrips || []).find(t => t[0] === id)
+                        || (window.currentTrips || []).find(t => t[0] === id);
+                    const newCount = (parseInt(local && local[64]) || 0) + 1;
+                    if (local) {
+                        local[57] = 'YES';
+                        local[63] = nowIso;
+                        local[64] = newCount;
+                    }
+                    const unfiltered = (window.allTripsUnfiltered || []).find(t => t[0] === id);
+                    if (unfiltered) {
+                        unfiltered[57] = 'YES';
+                        unfiltered[63] = nowIso;
+                        unfiltered[64] = newCount;
+                    }
+                    return db.from('trips').update({
+                        invoice_sent: 'YES',
+                        invoice_last_sent: nowIso,
+                        invoice_reminder_count: newCount
+                    }).eq('trip_id', id);
+                })
             );
-
-            // Sync local cache so the Billing table refreshes its badge immediately
-            tripIds.forEach(id => {
-                const localRow = (window.currentTrips || []).find(t => t[0] === id);
-                if (localRow) localRow[57] = 'YES';
-
-                const unfiltered = (window.allTripsUnfiltered || []).find(t => t[0] === id);
-                if (unfiltered) unfiltered[57] = 'YES';
-            });
 
             // Refresh the billing table badge if it is visible
             if (window.renderBillingTable) window.renderBillingTable();

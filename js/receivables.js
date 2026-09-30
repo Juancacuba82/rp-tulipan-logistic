@@ -91,30 +91,77 @@ function invoiceServiceKey(inv) {
     return '';
 }
 
+// Legacy invoices have no service_type, so the key falls back to the invoice
+// number prefix. Map those prefixes to real service names.
+const INVOICE_PREFIX_SERVICES = {
+    TRANS: 'TRANSPORT',
+    RATE: 'TRANSPORT',
+    SALE: 'SALES',
+    STOR: 'STORAGE',
+    YARD: 'YARD',
+    RENT: 'RENT',
+    AS: 'ALL',
+    INV: 'ALL'
+};
+
 function parseInvoiceServiceTokens(inv) {
     const key = invoiceServiceKey(inv);
     if (!key) return [];
     const upper = key.toUpperCase();
     if (upper === 'ALL' || upper === 'ALL SERVICES') return [];
-    return upper.split(/[,+/]+/).map(s => s.trim()).filter(Boolean);
+    return upper
+        .split(/[,+/]+/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(s => INVOICE_PREFIX_SERVICES[s] || s);
 }
 
+// Builds the set of payment flags an invoice settles.
+// Only the services the invoice actually billed are marked — never the whole order.
+// The tax flag and the global `paid` flag are decided later, once we know whether
+// every billable service on the trip ended up settled.
 function paidPatchForServiceTokens(tokens) {
-    const patch = { paid: true };
-    const knownHit = (tokens || []).some(t => /TRANSPORT|TRANS|RATE|YARD|SALES|RENT|STORAGE/.test(t));
-    const addAll = !tokens || !tokens.length || !knownHit;
-    const has = (name) => addAll || tokens.some(t => t === name || t.startsWith(name + ' '));
-    if (addAll || has('TRANSPORT') || has('TRANS') || (tokens || []).includes('RATE')) patch.st_rate = 'PAID';
+    const patch = {};
+    const list = tokens || [];
+    const knownHit = list.some(t => /TRANSPORT|TRANS|RATE|YARD|SALES|RENT|STORAGE/.test(t));
+    // An empty or explicitly "ALL" service type means the invoice covered everything.
+    const addAll = !list.length || list.some(t => t === 'ALL' || t === 'ALL SERVICES');
+    if (!addAll && !knownHit) {
+        // Unrecognised service type: settle nothing rather than wiping real debt.
+        console.warn('[Receivables] Unrecognised service type, no payment flags applied:', list);
+        return patch;
+    }
+    const has = (name) => addAll || list.some(t => t === name || t.startsWith(name + ' '));
+    if (addAll || has('TRANSPORT') || has('TRANS') || list.includes('RATE')) patch.st_rate = 'PAID';
     if (addAll || has('YARD')) patch.st_yard = 'PAID';
     if (addAll || has('SALES')) patch.st_sales = 'PAID';
     if (addAll || has('RENT') || has('RENTAL')) patch.st_rent = 'PAID';
-    if (addAll || has('STORAGE') || tokens.includes('YARD STORAGE')) {
-        patch.st_amount = 'PAID';
-        patch.st_rent = 'PAID';
+    // Storage shares the yard flag
+    if (addAll || has('STORAGE') || list.includes('YARD STORAGE')) {
         patch.st_yard = 'PAID';
     }
-    patch.st_tax = 'PAID';
     return patch;
+}
+
+// True when, after applying `patch`, no billable service on the trip is left unpaid.
+function tripFullySettledAfterPatch(tripRow, patch) {
+    if (!tripRow) return false;
+    const qty = parseInt(tripRow.qty) || 1;
+    const isPaidAfter = (col) => patch[col] === 'PAID' || tripRow[col] === 'PAID';
+
+    const hasTrans = (tripRow.has_trans === 'YES' || tripRow.has_trans === true)
+        && (parseFloat(tripRow.trans_pay) || 0) > 0;
+    const hasSales = (tripRow.has_sales === 'YES' || tripRow.has_sales === true)
+        && ((parseFloat(tripRow.sales_price) || 0) * qty) > 0;
+    const hasYard = (parseFloat(tripRow.yard_rate) || 0) > 0;
+    const hasRent = (tripRow.service_mode || '').toString().toUpperCase() === 'RENTAL INVOICE'
+        && (parseFloat(tripRow.monthly_rate) || 0) > 0;
+
+    if (hasTrans && !isPaidAfter('st_rate')) return false;
+    if (hasSales && !isPaidAfter('st_sales')) return false;
+    if (hasYard && !isPaidAfter('st_yard')) return false;
+    if (hasRent && !isPaidAfter('st_rent')) return false;
+    return true;
 }
 
 function applyPaidPatchToTripRow(local, patch) {
@@ -145,7 +192,7 @@ window.settleLinkedTripsFromReceivable = async function (invoiceRecord, writeOff
         const patch = { ...cols };
         try {
             const { data: tripRows } = await window.db.from('trips')
-                .select('note, service_mode, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax')
+                .select('note, service_mode, qty, has_trans, trans_pay, has_sales, sales_price, yard_rate, monthly_rate, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax')
                 .eq('trip_id', tid)
                 .limit(1);
             const tripRow = (tripRows && tripRows[0]) || null;
@@ -154,6 +201,20 @@ window.settleLinkedTripsFromReceivable = async function (invoiceRecord, writeOff
                 patch.st_rent = 'PAID';
                 if (writeOffReason) patch.note = ((tripRow && tripRow.note) ? tripRow.note : '') + reasonNote;
             }
+
+            // The tax and the order-level paid flag only close once every
+            // billable service on the order has been settled.
+            if (Object.keys(patch).length && tripFullySettledAfterPatch(tripRow, patch)) {
+                patch.st_tax = 'PAID';
+                patch.st_amount = 'PAID';
+                patch.paid = true;
+            }
+
+            if (!Object.keys(patch).length) {
+                console.warn('[Receivables] Nothing to settle for trip', tid);
+                continue;
+            }
+
             const alreadyPaid = tripRow &&
                 (!patch.st_yard || tripRow.st_yard === 'PAID') &&
                 (!patch.st_rent || tripRow.st_rent === 'PAID') &&
@@ -1022,8 +1083,10 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     };
 };
 
+// Returns true only when the invoice was actually stored in Accounts Receivable.
+// Callers must not mark orders as invoiced when this returns false.
 window.addInvoiceToReceivables = async function (customerName, invoiceNumber, totalAmount, detailsHtml = '', tripIds = [], serviceType = '', amountPaid = 0, paymentMethod = '', opts = {}) {
-    if (!customerName || !invoiceNumber || !totalAmount) return;
+    if (!customerName || !invoiceNumber || !totalAmount) return false;
     try {
         const customerUpper = customerName.trim().toUpperCase();
 
@@ -1034,8 +1097,8 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
             .or('is_deleted.eq.false,is_deleted.is.null');
 
         if (dupInvNo && dupInvNo.length > 0) {
-            console.log(`[Receivables] Anti-duplicate: Invoice ${invoiceNumber} is already recorded.`);
-            return;
+            console.warn(`[Receivables] Anti-duplicate: Invoice ${invoiceNumber} is already recorded.`);
+            return false;
         }
 
         // Build trip sync metadata
@@ -1048,7 +1111,7 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
         // Silent auto-invoices (rentals cycles) must only be created by admins
         if (opts.silent && !isAdminUser) {
             console.warn(`[Receivables] Skipping silent invoice ${invoiceNumber}: only admins can auto-create AR invoices.`);
-            return;
+            return false;
         }
 
         const insertPayload = {
@@ -1082,11 +1145,13 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
         if (!opts.silent) {
             await loadReceivables();
         }
+        return true;
     } catch (err) {
         console.error('[Receivables] Failed to add invoice to AR:', err);
         if (!opts || !opts.silent) {
             alert('Error al guardar en Accounts Receivable: ' + err.message);
         }
+        return false;
     }
 };
 

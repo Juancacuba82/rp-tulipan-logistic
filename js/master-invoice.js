@@ -238,17 +238,17 @@
             const yardRate = parseFloat(row[13]) || 0;
             const qty = parseInt(row[53]) || 1;
 
-            if (hasTrans) {
+            if (hasTrans && row[32] !== 'PAID') {
                 const price = parseFloat(row[18]) || 0;
                 addServiceRow(body, "TRANSPORT SERVICE", qty, price);
                 subtotal += (qty * price);
             }
-            if (hasSales) {
+            if (hasSales && row[33] !== 'PAID') {
                 const price = parseFloat(row[20]) || 0;
                 addServiceRow(body, "CONTAINER SALES", qty, price);
                 subtotal += (qty * price);
             }
-            if (yardRate > 0) {
+            if (yardRate > 0 && row[30] !== 'PAID') {
                 const desc = yardServiceDesc ? `ADDITIONAL CHARGE: ${yardServiceDesc}` : "ADDITIONAL CHARGE";
                 addServiceRow(body, desc, qty, yardRate);
                 subtotal += (qty * yardRate);

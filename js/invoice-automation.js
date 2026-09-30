@@ -241,7 +241,21 @@
         const invoiceNoToSave = window.currentMasterInvoiceNo;
         const totalNumToSave = parseFloat((document.getElementById('mb-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0;
         const detailsHtmlToSave = document.getElementById('mb-services-container')?.innerHTML || '';
-        let svcFilterToSave = document.getElementById('bc-f-service')?.value || '';
+        // Record the services this invoice actually bills. Falling back to the plain
+        // service filter can leave this empty, which would later settle the whole order.
+        const checkedServices = [];
+        if (document.getElementById('mb-svc-transport')?.checked) checkedServices.push('TRANSPORT');
+        if (document.getElementById('mb-svc-rent')?.checked) checkedServices.push('RENT');
+        if (document.getElementById('mb-svc-sales')?.checked) checkedServices.push('SALES');
+        if (document.getElementById('mb-svc-storage')?.checked) checkedServices.push('STORAGE');
+        if (document.getElementById('mb-svc-yard')?.checked) checkedServices.push('YARD');
+        const fallbackServices = window.shouldInvoiceRowService
+            ? ['TRANSPORT', 'RENT', 'SALES', 'STORAGE', 'YARD'].filter(s => window.shouldInvoiceRowService(row, s, false))
+            : [];
+        const billedList = checkedServices.length ? checkedServices : fallbackServices;
+        const groupByToSave = document.getElementById('mb-group-by-select')?.value || 'ORDER';
+        let svcFilterToSave = (billedList.join(',') || (document.getElementById('bc-f-service')?.value || ''))
+            + `|GROUP:${groupByToSave}`;
         if (window.appendBillingCompanyToSvcFilter) svcFilterToSave = window.appendBillingCompanyToSvcFilter(svcFilterToSave);
 
         // Open the billing detail modal silently (needed by generateMasterInvoiceBlob)
@@ -264,12 +278,28 @@
         const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
 
         let invoiced = row[75] ? row[75].split(',') : [];
-        
-        if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
-        if (incYard && (parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
-        if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
-        if (incRent && (parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
-        if (incStorage && (parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+        const shouldBill = window.shouldInvoiceRowService;
+        const unpaid = window.anyUnpaidBillingService;
+        const pack = [row];
+        const paidTrans = incTrans && unpaid && !unpaid(pack, 'TRANSPORT');
+        const paidYard = incYard && unpaid && !unpaid(pack, 'YARD');
+        const paidSales = incSales && unpaid && !unpaid(pack, 'SALES');
+        const paidRent = incRent && unpaid && !unpaid(pack, 'RENT');
+        const paidStorage = incStorage && unpaid && !unpaid(pack, 'STORAGE');
+
+        if (shouldBill) {
+            if (incTrans && shouldBill(row, 'TRANSPORT', paidTrans)) invoiced.push('TRANSPORT');
+            if (incYard && shouldBill(row, 'YARD', paidYard)) invoiced.push('YARD');
+            if (incSales && shouldBill(row, 'SALES', paidSales)) invoiced.push('SALES');
+            if (incRent && shouldBill(row, 'RENT', paidRent)) invoiced.push('RENT');
+            if (incStorage && shouldBill(row, 'STORAGE', paidStorage)) invoiced.push('STORAGE');
+        } else {
+            if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0 && row[32] !== 'PAID') invoiced.push('TRANSPORT');
+            if (incYard && (parseFloat(row[13]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('YARD');
+            if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0 && row[33] !== 'PAID') invoiced.push('SALES');
+            if (incRent && (parseFloat(row[27]) || 0) > 0 && row[31] !== 'PAID') invoiced.push('RENT');
+            if (incStorage && (parseFloat(row[14]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('STORAGE');
+        }
         
         invoiced = [...new Set(invoiced)].filter(Boolean);
         const newInvoicedServices = invoiced.join(',');
@@ -596,12 +626,27 @@
                     const newCount = currentCount + 1;
                     
                     let invoiced = row[75] ? row[75].split(',') : [];
-                    
-                    if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0) invoiced.push('TRANSPORT');
-                    if (incYard && (parseFloat(row[13]) || 0) > 0) invoiced.push('YARD');
-                    if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0) invoiced.push('SALES');
-                    if (incRent && (parseFloat(row[27]) || 0) > 0) invoiced.push('RENT');
-                    if (incStorage && (parseFloat(row[14]) || 0) > 0) invoiced.push('STORAGE');
+                    const shouldBill = window.shouldInvoiceRowService;
+                    const unpaidFn = window.anyUnpaidBillingService;
+                    const paidTrans = incTrans && unpaidFn && !unpaidFn(rows, 'TRANSPORT');
+                    const paidYard = incYard && unpaidFn && !unpaidFn(rows, 'YARD');
+                    const paidSales = incSales && unpaidFn && !unpaidFn(rows, 'SALES');
+                    const paidRent = incRent && unpaidFn && !unpaidFn(rows, 'RENT');
+                    const paidStorage = incStorage && unpaidFn && !unpaidFn(rows, 'STORAGE');
+
+                    if (shouldBill) {
+                        if (incTrans && shouldBill(row, 'TRANSPORT', paidTrans)) invoiced.push('TRANSPORT');
+                        if (incYard && shouldBill(row, 'YARD', paidYard)) invoiced.push('YARD');
+                        if (incSales && shouldBill(row, 'SALES', paidSales)) invoiced.push('SALES');
+                        if (incRent && shouldBill(row, 'RENT', paidRent)) invoiced.push('RENT');
+                        if (incStorage && shouldBill(row, 'STORAGE', paidStorage)) invoiced.push('STORAGE');
+                    } else {
+                        if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0 && row[32] !== 'PAID') invoiced.push('TRANSPORT');
+                        if (incYard && (parseFloat(row[13]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('YARD');
+                        if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0 && row[33] !== 'PAID') invoiced.push('SALES');
+                        if (incRent && (parseFloat(row[27]) || 0) > 0 && row[31] !== 'PAID') invoiced.push('RENT');
+                        if (incStorage && (parseFloat(row[14]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('STORAGE');
+                    }
                     
                     invoiced = [...new Set(invoiced)].filter(Boolean);
                     const newInvoicedServices = invoiced.join(',');
