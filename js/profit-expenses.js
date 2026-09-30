@@ -35,10 +35,9 @@
         };
 
         const OVERHEAD_CATEGORIES = new Set([
-            'utilities', 'taxes/licenses', 'insurance', 'payroll', 'rent',
-            'office/supplies', 'marketing/ads', 'professional services',
-            'yard rent', 'software & apps', 'office / yard supplies', 'tools',
-            'marketing', 'other expenses'
+            'utilities', 'taxes/licenses', 'payroll', 'rent',
+            'office/supplies', 'professional services',
+            'yard rent', 'software & apps', 'office / yard supplies', 'tools'
         ]);
 
         window.getExpenseProfitLineMeta = function (id) {
@@ -55,9 +54,10 @@
             const cat = (category || '').toString().trim().toLowerCase();
             const blob = `${category || ''} ${description || ''} ${note || ''}`.toUpperCase();
 
+            if (cat === 'other expenses' || cat === 'other') return '';
             if (OVERHEAD_CATEGORIES.has(cat)) return 'rpt_operating';
             if (cat === 'fuel' || cat === 'diesel') return 'rpt_transportation';
-            if (cat === 'commission') return 'rpt_sales';
+            if (cat === 'commission' || cat === 'marketing' || cat === 'marketing/ads') return 'rpt_sales';
             if (cat === 'driver payment') {
                 if (/\bCONTRACTOR\b|\bEXTERNAL\b|\b1099\b/i.test(blob)) return 'contractors';
                 return 'rpt_transportation';
@@ -134,6 +134,44 @@
             banner.style.display = n > 0 ? 'flex' : 'none';
         };
 
+        window.migrateMarketingExpensesToSales = async function () {
+            const rows = window.currentExpenses || [];
+            const ids = rows.filter(r => {
+                const cat = window.normalizeExpenseCategory
+                    ? window.normalizeExpenseCategory(r[1])
+                    : (r[1] || '');
+                if (String(cat).toUpperCase() !== 'MARKETING') return false;
+                const line = window.normalizeExpenseProfitLine
+                    ? window.normalizeExpenseProfitLine(r[7])
+                    : (r[7] || '').toString().trim();
+                return line !== 'rpt_sales';
+            }).map(r => r[5]).filter(Boolean);
+            if (!ids.length || typeof window.updateExpenseProfitLines !== 'function') return 0;
+            try {
+                const updated = await window.updateExpenseProfitLines(ids, 'rpt_sales');
+                const byId = new Map((updated || []).map(e => [e.id, e]));
+                window.currentExpenses = rows.map(row => {
+                    if (!ids.includes(row[5]) && !ids.includes(String(row[5]))) return row;
+                    const fresh = byId.get(row[5]) || byId.get(String(row[5]));
+                    if (fresh && window.mapExpenseToArray) return window.mapExpenseToArray(fresh);
+                    const copy = row.slice();
+                    copy[7] = 'rpt_sales';
+                    return copy;
+                });
+                renderExpensesHistory();
+                if (typeof window.renderExpenseProfitLineAssignList === 'function') {
+                    window.renderExpenseProfitLineAssignList();
+                }
+                if (typeof window.logActivity === 'function') {
+                    window.logActivity('UPDATED_RECORD', `[${new Date().toLocaleString()}] Migrated ${ids.length} MARKETING expense(s) to RP TULIPAN SALES`);
+                }
+                return ids.length;
+            } catch (err) {
+                console.warn('Marketing → Sales migrate skipped:', err);
+                return 0;
+            }
+        };
+
         async function loadExpensesData(force = false) {
             if (!force && window.currentExpenses && window.currentExpenses.length > 0) {
                 renderExpensesHistory();
@@ -148,6 +186,9 @@
                 renderExpensesHistory();
                 if (typeof window.refreshExpenseCategorySelects === 'function') window.refreshExpenseCategorySelects();
                 if (typeof window.fillExpenseProfitLineSelects === 'function') window.fillExpenseProfitLineSelects();
+                if (typeof window.migrateMarketingExpensesToSales === 'function') {
+                    await window.migrateMarketingExpensesToSales();
+                }
             } catch (err) {
                 console.error("Error loading expenses:", err);
             }
@@ -1571,7 +1612,7 @@
                 })
                 .map(r => r[5]);
             if (ids.length === 0) {
-                alert('No unassigned expenses match safe operating rules (Utilities, Taxes/Licenses, Insurance, Payroll).');
+                alert('No unassigned expenses match safe operating rules (Yard Rent, Payroll, Utilities, Software, Office/Yard Supplies, Tools).');
                 return;
             }
             if (!confirm(`Auto-assign ${ids.length} expense(s) to RP Tulipan Operating expenses?`)) return;

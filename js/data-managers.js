@@ -1390,6 +1390,7 @@
             rpt_sales: [
                 'COMMISSION',
                 'CONTAINERS SUPPLIES',
+                'MARKETING',
                 'OTHER EXPENSES'
             ],
             rpt_yard: [
@@ -1403,7 +1404,6 @@
                 'PAYROLL',
                 'OFFICE / YARD SUPPLIES',
                 'TOOLS',
-                'MARKETING',
                 'OTHER EXPENSES',
                 'UTILITIES'
             ],
@@ -1447,7 +1447,9 @@
             if (line === 'rpt_sales') {
                 const salesMap = {
                     'Commissions': 'COMMISSION',
-                    'Commission': 'COMMISSION'
+                    'Commission': 'COMMISSION',
+                    'Marketing/Ads': 'MARKETING',
+                    'Marketing': 'MARKETING'
                 };
                 if (salesMap[c]) return salesMap[c];
             }
@@ -1467,8 +1469,6 @@
                     'Payroll': 'PAYROLL',
                     'Admin Payroll': 'PAYROLL',
                     'Employee Payment': 'PAYROLL',
-                    'Marketing/Ads': 'MARKETING',
-                    'Marketing': 'MARKETING',
                     'Professional Services': 'OTHER EXPENSES',
                     'Profesional Service': 'OTHER EXPENSES',
                     'Office/Supplies': 'OFFICE / YARD SUPPLIES',
