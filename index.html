@@ -1282,6 +1282,10 @@
                     title="CASH LEDGER"
                     style="display:none; background:linear-gradient(135deg,#059669,#10b981); border-color:#059669;"><i
                         class="fas fa-coins"></i> LEDGER</button>
+                <button onclick="closeMenu(); handleLogout()" id="btn-logout-nav" class="btn-calendar btn-logout-nav"
+                    title="LOG OUT">
+                    <i class="fas fa-sign-out-alt"></i> LOGOUT
+                </button>
             </div>
 
             <button onclick="openEmailSettings()" id="btn-email-settings" class="btn-calendar"
@@ -7242,16 +7246,9 @@
                         header.classList.add('navbar-fixed-solid');
                         if (btnEmail) btnEmail.style.display = 'none';
 
-                        // Drivers keep Logout visible because they have space, but Clock In/Out are hidden for them
-                        if (normalizedRole === 'driver') {
-                            if (btnLogout) btnLogout.style.display = 'none';
-                            if (btnClockIn) btnClockIn.style.display = 'none';
-                            if (btnClockOut) btnClockOut.style.display = 'none';
-                        } else {
-                            if (btnLogout) btnLogout.style.display = 'none';
-                            if (btnClockIn) btnClockIn.style.display = 'none';
-                            if (btnClockOut) btnClockOut.style.display = 'none';
-                        }
+                        if (btnLogout) btnLogout.style.display = 'none';
+                        if (btnClockIn) btnClockIn.style.display = 'none';
+                        if (btnClockOut) btnClockOut.style.display = 'none';
                     }
 
                     if (navActions) {

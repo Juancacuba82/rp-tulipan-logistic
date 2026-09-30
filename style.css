@@ -201,6 +201,17 @@ main {
     border-width: 1px;
 }
 
+.nav-actions .btn-logout-nav {
+    background: #dc2626;
+    color: #fff;
+    border-color: #b91c1c;
+    font-weight: 800;
+}
+
+.nav-actions .btn-logout-nav:hover {
+    background: #b91c1c;
+}
+
 .btn-logout-header {
     background-color: #475569;
     color: white;
