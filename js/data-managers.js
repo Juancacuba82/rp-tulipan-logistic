@@ -620,7 +620,6 @@
         function refreshPickupAddressSelects() {
             const sideSel = document.getElementById('in-pickup-sel');
             const releaseSel = document.getElementById('rel-address');
-            const filterSel = document.getElementById('f-pickup');
 
             const populate = (sel) => {
                 if (!sel) return;
@@ -637,7 +636,6 @@
 
             populate(sideSel);
             populate(releaseSel);
-            populate(filterSel);
 
             // AUTO-SYNC DEPOT NAME: When selecting an address, show it in the DEPOT text field
             if (releaseSel && !releaseSel.dataset.listener) {
@@ -1034,7 +1032,6 @@
 
         function refreshStaffSelects() {
             const calSellerSel = document.getElementById('in-seller');
-            const calSellerFilter = document.getElementById('f-seller-cal');
 
             const populate = (sel, hasAll = false) => {
                 if (!sel) return;
@@ -1052,7 +1049,6 @@
             };
 
             populate(calSellerSel);
-            populate(calSellerFilter, true);
         }
 
         function renderSellerManagerList() {
