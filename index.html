@@ -4722,13 +4722,19 @@
                             </td>
                             <td style="width:40%; vertical-align:top; text-align:right; padding:0 0 20px 0;">
                                 <div style="margin:0 0 5px;color:#000;font-size:0.85rem;font-weight:bold;">Date: <span id="mb-date-display" style="font-weight:normal;">---</span></div>
-                                <div style="margin:0 0 5px;color:#1e293b;font-size:1.1rem;font-weight:900;display:flex;align-items:center;justify-content:flex-end;gap:5px;">
+                                <div style="margin:0 0 5px;color:#1e293b;font-size:1.1rem;font-weight:900;display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap;">
                                     Invoice #: 
                                     <span id="mb-invoice-number" 
                                         contenteditable="true"
                                         style="font-size:1.1rem;font-weight:900;color:#1e293b;border-bottom:1px dashed #94a3b8;min-width:150px;text-align:right;outline:none;padding:2px 5px;cursor:text;" 
-                                        onblur="window.currentMasterInvoiceNo = this.innerText.trim()"
+                                        onblur="window.currentMasterInvoiceNo = this.innerText.trim(); if (window.updateMasterInvoiceOrderNoButton) window.updateMasterInvoiceOrderNoButton();"
                                         oninput="window.currentMasterInvoiceNo = this.innerText.trim()">---</span>
+                                </div>
+                                <div style="margin:0 0 8px; display:flex; justify-content:flex-end;">
+                                    <button type="button" id="mb-btn-use-order-no" onclick="window.toggleMasterInvoiceUsesOrderNo()"
+                                        style="font-size:0.7rem;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#1e293b;cursor:pointer;">
+                                        Use Order #
+                                    </button>
                                 </div>
                                 <div id="mb-period-container" style="margin:0 0 5px;color:#000;font-size:0.85rem;display:none;font-weight:bold;">Period: <span id="mb-period-display" style="font-weight:normal;">---</span></div>
                                 <div id="mb-containers-container" style="margin:0 0 5px;color:#000;font-size:0.85rem;display:none;font-weight:bold;">Total Containers: <span id="mb-containers-display" style="font-weight:normal;">0</span></div>

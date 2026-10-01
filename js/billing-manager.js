@@ -1885,7 +1885,11 @@
         }
 
         const uniqueNum = Math.floor(100000 + Math.random() * 900000);
-        const invoiceNo = overrideInvoiceNo || `${prefix}-${uniqueNum}`;
+        const generatedNo = `${prefix}-${uniqueNum}`;
+        if (!overrideInvoiceNo) {
+            window.currentMasterInvoiceRandomNo = generatedNo;
+        }
+        const invoiceNo = overrideInvoiceNo || generatedNo;
 
         const invoiceNoField = document.getElementById('mb-invoice-number');
         if (invoiceNoField) {
@@ -1893,12 +1897,81 @@
         }
         // Save the generated number globally so it can be retrieved if needed (e.g. for PDF)
         window.currentMasterInvoiceNo = invoiceNo;
+        if (typeof window.updateMasterInvoiceOrderNoButton === 'function') {
+            window.updateMasterInvoiceOrderNoButton();
+        }
 
         const modal = document.getElementById('master-billing-modal');
         if (modal) {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }
+    };
+
+    function getMasterBillingUniqueOrders(rows) {
+        return [...new Set(
+            (rows || [])
+                .map(r => (r[5] || '').toString().trim().toUpperCase())
+                .filter(o => o && o !== '---')
+        )];
+    }
+
+    window.updateMasterInvoiceOrderNoButton = function () {
+        const btn = document.getElementById('mb-btn-use-order-no');
+        if (!btn) return;
+        const canWrite = isBillingAdmin() && !window.isMasterBillingReadOnly;
+        const orders = getMasterBillingUniqueOrders(window.currentBillingOrderRows || []);
+        const single = orders.length === 1;
+        const current = (window.currentMasterInvoiceNo || '').toString().trim().toUpperCase();
+        const usingOrder = single && current === orders[0];
+
+        btn.style.display = 'inline-flex';
+        btn.style.alignItems = 'center';
+        btn.style.gap = '6px';
+
+        if (!canWrite) {
+            btn.disabled = true;
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            btn.title = 'Invoice number cannot be changed on this preview.';
+            btn.innerHTML = '<i class="fas fa-exchange-alt"></i> Use Order #';
+            return;
+        }
+
+        if (!single) {
+            btn.disabled = true;
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            btn.title = orders.length === 0
+                ? 'Cannot use order number: this invoice has no order #.'
+                : `Cannot use order number: this invoice includes ${orders.length} orders.`;
+            btn.innerHTML = '<i class="fas fa-ban"></i> Use Order #';
+            return;
+        }
+
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        if (usingOrder) {
+            btn.title = 'Switch back to the random invoice number';
+            btn.innerHTML = '<i class="fas fa-random"></i> Use Random #';
+        } else {
+            btn.title = `Use order number ${orders[0]} as invoice #`;
+            btn.innerHTML = '<i class="fas fa-exchange-alt"></i> Use Order #';
+        }
+    };
+
+    window.toggleMasterInvoiceUsesOrderNo = function () {
+        const orders = getMasterBillingUniqueOrders(window.currentBillingOrderRows || []);
+        if (orders.length !== 1) return;
+        const el = document.getElementById('mb-invoice-number');
+        const current = (window.currentMasterInvoiceNo || el?.innerText || '').toString().trim().toUpperCase();
+        const next = current === orders[0]
+            ? (window.currentMasterInvoiceRandomNo || current)
+            : orders[0];
+        window.currentMasterInvoiceNo = next;
+        if (el) el.textContent = next;
+        window.updateMasterInvoiceOrderNoButton();
     };
 
     window.createMasterInvoiceRecordOnly = async function(event) {
