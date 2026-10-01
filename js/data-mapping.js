@@ -135,7 +135,9 @@
                 t.amount_cash_amt || 0,         // 72  NEW — Split amount cash for amount
                 t.amount_bank_amt || 0,         // 73  NEW — Split amount bank for amount
                 t.deduct_stock !== null && t.deduct_stock !== undefined ? t.deduct_stock : null, // 74 — Manual deduct stock toggle (null = use backward compat logic)
-                t.invoiced_services || null     // 75 — Invoiced Services
+                t.invoiced_services || null,    // 75 — Invoiced Services
+                t.cash_collector || '',         // 76 — office | driver
+                parseFloat(t.driver_cash_held) || 0 // 77 — open cash still with driver
             ];
         }
 
@@ -214,7 +216,9 @@
                 amount_cash_amt: parseFloat(row[72]) || 0,
                 amount_bank_amt: parseFloat(row[73]) || 0,
                 deduct_stock: row[74] !== null && row[74] !== undefined ? (row[74] === true || row[74] === 'true') : null,
-                invoiced_services: row[75] || null
+                invoiced_services: row[75] || null,
+                cash_collector: row[76] || 'office',
+                driver_cash_held: parseFloat(row[77]) || 0
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB

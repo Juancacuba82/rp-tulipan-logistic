@@ -87,36 +87,34 @@
                     const grossInput = document.getElementById('calc-gross');
 
                     if (selectedIndices.size === 0) {
-                        // Only reset to 0 if NOT in edit mode
                         if (!editingSettlementId) {
-                            if (cashCollInput) cashCollInput.value = "0";
                             if (grossInput) grossInput.value = "0";
-                            if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                            const drvSel = document.getElementById('filter-search');
+                            const drvName = drvSel?.options[drvSel.selectedIndex]?.text || drvSel?.value;
+                            if (window.syncCalculatorFromDriverWallet) window.syncCalculatorFromDriverWallet(drvName);
+                            else if (window.updateWeeklyCalc) window.updateWeeklyCalc();
                         }
                         return;
                     }
 
-                    let totalPaidDriverGross = 0; // Sum of raw Paid Driver (Index 24)
-                    let totalAdjustedCommission = 0; // Contractor (100%) or RP/JR (30%)
+                    let totalPaidDriverGross = 0;
+                    let totalAdjustedCommission = 0;
                     let totalCash = 0;
 
                     selectedIndices.forEach(idx => {
                         const r = filtered[idx];
                         const grossVal = (parseFloat(r[24]) || 0) * (parseInt(r[53]) || 1);
-                        const company = (r[16] || '').trim().toUpperCase(); // CORRECT INDEX: baseValues[15] is rowData[16]
+                        const company = (r[16] || '').trim().toUpperCase();
 
                         totalPaidDriverGross += grossVal;
 
-                        // Apply 30% logic based on Company
                         if (company === 'RP TULIPAN' || company === 'JR SUPER CRANE') {
                             totalAdjustedCommission += grossVal * 0.3;
                         } else {
-                            totalAdjustedCommission += grossVal; // Contractors get 100%
+                            totalAdjustedCommission += grossVal;
                         }
 
-                        if (r[34] === 'PAID') { 
-                            totalCash += parseFloat(r[22]) || 0; // Amount is Index 22
-                        }
+                        totalCash += window.getTripOpenHold ? window.getTripOpenHold(r) : ((r[34] === 'PAID') ? (parseFloat(r[22]) || 0) : 0);
                     });
 
                     // SYNC WITH CALCULATOR
@@ -124,12 +122,15 @@
                     const calcCashColl = document.getElementById('calc-cash-coll');
                     
                     if (calcGross) {
-                        // REQUIREMENT: Gross Amount field shows 100% of the sum
                         calcGross.value = totalPaidDriverGross.toFixed(2);
-                        // We store the Adjusted Commission base as a hidden attribute for math
                         calcGross.dataset.adjusted = totalAdjustedCommission.toFixed(2);
                     }
-                    if (calcCashColl) calcCashColl.value = totalCash.toFixed(2);
+                    // Cash Collected comes from the driver wallet, not from Amount PAID rows
+                    const drvName = document.getElementById('filter-search')?.options[document.getElementById('filter-search')?.selectedIndex]?.text
+                        || document.getElementById('filter-search')?.value;
+                    if (calcCashColl && window.getDriverWallet && !editingSettlementId) {
+                        calcCashColl.value = window.getDriverWallet(drvName).toFixed(2);
+                    }
 
                     // Trigger the math for Balance and Driver Salary results
                     if (window.updateWeeklyCalc) window.updateWeeklyCalc();
@@ -146,8 +147,6 @@
                         <td>$${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     `;
 
-                    // Update Main Calculator Inputs
-                    if (cashCollInput) cashCollInput.value = totalCash.toFixed(2);
                     if (window.updateWeeklyCalc) window.updateWeeklyCalc();
 
                     // Insert after the last selected actual row in the DOM
@@ -164,14 +163,12 @@
 
                 // Render simple flat list of 11 columns
                 currentFilteredRows = filtered;
-                window.currentFilteredRowsDriver = filtered; // Expose for driver confirmation total
-                const isAdminView = (window.currentUserRole === 'admin');
+                window.currentFilteredRowsDriver = filtered;
                 const fragment = document.createDocumentFragment();
                 filtered.forEach((r, idx) => {
                     const tr = document.createElement('tr');
                     tr.style.cursor = 'pointer';
                     tr.onclick = (e) => {
-                        if (e.target.closest('.cash-edit-btn')) return; // don't select when clicking edit
                         if (selectedIndices.has(idx)) {
                             selectedIndices.delete(idx);
                             tr.classList.remove('selected-row');
@@ -199,20 +196,11 @@
 
                         // Cash column: show value with inline edit button for admin
                         if (i === 10) { 
-                            const isCashMarked = (r[34] === 'PAID');
-                            const cashVal = isCashMarked ? parseFloat(r[22] || 0) : 0;
-                            
-                            if (isAdminView && isCashMarked) {
-                                td.innerHTML = `
-                                    <span style="display:flex; align-items:center; gap:6px;">
-                                        <span class="cash-display-${tripId}" style="font-weight:700;">$${cashVal.toFixed(2)}</span>
-                                        <button class="cash-edit-btn" onclick="window.editTripCash('${tripId}', ${cashVal})"
-                                            style="background:#e0f2fe; border:none; color:#0284c7; border-radius:4px; padding:2px 6px; cursor:pointer; font-size:0.7rem; font-weight:700;">
-                                            <i class='fas fa-pen'></i>
-                                        </button>
-                                    </span>`;
-                            } else {
-                                td.textContent = isCashMarked ? `$${cashVal.toFixed(2)}` : '---';
+                            const cashVal = window.getTripOpenHold ? window.getTripOpenHold(r) : 0;
+                            td.textContent = cashVal > 0.009 ? `$${cashVal.toFixed(2)}` : '---';
+                            if (cashVal > 0.009) {
+                                td.style.fontWeight = '700';
+                                td.style.color = '#d97706';
                             }
                             tr.appendChild(td);
                             return;
@@ -244,48 +232,9 @@
 
                 // Check if this driver/week was already confirmed and color rows
                 window.checkAndColorConfirmedTrips();
+                if (window.refreshDriverCashSurfaces) window.refreshDriverCashSurfaces();
             }
         }
-
-        // --- INLINE CASH EDITOR (Admin only) ---
-        window.editTripCash = async function(tripId, currentVal) {
-            const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot modify cash records.");
-                return;
-            }
-            if (window.currentUserRole !== 'admin') return;
-
-            const newValStr = prompt(
-                `Edit cash received for this trip:\n(Current: $${parseFloat(currentVal).toFixed(2)})\n\nEnter new amount (0 if already fully collected):`,
-                parseFloat(currentVal).toFixed(2)
-            );
-            if (newValStr === null) return; // cancelled
-
-            const newVal = parseFloat(newValStr);
-            if (isNaN(newVal) || newVal < 0) {
-                alert('Please enter a valid number (0 or greater).');
-                return;
-            }
-
-            try {
-                const { error } = await db.from('trips').update({ amount: newVal }).eq('trip_id', tripId);
-                if (error) throw error;
-
-                // Update in-memory data so the UI reflects the change instantly
-                if (window.currentTrips) {
-                    const tripRow = window.currentTrips.find(t => t[0] === tripId);
-                    if (tripRow) tripRow[22] = newVal;
-                }
-
-                // Update the displayed cash value in the cell without full re-render
-                const displaySpan = document.querySelector(`.cash-display-${tripId}`);
-                if (displaySpan) displaySpan.textContent = `$${newVal.toFixed(2)}`;
-            } catch (err) {
-                console.error('Error updating cash:', err);
-                alert('Failed to update: ' + err.message);
-            }
-        };
 
         window.updateNetPayInfo = function () {
             const elComp = document.getElementById('in-company');
@@ -539,6 +488,7 @@
             // Set editing ID FIRST — this prevents updateSelectionSummary from resetting
             // the calculator to 0 when renderDriverLog clears the selection
             editingSettlementId = id;
+            window.editingSettlementId = id;
 
             // --- Apply saved settlement values into the calculator IMMEDIATELY ---
             const elCashColl = document.getElementById('calc-cash-coll');
@@ -612,6 +562,7 @@
 
         window.resetSettlementEdit = function() {
             editingSettlementId = null;
+            window.editingSettlementId = null;
             
             const btnArchive = document.getElementById('btn-archive-settlement');
             const btnCancel = document.getElementById('btn-cancel-settlement-edit');
@@ -718,7 +669,9 @@
                 // --- AUTOMATION: Auto-load Last Week Balance from History ---
                 if (!editingSettlementId) {
                     const driverName = val.toUpperCase();
-                    // Find most recent settlement for this driver
+                    if (window.syncCalculatorFromDriverWallet) {
+                        window.syncCalculatorFromDriverWallet(driverName);
+                    } else {
                     const lastSettlement = window.currentSettlements.find(s => (s.driver_name || '').toUpperCase() === driverName);
                     const elLastBal = document.getElementById('calc-last-bal');
                     
@@ -729,8 +682,8 @@
                         } else {
                             elLastBal.value = 0;
                         }
-                        // Trigger recalculation
                         if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                    }
                     }
                 }
             } else {
@@ -798,7 +751,19 @@
                 ? `Are you sure you want to UPDATE this settlement for ${driverNameFinal}?`
                 : `Are you sure you want to ARCHIVE this settlement for ${driverNameFinal}?`;
 
-            if (!confirm(confirmMsg)) return;
+            if (confirmMsg && !confirm(confirmMsg)) return;
+
+            const liveWallet = window.getDriverWallet ? window.getDriverWallet(driverNameFinal) : 0;
+            if (!editingSettlementId && liveWallet > 0.01) {
+                const leftover = parseFloat(document.getElementById('res-cash-bal')?.dataset?.value) || 0;
+                const ok = confirm(
+                    `${driverNameFinal} tiene $${liveWallet.toFixed(2)} de la empresa.\n` +
+                    `Cash Collected en la calculadora: $${(parseFloat(document.getElementById('calc-cash-coll')?.value) || 0).toFixed(2)}\n\n` +
+                    `Al archivar se descuenta del salario. Lo que quede ($${Math.max(0, leftover).toFixed(2)}) sigue con el chofer.\n` +
+                    `Amount de las órdenes NO se borra.\n\n¿Continuar?`
+                );
+                if (!ok) return;
+            }
 
             // Calculator Data Capture
             const cashColl = parseFloat(document.getElementById('calc-cash-coll')?.value) || 0;
@@ -946,6 +911,16 @@
 
                 if (window.fetchHistory) await window.fetchHistory(true); 
                 if (window.loadExpensesData) await window.loadExpensesData(true);
+
+                const leftover = Math.max(0, cashAmountFinal);
+                if (window.reconcileDriverHoldsTo) {
+                    try {
+                        await window.reconcileDriverHoldsTo(driverNameFinal, leftover);
+                    } catch (holdErr) {
+                        console.warn('[DriverCash] Could not sync trip holds after settlement:', holdErr);
+                    }
+                }
+                if (window.refreshDriverCashSurfaces) window.refreshDriverCashSurfaces();
 
                 alert(editingSettlementId ? "Settlement Updated Successfully!" : "Archive & Expense Saved Successfully!");
                 resetSettlementEdit();

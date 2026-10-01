@@ -140,7 +140,7 @@
 
             // 1. Cargar Ingresos (Trips)
             const pTrips = window.db.from('trips')
-                .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt')
+                .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt, cash_collector, driver_cash_held')
                 .or('is_deleted.eq.false,is_deleted.is.null');
 
             // 2. Cargar Egresos (Expenses)
@@ -166,28 +166,45 @@
 
             const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger, resInvoices] = await Promise.all([pTrips, pExpenses, pReleases, pSettlements, pCashLedger, pInvoices]);
 
-            if (resTrips.error) console.error("Error trips:", resTrips.error);
+            if (resTrips.error) {
+                console.error("Error trips:", resTrips.error);
+                if (/cash_collector|driver_cash_held/i.test(resTrips.error.message || '')) {
+                    const retry = await window.db.from('trips')
+                        .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt')
+                        .or('is_deleted.eq.false,is_deleted.is.null');
+                    if (!retry.error) resTrips.data = retry.data;
+                }
+            }
             if (resExpenses.error) console.error("Error expenses:", resExpenses.error);
             if (resReleases.error) console.error("Error releases:", resReleases.error);
             if (resSettlements.error) console.error("Error settlements:", resSettlements.error);
             if (resCashLedger.error) console.error("Error cash_ledger:", resCashLedger.error);
             if (resInvoices.error) console.error("Error invoices:", resInvoices.error);
 
-            // Calcular Balance Real de Choferes
+            // Calcular Balance Real de Choferes — solo cash marcado "Cobrado por: Chofer"
             let driverWalletActual = 0;
-            if (resSettlements && resSettlements.data) {
-                const driverMap = {};
-                resSettlements.data.forEach(s => {
-                    const dName = s.driver_name || 'UNKNOWN';
-                    if (driverMap[dName] === undefined) {
-                        driverMap[dName] = parseFloat(s.cash_balance) || 0;
-                        if (driverMap[dName] > 0) {
-                            driverWalletActual += driverMap[dName];
-                        }
-                    }
+            const driverMap = {};
+            if (resTrips && resTrips.data && window.getHoldFromDbTrip) {
+                resTrips.data.forEach(t => {
+                    const h = window.getHoldFromDbTrip(t);
+                    if (h < 0.01) return;
+                    const dName = (t.driver || 'UNKNOWN').toString().trim().toUpperCase();
+                    if (!dName || dName === '---') return;
+                    driverMap[dName] = (driverMap[dName] || 0) + h;
                 });
-                window.driverWalletMap = driverMap;
             }
+            Object.keys(driverMap).forEach(d => {
+                driverMap[d] = Math.round((driverMap[d] || 0) * 100) / 100;
+            });
+            const memMap = (typeof window.getDriverWalletMap === 'function') ? window.getDriverWalletMap() : {};
+            Object.keys(memMap).forEach(d => {
+                if ((memMap[d] || 0) > (driverMap[d] || 0)) driverMap[d] = memMap[d];
+            });
+            driverWalletActual = 0;
+            Object.keys(driverMap).forEach(d => {
+                if (driverMap[d] > 0) driverWalletActual += driverMap[d];
+            });
+            window.driverWalletMap = driverMap;
             window.actualDriverWalletTotal = driverWalletActual;
 
             // --- Deduplicación de Pagos por Invoices ---
@@ -588,18 +605,44 @@
         };
     }
 
+    function prettyDriverName(name) {
+        return (name || '').toString().toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).trim();
+    }
+
+    function renderDriverWalletAlerts(term) {
+        const wrap = document.getElementById('acct-driver-alerts');
+        if (!wrap) return;
+        const driverMap = window.driverWalletMap || {};
+        const q = (term || '').toLowerCase();
+        const chips = Object.keys(driverMap)
+            .filter(d => (parseFloat(driverMap[d]) || 0) > 0.009)
+            .filter(d => !q || d.toLowerCase().includes(q))
+            .sort((a, b) => a.localeCompare(b))
+            .map(d => {
+                const amt = parseFloat(driverMap[d]) || 0;
+                const label = prettyDriverName(d);
+                return `<span style="display:inline-flex; align-items:center; gap:6px; background:#fffbeb; border:1px solid #fbbf24; color:#92400e; padding:5px 10px; border-radius:999px; font-size:0.78rem; font-weight:800; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
+                    <i class="fas fa-money-bill-wave"></i>
+                    ${label} tiene $${amt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} tuyos
+                </span>`;
+            });
+        wrap.innerHTML = chips.join('');
+        wrap.style.display = chips.length ? 'flex' : 'none';
+    }
+
     function updateSummaryCards(totals) {
         setText('acct-cash-balance',  fmt(totals.cashBalance));
         setText('acct-bank-balance',  fmt(totals.bankBalance));
         setText('acct-total-balance', fmt(totals.totalBalance));
-        setText('acct-driver-wallet', fmt(totals.driverWallet));
         setText('acct-cash-in',       '+' + fmt(totals.totalCashIn));
         setText('acct-cash-out',      '-' + fmt(totals.totalCashOut));
         setText('acct-bank-in',       '+' + fmt(totals.totalBankIn));
         setText('acct-bank-out',      '-' + fmt(totals.totalBankOut));
         setText('acct-tx-count',      getFilteredTransactions().length);
 
-        // Color balance totals
+        const searchInput = document.getElementById('acct-text-search');
+        renderDriverWalletAlerts(searchInput ? searchInput.value.trim() : '');
+
         colorBalance('acct-cash-balance',  totals.cashBalance);
         colorBalance('acct-bank-balance',  totals.bankBalance);
         colorBalance('acct-total-balance', totals.totalBalance);

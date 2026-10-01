@@ -421,6 +421,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     document.getElementById('in-deduct-stock')?.checked ?? true              // 74: deduct_stock
                 ];
 
+                const prevCashRow = (editingTripDbId && window.currentTrips)
+                    ? window.currentTrips.find(t => t[0] === editingTripDbId)
+                    : (editingIndex !== null && window.currentTrips ? window.currentTrips[editingIndex] : null);
+                if (window.applyDriverCashOnSave) window.applyDriverCashOnSave(rowData, prevCashRow);
+
                 const dbObj = mapArrayToTrip(rowData);
                 const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
                 const yardNotesPrefix = toYardDest === 'STORAGE' ? '[Storage Yard] ' : '';
@@ -483,7 +488,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const { trip_id: _ignoredId, ...masterPayload } = dbObj;
                 masterPayload.move_to_yard = isMoveToYard;
                 
-                await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
+                let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
+                if (masterErr && /cash_collector|driver_cash_held/i.test(masterErr.message || '')) {
+                    console.warn('[DriverCash] Missing columns — run supabase-driver-cash-wallet.sql', masterErr.message);
+                    delete masterPayload.cash_collector;
+                    delete masterPayload.driver_cash_held;
+                    const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
+                    masterErr = retry.error;
+                }
+                if (masterErr) throw masterErr;
 
                 // --- MANUALLY SYNC YARD STOCK ---
                 if (isMoveToYard && isFinalized) {
@@ -930,6 +943,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             });
             
             if (typeof restoreTripArchiveButtonUI === 'function') restoreTripArchiveButtonUI();
+            if (window.selectCashCollector) window.selectCashCollector('office');
+            if (window.resetSplitForms) window.resetSplitForms();
+            const officeAmt = document.getElementById('in-cash-office-amt');
+            const driverAmt = document.getElementById('in-cash-driver-amt');
+            if (officeAmt) officeAmt.value = '';
+            if (driverAmt) driverAmt.value = '';
+            if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();
         }
         window.startNewOrder = startNewOrder;
         window.resetForm = startNewOrder; // Alias for safety
@@ -1714,6 +1734,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (driverInput && expectedDriver && expectedDriver !== '---') {
                 driverInput.value = expectedDriver;
             }
+            if (window.fillCashSplitFromRow) {
+                window.fillCashSplitFromRow(rowData);
+            } else if (window.selectCashCollector) {
+                window.selectCashCollector((rowData[76] || '').toString().toLowerCase() === 'driver' ? 'driver' : 'office');
+            }
+            if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();
             setTripArchiveButton({ label: 'Update order', isUpdate: true, disabled: false, opacity: 1, title: 'Save changes to this trip' });
             if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
 
@@ -2238,6 +2264,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                         td.innerHTML = `${text} <i class="fas fa-check-double" style="color: ${iconColor}; opacity: ${iconOpacity}; margin-left: 5px; cursor: help;" title="${tooltip}"></i>`;
                                     } else {
                                         td.textContent = text;
+                                    }
+                                    const holdAmt = window.getTripOpenHold ? window.getTripOpenHold(rowData) : 0;
+                                    if (holdAmt > 0.01) {
+                                        td.innerHTML = (td.innerHTML || text) + ` <i class="fas fa-money-bill-wave" style="color:#d97706; margin-left:4px;" title="Chofer tiene $${holdAmt.toFixed(2)} de la empresa en esta orden"></i>`;
                                     }
                                 }
                             }

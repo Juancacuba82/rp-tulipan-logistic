@@ -23,16 +23,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=15"></script>
-    <script src="./js/data-mapping.js?v=14"></script>
+    <script src="./js/data-mapping.js?v=15"></script>
+    <script src="./js/driver-cash-wallet.js?v=4"></script>
     <script src="./js/realtime-sync.js?v=3" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1712" defer></script>
-    <script src="./js/delivery-calendar.js?v=1706" defer></script>
-    <script src="./js/driver-settlements.js?v=1702" defer></script>
+    <script src="./js/delivery-calendar.js?v=1708" defer></script>
+    <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1730" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1702" defer></script>
+    <script src="./js/docs-receipts.js?v=1704" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
@@ -40,7 +41,7 @@
     <script src="./js/billing-manager.js?v=24" defer></script>
     <script src="./js/invoice-automation.js?v=19" defer></script>
     <script src="./js/attendance.js?v=4" defer></script>
-    <script src="./js/accounting.js?v=102" defer></script>
+    <script src="./js/accounting.js?v=106" defer></script>
     <script src="./js/receivables.js?v=30" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
@@ -1875,7 +1876,7 @@
                                     <div class="input-paid-badges-group">
                                         <label class="input-paid-badge" title="Mark as paid">
                                             <input type="checkbox" id="in-ratepaid"
-                                                onchange="syncImmediate('st_rate', this.checked ? 'PAID' : 'PEND')">
+                                                onchange="syncImmediate('st_rate', this.checked ? 'PAID' : 'PEND'); if(window.refreshCashCollectorUi) refreshCashCollectorUi();">
                                             <span>PAID</span>
                                         </label>
                                         <select id="in-rate-pay-method" class="input-paid-badge"
@@ -1933,7 +1934,7 @@
                                             <div class="input-paid-badges-group">
                                                 <label class="input-paid-badge" title="Mark as paid">
                                                     <input type="checkbox" id="in-yardpaid"
-                                                        onchange="syncImmediate('st_yard', this.checked ? 'PAID' : 'PEND')">
+                                                        onchange="syncImmediate('st_yard', this.checked ? 'PAID' : 'PEND'); if(window.refreshCashCollectorUi) refreshCashCollectorUi();">
                                                     <span>PAID</span>
                                                 </label>
                                                 <select id="in-yard-pay-method" class="input-paid-badge"
@@ -1978,7 +1979,7 @@
                                     <div class="input-paid-badges-group">
                                         <label class="input-paid-badge" title="Mark as paid">
                                             <input type="checkbox" id="in-salespaid"
-                                                onchange="syncImmediate('st_sales', this.checked ? 'PAID' : 'PEND')">
+                                                onchange="syncImmediate('st_sales', this.checked ? 'PAID' : 'PEND'); if(window.refreshCashCollectorUi) refreshCashCollectorUi();">
                                             <span>PAID</span>
                                         </label>
                                         <select id="in-sales-pay-method" class="input-paid-badge"
@@ -2025,7 +2026,7 @@
                                     <div class="input-paid-badges-group">
                                         <label class="input-paid-badge" title="Mark as cash">
                                             <input type="checkbox" id="in-amountpaid"
-                                                onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING')">
+                                                onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING'); if(window.refreshCashCollectorUi) refreshCashCollectorUi();">
                                             <span>PAID</span>
                                         </label>
                                         <select id="in-amount-pay-method" class="input-paid-badge"
@@ -2047,6 +2048,38 @@
                                         oninput="window.updateSplitTotal('amount')">
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="form-group" id="cash-collector-box" style="display:none;">
+                            <label class="sidebar-label-btn" style="background:#d97706 !important; border-color:#d97706 !important;">Quién tiene el efectivo</label>
+                            <input type="hidden" id="in-cash-collector" value="office">
+                            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                <button type="button" id="cash-col-office" onclick="selectCashCollector('office')"
+                                    style="flex:1; padding:8px 6px; border-radius:8px; border:2px solid #10b981; background:#ecfdf5; color:#065f46; font-weight:800; font-size:0.7rem; cursor:pointer;">
+                                    TODO OFICINA
+                                </button>
+                                <button type="button" id="cash-col-driver" onclick="selectCashCollector('driver')"
+                                    style="flex:1; padding:8px 6px; border-radius:8px; border:2px solid #cbd5e1; background:white; color:#64748b; font-weight:800; font-size:0.7rem; cursor:pointer;">
+                                    TODO CHOFER
+                                </button>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <div style="flex:1;">
+                                    <label style="font-size:0.65rem; font-weight:800; color:#065f46; display:block; margin-bottom:4px;">CASH OFICINA / YO</label>
+                                    <input type="number" id="in-cash-office-amt" placeholder="0.00" step="0.01" value=""
+                                        oninput="window.onCashSplitInput('office')"
+                                        style="width:100%; padding:8px 10px; border:2px solid #10b981; border-radius:8px; font-weight:800;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size:0.65rem; font-weight:800; color:#92400e; display:block; margin-bottom:4px;">CASH CHOFER</label>
+                                    <input type="number" id="in-cash-driver-amt" placeholder="0.00" step="0.01" value=""
+                                        oninput="window.onCashSplitInput('driver')"
+                                        style="width:100%; padding:8px 10px; border:2px solid #d97706; border-radius:8px; font-weight:800;">
+                                </div>
+                            </div>
+                            <p id="cash-split-hint" style="margin:6px 0 0; font-size:0.7rem; color:#92400e; font-weight:700;">
+                                Ej: tú ya cobraste $250 y el chofer $200 → Oficina 250, Chofer 200. Solo Chofer entra a la billetera.
+                            </p>
                         </div>
 
                         <div class="form-group">
@@ -3538,6 +3571,10 @@
                                 <i class="fas fa-tasks"></i> SELECT ALL DISPLAYED
                             </button>
                         </div>
+                    </div>
+
+                    <div id="driver-cash-wallet-banner"
+                        style="display:none; align-items:center; gap:12px; background:#fffbeb; border:2px solid #d97706; border-radius:10px; padding:12px 16px; margin-bottom:12px; color:#92400e;">
                     </div>
 
                     <!-- Driver confirmed indicator - shown automatically by JS when driver confirmed this week -->
@@ -8849,6 +8886,7 @@
                     cashCheckbox.dispatchEvent(new Event('change'));
                 }
             }
+            if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();
         };
 
         window.updateSplitTotal = function (type) {
@@ -8865,6 +8903,7 @@
             if (typeof syncImmediate === 'function') {
                 syncImmediate(); // Try to sync
             }
+            if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();
         };
 
         window.resetSplitForms = function () {
@@ -8943,24 +8982,13 @@
             </div>
         </div>
 
-        <!-- ROW: TOTAL & CHOFERES -->
+        <!-- Avisos compactos: solo choferes con efectivo de la empresa -->
+        <div id="acct-driver-alerts" style="display:none; flex-wrap:wrap; gap:8px; margin:0 0 12px 0; align-items:center;"></div>
+
+        <!-- ROW: TOTAL EMPRESA -->
         <div id="acct-row-choferes" style="display:flex; gap:15px; margin-bottom:15px;">
-            <div style="flex:1;"></div> <!-- Empty left column -->
-
-            <div style="flex:1; display:flex; justify-content:center;">
-                <div class="acct-card acct-card-driver"
-                    style="width: 70%; min-width: 200px; max-width: 300px; text-align:center; margin:0;">
-                    <i class="fas fa-truck acct-card-icon"></i>
-                    <div class="acct-card-label">En la Calle (Choferes)</div>
-                    <div class="acct-card-value" id="acct-driver-wallet" style="color:#d97706;">$0.00</div>
-                    <div class="acct-card-sub" style="justify-content:center;">
-                        <span
-                            style="background:#fffbeb; color:#92400e; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700;">Efectivo
-                            en transito</span>
-                    </div>
-                </div>
-            </div>
-
+            <div style="flex:1;"></div>
+            <div style="flex:1;"></div>
             <div style="flex:1; display:flex;">
                 <div class="acct-card acct-card-total" id="acct-card-total-empresa"
                     style="flex:1; text-align:center; margin:0; width: 100%; box-sizing: border-box;">
