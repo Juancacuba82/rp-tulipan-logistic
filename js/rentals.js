@@ -322,9 +322,15 @@
             });
             const settled = covering.some(t => isTripCycleSettled(t, recvByTripId));
             if (settled) return;
+            if (covering.length) {
+                unpaid.push(c);
+                billedUnpaid += 1;
+                return;
+            }
+            // Finished rentals must not invent new unbilled cycles after return
+            if (status === 'FINISHED') return;
             unpaid.push(c);
-            if (covering.length) billedUnpaid += 1;
-            else unbilled.push(c);
+            unbilled.push(c);
         });
 
         const paymentStatus = unpaid.length ? 'PENDING' : 'PAID';
@@ -367,6 +373,8 @@
             ? window.isAdmin()
             : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
         if (!isAdminUser) return null;
+        const rentalStatus = (row.status || '').trim().toUpperCase();
+        if (rentalStatus && rentalStatus !== 'ACTIVE') return null;
         if (isRentalCycleInvoiced(row, cycle)) return null;
         const amount = parseFloat(row.base_price) || 0;
         if (amount <= 0) return null;
@@ -445,7 +453,7 @@
             let created = 0;
             for (const row of rows) {
                 const status = (row.status || '').trim().toUpperCase();
-                if (status && status !== 'ACTIVE' && status !== 'FINISHED') continue;
+                if (status !== 'ACTIVE') continue;
                 const prepaid = getPrepaidBalance(row, null, null);
                 const missing = prepaid.unbilled || [];
                 for (const cycle of missing) {
