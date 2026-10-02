@@ -26,6 +26,7 @@ async function loadReceivables() {
         if (error) throw error;
         window.receivablesData.invoices = data || [];
         window._recvSettlementMap = null;
+        window._recvLoadedOnce = true;
     } catch (err) {
         console.error('[Receivables] Error loading invoices:', err);
     }
@@ -176,6 +177,182 @@ function applyPaidPatchToTripRow(local, patch) {
     if (patch.note) local[25] = patch.note;
     return changed;
 }
+
+function applyUnpaidPatchToTripRow(local, patch) {
+    if (!local || !patch) return false;
+    const idxMap = { st_yard: 30, st_rent: 31, st_rate: 32, st_sales: 33, st_amount: 34, st_tax: 52 };
+    let changed = false;
+    Object.keys(idxMap).forEach(col => {
+        if (patch[col] && local[idxMap[col]] !== patch[col]) {
+            local[idxMap[col]] = patch[col];
+            changed = true;
+        }
+    });
+    return changed;
+}
+
+function invoiceLinksTrip(inv, tripId) {
+    if (!inv || !inv.trip_ids || !tripId) return false;
+    const want = String(tripId);
+    return inv.trip_ids.split(',').map(s => s.trim()).filter(Boolean).includes(want);
+}
+
+function invoiceStatusLabel(inv) {
+    if (!inv) return '';
+    const st = (inv.status || '').toLowerCase();
+    const method = (inv.payment_method || '').toString().toUpperCase();
+    if (st === 'written off' || method === 'WRITE-OFF') return 'WRITE-OFF';
+    if (st === 'paid') return 'PAGADA';
+    if (st === 'partial') return 'PARCIAL';
+    return 'ABIERTA';
+}
+
+window.getInvoicesForTrip = function (tripId) {
+    const list = (window.receivablesData && window.receivablesData.invoices) || [];
+    return list.filter(inv => invoiceLinksTrip(inv, tripId));
+};
+
+window.getTripArLockInfo = function (tripId) {
+    const invoices = typeof window.getInvoicesForTrip === 'function' ? window.getInvoicesForTrip(tripId) : [];
+    if (!tripId || !invoices.length) {
+        return { locked: false, open: false, invoices: [], banner: '', statusText: '' };
+    }
+    const open = invoices.filter(inv => !isHistoryInvoice(inv));
+    const nos = invoices.map(i => i.invoice_number || '—').join(', ');
+    let statusText = 'PAGADA';
+    if (open.length) {
+        statusText = open.some(i => (i.status || '').toLowerCase() === 'partial') ? 'PARCIAL' : 'ABIERTA';
+    } else if (invoices.some(i => invoiceStatusLabel(i) === 'WRITE-OFF')) {
+        statusText = 'WRITE-OFF';
+    }
+    return {
+        locked: true,
+        open: open.length > 0,
+        invoices,
+        invoiceNumber: invoices[0] && invoices[0].invoice_number,
+        statusText,
+        banner: `Factura ${nos} · ${statusText} · cobro y cambios de pagado solo en Account`
+    };
+};
+
+function arrayRowAsSettleTrip(row) {
+    if (!row) return null;
+    return {
+        qty: parseInt(row[53]) || 1,
+        has_trans: row[42],
+        trans_pay: row[18],
+        has_sales: row[43],
+        sales_price: row[20],
+        yard_rate: row[13],
+        monthly_rate: row[27],
+        service_mode: row[26],
+        st_yard: row[30],
+        st_rent: row[31],
+        st_rate: row[32],
+        st_sales: row[33],
+        st_amount: row[34],
+        st_tax: row[52]
+    };
+}
+
+function calendarHintForInvoice(inv) {
+    if (!inv || !inv.trip_ids) return '';
+    const ids = inv.trip_ids.split(',').map(s => s.trim()).filter(t => t && !t.startsWith('RENTAL_ID:'));
+    if (!ids.length) return '';
+    let settled = 0;
+    ids.forEach(tid => {
+        const row = findTripRowById(tid);
+        if (row && tripFullySettledAfterPatch(arrayRowAsSettleTrip(row), {})) settled += 1;
+    });
+    if (settled === ids.length) return 'Calendario: pagado';
+    if (settled > 0) return `Calendario: ${settled}/${ids.length} viajes pagados`;
+    return 'Calendario: pendiente';
+}
+
+function otherHistoryCoversFlag(tripId, flag, exceptInvId) {
+    const list = (window.receivablesData && window.receivablesData.invoices) || [];
+    return list.some(inv => {
+        if (String(inv.id) === String(exceptInvId)) return false;
+        if (!isHistoryInvoice(inv)) return false;
+        if (!invoiceLinksTrip(inv, tripId)) return false;
+        const tokens = parseInvoiceServiceTokens(inv);
+        const cols = paidPatchForServiceTokens(tokens);
+        if (flag === 'st_rent' && (isRentalReceivableInvoice(inv) || cols.st_rent === 'PAID')) return true;
+        return cols[flag] === 'PAID';
+    });
+}
+
+window.removeCashLedgerForInvoice = async function (invoiceNumber) {
+    if (!invoiceNumber || !window.db) return { count: 0, total: 0 };
+    const num = String(invoiceNumber);
+    const { data, error } = await window.db.from('cash_ledger')
+        .select('id, monto, referencia, descripcion')
+        .eq('referencia', num);
+    if (error) throw error;
+    const rows = data || [];
+    let total = 0;
+    for (const row of rows) {
+        total += parseFloat(row.monto) || 0;
+        const { error: delErr } = await window.db.from('cash_ledger').delete().eq('id', row.id);
+        if (delErr) throw delErr;
+    }
+    return { count: rows.length, total };
+};
+
+window.unsetLinkedTripsFromReceivable = async function (invoiceRecord, opts) {
+    if (!invoiceRecord || !invoiceRecord.trip_ids || !window.db) return;
+    const tripIdList = invoiceRecord.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
+    const normalTrips = tripIdList.filter(t => !t.startsWith('RENTAL_ID:'));
+    if (!normalTrips.length) return;
+
+    const tokens = parseInvoiceServiceTokens(invoiceRecord);
+    const cols = paidPatchForServiceTokens(tokens);
+    const svcType = (invoiceRecord.service_type || '').toUpperCase();
+
+    for (const tid of normalTrips) {
+        const unsetCols = { ...cols };
+        if (svcType.includes('RENTAL') || tokens.includes('RENT') || tokens.includes('RENTAL')) {
+            unsetCols.st_rent = 'PAID';
+        }
+        const patch = {};
+        ['st_yard', 'st_rent', 'st_rate', 'st_sales'].forEach(flag => {
+            if (unsetCols[flag] === 'PAID' && !otherHistoryCoversFlag(tid, flag, invoiceRecord.id)) {
+                patch[flag] = 'PEND';
+            }
+        });
+        try {
+            const { data: tripRows } = await window.db.from('trips')
+                .select('qty, has_trans, trans_pay, has_sales, sales_price, yard_rate, monthly_rate, service_mode, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax')
+                .eq('trip_id', tid)
+                .limit(1);
+            const tripRow = (tripRows && tripRows[0]) || null;
+            const after = tripRow ? { ...tripRow } : {};
+            Object.keys(patch).forEach(k => { after[k] = patch[k]; });
+            if (!tripFullySettledAfterPatch(after, {})) {
+                patch.st_tax = 'PEND';
+                patch.st_amount = 'PEND';
+                patch.paid = false;
+            }
+            if (Object.keys(patch).length) {
+                await window.db.from('trips').update(patch).eq('trip_id', tid);
+            }
+        } catch (e) {
+            console.warn('[Receivables] Could not unset trip', tid, e);
+        }
+        const applyLocal = (arr) => {
+            if (!arr) return;
+            const local = arr.find(t => String(t[0]) === String(tid));
+            applyUnpaidPatchToTripRow(local, patch);
+        };
+        applyLocal(window.currentTrips);
+        applyLocal(window.rentalInvoiceTrips);
+        applyLocal(window.combinedBillingTrips);
+        applyLocal(window.allTripsUnfiltered);
+    }
+    if (opts && opts.silent) return;
+    if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+    if (typeof window.applyAdvancedFilters === 'function') window.applyAdvancedFilters();
+};
 
 window.settleLinkedTripsFromReceivable = async function (invoiceRecord, writeOffReason, opts) {
     if (!invoiceRecord || !invoiceRecord.trip_ids || !window.db) return;
@@ -665,10 +842,12 @@ window.renderReceivables = function () {
                 const balance = totalAmt - amtPaid;
                 
                 const createdBy = inv.created_by ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:2px; font-weight:600;"><i class="fas fa-user" style="margin-right:3px;"></i>${inv.created_by}</div>` : '';
+                const calHint = calendarHintForInvoice(inv);
+                const calHintHtml = calHint ? `<div style="font-size:0.7rem; color:#0369a1; margin-top:3px; font-weight:700;">${calHint}</div>` : '';
                 
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700;">${displayInvNo}${orderNoExtracted}</td>
+                                <td style="padding:10px 0; font-weight:700;">${displayInvNo}${orderNoExtracted}${calHintHtml}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}${createdBy}</td>
                                 <td style="padding:10px 0; font-weight:700;">$${totalAmt.toFixed(2)}</td>
                                 <td style="padding:10px 0; font-weight:700; color:#10b981;">$${amtPaid.toFixed(2)}</td>
@@ -723,7 +902,7 @@ window.renderReceivables = function () {
                                 <th style="padding:8px 0;">DATE PAID</th>
                                 <th style="padding:8px 0;">METHOD</th>
                                 <th style="padding:8px 0; text-align:right;">AMOUNT</th>
-                                <th style="padding:8px 0; text-align:right; width:60px;">ACTION</th>
+                                <th style="padding:8px 0; text-align:right; width:140px;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -740,6 +919,8 @@ window.renderReceivables = function () {
 
                 const createdBy = inv.created_by ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:4px; font-weight:600;"><i class="fas fa-magic" style="margin-right:3px;"></i>Created: ${inv.created_by}</div>` : '';
                 const paidBy = inv.paid_by ? `<div style="font-size:0.65rem; color:#10b981; margin-top:2px; font-weight:600;"><i class="fas fa-check-circle" style="margin-right:3px;"></i>Paid: ${inv.paid_by}</div>` : '';
+                const calHint = calendarHintForInvoice(inv);
+                const calHintHtml = calHint ? `<div style="font-size:0.7rem; color:#0369a1; margin-top:3px; font-weight:700;">${calHint}</div>` : '';
 
                 const isWriteOff = (inv.status || '').toLowerCase() === 'written off'
                     || (inv.payment_method || '').toString().toUpperCase() === 'WRITE-OFF';
@@ -748,7 +929,7 @@ window.renderReceivables = function () {
 
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del>${orderNoExtracted}</td>
+                                <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del>${orderNoExtracted}${calHintHtml}</td>
                                 <td style="padding:10px 0; color:#64748b;">${d}${createdBy}${paidBy}</td>
                                 <td style="padding:10px 0;">
                                     <span style="background:${isWriteOff ? '#f3e8ff' : '#e0f2fe'}; color:${isWriteOff ? '#7c3aed' : '#0284c7'}; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${methodLabel}</span>
@@ -758,6 +939,9 @@ window.renderReceivables = function () {
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
+                                    ${isAdmin ? `<button class="glossy-dark-btn" style="height:30px; padding:0 12px; font-size:0.7rem;" onclick="revertReceivable('${inv.id}')" title="Revert payment">
+                                        Revertir
+                                    </button>` : ''}
                                     ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
                                     </button>` : ''}
@@ -1197,15 +1381,70 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
     }
 };
 
+window.revertReceivable = async function (id) {
+    const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+    if (!isAdmin) {
+        alert('Acceso denegado: Solo los administradores pueden revertir facturas.');
+        return;
+    }
+    const inv = (window.receivablesData.invoices || []).find(i => String(i.id) === String(id));
+    if (!inv) return;
+    const invNo = inv.invoice_number || '';
+    const isWriteOff = (inv.status || '').toLowerCase() === 'written off'
+        || (inv.payment_method || '').toString().toUpperCase() === 'WRITE-OFF';
+    const msg = isWriteOff
+        ? `Revertir ${invNo} a pendiente.\nNo hay cobro en caja (write-off). El viaje dejará de verse pagado por esta factura.`
+        : `Revertir ${invNo} a pendiente.\nSe quitará de caja el cobro de esta factura y el viaje volverá a pendiente de pago.`;
+    if (!confirm(msg)) return;
+    try {
+        let ledger = { count: 0, total: 0 };
+        if (!isWriteOff && typeof window.removeCashLedgerForInvoice === 'function') {
+            ledger = await window.removeCashLedgerForInvoice(invNo);
+        }
+        await window.unsetLinkedTripsFromReceivable(inv, { silent: true });
+        const { error } = await window.db.from('receivables_invoices').update({
+            status: 'PENDING',
+            amount_paid: 0,
+            payment_method: null,
+            paid_date: null,
+            paid_by: null
+        }).eq('id', id);
+        if (error) throw error;
+        if (window.logActivity) {
+            window.logActivity('UPDATED_RECORD', `[${new Date().toLocaleString()}] Revirtió factura ${invNo}. Caja: ${ledger.count} movimiento(s), $${(ledger.total || 0).toFixed(2)}`);
+        }
+        await loadReceivables();
+        renderReceivables();
+        if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+        if (typeof window.applyAdvancedFilters === 'function') window.applyAdvancedFilters();
+        alert(ledger.count
+            ? `Factura revertida. Se quitaron ${ledger.count} movimiento(s) de caja ($${(ledger.total || 0).toFixed(2)}).`
+            : 'Factura revertida a pendiente.');
+    } catch (err) {
+        console.error('[Receivables] Error reverting invoice:', err);
+        alert('No se pudo revertir: ' + err.message);
+    }
+};
+
 window.deleteReceivable = async function (id) {
     const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
     if (!isAdmin) {
         alert("Acceso denegado: Solo los administradores pueden eliminar registros.");
         return;
     }
-    if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
+    const inv = window.receivablesData.invoices.find(i => i.id === id);
+    const invNo = (inv && inv.invoice_number) || '';
+    const isWriteOff = inv && ((inv.status || '').toLowerCase() === 'written off'
+        || (inv.payment_method || '').toString().toUpperCase() === 'WRITE-OFF');
+    if (!confirm(`Eliminar factura ${invNo || ''}?\nSe quitará de caja el cobro ligado a esta factura (si existe) y el pagado del viaje que vino de ella.`)) return;
     try {
-        const inv = window.receivablesData.invoices.find(i => i.id === id);
+        let ledger = { count: 0, total: 0 };
+        if (inv && !isWriteOff && typeof window.removeCashLedgerForInvoice === 'function') {
+            ledger = await window.removeCashLedgerForInvoice(invNo);
+        }
+        if (inv && typeof window.unsetLinkedTripsFromReceivable === 'function') {
+            await window.unsetLinkedTripsFromReceivable(inv, { silent: true });
+        }
         const { error } = await window.db.from('receivables_invoices').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('id', id);
         if (error) throw error;
 
@@ -1222,8 +1461,16 @@ window.deleteReceivable = async function (id) {
         }
 
         console.log(`[Receivables] Invoice ${id} deleted.`);
+        if (window.logActivity) {
+            window.logActivity('DELETED_RECORD', `[${new Date().toLocaleString()}] Eliminó factura ${invNo}. Caja: ${ledger.count} movimiento(s), $${(ledger.total || 0).toFixed(2)}`);
+        }
         await loadReceivables();
         renderReceivables();
+        if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+        if (typeof window.applyAdvancedFilters === 'function') window.applyAdvancedFilters();
+        if (ledger.count) {
+            alert(`Factura eliminada. Se quitaron ${ledger.count} movimiento(s) de caja ($${(ledger.total || 0).toFixed(2)}).`);
+        }
     } catch (err) {
         console.error('[Receivables] Error deleting invoice:', err);
         alert('Failed to delete invoice: ' + err.message);

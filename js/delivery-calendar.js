@@ -56,6 +56,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 return;
             }
 
+            const paidFields = ['st_yard', 'st_rent', 'st_rate', 'st_sales', 'st_amount', 'st_tax'];
+            if (paidFields.includes(fieldName) && typeof window.getTripArLockInfo === 'function') {
+                const lock = window.getTripArLockInfo(tripId);
+                if (lock.locked) {
+                    alert(lock.banner || 'Esta orden tiene factura en Account. El pagado se cambia ahí.');
+                    if (typeof window.applyCalendarArLock === 'function') window.applyCalendarArLock(tripId);
+                    return;
+                }
+            }
+
             const updateData = {};
             updateData[fieldName] = value;
             if (fieldName === 'st_amount') updateData.paid = (value === 'PAID');
@@ -101,6 +111,73 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
         }
         window.syncImmediate = syncImmediate;
+
+        const CALENDAR_PAID_CHECK_IDS = ['in-yardpaid', 'in-rentpaid', 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-taxpaid'];
+
+        window.applyCalendarArLock = async function (tripId) {
+            const banner = document.getElementById('cal-ar-invoice-banner');
+            if (!tripId) {
+                CALENDAR_PAID_CHECK_IDS.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.disabled = false;
+                        el.title = 'Mark as paid';
+                    }
+                });
+                if (banner) {
+                    banner.style.display = 'none';
+                    banner.textContent = '';
+                }
+                return;
+            }
+            if (typeof window.loadReceivables === 'function' && !window._recvLoadedOnce) {
+                await window.loadReceivables();
+            }
+            const info = typeof window.getTripArLockInfo === 'function'
+                ? window.getTripArLockInfo(tripId)
+                : { locked: false, invoices: [] };
+            const row = (window.currentTrips || []).find(t => t && String(t[0]) === String(tripId));
+            const paidMap = {
+                'in-yardpaid': 30, 'in-rentpaid': 31, 'in-ratepaid': 32,
+                'in-salespaid': 33, 'in-amountpaid': 34, 'in-taxpaid': 52
+            };
+            CALENDAR_PAID_CHECK_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.disabled = !!info.locked;
+                el.title = info.locked ? (info.banner || 'Pagado se controla en Account') : 'Mark as paid';
+                if (row && paidMap[id] !== undefined) {
+                    el.checked = row[paidMap[id]] === 'PAID';
+                }
+            });
+            if (banner) {
+                if (info.invoices && info.invoices.length) {
+                    banner.style.display = 'block';
+                    banner.textContent = info.banner;
+                    banner.style.background = info.open ? '#fef2f2' : '#ecfdf5';
+                    banner.style.color = info.open ? '#991b1b' : '#166534';
+                    banner.style.border = info.open ? '1px solid #fecaca' : '1px solid #bbf7d0';
+                } else {
+                    banner.style.display = 'none';
+                    banner.textContent = '';
+                }
+            }
+        };
+
+        window.calendarArOrderCellHtml = function (orderText, tripId) {
+            const order = (orderText === undefined || orderText === null) ? '' : String(orderText);
+            const safe = order.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            let html = `<span class="cal-order-no" style="display:block;text-align:center;">${safe}</span>`;
+            if (tripId && typeof window.getTripArLockInfo === 'function') {
+                const arInfo = window.getTripArLockInfo(tripId);
+                if (arInfo && arInfo.invoices && arInfo.invoices.length) {
+                    const color = arInfo.open ? '#b91c1c' : '#15803d';
+                    const bg = arInfo.open ? '#fee2e2' : '#dcfce7';
+                    html += `<span class="cal-ar-badge" style="display:block;margin:3px auto 0;font-size:0.62rem;font-weight:800;padding:1px 6px;border-radius:999px;background:${bg};color:${color};width:fit-content;text-align:center;user-select:none;-webkit-user-select:none;">AR ${arInfo.statusText}</span>`;
+                }
+            }
+            return `<div class="cal-order-cell" style="display:flex;flex-direction:column;align-items:center;text-align:center;">${html}</div>`;
+        };
 
         let isSaving = false;
         async function addRow() {
@@ -370,11 +447,23 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const isSalesPaid = document.getElementById('in-salespaid').checked;
                 const isAmountPaid = document.getElementById('in-amountpaid')?.checked;
 
-                const stYard = isYardPaid ? 'PAID' : 'PEND';
-                const stRent = document.getElementById('in-rentpaid')?.checked ? 'PAID' : 'PEND';
-                const stRate = isRatePaid ? 'PAID' : 'PEND';
-                const stSales = isSalesPaid ? 'PAID' : 'PEND';
-                const stAmount = isAmountPaid ? 'PAID' : 'PEND';
+                let stYard = isYardPaid ? 'PAID' : 'PEND';
+                let stRent = document.getElementById('in-rentpaid')?.checked ? 'PAID' : 'PEND';
+                let stRate = isRatePaid ? 'PAID' : 'PEND';
+                let stSales = isSalesPaid ? 'PAID' : 'PEND';
+                let stAmount = isAmountPaid ? 'PAID' : 'PEND';
+                let stTaxVal = document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND';
+                const arLockSave = (editingTripDbId && typeof window.getTripArLockInfo === 'function')
+                    ? window.getTripArLockInfo(editingTripDbId) : { locked: false };
+                if (arLockSave.locked && editingIndex !== null && window.currentTrips[editingIndex]) {
+                    const prevPaid = window.currentTrips[editingIndex];
+                    stYard = prevPaid[30] || 'PEND';
+                    stRent = prevPaid[31] || 'PEND';
+                    stRate = prevPaid[32] || 'PEND';
+                    stSales = prevPaid[33] || 'PEND';
+                    stAmount = prevPaid[34] || 'PEND';
+                    stTaxVal = prevPaid[52] || 'PEND';
+                }
 
                 const baseValues = fields.map(id => document.getElementById(id)?.value || '---');
                 baseValues[1] = selectedSize || '---';
@@ -405,7 +494,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     selectedRelType, selectedRelCond,
                     document.getElementById('in-yard-cash').checked, document.getElementById('in-rate-cash').checked, document.getElementById('in-sales-cash').checked,
                     document.getElementById('in-showtax')?.checked || false, parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0,
-                    document.getElementById('in-hideamounts')?.checked || false, document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND',
+                    document.getElementById('in-hideamounts')?.checked || false, stTaxVal,
                     newQtyVal, existingSig, existingPhotos, existingSigDriver, 'NO',
                     containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard,
                     null, null, // indices 63-64: invoice_last_sent, invoice_reminder_count
@@ -950,6 +1039,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (officeAmt) officeAmt.value = '';
             if (driverAmt) driverAmt.value = '';
             if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();
+            if (typeof window.applyCalendarArLock === 'function') window.applyCalendarArLock(null);
         }
         window.startNewOrder = startNewOrder;
         window.resetForm = startNewOrder; // Alias for safety
@@ -1082,12 +1172,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             cells[cellIdx].style.color = '';
                         }
                     } else {
-                        // Check if it's the Action column (which shouldn't be overwritten with text)
-                        // Actually, cellIdx 25 is Action, displayData only has 0-24.
                         if (cellIdx < displayData.length) {
-                            cells[cellIdx].textContent = val;
                             cells[cellIdx].style.backgroundColor = '';
                             cells[cellIdx].style.color = '';
+                            if (cellIdx === 5 && typeof window.calendarArOrderCellHtml === 'function' && rowData[0]) {
+                                cells[cellIdx].innerHTML = window.calendarArOrderCellHtml(val, rowData[0]);
+                            } else {
+                                cells[cellIdx].textContent = val;
+                            }
                         }
                     }
                 }
@@ -1869,6 +1961,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (window.toggleTransport) window.toggleTransport();
             if (window.toggleSalesPrice) window.toggleSalesPrice();
 
+            if (typeof window.applyCalendarArLock === 'function') {
+                await window.applyCalendarArLock(editingTripDbId);
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1893,6 +1989,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
 
             isLoadingTable = true;
+            if (typeof window.loadReceivables === 'function' && !window._recvLoadedOnce) {
+                await window.loadReceivables();
+            }
 
             const logisticsBody = document.getElementById('table-body');
             if (!logisticsBody) { isLoadingTable = false; return; }
@@ -2158,6 +2257,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 }
                             } else {
                                 td.textContent = text;
+                            }
+
+                            if (i === 5 && typeof window.calendarArOrderCellHtml === 'function' && rowData[0]) {
+                                td.innerHTML = window.calendarArOrderCellHtml(text, rowData[0]);
                             }
 
                             // --- DUPLICATE CONTAINER WARNING UI ---

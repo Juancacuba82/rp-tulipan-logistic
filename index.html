@@ -28,7 +28,7 @@
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1712" defer></script>
-    <script src="./js/delivery-calendar.js?v=1708" defer></script>
+    <script src="./js/delivery-calendar.js?v=1712" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1730" defer></script>
@@ -42,7 +42,7 @@
     <script src="./js/invoice-automation.js?v=20" defer></script>
     <script src="./js/attendance.js?v=4" defer></script>
     <script src="./js/accounting.js?v=106" defer></script>
-    <script src="./js/receivables.js?v=30" defer></script>
+    <script src="./js/receivables.js?v=31" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
     <script src="./js/csv-import.js?v=10" defer></script>
@@ -1568,6 +1568,7 @@
                         </div>
                     </div>
                     <div class="sidebar-form trip-entry-form">
+                        <div id="cal-ar-invoice-banner" style="display:none; margin:0 0 10px; padding:10px 12px; border-radius:8px; font-size:0.8rem; font-weight:800; line-height:1.35;"></div>
                         <!-- Yard Services & Status Flags -->
                         <div class="form-group">
 
@@ -9255,8 +9256,11 @@
             if (i >= ths.length) break;
             const rawLabel = ths[i].textContent || ths[i].innerText || '';
             let label = rawLabel.trim();
-            const rawText = tds[i].textContent || tds[i].innerText || '';
-            const textToCopy = rawText.trim();
+            const orderEl = tds[i].querySelector('.cal-order-no');
+            const rawText = orderEl
+                ? (orderEl.textContent || '')
+                : (tds[i].textContent || tds[i].innerText || '');
+            const textToCopy = rawText.replace(/\s*AR\s+(ABIERTA|PAGADA|PARCIAL|WRITE-OFF)\s*$/i, '').trim();
             
             // Clean up label if it has sorting icons
             label = label.replace(/\n/g, '').replace(/\s+/g, ' ').trim();
