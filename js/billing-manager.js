@@ -42,6 +42,9 @@
         if (typeof window.loadRentalsData === 'function' && (!window.currentRentals || window.currentRentals.length === 0)) {
             await window.loadRentalsData();
         }
+        if (typeof window.loadYardData === 'function') {
+            await window.loadYardData();
+        }
 
         const body = document.getElementById('billing-table-body');
         if (body) {
@@ -1235,7 +1238,10 @@
         } else {
             dateObj = new Date();
         }
-        document.getElementById('yard-reprint-date').textContent = 'DATE: ' + window.formatDateMMDDYYYY(dateObj.toISOString());
+        const periodLine = (typeof window.formatYardStatementPeriod === 'function' && snapshot.dateFrom && snapshot.dateTo)
+            ? ('PERIOD: ' + window.formatYardStatementPeriod(snapshot.dateFrom, snapshot.dateTo))
+            : ('DATE: ' + window.formatDateMMDDYYYY(dateObj.toISOString()));
+        document.getElementById('yard-reprint-date').textContent = periodLine;
 
         document.getElementById('yard-reprint-title').textContent = 'Yard Statement Reprint - ' + row[5];
 
@@ -1298,7 +1304,7 @@
                     );
 
                     emailjs.init('iBpsYg-m4vWn5zP48'); // public key
-                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customer);
+                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customer, snapshot.dateFrom, snapshot.dateTo);
                     const templateParams = {
                         to_email: targetEmail,
                         customer_name: customer,

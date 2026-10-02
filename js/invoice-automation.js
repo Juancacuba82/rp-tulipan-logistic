@@ -417,7 +417,7 @@
                     const publicKey = localStorage.getItem('ejs_public_key');
                     emailjs.init(publicKey);
                     const { html, total } = window.generateYardInvoiceHTML(agg.items, d1, d2, false, null);
-                    const b64Pdf = await window.generateYardInvoiceBase64(html, agg.customer_name);
+                    const b64Pdf = await window.generateYardInvoiceBase64(html, agg.customer_name, d1, d2);
                     const templateParams = {
                         to_email: customerEmail,
                         customer_name: agg.customer_name,

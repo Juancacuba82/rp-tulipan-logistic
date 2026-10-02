@@ -1,9 +1,519 @@
-console.log('CRITICAL: Yard Stock JS v99 is active');
+console.log('CRITICAL: Yard Stock JS v120 is active');
 
 (function () {
     let currentYardStock = [];
     window.getYardStockData = () => currentYardStock;
+    window.yardInvoiceTrips = window.yardInvoiceTrips || [];
     let editingYardId = null;
+    let yardMonthInvoiceSync = null;
+
+    function isYardAdminUser() {
+        return typeof window.isAdmin === 'function'
+            ? window.isAdmin()
+            : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+    }
+
+    function isStorageYardItem(item) {
+        return (item && item.notes || '').includes('[Storage Yard]');
+    }
+
+    function isInternalYardCustomer(name) {
+        const n = (name || '').toString().toUpperCase()
+            .replace(/,/g, ' ')
+            .replace(/\bINC\.?\b/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!n) return false;
+        return n === 'RP TULIPAN TRANSPORT' || n === 'RP TULIPAN' || n.startsWith('RP TULIPAN TRANSPORT');
+    }
+
+    function toIsoDateLocal(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function fmtIsoMdY(iso) {
+        const p = (iso || '').split('-');
+        return p.length >= 3 ? `${p[1]}/${p[2]}/${p[0]}` : (iso || '');
+    }
+
+    function formatYardStatementPeriod(dateFrom, dateTo) {
+        const fmt = (iso) => {
+            if (!iso) return '';
+            if (window.formatDateMMDDYYYY) return window.formatDateMMDDYYYY(iso);
+            return fmtIsoMdY(String(iso).split('T')[0]);
+        };
+        if (dateFrom && dateTo) return `${fmt(dateFrom)} → ${fmt(dateTo)}`;
+        if (dateFrom) return fmt(dateFrom);
+        if (dateTo) return fmt(dateTo);
+        return '';
+    }
+    window.formatYardStatementPeriod = formatYardStatementPeriod;
+
+    function yardStatementPeriodLine(dateFrom, dateTo) {
+        const period = formatYardStatementPeriod(dateFrom, dateTo);
+        if (period) return `PERIOD: ${period}`;
+        return `DATE: ${window.formatDateMMDDYYYY ? window.formatDateMMDDYYYY(new Date().toISOString()) : ''}`;
+    }
+
+    function parseLocalIsoDate(str) {
+        if (!str || str === '---') return null;
+        const s = str.toString().trim();
+        if (s.includes('-')) {
+            const [y, m, d] = s.split('-').map(Number);
+            if (!y || !m || !d) return null;
+            return new Date(y, m - 1, d);
+        }
+        if (s.includes('/')) {
+            const [m, d, y] = s.split('/').map(Number);
+            if (!y || !m || !d) return null;
+            return new Date(y, m - 1, d);
+        }
+        return null;
+    }
+
+    function closedMonthRange(offsetFromLastClosed = 0) {
+        const now = new Date();
+        const lastClosed = new Date(now.getFullYear(), now.getMonth() - 1 - offsetFromLastClosed, 1);
+        const start = new Date(lastClosed.getFullYear(), lastClosed.getMonth(), 1);
+        const endExclusive = new Date(lastClosed.getFullYear(), lastClosed.getMonth() + 1, 1);
+        return {
+            dateFrom: toIsoDateLocal(start),
+            dateTo: toIsoDateLocal(endExclusive),
+            yyyymm: `${start.getFullYear()}${String(start.getMonth() + 1).padStart(2, '0')}`
+        };
+    }
+
+    function listClosedMonthsSince(earliestIso, maxMonths = 24) {
+        const months = [];
+        const earliest = parseLocalIsoDate(earliestIso);
+        if (!earliest) return [closedMonthRange(0)];
+        const first = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+        for (let i = 0; i < maxMonths; i++) {
+            const range = closedMonthRange(i);
+            const start = parseLocalIsoDate(range.dateFrom);
+            if (!start || start < first) break;
+            months.push(range);
+        }
+        return months.reverse();
+    }
+
+    function yardTypeTag(tableType) {
+        if (tableType === 'STORAGE') return 'STG';
+        if (tableType === 'BOTH') return 'ALL';
+        return 'RPT';
+    }
+
+    function buildYardOrderNo(customerFilter, billedMonthIso, tableType) {
+        const invDateObj = new Date((billedMonthIso || new Date().toISOString().split('T')[0]) + 'T12:00:00');
+        const yyyymm = `${invDateObj.getFullYear()}${String(invDateObj.getMonth() + 1).padStart(2, '0')}`;
+        const safeCustomer = (customerFilter || 'UNKN').replace(/[^a-zA-Z0-9]/g, '');
+        const customerPrefix = safeCustomer.substring(0, 4).toUpperCase();
+        return `YRD-${yardTypeTag(tableType)}-${customerPrefix}-${yyyymm}`;
+    }
+
+    function rememberYardInvoiceTrip(tripArr) {
+        if (!tripArr || !tripArr[0]) return;
+        if (!window.yardInvoiceTrips) window.yardInvoiceTrips = [];
+        const idx = window.yardInvoiceTrips.findIndex(t => t[0] === tripArr[0]);
+        if (idx !== -1) window.yardInvoiceTrips[idx] = tripArr;
+        else window.yardInvoiceTrips.unshift(tripArr);
+    }
+
+    function getYardInvoiceTrips() {
+        const byId = new Map();
+        const add = (arr) => {
+            if (!arr || !arr.length) return;
+            arr.forEach(t => {
+                if (!t || !t[0]) return;
+                if ((t[26] || '').toString().toUpperCase() === 'YARD INVOICE') {
+                    byId.set(t[0], t);
+                }
+            });
+        };
+        add(window.yardInvoiceTrips);
+        add(window.currentTrips);
+        add(window.combinedBillingTrips);
+        add(window.allTripsUnfiltered);
+        return [...byId.values()];
+    }
+
+    function parseYardInvoiceMeta(trip) {
+        const meta = { customer: '', dateFrom: '', dateTo: '', yyyymm: '', yards: new Set() };
+        if (!trip) return meta;
+        meta.customer = (trip[11] || trip.customer || '').toString().trim().toUpperCase();
+        let snap = trip[12] || trip.yard_services || '';
+        if (typeof snap === 'string' && snap.trim().startsWith('{')) {
+            try { snap = JSON.parse(snap); } catch (e) { snap = null; }
+        }
+        if (snap && typeof snap === 'object') {
+            meta.dateFrom = snap.dateFrom || '';
+            meta.dateTo = snap.dateTo || '';
+            (snap.items || []).forEach(it => {
+                const yt = (it.yard_type || '').toString().toUpperCase();
+                if (yt === 'STORAGE') meta.yards.add('STORAGE');
+                else if (yt === 'RPTULIPAN' || yt === 'YARD') meta.yards.add('YARD');
+            });
+        }
+        const place = (trip[8] || trip.delivery_place || '').toString();
+        const m = place.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if (m) {
+            const a = parseLocalIsoDate(m[1]);
+            const b = parseLocalIsoDate(m[2]);
+            if (!meta.dateFrom && a) meta.dateFrom = toIsoDateLocal(a);
+            if (!meta.dateTo && b) meta.dateTo = toIsoDateLocal(b);
+        }
+        const orderNo = (trip[5] || trip.order_no || '').toString().toUpperCase();
+        const ym = orderNo.match(/(\d{6})$/);
+        if (ym) meta.yyyymm = ym[1];
+        if (orderNo.includes('-STG-')) meta.yards.add('STORAGE');
+        if (orderNo.includes('-RPT-')) meta.yards.add('YARD');
+        if (orderNo.includes('-ALL-')) {
+            meta.yards.add('STORAGE');
+            meta.yards.add('YARD');
+        }
+        if (meta.dateFrom) {
+            const d = parseLocalIsoDate(meta.dateFrom);
+            if (d) meta.yyyymm = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
+        } else if (meta.dateTo && !meta.yyyymm) {
+            const d = parseLocalIsoDate(meta.dateTo);
+            if (d) {
+                const billed = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                if (billed.getDate() === 1) billed.setMonth(billed.getMonth() - 1);
+                meta.yyyymm = `${billed.getFullYear()}${String(billed.getMonth() + 1).padStart(2, '0')}`;
+            }
+        }
+        if (!meta.yyyymm) {
+            const tripDate = (trip[1] || trip.date || '').toString().split('T')[0];
+            const d = parseLocalIsoDate(tripDate);
+            if (d) meta.yyyymm = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
+        }
+        return meta;
+    }
+
+    function monthsOverlapIso(aFrom, aTo, bFrom, bTo) {
+        if (!aFrom && !aTo && !bFrom && !bTo) return false;
+        const af = aFrom || '2000-01-01';
+        const at = aTo || '2099-12-31';
+        const bf = bFrom || '2000-01-01';
+        const bt = bTo || '2099-12-31';
+        return af <= bt && at >= bf;
+    }
+
+    function existingYardInvoiceCovers(customer, dateFrom, dateTo, tableType) {
+        const cust = (customer || '').toString().trim().toUpperCase();
+        const wantYard = tableType === 'STORAGE' ? 'STORAGE' : (tableType === 'YARD' ? 'YARD' : null);
+        const yyyymm = (dateFrom || dateTo || '').replace(/-/g, '').slice(0, 6);
+        return getYardInvoiceTrips().some(t => {
+            const meta = parseYardInvoiceMeta(t);
+            if (!meta.customer || meta.customer === '---' || meta.customer !== cust) return false;
+            const periodHit = monthsOverlapIso(meta.dateFrom, meta.dateTo, dateFrom, dateTo)
+                || (yyyymm && meta.yyyymm === yyyymm);
+            if (!periodHit) return false;
+            if (!wantYard) return true;
+            if (!meta.yards.size) return true;
+            return meta.yards.has(wantYard);
+        });
+    }
+
+    function filterYardInvoiceItems(items, tableType, customerFilter, dateFrom, dateTo) {
+        return (items || []).filter(item => {
+            if (!item) return false;
+            if (isInternalYardCustomer(item.customer_name) || isInternalYardCustomer(customerFilter)) return false;
+            const isStorage = isStorageYardItem(item);
+            if (tableType === 'YARD' && isStorage) return false;
+            if (tableType === 'STORAGE' && !isStorage) return false;
+            if (customerFilter && item.customer_name !== customerFilter) return false;
+            if (!window.checkYardDateMatch(item, dateFrom, dateTo)) return false;
+            const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
+            return (costs.totalCost || 0) > 0.01;
+        });
+    }
+
+    async function loadYardInvoiceTrips(force = false) {
+        if (!force && window.yardInvoiceTrips && window.yardInvoiceTrips.length > 0) return;
+        if (!window.db) return;
+        try {
+            const { data, error } = await window.db.from('trips')
+                .select('*')
+                .eq('service_mode', 'YARD INVOICE')
+                .or('is_deleted.eq.false,is_deleted.is.null')
+                .order('date', { ascending: false })
+                .limit(2000);
+            if (error) throw error;
+            window.yardInvoiceTrips = (data || [])
+                .map(t => (typeof window.mapTripToArray === 'function' ? window.mapTripToArray(t) : null))
+                .filter(Boolean);
+        } catch (err) {
+            console.warn('[Yard] Could not load yard invoice trips:', err);
+            if (!window.yardInvoiceTrips) window.yardInvoiceTrips = [];
+        }
+    }
+
+    async function persistYardInvoiceRecord(opts) {
+        const {
+            customerFilter,
+            itemsToInvoice,
+            dateFrom,
+            dateTo,
+            finalHtml,
+            finalGrandTotal,
+            pMethod = '',
+            cVal = 0,
+            bVal = 0,
+            isPaidNow = false,
+            silent = false,
+            tableType = 'YARD'
+        } = opts || {};
+
+        if (!window.db || !customerFilter || !itemsToInvoice || !itemsToInvoice.length) return null;
+        if ((parseFloat(finalGrandTotal) || 0) <= 0.01) return null;
+        if (silent && !isYardAdminUser()) return null;
+        if (silent && isInternalYardCustomer(customerFilter)) return null;
+        if (silent && existingYardInvoiceCovers(customerFilter, dateFrom, dateTo, tableType)) return null;
+
+        const invoiceDate = dateTo ? dateTo : new Date().toISOString().split('T')[0];
+        const orderNo = silent
+            ? buildYardOrderNo(customerFilter, dateFrom || dateTo, tableType)
+            : (function () {
+                const invDateObj = new Date(invoiceDate + 'T12:00:00');
+                const yyyymm = `${invDateObj.getFullYear()}${String(invDateObj.getMonth() + 1).padStart(2, '0')}`;
+                const safeCustomer = (customerFilter || 'UNKN').replace(/[^a-zA-Z0-9]/g, '');
+                return `YRD-${safeCustomer.substring(0, 4).toUpperCase()}-${yyyymm}`;
+            })();
+
+        const containerNos = itemsToInvoice.map(i => i.container_no || '').filter(Boolean).join(', ');
+        let periodLabel = 'YARD STORAGE';
+        if (dateFrom && dateTo) {
+            periodLabel = `YARD STORAGE\n(${fmtIsoMdY(dateFrom)} - ${fmtIsoMdY(dateTo)})`;
+        }
+
+        const invoiceSnapshot = JSON.stringify({
+            items: itemsToInvoice.map(i => {
+                const isStorage = isStorageYardItem(i);
+                const costs = window.calculateDynamicYardCosts(i, dateFrom, dateTo);
+                return {
+                    id: i.id,
+                    container_no: i.container_no,
+                    size: i.size,
+                    type: i.type,
+                    condition: i.condition,
+                    created_at: i.created_at,
+                    exit_date: i.exit_date,
+                    origin_release: i.origin_release,
+                    order_out: i.order_out,
+                    daily_rate: i.daily_rate,
+                    lift_cost: i.lift_cost,
+                    lifts: i.lifts,
+                    last_billed_date: i.last_billed_date,
+                    billed_lifts: i.billed_lifts,
+                    customer_name: i.customer_name,
+                    yard_type: isStorage ? 'STORAGE' : 'RPTULIPAN',
+                    item_total: costs.totalCost
+                };
+            }),
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            total: finalGrandTotal,
+            paymentMethod: pMethod,
+            cashSplit: cVal,
+            bankSplit: bVal,
+            auto: !!silent,
+            tableType
+        });
+
+        const tripObj = {
+            trip_id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `yrd-${Date.now()}-${Math.random()}`,
+            date: invoiceDate,
+            order_no: orderNo,
+            customer: customerFilter,
+            delivery_place: periodLabel,
+            n_cont: containerNos,
+            yard_rate: finalGrandTotal,
+            yard_services: invoiceSnapshot,
+            service_mode: 'YARD INVOICE',
+            status: 'COMPLETE',
+            st_yard: isPaidNow ? 'PAID' : 'PEND',
+            st_rate: 'PAID',
+            st_sales: 'PAID',
+            st_amount: 'PAID',
+            has_trans: 'NO',
+            has_sales: 'NO',
+            invoice_sent: 'YES'
+        };
+        if (isPaidNow) tripObj.paid = true;
+
+        if (isPaidNow && window.logCashTransaction) {
+            const desc = `Pago Factura Yard - ${orderNo}`;
+            if (pMethod === 'cash' || pMethod === 'bank') {
+                await window.logCashTransaction({ tipo: 'ingreso', metodo: pMethod, monto: finalGrandTotal, descripcion: desc, referencia: orderNo, chofer: customerFilter });
+            } else if (pMethod === 'split') {
+                if (cVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: cVal, descripcion: `${desc} (Split Cash)`, referencia: orderNo, chofer: customerFilter });
+                if (bVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: bVal, descripcion: `${desc} (Split Bank)`, referencia: orderNo, chofer: customerFilter });
+            }
+        }
+
+        const newBilledDate = dateTo || new Date().toISOString().split('T')[0];
+        for (const item of itemsToInvoice) {
+            const costs = window.calculateDynamicYardCosts(item, dateFrom, dateTo);
+            const newBilledLifts = parseInt(item.lifts) || 1;
+            await window.db.from('yard_stock').update({
+                last_billed_date: newBilledDate,
+                billed_lifts: newBilledLifts,
+                invoice_sent: 'YES'
+            }).eq('id', item.id);
+            item.last_billed_date = newBilledDate;
+            item.billed_lifts = newBilledLifts;
+            item.invoice_sent = 'YES';
+            try {
+                await window.db.from('yard_billing').insert([{
+                    yard_id: item.id,
+                    start_date: dateFrom || item.created_at,
+                    end_date: newBilledDate,
+                    days_billed: costs.days || 0,
+                    lifts_billed: costs.lifts || 0,
+                    amount: costs.totalCost || 0,
+                    is_paid: isPaidNow
+                }]);
+            } catch (err) {
+                console.error('Error logging to yard_billing:', err);
+            }
+        }
+
+        const { error: tripErr } = await window.db.from('trips').insert([tripObj]);
+        if (tripErr) {
+            console.error('Error creating billing record:', tripErr);
+            return null;
+        }
+
+        if (typeof window.mapTripToArray === 'function') {
+            rememberYardInvoiceTrip(window.mapTripToArray(tripObj));
+        }
+
+        if (window.addInvoiceToReceivables) {
+            try {
+                const amtPaid = isPaidNow ? finalGrandTotal : 0;
+                const payMethodStr = isPaidNow ? pMethod : '';
+                await window.addInvoiceToReceivables(
+                    customerFilter,
+                    orderNo,
+                    finalGrandTotal,
+                    finalHtml || '',
+                    [tripObj.trip_id],
+                    'YARD STORAGE',
+                    amtPaid,
+                    payMethodStr,
+                    silent ? { silent: true } : {}
+                );
+            } catch (err) {
+                console.error('Error auto-creating Accounts Receivable:', err);
+            }
+        }
+
+        if (!silent && window.currentTrips) {
+            const newRow = new Array(74).fill('');
+            newRow[0] = tripObj.trip_id;
+            newRow[1] = tripObj.date;
+            newRow[3] = tripObj.n_cont;
+            newRow[4] = '---';
+            newRow[5] = tripObj.order_no;
+            newRow[6] = '---';
+            newRow[8] = tripObj.delivery_place;
+            newRow[11] = tripObj.customer;
+            newRow[12] = tripObj.yard_services;
+            newRow[13] = tripObj.yard_rate;
+            newRow[17] = '---';
+            newRow[18] = 0;
+            newRow[20] = 0;
+            newRow[26] = 'YARD INVOICE';
+            newRow[30] = tripObj.st_yard;
+            newRow[32] = 'PAID';
+            newRow[33] = 'PAID';
+            newRow[41] = 'COMPLETE';
+            newRow[42] = 'NO';
+            newRow[43] = 'NO';
+            newRow[49] = false;
+            newRow[57] = 'YES';
+            newRow[63] = new Date().toISOString();
+            newRow[64] = 1;
+            newRow[65] = '---';
+            window.currentTrips.push(newRow);
+        }
+        if (!silent && typeof window.renderBillingTable === 'function') {
+            window.renderBillingTable();
+        }
+        return tripObj;
+    }
+
+    async function ensureYardMonthInvoices() {
+        if (!isYardAdminUser() || !window.db) return;
+        if (yardMonthInvoiceSync) return yardMonthInvoiceSync;
+        yardMonthInvoiceSync = (async () => {
+            await loadYardInvoiceTrips(false);
+            if (typeof window.generateYardInvoiceHTML !== 'function') return;
+            const stock = currentYardStock || [];
+            if (!stock.length) return;
+
+            let earliest = '';
+            stock.forEach(item => {
+                const d = item.created_at ? item.created_at.split('T')[0] : '';
+                if (d && (!earliest || d < earliest)) earliest = d;
+            });
+            const months = listClosedMonthsSince(earliest);
+            const customers = [...new Set(stock.map(i => i.customer_name).filter(Boolean))];
+            let created = 0;
+
+            for (const customer of customers) {
+                if (isInternalYardCustomer(customer)) continue;
+                for (const tableType of ['BOTH']) {
+                    for (const month of months) {
+                        if (existingYardInvoiceCovers(customer, month.dateFrom, month.dateTo, tableType)) continue;
+                        const items = filterYardInvoiceItems(stock, tableType, customer, month.dateFrom, month.dateTo);
+                        if (!items.length) continue;
+                        const { html, total } = window.generateYardInvoiceHTML(items, month.dateFrom, month.dateTo, false, null);
+                        if ((total || 0) <= 0.01) continue;
+                        try {
+                            const made = await persistYardInvoiceRecord({
+                                customerFilter: customer,
+                                itemsToInvoice: items,
+                                dateFrom: month.dateFrom,
+                                dateTo: month.dateTo,
+                                finalHtml: html,
+                                finalGrandTotal: total,
+                                silent: true,
+                                tableType
+                            });
+                            if (made) created += 1;
+                        } catch (err) {
+                            console.warn('[Yard] Auto invoice failed for', customer, tableType, month.yyyymm, err);
+                        }
+                    }
+                }
+            }
+
+            if (created > 0) {
+                console.log(`[Yard] Auto-created ${created} closed-month storage invoice(s).`);
+                await loadYardInvoiceTrips(true);
+                window.billingDataLoaded = false;
+                if (typeof window.loadReceivables === 'function') {
+                    await window.loadReceivables();
+                    const recvView = document.getElementById('receivables-view');
+                    if (recvView && !recvView.classList.contains('hidden') && typeof window.renderReceivables === 'function') {
+                        window.renderReceivables();
+                    }
+                }
+            }
+        })();
+        try {
+            await yardMonthInvoiceSync;
+        } finally {
+            yardMonthInvoiceSync = null;
+        }
+    }
+    window.ensureYardMonthInvoices = ensureYardMonthInvoices;
+    window.loadYardInvoiceTrips = loadYardInvoiceTrips;
 
 
 
@@ -29,6 +539,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             renderStorageTable();
             if (window.renderBothTable) window.renderBothTable();
             updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
+            await ensureYardMonthInvoices();
             return;
         }
 
@@ -48,6 +559,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
             renderStorageTable();
             if (window.renderBothTable) window.renderBothTable();
             updateYardSelectors(document.getElementById('in-container-source')?.value || 'YARD');
+            await ensureYardMonthInvoices();
         } catch (err) {
             console.error("Error loading yard stock:", err);
         }
@@ -780,24 +1292,37 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         }
     };
 
-    window.generateYardInvoiceBase64 = async function (htmlContent, customerName) {
+    window.generateYardInvoiceBase64 = async function (htmlContent, customerName, dateFrom, dateTo) {
         const { jsPDF } = window.jspdf;
         const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:280mm;background:white;padding:20px;';
+        container.style.cssText = 'position:fixed;left:0;top:0;width:1400px;max-width:1400px;background:#ffffff;padding:24px;box-sizing:border-box;z-index:-1;pointer-events:none;overflow:visible;';
 
         container.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:15px;margin-bottom:20px;font-family:Arial,sans-serif;">
                 <div>
-                    <h1 style="font-size:1.8rem;margin:0;font-weight:900;color:#1e293b;">STATEMENT OF ACCOUNT</h1>
+                    <h1 style="font-size:1.6rem;margin:0;font-weight:900;color:#1e293b;">STATEMENT OF ACCOUNT</h1>
                     <p style="margin:5px 0;color:#64748b;font-weight:bold;">RP TULIPAN LOGISTIC</p>
                 </div>
                 <div style="text-align:right;">
                     <p style="margin:0;font-weight:bold;color:#1e293b;">CUSTOMER: ${customerName}</p>
-                    <p style="margin:0;color:#64748b;">DATE: ${window.formatDateMMDDYYYY(new Date().toISOString())}</p>
+                    <p style="margin:0;color:#64748b;">${yardStatementPeriodLine(dateFrom, dateTo)}</p>
                 </div>
             </div>
-            ${htmlContent}
+            <div class="yard-pdf-body" style="font-family:Arial,sans-serif;">${htmlContent}</div>
         `;
+
+        const pdfTable = container.querySelector('table');
+        if (pdfTable) {
+            pdfTable.style.width = '100%';
+            pdfTable.style.maxWidth = '100%';
+            pdfTable.style.tableLayout = 'auto';
+            pdfTable.style.fontSize = '9px';
+            pdfTable.querySelectorAll('th, td').forEach(cell => {
+                cell.style.padding = '4px 5px';
+                cell.style.wordBreak = 'break-word';
+                cell.style.overflowWrap = 'anywhere';
+            });
+        }
 
         document.body.appendChild(container);
 
@@ -806,30 +1331,44 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                width: container.scrollWidth,
+                height: container.scrollHeight,
+                windowWidth: container.scrollWidth,
+                windowHeight: container.scrollHeight,
+                scrollX: 0,
+                scrollY: 0
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.9);
-            const pdf = new jsPDF('l', 'mm', 'a4'); // 'l' for landscape because the table is wide
+            const pdf = new jsPDF('l', 'mm', 'a4');
             const pw = pdf.internal.pageSize.getWidth();
             const ph = pdf.internal.pageSize.getHeight();
-            const iw = pw;
-            const ih = (canvas.height * pw) / canvas.width;
-            const margin = 10;
-            const usable = ph - margin * 2;
+            const margin = 8;
+            const usableW = pw - margin * 2;
+            const usableH = ph - margin * 2;
+            const imgW = usableW;
+            const imgH = (canvas.height * usableW) / canvas.width;
 
-            if (ih <= usable) {
-                pdf.addImage(imgData, 'JPEG', 0, margin, iw, ih);
+            if (imgH <= usableH) {
+                pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, imgH);
             } else {
-                const pages = Math.ceil(ih / usable);
-                for (let pg = 0; pg < pages; pg++) {
-                    if (pg > 0) pdf.addPage();
-                    const yo = margin - pg * usable;
-                    pdf.addImage(imgData, 'JPEG', 0, yo, iw, ih);
-                    pdf.setFillColor(255, 255, 255);
-                    if (pg > 0) pdf.rect(0, 0, pw, margin, 'F');
-                    const ov = yo + ih - ph + margin;
-                    if (ov > 0) pdf.rect(0, ph - margin, pw, margin + 1, 'F');
+                const pageCanvas = document.createElement('canvas');
+                const pageCtx = pageCanvas.getContext('2d');
+                const sliceHeightPx = Math.max(1, Math.floor((usableH / imgH) * canvas.height));
+                let y = 0;
+                let first = true;
+                while (y < canvas.height) {
+                    const h = Math.min(sliceHeightPx, canvas.height - y);
+                    pageCanvas.width = canvas.width;
+                    pageCanvas.height = h;
+                    pageCtx.fillStyle = '#ffffff';
+                    pageCtx.fillRect(0, 0, canvas.width, h);
+                    pageCtx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+                    if (!first) pdf.addPage();
+                    first = false;
+                    const sliceMm = (h * usableW) / canvas.width;
+                    pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, sliceMm);
+                    y += h;
                 }
             }
 
@@ -837,7 +1376,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
         } finally {
             document.body.removeChild(container);
         }
-    }
+    };
 
     window.sendGlobalYardInvoice = async function (tableType = 'YARD') {
         let customerFilter = '';
@@ -939,7 +1478,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                             </div>
                             <div style="text-align:right;">
                                 <p style="margin:0;font-weight:bold;color:#1e293b;">CUSTOMER: ${customerFilter}</p>
-                                <p style="margin:0;color:#64748b;">DATE: ${window.formatDateMMDDYYYY(new Date().toISOString())}</p>
+                                <p style="margin:0;color:#64748b;">${yardStatementPeriodLine(dateFrom, dateTo)}</p>
                             </div>
                         </div>
                         <div id="preview-invoice-html-container">
@@ -1035,7 +1574,7 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
                     }
 
                     emailjs.init(publicKey);
-                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customerFilter);
+                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customerFilter, dateFrom, dateTo);
                     const templateParams = {
                         to_email: finalEmail,
                         customer_name: customerFilter,
@@ -1046,188 +1585,25 @@ console.log('CRITICAL: Yard Stock JS v99 is active');
 
                     await emailjs.send(serviceId, templateId, templateParams);
 
-                    // ── CREATE STATIC BILLING RECORD IN TRIPS TABLE ──────────
-                    const invoiceDate = dateTo ? dateTo : new Date().toISOString().split('T')[0];
-                    const invDateObj = new Date(invoiceDate + 'T12:00:00');
-                    const yyyymm = `${invDateObj.getFullYear()}${String(invDateObj.getMonth() + 1).padStart(2, '0')}`;
-                    const safeCustomer = (customerFilter || 'UNKN').replace(/[^a-zA-Z0-9]/g, '');
-                    const customerPrefix = safeCustomer.substring(0, 4).toUpperCase();
-                    const orderNo = `YRD-${customerPrefix}-${yyyymm}`;
-
-                    const containerNos = itemsToInvoice.map(i => i.container_no || '').filter(Boolean).join(', ');
-
-                    let periodLabel = 'YARD STORAGE';
-                    if (dateFrom && dateTo) {
-                        const fmt = (s) => { const p = s.split('-'); return `${p[1]}/${p[2]}/${p[0]}`; };
-                        periodLabel = `YARD STORAGE\n(${fmt(dateFrom)} - ${fmt(dateTo)})`;
-                    }
-
-                    // ── CAPTURE PAYMENT INTENT ──
                     const pMethod = document.getElementById('ys-pay-method').value;
                     const cVal = parseFloat(document.getElementById('ys-split-cash').value) || 0;
                     const bVal = parseFloat(document.getElementById('ys-split-bank').value) || 0;
                     const isPaidNow = document.getElementById('ys-is-paid').checked;
 
-                    // Snapshot items so the PDF can be rebuilt from Billing + Store payment intent
-                    const invoiceSnapshot = JSON.stringify({
-                        items: itemsToInvoice.map(i => {
-                            const isStorage = (i.notes || '').includes('[Storage Yard]');
-                            const costs = window.calculateDynamicYardCosts(i, dateFrom, dateTo);
-                            return {
-                                id: i.id,
-                                container_no: i.container_no,
-                                size: i.size,
-                                type: i.type,
-                                condition: i.condition,
-                                created_at: i.created_at,
-                                exit_date: i.exit_date,
-                                origin_release: i.origin_release,
-                                order_out: i.order_out,
-                                daily_rate: i.daily_rate,
-                                lift_cost: i.lift_cost,
-                                lifts: i.lifts,
-                                last_billed_date: i.last_billed_date,
-                                billed_lifts: i.billed_lifts,
-                                customer_name: i.customer_name,
-                                yard_type: isStorage ? 'STORAGE' : 'RPTULIPAN',
-                                item_total: costs.totalCost
-                            };
-                        }),
-                        dateFrom: dateFrom,
-                        dateTo: dateTo,
-                        total: finalGrandTotal,
-                        paymentMethod: pMethod,
-                        cashSplit: cVal,
-                        bankSplit: bVal
+                    await persistYardInvoiceRecord({
+                        customerFilter,
+                        itemsToInvoice,
+                        dateFrom,
+                        dateTo,
+                        finalHtml,
+                        finalGrandTotal,
+                        pMethod,
+                        cVal,
+                        bVal,
+                        isPaidNow,
+                        silent: false,
+                        tableType
                     });
-
-                    const tripObj = {
-                        trip_id: crypto.randomUUID(),
-                        date: invoiceDate,
-                        order_no: orderNo,
-                        customer: customerFilter,
-                        delivery_place: periodLabel,
-                        n_cont: containerNos,
-                        yard_rate: finalGrandTotal,
-                        yard_services: invoiceSnapshot,
-                        service_mode: 'YARD INVOICE',
-                        status: 'COMPLETE',
-                        st_yard: isPaidNow ? 'PAID' : 'PEND',
-                        st_rate: 'PAID',
-                        st_sales: 'PAID',
-                        st_amount: 'PAID',
-                        has_trans: 'NO',
-                        has_sales: 'NO',
-                        invoice_sent: 'YES'
-                    };
-                    if (isPaidNow) tripObj.paid = true;
-
-                    // ── LOG TO CASH LEDGER IF PAID NOW ──
-                    if (isPaidNow && window.logCashTransaction) {
-                        const desc = `Pago Factura Yard - ${orderNo}`;
-                        if (pMethod === 'cash' || pMethod === 'bank') {
-                            await window.logCashTransaction({ tipo: 'ingreso', metodo: pMethod, monto: finalGrandTotal, descripcion: desc, referencia: orderNo, chofer: customerFilter });
-                        } else if (pMethod === 'split') {
-                            if (cVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'cash', monto: cVal, descripcion: `${desc} (Split Cash)`, referencia: orderNo, chofer: customerFilter });
-                            if (bVal > 0) await window.logCashTransaction({ tipo: 'ingreso', metodo: 'bank', monto: bVal, descripcion: `${desc} (Split Bank)`, referencia: orderNo, chofer: customerFilter });
-                        }
-                    }
-
-                    if (window.db) {
-                        const newBilledDate = dateTo || new Date().toISOString().split('T')[0];
-                        
-                        // ── 1. UPDATE YARD STOCK STATUS ──
-                        for (const item of itemsToInvoice) {
-                            const newBilledLifts = parseInt(item.lifts) || 1;
-                            await window.db.from('yard_stock').update({
-                                last_billed_date: newBilledDate,
-                                billed_lifts: newBilledLifts,
-                                invoice_sent: 'YES'
-                            }).eq('id', item.id);
-                            item.last_billed_date = newBilledDate;
-                            item.billed_lifts = newBilledLifts;
-                            item.invoice_sent = 'YES';
-
-                            // ── 2. INSERT YARD BILLING HISTORY ──
-                            try {
-                                const diffTime = Math.abs(new Date(newBilledDate) - new Date(dateFrom || item.created_at));
-                                const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                                await window.db.from('yard_billing').insert([{
-                                    yard_id: item.id,
-                                    start_date: dateFrom || item.created_at,
-                                    end_date: newBilledDate,
-                                    days_billed: diffDays,
-                                    lifts_billed: newBilledLifts,
-                                    amount: parseFloat(item.daily_rate * diffDays) + parseFloat(item.lift_cost * newBilledLifts),
-                                    is_paid: isPaidNow
-                                }]);
-                            } catch (err) {
-                                console.error('Error logging to yard_billing:', err);
-                            }
-                        }
-
-                        // ── 3. ALWAYS INSERT TO TRIPS AND ACCOUNTS RECEIVABLE ──
-                        if (true) {
-                            const { error: tripErr } = await window.db.from('trips').insert([tripObj]);
-                            if (tripErr) {
-                                console.error('Error creating billing record:', tripErr);
-                            } else {
-                                // ── 4. AUTO-CREATE ACCOUNTS RECEIVABLE RECORD ──
-                                if (window.addInvoiceToReceivables) {
-                                    try {
-                                        const amtPaid = isPaidNow ? finalGrandTotal : 0;
-                                        const payMethodStr = isPaidNow ? pMethod : '';
-                                        await window.addInvoiceToReceivables(
-                                            customerFilter, 
-                                            orderNo, 
-                                            finalGrandTotal, 
-                                            finalHtml, 
-                                            [tripObj.trip_id], 
-                                            'YARD STORAGE',
-                                            amtPaid,
-                                            payMethodStr
-                                        );
-                                    } catch (err) {
-                                        console.error('Error auto-creating Accounts Receivable:', err);
-                                    }
-                                }
-
-                                // ── INSTANT LOCAL UPDATE: push to currentTrips so Billing updates without refresh
-                                if (window.currentTrips) {
-                                    const newRow = new Array(74).fill('');
-                                    newRow[0]  = tripObj.trip_id;
-                                    newRow[1]  = tripObj.date;
-                                    newRow[3]  = tripObj.n_cont;
-                                    newRow[4]  = '---';
-                                    newRow[5]  = tripObj.order_no;
-                                    newRow[6]  = '---';
-                                    newRow[8]  = tripObj.delivery_place;
-                                    newRow[11] = tripObj.customer;
-                                    newRow[12] = tripObj.yard_services;
-                                    newRow[13] = tripObj.yard_rate;
-                                    newRow[17] = '---';
-                                    newRow[18] = 0;
-                                    newRow[20] = 0;
-                                    newRow[30] = tripObj.st_yard;
-                                    newRow[32] = 'PAID';
-                                    newRow[33] = 'PAID';
-                                    newRow[41] = 'COMPLETE';
-                                    newRow[42] = 'NO';
-                                    newRow[43] = 'NO';
-                                    newRow[49] = false;
-                                    newRow[57] = 'YES'; // Invoice sent
-                                    newRow[63] = new Date().toISOString(); // Sent date for Accounts integration
-                                    newRow[64] = 1; // Send count
-                                    newRow[65] = '---';
-                                    window.currentTrips.push(newRow);
-                                }
-                                if (typeof window.renderBillingTable === 'function') {
-                                    window.renderBillingTable();
-                                }
-                            }
-                        }
-                    }
-                    // ── END STATIC BILLING RECORD ─────────────────────────────
 
                     if (window.showToast) window.showToast('Invoice sent and recorded in Billing!', 'success');
                     else alert('Invoice sent and recorded in Billing!');
