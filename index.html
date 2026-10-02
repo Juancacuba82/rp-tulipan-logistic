@@ -2017,12 +2017,12 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <!-- Amount is legacy (not used in Profit/Caja). Hidden to keep row mapping & old trip data. -->
+                        <div class="form-group" style="display:none;" aria-hidden="true">
                             <label class="sidebar-label-btn">Amount</label>
                             <div style="display: flex; flex-direction: column;">
                                 <div class="input-paid-wrap">
-                                    <input type="number" id="in-amount" oninput="updateDriverCommission('amount')"
-                                        placeholder="0.00">
+                                    <input type="number" id="in-amount" placeholder="0.00">
                                     <div class="input-paid-badges-group">
                                         <label class="input-paid-badge" title="Mark as cash">
                                             <input type="checkbox" id="in-amountpaid"

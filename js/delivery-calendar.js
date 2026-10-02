@@ -368,7 +368,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const isYardPaid = document.getElementById('in-yardpaid').checked;
                 const isRatePaid = document.getElementById('in-ratepaid').checked;
                 const isSalesPaid = document.getElementById('in-salespaid').checked;
-                const isAmountPaid = document.getElementById('in-amountpaid').checked;
+                const isAmountPaid = document.getElementById('in-amountpaid')?.checked;
 
                 const stYard = isYardPaid ? 'PAID' : 'PEND';
                 const stRent = document.getElementById('in-rentpaid')?.checked ? 'PAID' : 'PEND';
