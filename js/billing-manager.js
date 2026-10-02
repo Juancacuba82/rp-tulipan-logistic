@@ -1303,17 +1303,26 @@
                         null
                     );
 
-                    emailjs.init('iBpsYg-m4vWn5zP48'); // public key
+                    const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
+                    const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+                    const publicKey = localStorage.getItem('ejs_public_key');
+
+                    if (!serviceId || !templateId || !publicKey || typeof emailjs === 'undefined') {
+                        alert('EmailJS is not configured. Please go to Email Settings to send the statement.');
+                        return;
+                    }
+
+                    emailjs.init(publicKey);
                     const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customer, snapshot.dateFrom, snapshot.dateTo);
                     const templateParams = {
                         to_email: targetEmail,
                         customer_name: customer,
-                        invoice_html: "", 
+                        invoice_html: "",
                         grand_total: finalGrandTotal.toFixed(2),
                         pdf_attachment: b64Pdf
                     };
 
-                    await emailjs.send('service_rt414f5', 'template_5q0a0vj', templateParams);
+                    await emailjs.send(serviceId, templateId, templateParams);
                     if (window.showToast) window.showToast('Factura de Yard reenviada exitosamente.', 'success');
                     else alert('Factura enviada.');
                     modal.style.display = 'none';
