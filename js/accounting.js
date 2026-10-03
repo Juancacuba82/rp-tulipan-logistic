@@ -29,6 +29,151 @@
         return '';
     }
 
+    function normalizeLedgerToken(value) {
+        return (value || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
+    }
+
+    function extractOrderToken(t) {
+        const blob = [t.order_no, t.release_no, t.referencia].filter(Boolean).join(' ');
+        const m = normalizeLedgerToken(blob).match(/\b((?:ORD|REL|INV)[-\s]?\d+)\b/);
+        if (m) return m[1].replace(/\s+/g, '');
+        return normalizeLedgerToken(t.order_no || t.release_no || '');
+    }
+
+    function extractServiceToken(desc) {
+        const d = normalizeLedgerToken(desc);
+        if (/\bVENTA\b|\bSALES?\b/.test(d)) return 'SALES';
+        if (/TRANSPORTE|TRANSPORT/.test(d)) return 'TRANS';
+        if (/YARDA|\bYARD\b|STORAGE|\bSTOR\b/.test(d)) return 'YARD';
+        if (/RELEASE/.test(d)) return 'RELEASE';
+        if (/PAYMENT FOR INVOICE/.test(d)) return 'INVOICE';
+        return d;
+    }
+
+    function isOrderLinkedTx(t) {
+        return !!(extractOrderToken(t) || normalizeLedgerToken(t.n_cont));
+    }
+
+    function ledgerDupKey(t) {
+        const amt = (parseFloat(t.monto) || 0).toFixed(2);
+        const order = extractOrderToken(t);
+        const cont = normalizeLedgerToken(t.n_cont);
+        const service = extractServiceToken(t.descripcion);
+        const cust = normalizeLedgerToken(t.customer || t.cliente);
+        const tipo = normalizeLedgerToken(t.tipo);
+        const metodo = (t.metodo === 'driver_wallet') ? 'CASH' : normalizeLedgerToken(t.metodo);
+        const chofer = normalizeLedgerToken(t.chofer);
+        const entity = normalizeLedgerToken(t.chofer || t.customer || t.cliente || t.category);
+        if (!order && !cont) {
+            return [tipo, metodo, amt, service, entity, normalizeLedgerToken(t.descripcion), normalizeLedgerToken(t.referencia)].join('|');
+        }
+        return [tipo, metodo, amt, order, cont, service, cust].join('|');
+    }
+
+    function ledgerRowId(t, idx) {
+        return [t.id || '', t.source_table || '', t.created_at || '', t.monto || '', idx].join('::');
+    }
+
+    function ledgerTxDate(t) {
+        const raw = t.created_at || t.date || '';
+        if (!raw) return null;
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function daysBetweenDates(a, b) {
+        const da = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+        const db = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+        return Math.abs(da - db) / 86400000;
+    }
+
+    // Recurring payroll/rent across weeks or months is normal.
+    // WEEKLY/MONTHLY: only the same calendar day is suspicious (double save).
+    const EXPENSE_DUP_WINDOW_DAYS = 6;
+
+    function isRecurringLedgerTx(t) {
+        const d = normalizeLedgerToken((t.descripcion || '') + ' ' + (t.referencia || '') + ' ' + (t.category || ''));
+        return /WEEKLY|SEMANAL|\bWEEKS?\b|MONTHLY|MENSUAL|\bMONTH\b|PAYROLL|NOMINA|SALARY|\bRENTA\b|\bRENTS?\b|YARD RENT/.test(d);
+    }
+
+    function dupWindowDaysFor(t) {
+        return isRecurringLedgerTx(t) ? 0 : EXPENSE_DUP_WINDOW_DAYS;
+    }
+
+    function findLedgerDuplicates(transactions) {
+        const groups = {};
+        (transactions || []).forEach((t, idx) => {
+            const key = ledgerDupKey(t);
+            if (!groups[key]) groups[key] = [];
+            groups[key].push({ t, idx, id: ledgerRowId(t, idx), date: ledgerTxDate(t) });
+        });
+
+        const dupIds = new Set();
+        let extraMoney = 0;
+        let dupRows = 0;
+        let groupCount = 0;
+
+        Object.keys(groups).forEach(key => {
+            const items = groups[key];
+            if (items.length < 2) return;
+
+            const linked = isOrderLinkedTx(items[0].t);
+            const suspect = new Set();
+
+            if (linked) {
+                items.forEach((_, i) => suspect.add(i));
+            } else {
+                for (let i = 0; i < items.length; i++) {
+                    for (let j = i + 1; j < items.length; j++) {
+                        if (!items[i].date || !items[j].date) continue;
+                        const windowDays = Math.min(dupWindowDaysFor(items[i].t), dupWindowDaysFor(items[j].t));
+                        if (daysBetweenDates(items[i].date, items[j].date) <= windowDays) {
+                            suspect.add(i);
+                            suspect.add(j);
+                        }
+                    }
+                }
+            }
+
+            if (suspect.size < 2) return;
+            groupCount++;
+            const amt = parseFloat(items[0].t.monto) || 0;
+            extraMoney += amt * (suspect.size - 1);
+            dupRows += suspect.size;
+            suspect.forEach(i => dupIds.add(items[i].id));
+        });
+
+        return { dupIds, extraMoney, dupRows, groupCount };
+    }
+
+    function isSuspiciousLedgerMatch(probe, existing) {
+        if (ledgerDupKey(probe) !== ledgerDupKey(existing)) return false;
+        if (isOrderLinkedTx(probe) || isOrderLinkedTx(existing)) return true;
+        const d1 = ledgerTxDate(probe) || new Date();
+        const d2 = ledgerTxDate(existing);
+        if (!d2) return false;
+        const windowDays = Math.min(dupWindowDaysFor(probe), dupWindowDaysFor(existing));
+        return daysBetweenDates(d1, d2) <= windowDays;
+    }
+
+    function renderLedgerDupBanner(stats) {
+        const banner = document.getElementById('acct-dup-banner');
+        if (!banner) return;
+        if (!stats || stats.groupCount === 0) {
+            banner.style.display = 'none';
+            banner.className = '';
+            banner.innerHTML = '';
+            return;
+        }
+        const extra = stats.extraMoney.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        banner.className = 'acct-dup-banner';
+        banner.style.display = 'flex';
+        banner.innerHTML = `<i class="fas fa-exclamation-triangle"></i>
+            <span>${stats.dupRows} sospecha${stats.dupRows === 1 ? '' : 's'} (${stats.groupCount} grupo${stats.groupCount === 1 ? '' : 's'})</span>
+            <span style="margin-left:auto; font-weight:900;">Posible dinero de más: $${extra}</span>
+            <span style="font-size:0.72rem; font-weight:600; color:#b91c1c;">Misma orden 2 veces, o el mismo cargo el mismo día. Rentas WEEKLY/MONTHLY de semanas o meses distintos no cuentan</span>`;
+    }
+
 
     // =========================================================================
     // API PÚBLICA: window.logCashTransaction
@@ -452,11 +597,11 @@
         currentFilter = mode;
 
         // Update toggle button styles
-        ['btn-acct-all', 'btn-acct-cash', 'btn-acct-bank'].forEach(id => {
+        ['btn-acct-all', 'btn-acct-cash', 'btn-acct-bank', 'btn-acct-dups'].forEach(id => {
             const btn = document.getElementById(id);
             if (btn) btn.classList.remove('acct-toggle-active');
         });
-        const activeMap = { all: 'btn-acct-all', cash: 'btn-acct-cash', bank: 'btn-acct-bank' };
+        const activeMap = { all: 'btn-acct-all', cash: 'btn-acct-cash', bank: 'btn-acct-bank', dups: 'btn-acct-dups' };
         const activeBtn = document.getElementById(activeMap[mode]);
         if (activeBtn) activeBtn.classList.add('acct-toggle-active');
 
@@ -465,7 +610,7 @@
         const rowBank = document.getElementById('acct-row-bank');
         const cardTotal = document.getElementById('acct-card-total-empresa');
 
-        if (mode === 'all') {
+        if (mode === 'all' || mode === 'dups') {
             if (rowCash) rowCash.style.display = 'flex';
             if (rowBank) rowBank.style.display = 'flex';
             if (cardTotal) cardTotal.style.visibility = 'visible';
@@ -502,8 +647,8 @@
         let list = allTransactions;
         
 
-        // 2. Button Filter (Method)
-        if (currentFilter !== 'all') {
+        // 2. Button Filter (Method) — 'dups' is not a payment method
+        if (currentFilter === 'cash' || currentFilter === 'bank') {
             list = list.filter(t => t.metodo === currentFilter);
         }
 
@@ -542,6 +687,11 @@
 
             return matchDate && matchTipo && matchService && matchCust && matchCont && matchRel && matchOrd;
         });
+
+        if (currentFilter === 'dups') {
+            const { dupIds } = findLedgerDuplicates(list);
+            list = list.filter((t, idx) => dupIds.has(ledgerRowId(t, idx)));
+        }
 
         return list;
     }
@@ -653,15 +803,19 @@
         if (!tbody) return;
 
         if (transactions.length === 0) {
+            renderLedgerDupBanner({ groupCount: 0 });
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align:center; padding:40px; color:#94a3b8; font-style:italic;">
+                    <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-style:italic;">
                         <i class="fas fa-inbox" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.4;"></i>
-                        No hay transacciones${currentFilter !== 'all' ? ' para el filtro seleccionado' : ''}.
+                        No hay ${currentFilter === 'dups' ? 'duplicados' : 'transacciones'}${currentFilter !== 'all' && currentFilter !== 'dups' ? ' para el filtro seleccionado' : currentFilter === 'dups' ? ' en esta vista' : ''}.
                     </td>
                 </tr>`;
             return;
         }
+
+        const dupStats = findLedgerDuplicates(transactions);
+        renderLedgerDupBanner(dupStats);
 
         let runningBalance = 0;
         // Calculate running balance in reverse (oldest first)
@@ -680,6 +834,7 @@
             const isCash   = t.metodo === 'cash' || t.metodo === 'driver_wallet';
             const amt      = parseFloat(t.monto) || 0;
             const balance  = balances[i];
+            const isDuplicate = dupStats.dupIds.has(ledgerRowId(t, i));
 
             const tipoColor  = isIncome ? '#10b981' : '#ef4444';
             const tipoIcon   = isIncome ? 'fa-arrow-down' : 'fa-arrow-up';
@@ -746,10 +901,14 @@
                    </button>`
                 : '';
 
+            const dupBadge = isDuplicate
+                ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:6px;font-size:0.65rem;font-weight:900;letter-spacing:0.3px;"><i class="fas fa-exclamation-triangle"></i> SOSPECHA</span>`
+                : '';
+
             return `
-            <tr class="acct-table-row" style="transition: background 0.15s;">
+            <tr class="acct-table-row${isDuplicate ? ' acct-dup-row' : ''}" style="transition: background 0.15s;" title="${isDuplicate ? 'Sospecha de dinero de más: misma orden repetida, o el mismo cargo el mismo día' : ''}">
                 <td style="white-space:nowrap;">
-                    <div style="font-weight:700; color:#1e293b; font-size:0.82rem;">${dateStr}</div>
+                    <div style="font-weight:700; color:${isDuplicate ? '#991b1b' : '#1e293b'}; font-size:0.82rem;">${dateStr}</div>
                     <div style="color:#94a3b8; font-size:0.7rem;">${timeStr}</div>
                 </td>
                 <td style="text-align:center;">
@@ -760,7 +919,10 @@
                 </td>
                 <td>${metodoBadge}</td>
                 <td style="max-width:220px;">
-                    <div style="font-weight:600; color:#1e293b; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${t.descripcion || ''}">${t.descripcion || '—'}</div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="font-weight:${isDuplicate ? '800' : '600'}; color:${isDuplicate ? '#991b1b' : '#1e293b'}; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${t.descripcion || ''}">${t.descripcion || '—'}</div>
+                        ${dupBadge}
+                    </div>
                     ${t.referencia ? `<div style="color:#64748b; font-size:0.7rem;">${t.referencia}</div>` : ''}
                 </td>
                 <td style="text-align:center;">${clienteCell}</td>
@@ -797,6 +959,19 @@
 
         if (!monto || monto <= 0) return alert('Por favor ingresa un monto válido mayor que $0.');
         if (!descripcion)         return alert('Por favor ingresa una descripción.');
+
+        const probe = {
+            tipo, metodo, monto, descripcion, referencia,
+            customer: cliente, cliente, chofer, order_no: '', n_cont: '',
+            created_at: new Date().toISOString()
+        };
+        const existingDupes = allTransactions.filter(t => isSuspiciousLedgerMatch(probe, t));
+        if (existingDupes.length > 0) {
+            const ok = confirm(
+                `Sospecha de duplicado: ya hay ${existingDupes.length} movimiento(s) igual(es) por $${monto.toFixed(2)} en la misma orden o en los últimos ${EXPENSE_DUP_WINDOW_DAYS} días.\n\nNómina o renta de otro mes/semana no cuenta.\n¿Guardar de todas formas?`
+            );
+            if (!ok) return;
+        }
 
         const btn = document.getElementById('btn-acct-save-tx');
         if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }

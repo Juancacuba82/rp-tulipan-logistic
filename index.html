@@ -9017,6 +9017,9 @@
                     <button class="acct-toggle-btn" id="btn-acct-bank" onclick="window.filterAccountingView('bank')">
                         <i class="fas fa-university"></i> Solo Banco
                     </button>
+                    <button class="acct-toggle-btn acct-dups" id="btn-acct-dups" onclick="window.filterAccountingView('dups')">
+                        <i class="fas fa-clone"></i> Solo Duplicados
+                    </button>
                 </div>
             </div>
             <div class="acct-advanced-filters"
@@ -9060,6 +9063,7 @@
                     style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; padding:6px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:600;"><i
                         class="fas fa-undo"></i> Clear All Filters</button>
             </div>
+            <div id="acct-dup-banner" style="display:none;"></div>
             <div class="acct-table-scroll">
                 <table id="acct-table">
                     <thead>

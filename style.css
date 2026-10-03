@@ -4153,6 +4153,11 @@ main {
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35) !important;
 }
 
+.acct-toggle-active.acct-dups {
+    background: linear-gradient(135deg, #b91c1c, #ef4444) !important;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35) !important;
+}
+
 .acct-table-wrapper {
     margin: 16px 24px 24px;
     background: #ffffff;
@@ -4210,6 +4215,33 @@ main {
 
 .acct-table-row:hover {
     background: #f8fafc !important;
+}
+
+.acct-table-row.acct-dup-row {
+    background: #fef2f2 !important;
+    border-left: 4px solid #ef4444;
+}
+
+.acct-table-row.acct-dup-row:hover {
+    background: #fee2e2 !important;
+}
+
+.acct-dup-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 10px 16px;
+    background: #fef2f2;
+    border-bottom: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.acct-dup-banner i {
+    color: #ef4444;
 }
 
 .acct-badge {
