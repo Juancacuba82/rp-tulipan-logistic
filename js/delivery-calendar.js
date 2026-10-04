@@ -179,6 +179,58 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             return `<div class="cal-order-cell" style="display:flex;flex-direction:column;align-items:center;text-align:center;">${html}</div>`;
         };
 
+        function showCalendarCautionDialog({ title, message, items, confirmLabel, cancelLabel }) {
+            return new Promise((resolve) => {
+                const existing = document.getElementById('calendar-caution-modal');
+                if (existing) existing.remove();
+
+                const wrap = document.createElement('div');
+                wrap.id = 'calendar-caution-modal';
+                wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.72);display:flex;align-items:center;justify-content:center;z-index:100000;font-family:Outfit,sans-serif;padding:16px;';
+
+                const listHtml = (items || []).map((item) => (
+                    `<li style="margin-bottom:10px;color:#9a3412;line-height:1.5;font-weight:600;">${item}</li>`
+                )).join('');
+
+                wrap.innerHTML = `
+                    <div role="dialog" aria-modal="true" style="background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid #d97706;border-radius:16px;max-width:460px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);overflow:hidden;">
+                        <div style="padding:22px 24px 8px;">
+                            <div style="display:flex;gap:12px;align-items:flex-start;">
+                                <div style="width:40px;height:40px;border-radius:999px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fas fa-exclamation-triangle" style="color:#d97706;font-size:1.1rem;"></i>
+                                </div>
+                                <div>
+                                    <h2 style="margin:0 0 6px;font-size:1.15rem;color:#78350f;font-weight:800;">${title}</h2>
+                                    <p style="margin:0;font-size:0.9rem;color:#92400e;line-height:1.45;">${message}</p>
+                                </div>
+                            </div>
+                            ${listHtml ? `<ul style="margin:16px 0 0;padding-left:22px;font-size:0.9rem;">${listHtml}</ul>` : ''}
+                        </div>
+                        <div style="padding:18px 24px 22px;display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;">
+                            <button type="button" id="calendar-caution-review" style="padding:10px 16px;background:#0f172a;color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;">${cancelLabel || 'Review order'}</button>
+                            <button type="button" id="calendar-caution-save" style="padding:10px 16px;background:transparent;color:#b45309;border:1.5px solid #f59e0b;border-radius:8px;font-weight:800;cursor:pointer;">${confirmLabel || 'Save anyway'}</button>
+                        </div>
+                    </div>`;
+
+                document.body.appendChild(wrap);
+
+                const close = (ok) => {
+                    wrap.remove();
+                    resolve(ok);
+                };
+                wrap.querySelector('#calendar-caution-review')?.addEventListener('click', () => close(false));
+                wrap.querySelector('#calendar-caution-save')?.addEventListener('click', () => close(true));
+                wrap.addEventListener('click', (e) => { if (e.target === wrap) close(false); });
+                const onKey = (e) => {
+                    if (e.key === 'Escape') {
+                        document.removeEventListener('keydown', onKey);
+                        close(false);
+                    }
+                };
+                document.addEventListener('keydown', onKey);
+            });
+        }
+
         let isSaving = false;
         async function addRow() {
             const role = (window.currentUserRole || '').toLowerCase().trim();
@@ -215,6 +267,57 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     isSaving = false;
                     restoreTripArchiveButtonUI();
                     return;
+                }
+
+                const isMoveToStorage = !!document.getElementById('in-move-to-yard')?.checked;
+                if (isMoveToStorage) {
+                    const ppdRaw = (document.getElementById('in-priceperday')?.value || '').trim();
+                    const liftRaw = (document.getElementById('in-liftcost')?.value || '').trim();
+                    const ppdVal = parseFloat(ppdRaw);
+                    const liftVal = parseFloat(liftRaw);
+                    const missingPpd = ppdRaw === '' || isNaN(ppdVal);
+                    const missingLift = liftRaw === '' || isNaN(liftVal);
+                    if (missingPpd || missingLift) {
+                        const missingItems = [];
+                        if (missingPpd) missingItems.push('Price per Day is empty.');
+                        if (missingLift) missingItems.push('Lift Cost is empty.');
+                        const keepSavingStorage = await showCalendarCautionDialog({
+                            title: 'Missing Storage amounts',
+                            message: 'This order has Storage selected. Saving without these amounts can create a billing mistake.',
+                            items: missingItems,
+                            cancelLabel: 'Review order',
+                            confirmLabel: 'Save anyway'
+                        });
+                        if (!keepSavingStorage) {
+                            isSaving = false;
+                            restoreTripArchiveButtonUI();
+                            return;
+                        }
+                    }
+                }
+
+                const isMoveToRentals = !!document.getElementById('in-move-to-rentals')?.checked;
+                if (isMoveToRentals) {
+                    const rentRaw = (document.getElementById('in-rent-price')?.value || '').trim();
+                    const rentVal = parseFloat(rentRaw);
+                    const missingRentPrice = rentRaw === '' || isNaN(rentVal);
+                    const periodVal = (document.getElementById('in-time-rent')?.value || 'monthly').toLowerCase();
+                    const periodLabel = periodVal === 'weekly' ? 'Weekly' : (periodVal === 'daily' ? 'Daily' : 'Monthly');
+                    const rentItems = [];
+                    if (missingRentPrice) rentItems.push('Rent Price is empty.');
+                    rentItems.push('Rental period is set to ' + periodLabel + '. Confirm this is Monthly, Weekly, or Daily.');
+                    const keepSavingRent = await showCalendarCautionDialog({
+                        title: 'Check this rental before saving',
+                        message: 'Please double-check the rent price and billing period. Saving the wrong values can affect invoices and collections.',
+                        items: rentItems,
+                        cancelLabel: 'Review order',
+                        confirmLabel: 'Save anyway'
+                    });
+                    if (!keepSavingRent) {
+                        isSaving = false;
+                        restoreTripArchiveButtonUI();
+                        return;
+                    }
                 }
 
                 if (editingIndex === null) {
@@ -311,7 +414,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const isYardSource = containerSource === 'YARD' || containerSource === 'STORAGE';
 
                 const isMoveToYard = document.getElementById('in-move-to-yard')?.checked || false;
-                const isMoveToRentals = document.getElementById('in-move-to-rentals')?.checked || false;
 
                 // --- STOCK LOGIC PREPARATION ---
                 const releasesSource = window.currentReleases || [];
@@ -1014,6 +1116,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             // Hybrid mode resets
             if (typeof toggleSizeMode === 'function') toggleSizeMode('list');
+            if (typeof window.resetCalendarSizeOptions === 'function') window.resetCalendarSizeOptions();
+            const sizeSelReset = document.getElementById('in-size-sel');
+            if (sizeSelReset) sizeSelReset.selectedIndex = 0;
             if (typeof toggleReleaseMode === 'function') toggleReleaseMode('list');
             if (typeof togglePickupAddressMode === 'function') togglePickupAddressMode('list');
             if (typeof toggleCustomerMode === 'function') toggleCustomerMode('list');
@@ -1488,19 +1593,37 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
             });
 
+            const resetSizeOptionsVisibility = () => {
+                if (!inSizeSelect) return;
+                Array.from(inSizeSelect.options).forEach(opt => {
+                    opt.hidden = false;
+                    opt.style.display = '';
+                    opt.disabled = !opt.value;
+                });
+            };
+
             const updateReleaseSizes = () => {
+                if (!inSizeSelect) return;
                 const selectedRel = (relMan && relMan.style.display !== 'none') ? relMan.value : (relSel ? relSel.value : '');
                 const selectedRelType = relType?.value;
                 const selectedRelCond = relCond?.value;
 
-                if (window.currentReleases.length === 0) return;
+                if (!selectedRel || selectedRel === '---' || !window.currentReleases || window.currentReleases.length === 0) {
+                    resetSizeOptionsVisibility();
+                    return;
+                }
 
                 // Get all rows matching this release #, type, and condition
                 const matchingRows = window.currentReleases.filter(r => r[0] === selectedRel && r[2] === selectedRelType && r[3] === selectedRelCond);
 
                 Array.from(inSizeSelect.options).forEach(opt => {
                     const val = opt.value;
-                    if (!val) return;
+                    if (!val) {
+                        opt.disabled = true;
+                        opt.hidden = false;
+                        opt.style.display = '';
+                        return;
+                    }
 
                     // Check if there is ANY stock for this specific variant
                     const specificRows = matchingRows.filter(r => (r[16] || '').trim() === val.trim());
@@ -1521,9 +1644,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
 
                     opt.disabled = !hasStock;
-                    opt.style.display = hasStock ? 'block' : 'none';
+                    opt.hidden = !hasStock;
+                    opt.style.display = hasStock ? '' : 'none';
                 });
             };
+            window.resetCalendarSizeOptions = resetSizeOptionsVisibility;
+            window.updateReleaseSizes = updateReleaseSizes;
 
             if (relSel) relSel.addEventListener('change', updateReleaseSizes);
             if (relMan) relMan.addEventListener('input', updateReleaseSizes);
