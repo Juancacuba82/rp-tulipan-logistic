@@ -24,6 +24,16 @@
             custom_invoices: 'rpt_sales'
         };
 
+        window.isInternalCompanyCustomer = function (name) {
+            const n = (name || '').toString().toUpperCase()
+                .replace(/,/g, ' ')
+                .replace(/\bINC\.?\b/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (!n) return false;
+            return n === 'RP TULIPAN TRANSPORT' || n === 'RP TULIPAN' || n.startsWith('RP TULIPAN TRANSPORT');
+        };
+
         window.normalizeExpenseProfitLine = function (line) {
             const key = (line || '').toString().trim();
             if (!key) return '';
@@ -689,7 +699,8 @@
                     contractors: 0,
                     unassigned: 0
                 },
-                releases: 0      // Informational: total container purchase cost in COMPLETE orders
+                releases: 0,     // Informational: total container purchase cost in COMPLETE orders
+                internalSalesHaul: 0 // Internal RP TULIPAN TRANSPORT hauls charged to Sales
             };
 
             // 1. Process Logistics Data (Trips) — only COMPLETE orders count
@@ -763,6 +774,10 @@
                         if (company === 'RP TULIPAN')       totals.tulipan    += totalTrans;
                         else if (company === 'JR SUPER CRANE') totals.jr      += totalTrans;
                         else if (company === 'CONTRACTOR')  totals.contractor += totalTrans;
+
+                        if (window.isInternalCompanyCustomer(row[11])) {
+                            totals.internalSalesHaul += totalTrans;
+                        }
                     }
                 }
             });
@@ -850,7 +865,7 @@
 
             // 3. Final Summaries
             const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0) + (totals.customInvoices || 0);
-            const totalGlobalExpenses = (totals.expenses || 0) + (totals.releases || 0);
+            const totalGlobalExpenses = (totals.expenses || 0) + (totals.releases || 0) + (totals.internalSalesHaul || 0);
             const netProfit = totalRevenue - totalGlobalExpenses;
 
             // 4. Update Summary Cards
@@ -888,7 +903,7 @@
             const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
             const ebl = totals.expenseByLine;
             const opShare = totals.operatingShare || 0;
-            const salesCosts = (ebl.rpt_sales || 0) + (totals.releases || 0);
+            const salesCosts = (ebl.rpt_sales || 0) + (totals.releases || 0) + (totals.internalSalesHaul || 0);
 
             const serviceRows = [
                 { key: 'sales', label: 'RP Tulipan Sales', color: '#f59e0b', revenue: totals.sales, costs: salesCosts },
@@ -934,6 +949,15 @@
                             <strong>RP Tulipan Operating expenses</strong> (${money(operatingPool)} in period) automatically prorated
                             <strong> equally</strong> across Sales, Yard, and Transport
                             (${money(totals.operatingShare)} each).
+                        </td>
+                    </tr>`;
+                }
+                if ((totals.internalSalesHaul || 0) > 0) {
+                    html += `<tr class="pp-insight-row">
+                        <td colspan="2">
+                            Internal hauls (customer <strong>RP TULIPAN TRANSPORT</strong>) of
+                            ${money(totals.internalSalesHaul)} are charged as a Sales cost
+                            and kept as Transport revenue (company net unchanged).
                         </td>
                     </tr>`;
                 }
@@ -1098,6 +1122,9 @@
                         revenue = (totals.sales || 0);
                         if ((totals.releases || 0) > 0) {
                             extraCats.push({ name: 'Container Purchases', amount: totals.releases });
+                        }
+                        if ((totals.internalSalesHaul || 0) > 0) {
+                            extraCats.push({ name: 'Internal Transport', amount: totals.internalSalesHaul });
                         }
                     } else if (meta.id === 'rpt_yard') revenue = (totals.yard || 0);
                     else if (meta.id === 'contractors') revenue = totals.contractor || 0;
