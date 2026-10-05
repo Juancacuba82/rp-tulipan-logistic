@@ -248,6 +248,7 @@
         patch(window.currentTrips);
         patch(window.allTripsUnfiltered);
         patch(window.driverReportTrips);
+        patch(window.inventoryDataCache);
     }
 
     window.reduceDriverHolds = async function (driverName, amountToRemove) {
@@ -278,25 +279,100 @@
         if (diff > 0.009) await window.reduceDriverHolds(driverName, diff);
     };
 
+    /** After a settlement: trip price/cash stay, but chofer hold → 0 and collector → office (TODO OFICINA). */
+    window.closeDriverHoldsOnSettlement = async function (driverName, throughDate) {
+        const key = normalizeDriver(driverName);
+        if (!key || !window.db) return 0;
+
+        const seen = new Set();
+        const candidates = [];
+
+        const considerRow = (row) => {
+            if (!row || seen.has(row[0])) return;
+            if (normalizeDriver(row[17]) !== key) return;
+            if (window.getTripOpenHold(row) < 0.01) return;
+            if (throughDate && String(row[1] || '') > String(throughDate)) return;
+            seen.add(row[0]);
+            candidates.push(row);
+        };
+        (allTrips() || []).forEach(considerRow);
+        (window.driverReportTrips || []).forEach(considerRow);
+        (window.currentTrips || []).forEach(considerRow);
+
+        try {
+            const { data, error } = await window.db.from('trips')
+                .select('trip_id, date, driver, cash_collector, driver_cash_held')
+                .or('is_deleted.eq.false,is_deleted.is.null');
+            if (!error && data) {
+                data.forEach(t => {
+                    if (normalizeDriver(t.driver) !== key) return;
+                    if (window.getHoldFromDbTrip(t) < 0.01) return;
+                    if (throughDate && String(t.date || '') > String(throughDate)) return;
+                    if (seen.has(t.trip_id)) return;
+                    seen.add(t.trip_id);
+                    candidates.push({
+                        0: t.trip_id,
+                        1: t.date,
+                        17: t.driver,
+                        76: t.cash_collector,
+                        77: t.driver_cash_held
+                    });
+                });
+            }
+        } catch (e) {
+            console.warn('[DriverCash] DB scan for holds failed, using memory only:', e);
+        }
+
+        for (const row of candidates) {
+            await persistHold(row[0] || row.trip_id, 0);
+        }
+        return candidates.length;
+    };
+
+    window.getLatestSettlementRecord = function (driverName) {
+        const key = normalizeDriver(driverName);
+        if (!key || !window.currentSettlements) return null;
+        return window.currentSettlements.find(s => normalizeDriver(s.driver_name) === key) || null;
+    };
+
+    window.getLatestSettlementLeftover = function (driverName) {
+        const rec = window.getLatestSettlementRecord(driverName);
+        const bal = parseFloat(rec && rec.cash_balance) || 0;
+        return bal > 0 ? Math.round(bal * 100) / 100 : 0;
+    };
+
+    window.getDriverOpenCashBreakdown = function (driverName) {
+        const orders = window.getDriverWallet(driverName) || 0;
+        const lastWeek = window.getLatestSettlementLeftover(driverName) || 0;
+        return {
+            orders: Math.round(orders * 100) / 100,
+            lastWeek: Math.round(lastWeek * 100) / 100,
+            total: Math.round((orders + lastWeek) * 100) / 100
+        };
+    };
+
     window.renderDriverWalletBanner = function (driverName, elId) {
         const el = document.getElementById(elId);
         if (!el) return;
-        const amt = window.getDriverWallet(driverName);
         const name = normalizeDriver(driverName);
-        if (!name || name === 'UNASSIGNED' || name === 'ALL DRIVERS' || amt < 0.01) {
+        const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
+        if (!name || name === 'UNASSIGNED' || name === 'ALL DRIVERS' || total < 0.01) {
             el.style.display = 'none';
             el.innerHTML = '';
             return;
         }
         el.style.display = 'flex';
         const isDriverRole = (window.currentUserRole === 'driver');
+        const parts = [];
+        if (orders > 0.009) parts.push(`órdenes ${fmt(orders)}`);
+        if (lastWeek > 0.009) parts.push(`semana pasada ${fmt(lastWeek)}`);
         el.innerHTML = `
             <i class="fas fa-money-bill-wave" style="font-size:1.2rem;"></i>
             <div style="flex:1;">
                 <div style="font-weight:900; font-size:0.85rem;">${isDriverRole ? 'Llevas efectivo de la empresa' : name + ' tiene efectivo de la empresa'}</div>
-                <div style="font-size:0.75rem; font-weight:700; opacity:0.9;">${fmt(amt)} — se descuenta al pagar o cuando lo entregue en oficina</div>
+                <div style="font-size:0.75rem; font-weight:700; opacity:0.9;">${parts.join(' + ')} — se descuenta al liquidar o cuando lo entregue en oficina</div>
             </div>
-            <div style="font-weight:900; font-size:1.25rem;">${fmt(amt)}</div>
+            <div style="font-weight:900; font-size:1.25rem;">${fmt(total)}</div>
             ${!isDriverRole ? `<button type="button" onclick="window.turnInDriverCash('${name.replace(/'/g, "\\'")}')"
                 style="background:#fff; color:#92400e; border:none; border-radius:8px; padding:8px 12px; font-weight:800; cursor:pointer; font-size:0.75rem;">
                 <i class="fas fa-hand-holding-usd"></i> ENTREGÓ CASH
@@ -310,14 +386,16 @@
             alert('Solo oficina puede registrar una entrega de cash.');
             return;
         }
-        const current = window.getDriverWallet(driverName);
-        if (current < 0.01) {
+        const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
+        if (total < 0.01) {
             alert('Este chofer no tiene cash abierto de la empresa.');
             return;
         }
         const raw = prompt(
-            `${normalizeDriver(driverName)} tiene ${fmt(current)} de la empresa.\n\n¿Cuánto entregó en oficina? (no se borra Amount de las órdenes)`,
-            current.toFixed(2)
+            `${normalizeDriver(driverName)} tiene ${fmt(total)} de la empresa.\n` +
+            `Órdenes: ${fmt(orders)}\nSemana pasada (Settlement): ${fmt(lastWeek)}\n\n` +
+            `¿Cuánto entregó en oficina? (el precio de las órdenes no se borra)`,
+            total.toFixed(2)
         );
         if (raw === null) return;
         const amt = parseFloat(raw);
@@ -325,10 +403,29 @@
             alert('Monto inválido.');
             return;
         }
-        const take = Math.min(amt, current);
+        const take = Math.min(amt, total);
         try {
-            const applied = await window.reduceDriverHolds(driverName, take);
-            if (window.logCashTransaction) {
+            const fromOrders = Math.min(take, orders);
+            let appliedOrders = 0;
+            if (fromOrders > 0.009) {
+                appliedOrders = await window.reduceDriverHolds(driverName, fromOrders);
+            }
+            let appliedLast = 0;
+            const rest = Math.round((take - appliedOrders) * 100) / 100;
+            if (rest > 0.009 && lastWeek > 0.009) {
+                appliedLast = Math.min(rest, lastWeek);
+                const rec = window.getLatestSettlementRecord(driverName);
+                if (rec && rec.id && window.db) {
+                    const nextBal = Math.round((Math.max(0, lastWeek - appliedLast)) * 100) / 100;
+                    const { error } = await window.db.from('settlement_history')
+                        .update({ cash_balance: nextBal })
+                        .eq('id', rec.id);
+                    if (error) throw error;
+                    rec.cash_balance = nextBal;
+                }
+            }
+            const applied = Math.round((appliedOrders + appliedLast) * 100) / 100;
+            if (applied > 0.009 && window.logCashTransaction) {
                 await window.logCashTransaction({
                     tipo: 'ingreso',
                     metodo: 'cash',
@@ -338,8 +435,13 @@
                     chofer: normalizeDriver(driverName)
                 });
             }
+            if (window.fetchHistory) await window.fetchHistory(true);
+            if (window.loadAccountingData) {
+                try { await window.loadAccountingData(true); } catch (e) { console.warn(e); }
+            }
             window.refreshDriverCashSurfaces();
-            alert(`Registrado: ${fmt(applied)} pasó a caja. Queda ${fmt(window.getDriverWallet(driverName))} con el chofer.`);
+            const left = window.getDriverOpenCashBreakdown(driverName);
+            alert(`Registrado: ${fmt(applied)} pasó a caja. Queda ${fmt(left.total)} con el chofer.`);
         } catch (err) {
             alert('No se pudo registrar la entrega: ' + (err.message || err) + '\n\nSi falta la columna driver_cash_held, ejecuta supabase-driver-cash-wallet.sql');
         }
@@ -363,7 +465,10 @@
         if (!elCash) return;
         const wallet = window.getDriverWallet(driverName);
         elCash.value = wallet.toFixed(2);
-        if (elLast) elLast.value = '0';
+        const leftover = window.getLatestSettlementLeftover
+            ? window.getLatestSettlementLeftover(driverName)
+            : 0;
+        if (elLast) elLast.value = leftover.toFixed(2);
         if (window.updateWeeklyCalc) window.updateWeeklyCalc();
     };
 })();

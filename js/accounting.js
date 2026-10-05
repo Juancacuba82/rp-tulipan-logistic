@@ -299,9 +299,9 @@
 
             // 4. Cargar Balances Reales de Choferes (Settlements)
             const pSettlements = window.db.from('settlement_history')
-                .select('driver_name, cash_balance, end_date')
+                .select('driver_name, cash_balance, end_date, created_at')
                 .or('is_deleted.eq.false,is_deleted.is.null')
-                .order('end_date', { ascending: false });
+                .order('created_at', { ascending: false });
 
             // 5. Cargar Transacciones Manuales (Cash Ledger)
             const pCashLedger = window.db.from('cash_ledger').select('*');
@@ -326,26 +326,31 @@
             if (resCashLedger.error) console.error("Error cash_ledger:", resCashLedger.error);
             if (resInvoices.error) console.error("Error invoices:", resInvoices.error);
 
-            // Calcular Balance Real de Choferes — solo cash marcado "Cobrado por: Chofer"
-            let driverWalletActual = 0;
+            // Chofer "me debe": leftover del último settlement + cash aún en órdenes (después de esa liquidación)
             const driverMap = {};
+            const latestSettle = {};
+            (resSettlements.data || []).forEach(s => {
+                const dName = (s.driver_name || '').toString().trim().toUpperCase();
+                if (!dName || latestSettle[dName]) return;
+                latestSettle[dName] = s;
+                const leftover = Math.max(0, parseFloat(s.cash_balance) || 0);
+                if (leftover > 0.009) driverMap[dName] = leftover;
+            });
             if (resTrips && resTrips.data && window.getHoldFromDbTrip) {
                 resTrips.data.forEach(t => {
                     const h = window.getHoldFromDbTrip(t);
                     if (h < 0.01) return;
                     const dName = (t.driver || 'UNKNOWN').toString().trim().toUpperCase();
                     if (!dName || dName === '---') return;
+                    const lastEnd = latestSettle[dName] && latestSettle[dName].end_date;
+                    if (lastEnd && String(t.date || '') <= String(lastEnd)) return;
                     driverMap[dName] = (driverMap[dName] || 0) + h;
                 });
             }
             Object.keys(driverMap).forEach(d => {
                 driverMap[d] = Math.round((driverMap[d] || 0) * 100) / 100;
             });
-            const memMap = (typeof window.getDriverWalletMap === 'function') ? window.getDriverWalletMap() : {};
-            Object.keys(memMap).forEach(d => {
-                if ((memMap[d] || 0) > (driverMap[d] || 0)) driverMap[d] = memMap[d];
-            });
-            driverWalletActual = 0;
+            let driverWalletActual = 0;
             Object.keys(driverMap).forEach(d => {
                 if (driverMap[d] > 0) driverWalletActual += driverMap[d];
             });

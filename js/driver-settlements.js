@@ -757,10 +757,10 @@
             if (!editingSettlementId && liveWallet > 0.01) {
                 const leftover = parseFloat(document.getElementById('res-cash-bal')?.dataset?.value) || 0;
                 const ok = confirm(
-                    `${driverNameFinal} tiene $${liveWallet.toFixed(2)} de la empresa.\n` +
-                    `Cash Collected en la calculadora: $${(parseFloat(document.getElementById('calc-cash-coll')?.value) || 0).toFixed(2)}\n\n` +
-                    `Al archivar se descuenta del salario. Lo que quede ($${Math.max(0, leftover).toFixed(2)}) sigue con el chofer.\n` +
-                    `Amount de las órdenes NO se borra.\n\n¿Continuar?`
+                    `${driverNameFinal} tiene $${liveWallet.toFixed(2)} de la empresa en órdenes.\n` +
+                    `El precio/cobro de las órdenes NO se borra.\n` +
+                    `Al archivar, ese cash pasa a TODO OFICINA (el chofer ya no lo debe en la orden).\n` +
+                    `Lo que quede ($${Math.max(0, leftover).toFixed(2)}) queda en Settlement History.\n\n¿Continuar?`
                 );
                 if (!ok) return;
             }
@@ -912,15 +912,18 @@
                 if (window.fetchHistory) await window.fetchHistory(true); 
                 if (window.loadExpensesData) await window.loadExpensesData(true);
 
-                const leftover = Math.max(0, cashAmountFinal);
-                if (window.reconcileDriverHoldsTo) {
-                    try {
-                        await window.reconcileDriverHoldsTo(driverNameFinal, leftover);
-                    } catch (holdErr) {
-                        console.warn('[DriverCash] Could not sync trip holds after settlement:', holdErr);
+                try {
+                    if (window.closeDriverHoldsOnSettlement) {
+                        await window.closeDriverHoldsOnSettlement(driverNameFinal, val_final);
                     }
+                } catch (holdErr) {
+                    console.error('[DriverCash] Could not move order cash to office after settlement:', holdErr);
+                    alert('La liquidación se guardó, pero no se pudo pasar el cash de las órdenes a TODO OFICINA: ' + (holdErr.message || holdErr));
                 }
                 if (window.refreshDriverCashSurfaces) window.refreshDriverCashSurfaces();
+                if (window.loadAccountingData) {
+                    try { await window.loadAccountingData(true); } catch (e) { console.warn(e); }
+                }
 
                 alert(editingSettlementId ? "Settlement Updated Successfully!" : "Archive & Expense Saved Successfully!");
                 resetSettlementEdit();
