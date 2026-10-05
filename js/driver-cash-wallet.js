@@ -251,8 +251,84 @@
         patch(window.inventoryDataCache);
     }
 
-    window.reduceDriverHolds = async function (driverName, amountToRemove) {
+    const PAY_LINES = [
+        { paid: 32, flag: 47, total: 18, cashI: 66, bankI: 67, useQty: true },
+        { paid: 30, flag: 46, total: 13, cashI: 68, bankI: 69, useQty: true },
+        { paid: 33, flag: 48, total: 20, cashI: 70, bankI: 71, useQty: true },
+        { paid: 34, flag: null, total: 22, cashI: 72, bankI: 73, useQty: false }
+    ];
+
+    function lineCashOnRow(row, spec) {
+        if (!paid(row[spec.paid])) return 0;
+        const qty = spec.useQty ? (parseInt(row[53]) || 1) : 1;
+        const splitCash = parseFloat(row[spec.cashI]) || 0;
+        const splitBank = parseFloat(row[spec.bankI]) || 0;
+        const total = (parseFloat(row[spec.total]) || 0) * qty;
+        if (splitCash > 0.009) return splitCash;
+        if (splitBank > 0.009) return 0;
+        if (spec.flag !== null) return truthy(row[spec.flag]) ? total : 0;
+        if ((row[76] || '').toString().toLowerCase() === 'driver' && total > 0) return total;
+        if (!(row[76]) && total > 0) return total;
+        return 0;
+    }
+
+    function moveCashToBankOnRow(row, amount) {
+        let left = Math.round((parseFloat(amount) || 0) * 100) / 100;
+        PAY_LINES.forEach(spec => {
+            if (left < 0.01) return;
+            const cashNow = lineCashOnRow(row, spec);
+            if (cashNow < 0.01) return;
+            const take = Math.min(cashNow, left);
+            row[spec.cashI] = Math.round((cashNow - take) * 100) / 100;
+            row[spec.bankI] = Math.round(((parseFloat(row[spec.bankI]) || 0) + take) * 100) / 100;
+            if (spec.flag !== null) row[spec.flag] = (parseFloat(row[spec.cashI]) || 0) > 0.009;
+            left = Math.round((left - take) * 100) / 100;
+        });
+        return Math.round(((parseFloat(amount) || 0) - left) * 100) / 100;
+    }
+
+    async function persistTripTurnIn(row) {
+        if (!window.db || !row || !row[0]) return;
+        const held = Math.max(0, parseFloat(row[77]) || 0);
+        const payload = {
+            driver_cash_held: held,
+            cash_collector: held > 0.009 ? 'driver' : 'office',
+            trans_cash_amt: parseFloat(row[66]) || 0,
+            trans_bank_amt: parseFloat(row[67]) || 0,
+            yard_cash_amt: parseFloat(row[68]) || 0,
+            yard_bank_amt: parseFloat(row[69]) || 0,
+            sales_cash_amt: parseFloat(row[70]) || 0,
+            sales_bank_amt: parseFloat(row[71]) || 0,
+            amount_cash_amt: parseFloat(row[72]) || 0,
+            amount_bank_amt: parseFloat(row[73]) || 0,
+            r_cash: !!row[47] && row[47] !== 'false',
+            y_cash: !!row[46] && row[46] !== 'false',
+            s_cash: !!row[48] && row[48] !== 'false'
+        };
+        const { error } = await window.db.from('trips').update(payload).eq('trip_id', row[0]);
+        if (error) throw error;
+        const patch = (arr) => {
+            if (!arr) return;
+            const t = arr.find(r => r[0] === row[0]);
+            if (t && t !== row) {
+                PAY_LINES.forEach(spec => {
+                    t[spec.cashI] = row[spec.cashI];
+                    t[spec.bankI] = row[spec.bankI];
+                    if (spec.flag !== null) t[spec.flag] = row[spec.flag];
+                });
+                t[76] = row[76];
+                t[77] = row[77];
+            }
+        };
+        patch(window.currentTrips);
+        patch(window.allTripsUnfiltered);
+        patch(window.driverReportTrips);
+        patch(window.inventoryDataCache);
+    }
+
+    window.reduceDriverHolds = async function (driverName, amountToRemove, bankToConvert) {
         let left = Math.round((parseFloat(amountToRemove) || 0) * 100) / 100;
+        let bankLeft = Math.round((parseFloat(bankToConvert) || 0) * 100) / 100;
         if (left < 0.01) return 0;
         const key = normalizeDriver(driverName);
         const rows = allTrips()
@@ -264,9 +340,14 @@
             const hold = window.getTripOpenHold(row);
             const take = Math.min(hold, left);
             const next = Math.round((hold - take) * 100) / 100;
-            row[76] = 'driver';
             row[77] = next;
-            await persistHold(row[0], next);
+            row[76] = next > 0.009 ? 'driver' : 'office';
+            const conv = Math.min(take, bankLeft);
+            if (conv > 0.009) {
+                moveCashToBankOnRow(row, conv);
+                bankLeft = Math.round((bankLeft - conv) * 100) / 100;
+            }
+            await persistTripTurnIn(row);
             left = Math.round((left - take) * 100) / 100;
         }
         return Math.round(((parseFloat(amountToRemove) || 0) - left) * 100) / 100;
@@ -380,35 +461,207 @@
         `;
     };
 
+    function ensureTurnInModal() {
+        if (document.getElementById('dti-modal')) return;
+        const wrap = document.createElement('div');
+        wrap.id = 'dti-modal';
+        wrap.style.cssText = 'display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; padding:16px;';
+        wrap.innerHTML = `
+            <div style="background:#fff; width:100%; max-width:460px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); overflow:hidden;">
+                <div style="background:linear-gradient(135deg,#92400e,#d97706); color:#fff; padding:16px 18px;">
+                    <div style="font-weight:900; font-size:1.05rem;">Entrega de dinero del chofer</div>
+                    <div id="dti-driver" style="font-size:0.8rem; opacity:0.9; margin-top:2px;"></div>
+                </div>
+                <div style="padding:18px 18px 8px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+                        <div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:10px; padding:10px;">
+                            <div style="font-size:0.65rem; font-weight:800; color:#92400e; text-transform:uppercase;">En órdenes</div>
+                            <div id="dti-orders" style="font-weight:900; color:#78350f; font-size:1.05rem;">$0.00</div>
+                        </div>
+                        <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:10px; padding:10px;">
+                            <div style="font-size:0.65rem; font-weight:800; color:#1d4ed8; text-transform:uppercase;">Semana pasada</div>
+                            <div id="dti-last" style="font-weight:900; color:#1e3a8a; font-size:1.05rem;">$0.00</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:0.72rem; font-weight:800; color:#334155; display:block; margin-bottom:4px;">Monto que entregó</label>
+                        <input id="dti-amount" type="number" step="0.01" min="0"
+                            style="width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:10px 12px; font-weight:800; font-size:1rem;">
+                        <div id="dti-total-hint" style="font-size:0.7rem; color:#64748b; margin-top:4px;"></div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:0.72rem; font-weight:800; color:#334155; display:block; margin-bottom:6px;">Cómo lo recibió la oficina</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                            <button type="button" data-dti-m="cash" class="dti-mbtn">CASH</button>
+                            <button type="button" data-dti-m="bank" class="dti-mbtn">BANK</button>
+                            <button type="button" data-dti-m="split" class="dti-mbtn">SPLIT</button>
+                        </div>
+                    </div>
+                    <div id="dti-split" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin-bottom:10px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div>
+                                <label style="font-size:0.65rem; font-weight:800; color:#047857;">CASH</label>
+                                <input id="dti-cash" type="number" step="0.01" min="0" value="0"
+                                    style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:8px; font-weight:700;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.65rem; font-weight:800; color:#1d4ed8;">BANK</label>
+                                <input id="dti-bank" type="number" step="0.01" min="0" value="0"
+                                    style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:8px; font-weight:700;">
+                            </div>
+                        </div>
+                        <div id="dti-split-status" style="font-size:0.72rem; font-weight:700; margin-top:6px; color:#64748b;"></div>
+                    </div>
+                    <div id="dti-error" style="display:none; background:#fef2f2; color:#b91c1c; border-radius:8px; padding:8px 10px; font-size:0.75rem; font-weight:700; margin-bottom:8px;"></div>
+                    <div id="dti-ok" style="display:none; background:#ecfdf5; color:#047857; border-radius:8px; padding:8px 10px; font-size:0.75rem; font-weight:700; margin-bottom:8px;"></div>
+                </div>
+                <div style="display:flex; gap:8px; padding:12px 18px 18px; justify-content:flex-end;">
+                    <button type="button" id="dti-cancel" style="background:#f1f5f9; border:none; border-radius:10px; padding:10px 14px; font-weight:800; cursor:pointer; color:#334155;">Cancelar</button>
+                    <button type="button" id="dti-save" style="background:#d97706; color:#fff; border:none; border-radius:10px; padding:10px 16px; font-weight:800; cursor:pointer;">Registrar entrega</button>
+                </div>
+            </div>`;
+        wrap.querySelectorAll('.dti-mbtn').forEach(btn => {
+            btn.style.cssText = 'border:2px solid #cbd5e1; background:#fff; color:#64748b; border-radius:10px; padding:10px 6px; font-weight:800; cursor:pointer; font-size:0.75rem;';
+        });
+        document.body.appendChild(wrap);
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) window.closeTurnInModal(); });
+        document.getElementById('dti-cancel').onclick = () => window.closeTurnInModal();
+        wrap.querySelectorAll('.dti-mbtn').forEach(btn => {
+            btn.onclick = () => window.setTurnInMethod(btn.getAttribute('data-dti-m'));
+        });
+        const amtEl = document.getElementById('dti-amount');
+        const cashEl = document.getElementById('dti-cash');
+        amtEl.addEventListener('input', () => {
+            if (wrap.dataset.method === 'split') {
+                const amount = parseFloat(amtEl.value) || 0;
+                const cash = parseFloat(cashEl.value) || 0;
+                document.getElementById('dti-bank').value = Math.max(0, amount - cash).toFixed(2);
+            }
+            window.validateTurnInModal();
+        });
+        cashEl.addEventListener('input', () => {
+            const amount = parseFloat(amtEl.value) || 0;
+            const cash = parseFloat(cashEl.value) || 0;
+            document.getElementById('dti-bank').value = Math.max(0, amount - cash).toFixed(2);
+            window.validateTurnInModal();
+        });
+        document.getElementById('dti-bank').addEventListener('input', () => window.validateTurnInModal());
+        document.getElementById('dti-save').onclick = () => window.confirmTurnInDriverCash();
+    }
+
+    window.setTurnInMethod = function (method) {
+        const wrap = document.getElementById('dti-modal');
+        if (!wrap) return;
+        wrap.dataset.method = method;
+        const styles = {
+            cash: { bg: '#10b981', bd: '#10b981' },
+            bank: { bg: '#3b82f6', bd: '#3b82f6' },
+            split: { bg: '#7c3aed', bd: '#7c3aed' }
+        };
+        wrap.querySelectorAll('.dti-mbtn').forEach(btn => {
+            const m = btn.getAttribute('data-dti-m');
+            const on = m === method;
+            btn.style.background = on ? styles[m].bg : '#fff';
+            btn.style.borderColor = on ? styles[m].bd : '#cbd5e1';
+            btn.style.color = on ? '#fff' : '#64748b';
+        });
+        document.getElementById('dti-split').style.display = method === 'split' ? 'block' : 'none';
+        if (method === 'split') {
+            const amount = parseFloat(document.getElementById('dti-amount').value) || 0;
+            document.getElementById('dti-cash').value = amount.toFixed(2);
+            document.getElementById('dti-bank').value = '0.00';
+        }
+        window.validateTurnInModal();
+    };
+
+    window.validateTurnInModal = function () {
+        const wrap = document.getElementById('dti-modal');
+        const err = document.getElementById('dti-error');
+        const status = document.getElementById('dti-split-status');
+        if (!wrap) return false;
+        const max = parseFloat(wrap.dataset.total) || 0;
+        const amount = parseFloat(document.getElementById('dti-amount').value) || 0;
+        const method = wrap.dataset.method || 'cash';
+        err.style.display = 'none';
+        if (amount <= 0) return false;
+        if (amount > max + 0.009) {
+            err.style.display = 'block';
+            err.textContent = 'El monto no puede ser mayor a ' + fmt(max);
+            return false;
+        }
+        if (method === 'split') {
+            const cash = parseFloat(document.getElementById('dti-cash').value) || 0;
+            const bank = parseFloat(document.getElementById('dti-bank').value) || 0;
+            const sum = Math.round((cash + bank) * 100) / 100;
+            const ok = Math.abs(sum - amount) < 0.02;
+            status.textContent = ok ? 'Cuadra perfecto' : `Suma ${fmt(sum)} vs ${fmt(amount)}`;
+            status.style.color = ok ? '#047857' : '#b91c1c';
+            return ok;
+        }
+        return true;
+    };
+
+    window.closeTurnInModal = function () {
+        const wrap = document.getElementById('dti-modal');
+        if (wrap) wrap.style.display = 'none';
+    };
+
     window.turnInDriverCash = async function (driverName) {
         const role = (window.currentUserRole || '').toLowerCase();
         if (role === 'student' || role === 'driver') {
-            alert('Solo oficina puede registrar una entrega de cash.');
             return;
         }
         const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
-        if (total < 0.01) {
-            alert('Este chofer no tiene cash abierto de la empresa.');
-            return;
+        if (total < 0.01) return;
+        ensureTurnInModal();
+        const wrap = document.getElementById('dti-modal');
+        wrap.dataset.driver = normalizeDriver(driverName);
+        wrap.dataset.total = String(total);
+        wrap.dataset.orders = String(orders);
+        wrap.dataset.last = String(lastWeek);
+        document.getElementById('dti-driver').textContent = normalizeDriver(driverName);
+        document.getElementById('dti-orders').textContent = fmt(orders);
+        document.getElementById('dti-last').textContent = fmt(lastWeek);
+        document.getElementById('dti-total-hint').textContent = 'Máximo disponible: ' + fmt(total);
+        document.getElementById('dti-amount').value = total.toFixed(2);
+        document.getElementById('dti-error').style.display = 'none';
+        document.getElementById('dti-ok').style.display = 'none';
+        document.getElementById('dti-save').disabled = false;
+        window.setTurnInMethod('cash');
+        wrap.style.display = 'flex';
+    };
+
+    window.confirmTurnInDriverCash = async function () {
+        const wrap = document.getElementById('dti-modal');
+        if (!wrap || !window.validateTurnInModal()) return;
+        const driverName = wrap.dataset.driver;
+        const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
+        const amount = Math.min(parseFloat(document.getElementById('dti-amount').value) || 0, total);
+        const method = wrap.dataset.method || 'cash';
+        let cashAmt = 0;
+        let bankAmt = 0;
+        if (method === 'cash') cashAmt = amount;
+        else if (method === 'bank') bankAmt = amount;
+        else {
+            cashAmt = parseFloat(document.getElementById('dti-cash').value) || 0;
+            bankAmt = parseFloat(document.getElementById('dti-bank').value) || 0;
         }
-        const raw = prompt(
-            `${normalizeDriver(driverName)} tiene ${fmt(total)} de la empresa.\n` +
-            `Órdenes: ${fmt(orders)}\nSemana pasada (Settlement): ${fmt(lastWeek)}\n\n` +
-            `¿Cuánto entregó en oficina? (el precio de las órdenes no se borra)`,
-            total.toFixed(2)
-        );
-        if (raw === null) return;
-        const amt = parseFloat(raw);
-        if (isNaN(amt) || amt <= 0) {
-            alert('Monto inválido.');
-            return;
-        }
-        const take = Math.min(amt, total);
+        cashAmt = Math.round(cashAmt * 100) / 100;
+        bankAmt = Math.round(bankAmt * 100) / 100;
+
+        const err = document.getElementById('dti-error');
+        const ok = document.getElementById('dti-ok');
+        const saveBtn = document.getElementById('dti-save');
+        saveBtn.disabled = true;
+        err.style.display = 'none';
+        ok.style.display = 'none';
+
         try {
+            const take = Math.round(amount * 100) / 100;
             const fromOrders = Math.min(take, orders);
             let appliedOrders = 0;
             if (fromOrders > 0.009) {
-                appliedOrders = await window.reduceDriverHolds(driverName, fromOrders);
+                appliedOrders = await window.reduceDriverHolds(driverName, fromOrders, bankAmt);
             }
             let appliedLast = 0;
             const rest = Math.round((take - appliedOrders) * 100) / 100;
@@ -425,15 +678,27 @@
                 }
             }
             const applied = Math.round((appliedOrders + appliedLast) * 100) / 100;
-            if (applied > 0.009 && window.logCashTransaction) {
-                await window.logCashTransaction({
-                    tipo: 'ingreso',
-                    metodo: 'cash',
-                    monto: applied,
-                    descripcion: `Entrega de cash — ${normalizeDriver(driverName)}`,
-                    referencia: 'DRIVER_CASH_TURN_IN',
-                    chofer: normalizeDriver(driverName)
-                });
+            if (window.logCashTransaction) {
+                if (cashAmt > 0.009) {
+                    await window.logCashTransaction({
+                        tipo: 'ingreso',
+                        metodo: 'cash',
+                        monto: cashAmt,
+                        descripcion: `Entrega de chofer — ${normalizeDriver(driverName)} (Cash)`,
+                        referencia: 'DRIVER_CASH_TURN_IN',
+                        chofer: normalizeDriver(driverName)
+                    });
+                }
+                if (bankAmt > 0.009) {
+                    await window.logCashTransaction({
+                        tipo: 'ingreso',
+                        metodo: 'bank',
+                        monto: bankAmt,
+                        descripcion: `Entrega de chofer — ${normalizeDriver(driverName)} (Bank)`,
+                        referencia: 'DRIVER_CASH_TURN_IN',
+                        chofer: normalizeDriver(driverName)
+                    });
+                }
             }
             if (window.fetchHistory) await window.fetchHistory(true);
             if (window.loadAccountingData) {
@@ -441,9 +706,13 @@
             }
             window.refreshDriverCashSurfaces();
             const left = window.getDriverOpenCashBreakdown(driverName);
-            alert(`Registrado: ${fmt(applied)} pasó a caja. Queda ${fmt(left.total)} con el chofer.`);
-        } catch (err) {
-            alert('No se pudo registrar la entrega: ' + (err.message || err) + '\n\nSi falta la columna driver_cash_held, ejecuta supabase-driver-cash-wallet.sql');
+            ok.style.display = 'block';
+            ok.textContent = `Registrado ${fmt(applied)}. Queda ${fmt(left.total)} con el chofer.`;
+            setTimeout(() => window.closeTurnInModal(), 900);
+        } catch (e) {
+            saveBtn.disabled = false;
+            err.style.display = 'block';
+            err.textContent = 'No se pudo registrar: ' + (e.message || e);
         }
     };
 
