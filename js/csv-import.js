@@ -92,16 +92,21 @@ function amountsEqual(a, b) {
     return Math.abs(Number(a) - Number(b)) < 0.005;
 }
 
-function extractCardLast4FromText(text) {
+function extractCardLast4FromText(text, knownLast4s) {
     const s = String(text || '').toUpperCase().replace(/\s+/g, ' ').trim();
     if (!s) return '';
-    let m = s.match(/XXXX\s*-?\s*(\d{4})/);
+
+    let m = s.match(/(?:DEBIT\s+)?CARD\s*[*#X]{0,4}\s*-?\s*(\d{4})\b/);
     if (m) return m[1];
-    m = s.match(/\bCARD\s*#?\s*(\d{4})\b/);
+    m = s.match(/XXXX\s*-?\s*(\d{4})/);
     if (m) return m[1];
-    if (/\b(?:CHECKCARD|CKCD|CHKCARD|CHKCRD|DEBIT CARD|PURCHASE AUTHORIZED)\b/.test(s)) {
-        const end = s.match(/(\d{4})\s*$/);
-        if (end && !/#\s*\d{4}\s*$/.test(s)) return end[1];
+    m = s.match(/\*\s*(\d{4})\b/);
+    if (m) return m[1];
+
+    const known = knownLast4s || [];
+    for (let i = 0; i < known.length; i++) {
+        const last4 = known[i];
+        if (last4 && s.includes(last4)) return last4;
     }
     return '';
 }
@@ -131,19 +136,22 @@ function buildDriverCardLast4Map() {
     return map;
 }
 
-function itemsLookLikeFuel(items) {
-    return (items || []).length > 0 && items.every(it => {
-        const key = getGroupKey(it.description);
-        return key === 'GAS STATIONS' || isTitanFuel(it.description);
-    });
+function looksLikeFuelDesc(desc) {
+    const key = getGroupKey(desc);
+    return key === 'GAS STATIONS' || isTitanFuel(desc);
 }
 
-function buildDriverCardImportNote(driverName, last4, items) {
-    const lines = (items || [])
-        .slice()
-        .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-        .map(it => `${formatCsvDate(it.date)} ${it.description} $${Number(it.amount).toFixed(2)}`);
-    return `Driver card ${driverName} ****${last4} | ${lines.join(' | ')}`;
+function driverCardLabel(driverName, last4) {
+    return `${driverName} *${last4}`;
+}
+
+function merchantFromBankDesc(desc) {
+    return String(desc || '')
+        .replace(/\s+/g, ' ')
+        .replace(/\b(?:DEBIT\s+)?CARD\s*[*#X]{0,4}\s*-?\s*\d{4}\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/[\/\-\s]+$/g, '')
+        .trim();
 }
 
 window.openCsvImportModal = async function() {
@@ -205,7 +213,7 @@ document.getElementById('csv-file-input')?.addEventListener('change', function(e
 
 async function processBankCsv(rawData) {
     try {
-        if (typeof window.loadDriversData === 'function' && !(window.currentDrivers || []).length) {
+        if (typeof window.loadDriversData === 'function') {
             try { await window.loadDriversData(); } catch (e) { console.error(e); }
         }
 
@@ -250,8 +258,10 @@ async function processBankCsv(rawData) {
         });
 
         const cardMap = buildDriverCardLast4Map();
+        const knownLast4s = Array.from(cardMap.keys());
         tempParsed.forEach(item => {
-            const last4 = extractCardLast4FromText(`${item.description} ${item.rawLine || ''}`);
+            const last4 = extractCardLast4FromText(item.description, knownLast4s)
+                || extractCardLast4FromText(item.rawLine || '', knownLast4s);
             const driver = last4 ? cardMap.get(last4) : null;
             if (driver) {
                 item.cardLast4 = last4;
@@ -260,78 +270,57 @@ async function processBankCsv(rawData) {
             }
         });
 
-        const groupedMap = new Map();
-
         tempParsed.forEach((item, idx) => {
             const titan = isTitanFuel(item.description);
             const groupKey = getGroupKey(item.description);
-            const weekWednesday = getWednesdayOfWeek(item.date);
             const isDriverCard = !!item.driverId;
-            const mapKey = isDriverCard ? `driver_${item.driverId}` : `__single_${idx}`;
-
-            if (isDriverCard && groupedMap.has(mapKey)) {
-                const existing = groupedMap.get(mapKey);
-                existing.amount += item.amount;
-                existing.count += 1;
-                existing.subItems.push(item);
-                if (item.date > existing.bankDate) existing.bankDate = item.date;
-            } else {
-                groupedMap.set(mapKey, {
-                    bankDate: item.date,
-                    weekWednesday,
-                    description: item.description,
-                    amount: item.amount,
-                    count: 1,
-                    groupKey: isDriverCard ? `DRIVER CARD - ${item.driverName}` : groupKey,
-                    isTitan: titan && !isDriverCard,
-                    isDriverCard,
-                    driverName: item.driverName || '',
-                    cardLast4: item.cardLast4 || '',
-                    subItems: [item]
-                });
-            }
-        });
-
-        let index = 0;
-        groupedMap.forEach(item => {
-            const isDriverCard = !!item.isDriverCard;
-            let finalDesc = item.groupKey;
+            const label = isDriverCard ? driverCardLabel(item.driverName, item.cardLast4) : '';
+            const merchant = merchantFromBankDesc(item.description) || item.description;
+            let finalDesc = item.description;
             if (isDriverCard) {
-                finalDesc = `DRIVER CARD - ${item.driverName}`;
-            } else if (item.isTitan) {
+                finalDesc = `${label} - ${merchant}`.substring(0, 50);
+            } else if (titan) {
                 finalDesc = 'CRYSTAL FUEL';
-            } else if (item.groupKey === (item.description || '').toUpperCase()) {
-                finalDesc = item.description;
+            } else if (groupKey && groupKey !== (item.description || '').toUpperCase()
+                && (groupKey === 'GAS STATIONS' || groupKey === 'CRYSTAL FUEL'
+                    || groupKey === 'SUNPASS TOLLS' || groupKey === 'E-ZPASS TOLLS'
+                    || groupKey === 'APPLE.COM/BILL' || groupKey === 'FPL ELECTRICITY'
+                    || groupKey === 'FACEBOOK ADS' || groupKey === 'TIKTOK ADS'
+                    || groupKey === 'UBER (Eats/Trip)' || groupKey === 'WIRE TRANSFER FEES'
+                    || groupKey === 'FORD MOTOR CREDIT (LOAN)' || groupKey === 'ALLY FINANCIAL (LOAN)'
+                    || groupKey === 'PROGRESSIVE INSURANCE' || groupKey === 'THE HOME DEPOT'
+                    || groupKey === "O'REILLY AUTO PARTS" || groupKey === 'T-MOBILE')) {
+                finalDesc = groupKey === 'GAS STATIONS' ? item.description : groupKey;
             }
 
             const importNote = isDriverCard
-                ? buildDriverCardImportNote(item.driverName, item.cardLast4, item.subItems)
+                ? `${label} | ${item.description}`
                 : '';
 
             window.csvParsedData.push({
-                id: 'csv_' + index++,
-                date: item.bankDate,
-                weekWednesday: item.weekWednesday,
-                bankDate: item.bankDate,
+                id: 'csv_' + idx,
+                date: item.date,
+                weekWednesday: getWednesdayOfWeek(item.date),
+                bankDate: item.date,
                 usesWednesdayDate: false,
-                isTitan: item.isTitan,
+                isTitan: titan && !isDriverCard,
                 isDriverCard,
                 driverName: item.driverName || '',
                 cardLast4: item.cardLast4 || '',
                 importNote,
                 description: finalDesc,
-                groupKey: item.groupKey,
-                originalBankDesc: isDriverCard ? importNote : item.description,
+                groupKey: isDriverCard ? label : groupKey,
+                originalBankDesc: item.description,
                 amount: item.amount,
-                suggestedCategory: isDriverCard && itemsLookLikeFuel(item.subItems) ? 'FUEL' : 'Other',
+                suggestedCategory: (isDriverCard && looksLikeFuelDesc(item.description)) || titan ? 'FUEL' : 'Other',
                 shouldSelect: false,
                 statusMessage: '',
                 isRecurring: false,
                 isDuplicate: false,
                 isUnknown: false,
                 aiExplanation: null,
-                subItems: item.subItems,
-                groupedCount: item.count
+                subItems: [item],
+                groupedCount: 1
             });
         });
 
@@ -485,9 +474,9 @@ function applyHistoricalMemory() {
         }
 
         if (row.isDriverCard) {
-            if (itemsLookLikeFuel(row.subItems)) row.suggestedCategory = 'FUEL';
+            if (looksLikeFuelDesc(row.originalBankDesc || row.description)) row.suggestedCategory = 'FUEL';
             row.shouldSelect = true;
-            row.statusMessage = `<span style="color:#10b981; font-weight:700;"><i class="fas fa-id-card"></i> Tarjeta de ${escapeHtml(row.driverName)} (${row.groupedCount} cargo${row.groupedCount === 1 ? '' : 's'})</span>`;
+            row.statusMessage = `<span style="color:#10b981; font-weight:700;"><i class="fas fa-id-card"></i> ${escapeHtml(row.driverName)} *${escapeHtml(row.cardLast4)}</span>`;
             return;
         }
 
@@ -583,9 +572,7 @@ function renderCsvPreview() {
             descHtml = escapeHtml(row.description);
         }
 
-        const dateHint = row.isDriverCard
-            ? `<div style="font-size:0.7rem; color:#4f46e5; font-weight:800;">Tarjeta chofer · última fecha</div>`
-            : `<div style="font-size:0.7rem; color:#64748b; font-weight:700;">Fecha del banco</div>`;
+        const dateHint = `<div style="font-size:0.7rem; color:#64748b; font-weight:700;">Fecha del banco</div>`;
 
         const suggestedLine = window.suggestExpenseProfitLine
             ? (window.suggestExpenseProfitLine(row.suggestedCategory, row.description, row.importNote || row.originalBankDesc || '') || '')
@@ -757,8 +744,9 @@ window.saveSelectedCsvExpenses = async function() {
 
         let expenseNote = `Imported from Bank CSV (${rowData.bankDate || rowData.date}) - ${rowData.originalBankDesc || rowData.description}`;
 
-        if (rowData.isDriverCard && rowData.importNote) {
-            expenseNote = rowData.importNote;
+        if (rowData.isDriverCard) {
+            expenseNote = rowData.importNote
+                || `${driverCardLabel(rowData.driverName, rowData.cardLast4)} | ${rowData.originalBankDesc || rowData.description}`;
         } else if (rowData.description === 'CRYSTAL FUEL' || rowData.isTitan) {
             const match = (rowData.originalBankDesc || '').match(/"([^"]+)"/);
             expenseNote = match ? match[1] : (rowData.originalBankDesc || 'Titan / Crystal Fuel');
