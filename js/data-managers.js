@@ -69,8 +69,38 @@
 
         // --- DRIVER MANAGEMENT LOGIC ---
         let currentDrivers = [];
-        window.openDriverManager = function () {
+        const DRIVER_CARD_LAST4_LS = 'rp_driver_card_last4';
+
+        function loadDriverCardLast4Local() {
+            try { return JSON.parse(localStorage.getItem(DRIVER_CARD_LAST4_LS) || '{}'); } catch (e) { return {}; }
+        }
+
+        function saveDriverCardLast4Local(map) {
+            try { localStorage.setItem(DRIVER_CARD_LAST4_LS, JSON.stringify(map || {})); } catch (e) { console.warn(e); }
+        }
+
+        function normalizeCardLast4(raw) {
+            return String(raw || '')
+                .split(/[,;\/\s]+/)
+                .map(part => String(part).replace(/\D/g, '').slice(-4))
+                .filter(part => part.length === 4)
+                .filter((v, i, arr) => arr.indexOf(v) === i)
+                .join(',');
+        }
+
+        function mergeDriverCardLast4(drivers) {
+            const local = loadDriverCardLast4Local();
+            (drivers || []).forEach(d => {
+                const fromDb = normalizeCardLast4(d.card_last4);
+                const fromLs = normalizeCardLast4(local[d.id]);
+                d.card_last4 = fromDb || fromLs || '';
+            });
+            return drivers;
+        }
+
+        window.openDriverManager = async function () {
             document.getElementById('driver-manager-modal').style.display = 'flex';
+            try { await loadDriversData(); } catch (e) { console.error(e); }
             renderDriverManagerList();
         }
         window.closeDriverManager = function () {
@@ -119,8 +149,8 @@
                     return loadDriversData();
                 }
 
-                currentDrivers = data;
-                window.currentDrivers = data;
+                currentDrivers = mergeDriverCardLast4(data);
+                window.currentDrivers = currentDrivers;
                 refreshDriverSelects();
                 if (window.populateDriverAuditList) window.populateDriverAuditList();
             } catch (err) {
@@ -266,15 +296,49 @@
             currentDrivers.forEach(d => {
                 const item = document.createElement('div');
                 item.className = 'driver-item';
+                const last4 = escapeHtmlDriver(d.card_last4 || '');
+                const canEdit = (window.currentUserRole || '').toLowerCase().trim() !== 'student';
                 item.innerHTML = `
-                    <span>${d.name}</span>
-                    ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteDriver('${d.id}')" class="btn-del-driver" title="Delete Driver">
+                    <span>${escapeHtmlDriver(d.name)}</span>
+                    <div class="driver-item-actions">
+                        <input type="text" class="driver-card-last4" value="${last4}" placeholder="last 4"
+                            maxlength="19" ${canEdit ? '' : 'disabled'}
+                            title="Last 4 digits of company debit card"
+                            onchange="saveDriverCardLast4('${d.id}', this.value)">
+                        ${(window.currentUserRole || '').toLowerCase().trim() === 'admin' ? `<button onclick="deleteDriver('${d.id}')" class="btn-del-driver" title="Delete Driver">
                         <i class="fas fa-trash-alt"></i>
                     </button>` : ''}
+                    </div>
                 `;
                 container.appendChild(item);
             });
         }
+
+        function escapeHtmlDriver(str) {
+            return String(str || '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        window.saveDriverCardLast4 = async function(id, raw) {
+            const last4 = normalizeCardLast4(raw);
+            const driver = currentDrivers.find(d => String(d.id) === String(id));
+            if (driver) driver.card_last4 = last4;
+            const local = loadDriverCardLast4Local();
+            local[id] = last4;
+            saveDriverCardLast4Local(local);
+            const input = document.querySelector(`.driver-card-last4[onchange*="${id}"]`);
+            if (input) input.value = last4;
+            if (!db) return;
+            try {
+                const { error } = await db.from('drivers').update({ card_last4: last4 || null }).eq('id', id);
+                if (error) {
+                    console.warn('card_last4 not saved to database (run supabase-driver-card-last4.sql). Using local copy.', error.message);
+                }
+            } catch (err) {
+                console.warn('card_last4 save fallback:', err);
+            }
+        };
 
         async function addNewDriver() {
             const role = (window.currentUserRole || '').toLowerCase().trim();
@@ -283,20 +347,49 @@
                 return;
             }
             const input = document.getElementById('new-driver-name');
+            const last4Input = document.getElementById('new-driver-card-last4');
             const name = input.value.trim().toUpperCase();
+            const last4 = normalizeCardLast4(last4Input ? last4Input.value : '');
             if (!name) return;
 
             try {
-                const { error } = await db.from('drivers').insert([{ name: name }]);
+                const payload = { name: name };
+                if (last4) payload.card_last4 = last4;
+                const { data, error } = await db.from('drivers').insert([payload]).select();
                 if (error) {
-                    if (error.code === '23505') alert("Driver already exists!");
-                    else throw error;
+                    if (error.code === '23505') {
+                        alert("Driver already exists!");
+                        return;
+                    }
+                    throw error;
                 }
                 input.value = '';
+                if (last4Input) last4Input.value = '';
+                if ((!data || !data.length) && last4) {
+                    /* insert without column succeeded in older schema */
+                } else if (data && data[0] && last4) {
+                    const local = loadDriverCardLast4Local();
+                    local[data[0].id] = last4;
+                    saveDriverCardLast4Local(local);
+                }
                 await loadDriversData(true);
                 renderDriverManagerList();
             } catch (err) {
                 console.error("Failed to add driver:", err);
+                if (last4) {
+                    try {
+                        const { error: retryErr } = await db.from('drivers').insert([{ name: name }]);
+                        if (!retryErr) {
+                            await loadDriversData(true);
+                            const created = (currentDrivers || []).find(d => (d.name || '').toUpperCase() === name);
+                            if (created) await window.saveDriverCardLast4(created.id, last4);
+                            if (last4Input) last4Input.value = '';
+                            input.value = '';
+                            renderDriverManagerList();
+                            return;
+                        }
+                    } catch (e2) { /* fall through */ }
+                }
                 alert("Error adding driver.");
             }
         }

@@ -92,12 +92,70 @@ function amountsEqual(a, b) {
     return Math.abs(Number(a) - Number(b)) < 0.005;
 }
 
+function extractCardLast4FromText(text) {
+    const s = String(text || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    let m = s.match(/XXXX\s*-?\s*(\d{4})/);
+    if (m) return m[1];
+    m = s.match(/\bCARD\s*#?\s*(\d{4})\b/);
+    if (m) return m[1];
+    if (/\b(?:CHECKCARD|CKCD|CHKCARD|CHKCRD|DEBIT CARD|PURCHASE AUTHORIZED)\b/.test(s)) {
+        const end = s.match(/(\d{4})\s*$/);
+        if (end && !/#\s*\d{4}\s*$/.test(s)) return end[1];
+    }
+    return '';
+}
+
+function buildDriverCardLast4Map() {
+    const map = new Map();
+    (window.currentDrivers || []).forEach(d => {
+        String(d.card_last4 || '')
+            .split(/[,;\/\s]+/)
+            .map(part => String(part).replace(/\D/g, '').slice(-4))
+            .filter(part => part.length === 4)
+            .forEach(last4 => map.set(last4, d));
+    });
+    try {
+        const local = JSON.parse(localStorage.getItem('rp_driver_card_last4') || '{}');
+        Object.keys(local).forEach(id => {
+            const driver = (window.currentDrivers || []).find(d => String(d.id) === String(id));
+            String(local[id] || '')
+                .split(/[,;\/\s]+/)
+                .map(part => String(part).replace(/\D/g, '').slice(-4))
+                .filter(part => part.length === 4)
+                .forEach(last4 => {
+                    if (!map.has(last4) && driver) map.set(last4, driver);
+                });
+        });
+    } catch (e) { /* ignore */ }
+    return map;
+}
+
+function itemsLookLikeFuel(items) {
+    return (items || []).length > 0 && items.every(it => {
+        const key = getGroupKey(it.description);
+        return key === 'GAS STATIONS' || isTitanFuel(it.description);
+    });
+}
+
+function buildDriverCardImportNote(driverName, last4, items) {
+    const lines = (items || [])
+        .slice()
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+        .map(it => `${formatCsvDate(it.date)} ${it.description} $${Number(it.amount).toFixed(2)}`);
+    return `Driver card ${driverName} ****${last4} | ${lines.join(' | ')}`;
+}
+
 window.openCsvImportModal = async function() {
     document.getElementById('csv-import-modal').style.display = 'flex';
     document.getElementById('csv-file-input').value = '';
     document.getElementById('csv-preview-container').style.display = 'none';
     document.getElementById('csv-preview-body').innerHTML = '';
     document.getElementById('csv-selected-total').textContent = '$0.00';
+
+    if (typeof window.loadDriversData === 'function') {
+        try { await window.loadDriversData(); } catch (e) { console.error(e); }
+    }
 
     if (typeof window.loadExpensesData === 'function') {
         try { await window.loadExpensesData(); } catch (e) { console.error(e); }
@@ -128,7 +186,9 @@ document.getElementById('csv-file-input')?.addEventListener('change', function(e
 
     let parseConfig = {
         complete: function(results) {
-            processBankCsv(results.data);
+            Promise.resolve(processBankCsv(results.data)).catch(err => {
+                alert('Ocurrió un error inesperado al procesar el archivo: ' + err.message);
+            });
         },
         error: function(error) {
             alert('Error en PapaParse: ' + error.message);
@@ -143,8 +203,12 @@ document.getElementById('csv-file-input')?.addEventListener('change', function(e
     Papa.parse(file, parseConfig);
 });
 
-function processBankCsv(rawData) {
+async function processBankCsv(rawData) {
     try {
+        if (typeof window.loadDriversData === 'function' && !(window.currentDrivers || []).length) {
+            try { await window.loadDriversData(); } catch (e) { console.error(e); }
+        }
+
         window.csvParsedData = [];
         let tempParsed = [];
         window.csvDebugRows = [];
@@ -180,8 +244,20 @@ function processBankCsv(rawData) {
             tempParsed.push({
                 date: isoDate,
                 description: col1,
-                amount: Math.abs(amount)
+                amount: Math.abs(amount),
+                rawLine: Array.isArray(row) ? row.join(' ') : String(col1)
             });
+        });
+
+        const cardMap = buildDriverCardLast4Map();
+        tempParsed.forEach(item => {
+            const last4 = extractCardLast4FromText(`${item.description} ${item.rawLine || ''}`);
+            const driver = last4 ? cardMap.get(last4) : null;
+            if (driver) {
+                item.cardLast4 = last4;
+                item.driverName = driver.name;
+                item.driverId = driver.id;
+            }
         });
 
         const groupedMap = new Map();
@@ -190,26 +266,27 @@ function processBankCsv(rawData) {
             const titan = isTitanFuel(item.description);
             const groupKey = getGroupKey(item.description);
             const weekWednesday = getWednesdayOfWeek(item.date);
+            const isDriverCard = !!item.driverId;
+            const mapKey = isDriverCard ? `driver_${item.driverId}` : `__single_${idx}`;
 
-            // Titan stays as individual bank charges. Everything else groups by vendor + week.
-            const mapKey = titan ? `__titan_${idx}` : `${groupKey}||${weekWednesday}`;
-
-            if (!titan && groupedMap.has(mapKey)) {
+            if (isDriverCard && groupedMap.has(mapKey)) {
                 const existing = groupedMap.get(mapKey);
                 existing.amount += item.amount;
                 existing.count += 1;
-                existing.displayDesc = `${groupKey} (${existing.count} cargos agrupados)`;
                 existing.subItems.push(item);
+                if (item.date > existing.bankDate) existing.bankDate = item.date;
             } else {
                 groupedMap.set(mapKey, {
                     bankDate: item.date,
                     weekWednesday,
                     description: item.description,
-                    displayDesc: titan ? 'CRYSTAL FUEL' : (groupKey.startsWith('SUNPASS') ? 'SUNPASS TOLLS' : groupKey),
                     amount: item.amount,
                     count: 1,
-                    groupKey,
-                    isTitan: titan,
+                    groupKey: isDriverCard ? `DRIVER CARD - ${item.driverName}` : groupKey,
+                    isTitan: titan && !isDriverCard,
+                    isDriverCard,
+                    driverName: item.driverName || '',
+                    cardLast4: item.cardLast4 || '',
                     subItems: [item]
                 });
             }
@@ -217,26 +294,36 @@ function processBankCsv(rawData) {
 
         let index = 0;
         groupedMap.forEach(item => {
-            const isGrouped = item.count > 1;
+            const isDriverCard = !!item.isDriverCard;
             let finalDesc = item.groupKey;
-            if (item.isTitan) {
+            if (isDriverCard) {
+                finalDesc = `DRIVER CARD - ${item.driverName}`;
+            } else if (item.isTitan) {
                 finalDesc = 'CRYSTAL FUEL';
             } else if (item.groupKey === (item.description || '').toUpperCase()) {
                 finalDesc = item.description;
             }
 
+            const importNote = isDriverCard
+                ? buildDriverCardImportNote(item.driverName, item.cardLast4, item.subItems)
+                : '';
+
             window.csvParsedData.push({
                 id: 'csv_' + index++,
-                date: isGrouped ? item.weekWednesday : item.bankDate,
+                date: item.bankDate,
                 weekWednesday: item.weekWednesday,
                 bankDate: item.bankDate,
-                usesWednesdayDate: isGrouped,
+                usesWednesdayDate: false,
                 isTitan: item.isTitan,
+                isDriverCard,
+                driverName: item.driverName || '',
+                cardLast4: item.cardLast4 || '',
+                importNote,
                 description: finalDesc,
                 groupKey: item.groupKey,
-                originalBankDesc: item.description,
+                originalBankDesc: isDriverCard ? importNote : item.description,
                 amount: item.amount,
-                suggestedCategory: 'Other',
+                suggestedCategory: isDriverCard && itemsLookLikeFuel(item.subItems) ? 'FUEL' : 'Other',
                 shouldSelect: false,
                 statusMessage: '',
                 isRecurring: false,
@@ -397,6 +484,13 @@ function applyHistoricalMemory() {
             return;
         }
 
+        if (row.isDriverCard) {
+            if (itemsLookLikeFuel(row.subItems)) row.suggestedCategory = 'FUEL';
+            row.shouldSelect = true;
+            row.statusMessage = `<span style="color:#10b981; font-weight:700;"><i class="fas fa-id-card"></i> Tarjeta de ${escapeHtml(row.driverName)} (${row.groupedCount} cargo${row.groupedCount === 1 ? '' : 's'})</span>`;
+            return;
+        }
+
         // Standing business rules: yard diesel vs roadside fuel
         if (row.isTitan || lowerDesc === 'crystal fuel' || origDesc.includes('titan fuel')) {
             row.description = 'CRYSTAL FUEL';
@@ -409,13 +503,13 @@ function applyHistoricalMemory() {
             return;
         }
 
-        if (row.groupKey === 'GAS STATIONS') {
+        if (row.groupKey === 'GAS STATIONS' || getGroupKey(row.originalBankDesc || row.description) === 'GAS STATIONS') {
             row.suggestedCategory = 'FUEL';
             row.shouldSelect = true;
             const hist = findHistoryMatch(row, memory);
             row.statusMessage = hist
                 ? historyStatusHtml(hist)
-                : `<span style="color:#10b981; font-weight:700;"><i class="fas fa-check-circle"></i> Gas stations (miércoles agrupado)</span>`;
+                : `<span style="color:#10b981; font-weight:700;"><i class="fas fa-gas-pump"></i> Gas station (fecha del banco)</span>`;
             return;
         }
 
@@ -489,12 +583,12 @@ function renderCsvPreview() {
             descHtml = escapeHtml(row.description);
         }
 
-        const dateHint = row.usesWednesdayDate
-            ? `<div style="font-size:0.7rem; color:#4f46e5; font-weight:800;">Miércoles de la semana</div>`
+        const dateHint = row.isDriverCard
+            ? `<div style="font-size:0.7rem; color:#4f46e5; font-weight:800;">Tarjeta chofer · última fecha</div>`
             : `<div style="font-size:0.7rem; color:#64748b; font-weight:700;">Fecha del banco</div>`;
 
         const suggestedLine = window.suggestExpenseProfitLine
-            ? (window.suggestExpenseProfitLine(row.suggestedCategory, row.description, row.originalBankDesc || '') || '')
+            ? (window.suggestExpenseProfitLine(row.suggestedCategory, row.description, row.importNote || row.originalBankDesc || '') || '')
             : '';
         const profitLineOptions = window.buildProfitLineSelectOptions
             ? window.buildProfitLineSelectOptions(suggestedLine, 'Unassigned...')
@@ -663,15 +757,11 @@ window.saveSelectedCsvExpenses = async function() {
 
         let expenseNote = `Imported from Bank CSV (${rowData.bankDate || rowData.date}) - ${rowData.originalBankDesc || rowData.description}`;
 
-        if (rowData.groupKey === 'GAS STATIONS' || rowData.description === 'GAS STATIONS') {
-            expenseNote = 'DIESEL DELIVERY';
+        if (rowData.isDriverCard && rowData.importNote) {
+            expenseNote = rowData.importNote;
         } else if (rowData.description === 'CRYSTAL FUEL' || rowData.isTitan) {
             const match = (rowData.originalBankDesc || '').match(/"([^"]+)"/);
             expenseNote = match ? match[1] : (rowData.originalBankDesc || 'Titan / Crystal Fuel');
-        } else if (rowData.usesWednesdayDate && rowData.subItems && rowData.subItems.length > 1) {
-            const first = rowData.subItems[0].date;
-            const last = rowData.subItems[rowData.subItems.length - 1].date;
-            expenseNote = `Imported from Bank CSV (${first} to ${last}) - ${rowData.groupedCount} cargos agrupados`;
         }
 
         const expenseObj = {

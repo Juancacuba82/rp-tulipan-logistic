@@ -384,6 +384,8 @@
                 // Note (index 4)
                 const noteTd = document.createElement('td');
                 noteTd.textContent = rowData[4];
+                noteTd.style.whiteSpace = 'normal';
+                noteTd.style.wordBreak = 'break-word';
                 tr.appendChild(noteTd);
 
                 // Action Cell (Delete using expense_id at rowData[5])
