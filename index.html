@@ -1419,6 +1419,10 @@
                         <i class="fas fa-file-invoice-dollar"></i>
                         <span>BILLING & INVOICES</span>
                     </button>
+                    <button onclick="showView('receivables')" class="dash-card">
+                        <i class="fas fa-hand-holding-usd"></i>
+                        <span>ACCOUNTS RECEIVABLE</span>
+                    </button>
                     <button onclick="showView('docs')" class="dash-card">
                         <i class="fas fa-receipt"></i>
                         <span>DOCS & RECEIPTS</span>
@@ -6875,7 +6879,10 @@
             const adminOnlySelectors = [
                 'button[onclick*="profit-report"]',
                 '.dash-card[onclick*="profit-report"]',
-                '#nav-actions-container button[onclick*="profit-report"]',
+                '#nav-actions-container button[onclick*="profit-report"]'
+            ];
+
+            const receivablesSelectors = [
                 'button[onclick*="receivables"]',
                 '.dash-card[onclick*="receivables"]',
                 '#nav-actions-container button[onclick*="receivables"]'
@@ -6922,42 +6929,27 @@
                 if (el && !isAdmin) el.style.display = 'none';
             });
 
+            const setDisplay = (selectors, display) => {
+                selectors.forEach(sel => {
+                    document.querySelectorAll(sel).forEach(el => { el.style.display = display; });
+                });
+            };
+
             if (isAdmin) {
                 // Admin sees everything
-                [...adminOnlySelectors, ...staffOnlySelectors].forEach(sel => {
-                    const els = document.querySelectorAll(sel);
-                    els.forEach(el => el.style.display = '');
-                });
-            } else if (isStudent || isEmployee) {
-                // Student and Staff see staff modules, but NOT admin-only (Profit/Attendance)
-                adminOnlySelectors.forEach(sel => {
-                    const els = document.querySelectorAll(sel);
-                    els.forEach(el => el.style.display = 'none');
-                });
-                
-                // Allow specific user to see receivables
-                if (window.userEmail === 'garridoyariselis@gmail.com') {
-                    const receivablesSelectors = [
-                        'button[onclick*="receivables"]',
-                        '.dash-card[onclick*="receivables"]',
-                        '#nav-actions-container button[onclick*="receivables"]'
-                    ];
-                    receivablesSelectors.forEach(sel => {
-                        const els = document.querySelectorAll(sel);
-                        els.forEach(el => el.style.display = '');
-                    });
-                }
-
-                staffOnlySelectors.forEach(sel => {
-                    const els = document.querySelectorAll(sel);
-                    els.forEach(el => el.style.display = '');
-                });
+                setDisplay([...adminOnlySelectors, ...staffOnlySelectors, ...receivablesSelectors], '');
+            } else if (isEmployee) {
+                // Employee/staff: staff modules + read-only Billing and Accounts Receivable (no Profit)
+                setDisplay(adminOnlySelectors, 'none');
+                setDisplay([...staffOnlySelectors, ...receivablesSelectors], '');
+            } else if (isStudent) {
+                // Student: staff modules, but not Profit or Accounts Receivable
+                setDisplay(adminOnlySelectors, 'none');
+                setDisplay(receivablesSelectors, 'none');
+                setDisplay(staffOnlySelectors, '');
             } else if (isDriver) {
                 // Driver ONLY sees Docs & Receipts AND Drivers Reports
-                [...adminOnlySelectors, ...staffOnlySelectors].forEach(sel => {
-                    const els = document.querySelectorAll(sel);
-                    els.forEach(el => el.style.display = 'none');
-                });
+                setDisplay([...adminOnlySelectors, ...staffOnlySelectors, ...receivablesSelectors], 'none');
                 const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                 const isSuperDriver = (drvRef === "ROBERT CORTEZ");
 
@@ -7032,15 +7024,9 @@
                 if (btnAttNav) btnAttNav.style.display = 'none';
 
             } else {
-                // Staff (employee/user) sees everything except Profit
-                adminOnlySelectors.forEach(sel => {
-                    const els = document.querySelectorAll(sel);
-                    els.forEach(el => el.style.display = 'none');
-                });
-                staffOnlySelectors.forEach(sel => {
-                    const els = document.querySelectorAll(sel);
-                    els.forEach(el => el.style.display = '');
-                });
+                // Other staff/user roles: staff modules + read-only AR, except Profit
+                setDisplay(adminOnlySelectors, 'none');
+                setDisplay([...staffOnlySelectors, ...receivablesSelectors], '');
                 // Restore items hidden from drivers
                 const fleetMgmtSidebar = document.getElementById('fleet-mgmt-sidebar');
                 if (fleetMgmtSidebar) fleetMgmtSidebar.style.display = '';
@@ -7263,14 +7249,20 @@
                     finalView = 'docs';
                 }
             } else if (normalizedRole === 'driver') {
-                const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'billing-center', 'rentals', 'tasks', 'inventory', 'calls'];
+                const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'billing-center', 'receivables', 'rentals', 'tasks', 'inventory', 'calls'];
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
                     console.warn("Driver redirected to Docs from:", finalView);
                     finalView = 'docs';
                 }
-            } else if (normalizedRole === 'student' || normalizedRole === 'employee' || normalizedRole === 'staff') {
-                const forbiddenForStudents = ['profit-report', 'accounting'];
+            } else if (normalizedRole === 'student') {
+                const forbiddenForStudents = ['profit-report', 'accounting', 'receivables'];
                 if (forbiddenForStudents.includes(finalView)) {
+                    console.warn("Restricted user redirected to Hero from:", finalView);
+                    finalView = 'hero';
+                }
+            } else if (normalizedRole === 'employee' || normalizedRole === 'staff') {
+                const forbiddenForEmployees = ['profit-report', 'accounting'];
+                if (forbiddenForEmployees.includes(finalView)) {
                     console.warn("Restricted user redirected to Hero from:", finalView);
                     finalView = 'hero';
                 }
