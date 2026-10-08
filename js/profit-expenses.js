@@ -691,7 +691,8 @@
                 contractor: 0,   // Contractor transport revenue
                 storageTulipan: 0, // Accrued RPTulipan yard (days + lifts)
                 storageYard: 0,    // Accrued Storage Yard (days + lifts)
-                customInvoices: 0, // Marked custom receipts from Docs
+                customInvoices: 0, // Paid custom receipts from Docs
+                ledgerIncome: 0,   // Manual Ledger Income (not an expense)
                 expenses: 0,     // Business expenses (all)
                 expenseByLine: {
                     rpt_transportation: 0,
@@ -704,6 +705,11 @@
                 releases: 0,     // Informational: total container purchase cost in COMPLETE orders
                 internalSalesHaul: 0 // Internal RP TULIPAN TRANSPORT hauls charged to Sales
             };
+
+            const normCont = (s) => (s || '').toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const yardStockList = (typeof window.getYardStockData === 'function') ? (window.getYardStockData() || []) : [];
+            const yardStockConts = new Set(yardStockList.map(item => normCont(item.container_no)).filter(Boolean));
+            const yardStockIds = new Set(yardStockList.map(item => String(item.id || '')).filter(Boolean));
 
             // 1. Process Logistics Data (Trips) — only COMPLETE orders count
             logisticsData.forEach(row => {
@@ -750,7 +756,8 @@
                         totals.releases += totalCost; // Track total container cost
                     }
 
-                    // B. Yard / Storage Component
+                    // B. Yard service on the order. Calendar storage (price/day) is skipped
+                    // when the same container already lives in Yard Stock (counted in 2.5).
                     if (hasYard) {
                         const yardVal     = parseFloat(row[13]) || 0;
                         const pricePerDay = parseFloat(row[14]) || 0;
@@ -764,7 +771,12 @@
                                 storage = pricePerDay * days;
                             }
                         }
-                        totals.yard += ((yardVal || 0) + (storage || 0)) * (qty || 1);
+                        const orderCont = normCont(row[3]);
+                        const orderYardId = (row[59] || '').toString();
+                        const inYardStock = (orderYardId && yardStockIds.has(orderYardId))
+                            || (orderCont && yardStockConts.has(orderCont));
+                        const storageToAdd = (storage > 0 && inYardStock) ? 0 : storage;
+                        totals.yard += ((yardVal || 0) + (storageToAdd || 0)) * (qty || 1);
                     }
 
                     // C. Transport Component — assign to company bucket
@@ -814,12 +826,16 @@
                 if ((!dateFrom || rowDate >= dateFrom) && (!dateTo || rowDate <= dateTo)) {
                     const amountStr = row[3] ? row[3].replace('$', '').replace(/,/g, '') : '0';
                     const amount = parseFloat(amountStr) || 0;
+                    const category = row[1];
+                    if ((category || '').toString().trim() === 'Ledger Income') {
+                        totals.ledgerIncome += amount;
+                        return;
+                    }
                     totals.expenses += amount;
                     const rawLine = (row[7] || '').toString().trim();
                     const line = rawLine
                         ? (window.normalizeExpenseProfitLine ? window.normalizeExpenseProfitLine(rawLine) : rawLine)
                         : '';
-                    const category = row[1];
                     if (line && totals.expenseByLine.hasOwnProperty(line)) {
                         totals.expenseByLine[line] += amount;
                         bumpLineCat(line, category, amount);
@@ -866,7 +882,7 @@
             }
 
             // 3. Final Summaries
-            const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0) + (totals.customInvoices || 0);
+            const totalRevenue = (totals.tulipan || 0) + (totals.jr || 0) + (totals.contractor || 0) + (totals.sales || 0) + (totals.yard || 0) + (totals.rentals || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0) + (totals.customInvoices || 0) + (totals.ledgerIncome || 0);
             const totalGlobalExpenses = (totals.expenses || 0) + (totals.releases || 0) + (totals.internalSalesHaul || 0);
             const netProfit = totalRevenue - totalGlobalExpenses;
 
@@ -916,7 +932,8 @@
                 { key: 'contractor', label: 'Contractors (transport revenue)', color: '#a855f7', revenue: totals.contractor, costs: (ebl.contractors || 0) },
                 { key: 'storage_tulipan', label: 'Storage RPTulipan', color: '#6366f1', revenue: totals.storageTulipan, costs: 0 },
                 { key: 'storage_yard', label: 'Storage Yard', color: '#10b981', revenue: totals.storageYard, costs: 0 },
-                { key: 'custom_invoices', label: 'Custom Invoices', color: '#0ea5e9', revenue: totals.customInvoices || 0, costs: 0 }
+                { key: 'custom_invoices', label: 'Custom Invoices', color: '#0ea5e9', revenue: totals.customInvoices || 0, costs: 0 },
+                { key: 'ledger_income', label: 'Ledger Income', color: '#14b8a6', revenue: totals.ledgerIncome || 0, costs: 0 }
             ];
 
             const renderServiceRow = (row) => {
@@ -1165,7 +1182,7 @@
 
                 // Rentals and Custom Invoices are standalone revenue (no expenses)
                 // Add them back to netSum so wheel NET PROFIT matches the Summary Card
-                const standaloneRevenue = (totals.rentals || 0) + (totals.customInvoices || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0);
+                const standaloneRevenue = (totals.rentals || 0) + (totals.customInvoices || 0) + (totals.storageTulipan || 0) + (totals.storageYard || 0) + (totals.ledgerIncome || 0);
                 const netSum = lineSlices.reduce((s, sl) => s + (sl.net || 0), 0) + standaloneRevenue - (ebl.unassigned || 0);
 
                 // Store globally so drill-down re-renders can access updated data
@@ -1174,6 +1191,7 @@
                 window._profitWheelStandaloneItems = [
                     { label: 'Rentals', amount: totals.rentals || 0, color: '#ec4899' },
                     { label: 'Custom Invoices', amount: totals.customInvoices || 0, color: '#0ea5e9' },
+                    { label: 'Ledger Income', amount: totals.ledgerIncome || 0, color: '#14b8a6' },
                     { label: 'Storage RPTulipan', amount: totals.storageTulipan || 0, color: '#6366f1' },
                     { label: 'Storage Yard', amount: totals.storageYard || 0, color: '#10b981' }
                 ].filter(it => it.amount > 0);

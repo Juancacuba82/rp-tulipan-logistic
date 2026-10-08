@@ -15,6 +15,30 @@
     let allTransactions = [];
     let currentFilter = 'all'; // 'all' | 'cash' | 'bank'
     let isLoading = false;
+    let tablePage = 0;
+    let filterTimer = null;
+    let lastLoadMeta = { trips: 0, expenses: 0, releases: 0, ledger: 0, invoices: 0, rows: 0 };
+    const TABLE_PAGE_SIZE = 400;
+    const FETCH_PAGE_SIZE = 1000;
+
+    async function fetchAllPaged(makeQuery) {
+        const all = [];
+        let from = 0;
+        let lastError = null;
+        while (from < 200000) {
+            const to = from + FETCH_PAGE_SIZE - 1;
+            const { data, error } = await makeQuery().range(from, to);
+            if (error) {
+                lastError = error;
+                break;
+            }
+            const rows = data || [];
+            all.push(...rows);
+            if (rows.length < FETCH_PAGE_SIZE) break;
+            from += FETCH_PAGE_SIZE;
+        }
+        return { data: all, error: all.length ? null : lastError };
+    }
 
     // Helper para extraer nombre de la entidad (chofer, cliente, etc.) de los gastos
     function extractEntityFromExpense(expense) {
@@ -185,10 +209,11 @@
             if (!window.db) return;
 
             // Transacciones manuales y rentas se guardan en su propia tabla 'cash_ledger'
+            const dateStr = (data.date || '').toString().trim();
             const entry = {
-                date: new Date().toISOString().split('T')[0],
+                date: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : new Date().toISOString().split('T')[0],
                 tipo: data.tipo,       // 'ingreso' o 'egreso'
-                metodo: data.metodo,   // 'cash' o 'bank'
+                metodo: data.metodo,   // 'cash' o 'bank' o 'driver_wallet'
                 monto: parseFloat(data.monto) || 0,
                 descripcion: data.descripcion || '',
                 referencia: data.referencia || '',
@@ -225,7 +250,8 @@
             if (mode === 'delete') {
                 allTransactions = allTransactions.filter(t => t.id !== expenseData.id);
             } else {
-                const metodo = (expenseData.payment_method === 'bank') ? 'bank' : 'cash';
+                const metodo = (expenseData.payment_method === 'bank') ? 'bank'
+                    : (expenseData.payment_method === 'driver_wallet' ? 'driver_wallet' : 'cash');
                 const newTx = {
                     id: expenseData.id || Math.random().toString(),
                     created_at: expenseData.date || new Date().toISOString().split('T')[0],
@@ -234,12 +260,16 @@
                     monto: amt,
                     descripcion: expenseData.description || expenseData.category || 'Gasto General',
                     referencia: expenseData.note || '',
-                    chofer: extractDriverFromExpense(expenseData),
+                    chofer: extractEntityFromExpense(expenseData),
                     customer: '',
                     n_cont: '',
                     order_no: '',
-                    release_no: ''
+                    release_no: '',
+                    category: expenseData.category || ''
                 };
+                if ((expenseData.category || '') === 'Ledger Income') {
+                    newTx.tipo = 'ingreso';
+                }
 
                 if (mode === 'update') {
                     const idx = allTransactions.findIndex(t => t.id === expenseData.id);
@@ -270,12 +300,6 @@
     // CARGA DE DATOS DESDE SUPABASE (Dinámico desde Trips, Expenses, Releases)
     // =========================================================================
     async function loadAccountingData(force = false) {
-        if (!force && allTransactions && allTransactions.length > 0) {
-            // Already loaded, just render
-            window.renderAccountingDashboard();
-            return;
-        }
-
         if (isLoading) return;
         isLoading = true;
         setLoadingState(true);
@@ -283,47 +307,35 @@
         try {
             if (!window.db) throw new Error('DB not available');
 
-            // 1. Cargar Ingresos (Trips)
-            const pTrips = window.db.from('trips')
-                .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt, cash_collector, driver_cash_held')
-                .or('is_deleted.eq.false,is_deleted.is.null');
+            const tripCols = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt, cash_collector, driver_cash_held';
+            const tripColsNoHold = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt';
 
-            // 2. Cargar Egresos (Expenses)
-            const pExpenses = window.db.from('expenses').select('*').or('is_deleted.eq.false,is_deleted.is.null');
-
-            // 3. Cargar Egresos (Releases pagados)
-            const pReleases = window.db.from('releases')
-                .select('*')
-                .eq('paid', true)
-                .or('is_deleted.eq.false,is_deleted.is.null');
-
-            // 4. Cargar Balances Reales de Choferes (Settlements)
-            const pSettlements = window.db.from('settlement_history')
-                .select('driver_name, cash_balance, end_date, created_at')
-                .or('is_deleted.eq.false,is_deleted.is.null')
-                .order('created_at', { ascending: false });
-
-            // 5. Cargar Transacciones Manuales (Cash Ledger)
-            const pCashLedger = window.db.from('cash_ledger').select('*');
-
-            // 6. Cargar Facturas Pagadas (para evitar duplicados)
-            const pInvoices = window.db.from('receivables_invoices').select('invoice_number, trip_ids, service_type').eq('status', 'Paid').or('is_deleted.eq.false,is_deleted.is.null');
-
-            const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger, resInvoices] = await Promise.all([pTrips, pExpenses, pReleases, pSettlements, pCashLedger, pInvoices]);
+            const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger, resInvoices] = await Promise.all([
+                fetchAllPaged(() => window.db.from('trips').select(tripCols).or('is_deleted.eq.false,is_deleted.is.null')),
+                fetchAllPaged(() => window.db.from('expenses').select('*').or('is_deleted.eq.false,is_deleted.is.null')),
+                fetchAllPaged(() => window.db.from('releases').select('*').eq('paid', true).or('is_deleted.eq.false,is_deleted.is.null')),
+                fetchAllPaged(() => window.db.from('settlement_history').select('driver_name, cash_balance, end_date, created_at').or('is_deleted.eq.false,is_deleted.is.null').order('created_at', { ascending: false })),
+                fetchAllPaged(() => window.db.from('cash_ledger').select('*').or('is_deleted.eq.false,is_deleted.is.null')),
+                fetchAllPaged(() => window.db.from('receivables_invoices').select('invoice_number, trip_ids, service_type, status, amount_paid').or('is_deleted.eq.false,is_deleted.is.null'))
+            ]);
 
             if (resTrips.error) {
                 console.error("Error trips:", resTrips.error);
                 if (/cash_collector|driver_cash_held/i.test(resTrips.error.message || '')) {
-                    const retry = await window.db.from('trips')
-                        .select('trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt')
-                        .or('is_deleted.eq.false,is_deleted.is.null');
+                    const retry = await fetchAllPaged(() => window.db.from('trips').select(tripColsNoHold).or('is_deleted.eq.false,is_deleted.is.null'));
                     if (!retry.error) resTrips.data = retry.data;
                 }
             }
             if (resExpenses.error) console.error("Error expenses:", resExpenses.error);
             if (resReleases.error) console.error("Error releases:", resReleases.error);
             if (resSettlements.error) console.error("Error settlements:", resSettlements.error);
-            if (resCashLedger.error) console.error("Error cash_ledger:", resCashLedger.error);
+            if (resCashLedger.error) {
+                console.error("Error cash_ledger:", resCashLedger.error);
+                if (/is_deleted/i.test(resCashLedger.error.message || '')) {
+                    const retryLed = await fetchAllPaged(() => window.db.from('cash_ledger').select('*'));
+                    if (!retryLed.error) resCashLedger.data = retryLed.data;
+                }
+            }
             if (resInvoices.error) console.error("Error invoices:", resInvoices.error);
 
             // Chofer "me debe": leftover del último settlement + cash aún en órdenes (después de esa liquidación)
@@ -365,7 +377,12 @@
 
             const coveredServices = {};
             (resInvoices.data || []).forEach(inv => {
-                if (cashLedgerRefs.has(inv.invoice_number)) {
+                const st = (inv.status || '').toString();
+                const paidAmt = parseFloat(inv.amount_paid) || 0;
+                const hasCollection = paidAmt > 0.009
+                    || /^(Paid|Partial)$/i.test(st)
+                    || cashLedgerRefs.has(inv.invoice_number);
+                if (hasCollection) {
                     if (inv.trip_ids) {
                         const tids = inv.trip_ids.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -407,90 +424,99 @@
 
             let unified = [];
 
-            // Procesar Trips (Ingresos)
+            const flagYes = (v) => v === true || v === 'true' || v === 'YES' || v === 'yes';
+            const servicePaid = (st) => st === 'PAID' || st === true || st === 'true';
+            const skipTripOfficeCash = (t) => {
+                const c = (t.cash_collector || '').toString().toLowerCase().trim();
+                const held = parseFloat(t.driver_cash_held) || 0;
+                if (c === 'driver' && held > 0.009) return true;
+                if (c === 'turned_in' || c === 'settled' || c === 'wallet') return true;
+                return false;
+            };
+
+            // Procesar Trips (Ingresos): cada servicio solo si ESE servicio está pagado.
+            // Cash en manos del chofer no entra a caja oficina.
             (resTrips.data || []).forEach(t => {
                 const status = (t.status || '').toString().toUpperCase();
-                // Filtro inteligente:
-                // Incluir si:
-                //   A) paid = true (Billing o pago directo confirmado), O
-                //   B) tiene montos de pago explícitos registrados (el dinero ya entró físicamente)
-                // Excluir siempre si status = PENDING (aún no se hizo nada)
                 if (status === 'PENDING') return;
-
-                const isPaid = t.paid === true || t.st_rate === 'PAID' || t.st_sales === 'PAID' || t.st_yard === 'PAID' || t.st_amount === 'PAID' || t.st_tax === 'PAID';
-                const hasExplicitAmounts =
-                    (parseFloat(t.trans_cash_amt) || 0) > 0 ||
-                    (parseFloat(t.trans_bank_amt) || 0) > 0 ||
-                    (parseFloat(t.sales_cash_amt) || 0) > 0 ||
-                    (parseFloat(t.sales_bank_amt) || 0) > 0 ||
-                    (parseFloat(t.yard_cash_amt)  || 0) > 0 ||
-                    (parseFloat(t.yard_bank_amt)  || 0) > 0;
-
-                // Si no está pagado Y no tiene montos explícitos → cliente aún debe → skip
-                if (!isPaid && !hasExplicitAmounts) return;
 
                 const qty = parseInt(t.qty) || 1;
                 const orderRef = `Orden: ${t.order_no || t.release_no || 'N/A'}`;
-                
-                const isSCash = (t.s_cash === true || t.s_cash === 'true');
-                const isRCash = (t.r_cash === true || t.r_cash === 'true');
-                const isYCash = (t.y_cash === true || t.y_cash === 'true');
-
                 const cov = coveredServices[t.trip_id] || new Set();
+                const hideDriverCash = skipTripOfficeCash(t);
+                const base = {
+                    created_at: t.date || '2000-01-01',
+                    tipo: 'ingreso',
+                    referencia: orderRef,
+                    customer: t.customer || '',
+                    n_cont: t.n_cont || '',
+                    order_no: t.order_no || '',
+                    release_no: t.release_no || '',
+                    source_table: 'trips',
+                    orig_id: t.trip_id
+                };
 
-                // A. Ventas
-                if (!cov.has('SALES') && (t.has_sales === 'YES' || t.has_sales === true)) {
-                    const cAmt = parseFloat(t.sales_cash_amt) || 0;
-                    const bAmt = parseFloat(t.sales_bank_amt) || 0;
-                    if (cAmt > 0 || bAmt > 0) {
-                        if (cAmt > 0) unified.push({ id: t.trip_id + '-sc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'sales_c', orig_id: t.trip_id });
-                        if (bAmt > 0) unified.push({ id: t.trip_id + '-sb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Venta de Contenedor', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'sales_b', orig_id: t.trip_id });
-                    } else {
-                        const salesMonto = (parseFloat(t.sales_price) || 0) * qty;
-                        if (salesMonto > 0) {
-                            unified.push({
-                                id: (t.trip_id || Math.random().toString()) + '-s', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isSCash ? 'cash' : 'bank', monto: salesMonto,
-                                descripcion: `Venta de Contenedor`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'sales', orig_id: t.trip_id
-                            });
+                const pushService = (cfg) => {
+                    if (cfg.covered || !cfg.enabled) return;
+                    let cAmt = parseFloat(cfg.cashAmt) || 0;
+                    const bAmt = parseFloat(cfg.bankAmt) || 0;
+                    if (hideDriverCash) cAmt = 0;
+                    const paid = servicePaid(cfg.st);
+                    if (!paid && cAmt < 0.01 && bAmt < 0.01) return;
+                    if (cAmt > 0.009 || bAmt > 0.009) {
+                        if (cAmt > 0.009) {
+                            unified.push(Object.assign({}, base, {
+                                id: t.trip_id + cfg.idCash, metodo: 'cash', monto: cAmt,
+                                descripcion: cfg.desc, chofer: cfg.chofer || '', sub_type: cfg.subCash
+                            }));
                         }
+                        if (bAmt > 0.009) {
+                            unified.push(Object.assign({}, base, {
+                                id: t.trip_id + cfg.idBank, metodo: 'bank', monto: bAmt,
+                                descripcion: cfg.desc, chofer: cfg.chofer || '', sub_type: cfg.subBank
+                            }));
+                        }
+                        return;
                     }
-                }
+                    if (!paid) return;
+                    const monto = cfg.fallback || 0;
+                    if (monto <= 0) return;
+                    const wantCash = flagYes(cfg.cashFlag);
+                    if (wantCash && hideDriverCash) return;
+                    unified.push(Object.assign({}, base, {
+                        id: (t.trip_id || '') + cfg.idFb,
+                        metodo: wantCash ? 'cash' : 'bank',
+                        monto: monto,
+                        descripcion: cfg.desc,
+                        chofer: cfg.chofer || '',
+                        sub_type: cfg.subFb
+                    }));
+                };
 
-                // B. Transporte
-                if (!cov.has('TRANSPORT') && (t.has_trans === 'YES' || t.has_trans === true)) {
-                    const cAmt = parseFloat(t.trans_cash_amt) || 0;
-                    const bAmt = parseFloat(t.trans_bank_amt) || 0;
-                    if (cAmt > 0 || bAmt > 0) {
-                        if (cAmt > 0) unified.push({ id: t.trip_id + '-tc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'trans_c', orig_id: t.trip_id });
-                        if (bAmt > 0) unified.push({ id: t.trip_id + '-tb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Transporte', referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'trans_b', orig_id: t.trip_id });
-                    } else {
-                        const transMonto = parseFloat(t.trans_pay) || 0;
-                        if (transMonto > 0) {
-                            unified.push({
-                                id: (t.trip_id || Math.random().toString()) + '-t', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isRCash ? 'cash' : 'bank', monto: transMonto,
-                                descripcion: `Servicio de Transporte`, referencia: orderRef, chofer: t.driver || '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'trans', orig_id: t.trip_id
-                            });
-                        }
-                    }
-                }
-
-                // C. Yarda
-                if (!cov.has('YARD') && (t.yard_services === 'YES' || t.yard_services === true)) {
-                    const cAmt = parseFloat(t.yard_cash_amt) || 0;
-                    const bAmt = parseFloat(t.yard_bank_amt) || 0;
-                    if (cAmt > 0 || bAmt > 0) {
-                        if (cAmt > 0) unified.push({ id: t.trip_id + '-yc', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'cash', monto: cAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'yard_c', orig_id: t.trip_id });
-                        if (bAmt > 0) unified.push({ id: t.trip_id + '-yb', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: 'bank', monto: bAmt, descripcion: 'Servicio de Yarda', referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'yard_b', orig_id: t.trip_id });
-                    } else {
-                        const yardMonto = (parseFloat(t.yard_rate) || 0) * qty;
-                        if (yardMonto > 0) {
-                            unified.push({
-                                id: (t.trip_id || Math.random().toString()) + '-y', created_at: t.date || '2000-01-01', tipo: 'ingreso', metodo: isYCash ? 'cash' : 'bank', monto: yardMonto,
-                                descripcion: `Servicio de Yarda`, referencia: orderRef, chofer: '', customer: t.customer || '', n_cont: t.n_cont || '', order_no: t.order_no || '', release_no: t.release_no || '', source_table: 'trips', sub_type: 'yard', orig_id: t.trip_id
-                            });
-                        }
-                    }
-                }
+                pushService({
+                    covered: cov.has('SALES'),
+                    enabled: flagYes(t.has_sales),
+                    cashAmt: t.sales_cash_amt, bankAmt: t.sales_bank_amt, st: t.st_sales,
+                    cashFlag: t.s_cash, fallback: (parseFloat(t.sales_price) || 0) * qty,
+                    desc: 'Venta de Contenedor', chofer: '',
+                    idCash: '-sc', idBank: '-sb', idFb: '-s', subCash: 'sales_c', subBank: 'sales_b', subFb: 'sales'
+                });
+                pushService({
+                    covered: cov.has('TRANSPORT'),
+                    enabled: flagYes(t.has_trans),
+                    cashAmt: t.trans_cash_amt, bankAmt: t.trans_bank_amt, st: t.st_rate,
+                    cashFlag: t.r_cash, fallback: (parseFloat(t.trans_pay) || 0) * qty,
+                    desc: 'Servicio de Transporte', chofer: t.driver || '',
+                    idCash: '-tc', idBank: '-tb', idFb: '-t', subCash: 'trans_c', subBank: 'trans_b', subFb: 'trans'
+                });
+                pushService({
+                    covered: cov.has('YARD'),
+                    enabled: flagYes(t.yard_services) || t.yard_services === 'YES',
+                    cashAmt: t.yard_cash_amt, bankAmt: t.yard_bank_amt, st: t.st_yard,
+                    cashFlag: t.y_cash, fallback: (parseFloat(t.yard_rate) || 0) * qty,
+                    desc: 'Servicio de Yarda', chofer: '',
+                    idCash: '-yc', idBank: '-yb', idFb: '-y', subCash: 'yard_c', subBank: 'yard_b', subFb: 'yard'
+                });
             });
 
             // Procesar Expenses (Egresos)
@@ -499,7 +525,8 @@
                 if (amt > 0) {
                     // Usar el campo payment_method real de la base de datos.
                     // Fallback a 'cash' para registros antiguos sin el campo.
-                    const metodo = (e.payment_method === 'bank') ? 'bank' : 'cash';
+                    const metodo = (e.payment_method === 'bank') ? 'bank'
+                        : (e.payment_method === 'driver_wallet' ? 'driver_wallet' : 'cash');
                     const descStr = `${e.category || ''} - ${e.description || ''}`;
 
                     unified.push({
@@ -554,6 +581,10 @@
             // Procesar Cash Ledger (Transacciones manuales)
             (resCashLedger.data || []).forEach(c => {
                 const amt = parseFloat(c.monto) || 0;
+                const ref = (c.referencia || '').toString();
+                // Legacy turn-ins duplicated trip cash after collector flipped to office.
+                if (ref === 'DRIVER_CASH_TURN_IN') return;
+                if (c.is_deleted === true) return;
                 if (amt > 0) {
                     unified.push({
                         id: c.id,
@@ -577,6 +608,15 @@
             unified.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             allTransactions = unified;
+            lastLoadMeta = {
+                trips: (resTrips.data || []).length,
+                expenses: (resExpenses.data || []).length,
+                releases: (resReleases.data || []).length,
+                ledger: (resCashLedger.data || []).length,
+                invoices: (resInvoices.data || []).length,
+                rows: unified.length
+            };
+            tablePage = 0;
             window.renderAccountingDashboard();
 
         } catch (err) {
@@ -630,6 +670,18 @@
             if (cardTotal) cardTotal.style.visibility = 'hidden';
         }
 
+        tablePage = 0;
+        window.renderAccountingDashboard();
+    };
+
+    window.scheduleAccountingFilter = function () {
+        tablePage = 0;
+        if (filterTimer) clearTimeout(filterTimer);
+        filterTimer = setTimeout(() => window.renderAccountingDashboard(), 220);
+    };
+
+    window.acctTablePage = function (delta) {
+        tablePage = Math.max(0, tablePage + (parseInt(delta, 10) || 0));
         window.renderAccountingDashboard();
     };
 
@@ -668,29 +720,30 @@
         const filterOrd = document.getElementById('acct-filter-order')?.value.trim().toLowerCase();
 
         list = list.filter(t => {
-            const rowDate = t.created_at;
-            let matchDate = true;
-            if (dateFrom && rowDate < dateFrom) matchDate = false;
-            if (dateTo && rowDate > dateTo) matchDate = false;
+            const rowDay = String(t.created_at || t.date || '').slice(0, 10);
+            if (dateFrom && rowDay && rowDay < dateFrom) return false;
+            if (dateTo && rowDay && rowDay > dateTo) return false;
 
             const tDesc = (t.descripcion || '').toLowerCase();
-            const matchService = !filterService || tDesc.includes(filterService);
+            const tRef = (t.referencia || '').toLowerCase();
+            if (filterService && !tDesc.includes(filterService) && !tRef.includes(filterService)) return false;
 
-            const matchTipo = !filterTipo || t.tipo === filterTipo;
+            if (filterTipo && t.tipo !== filterTipo) return false;
 
             const tCust = (t.customer || '').toLowerCase();
-            const matchCust = !filterCust || tCust.includes(filterCust);
+            const tChofer = (t.chofer || '').toLowerCase();
+            if (filterCust && !tCust.includes(filterCust) && !tChofer.includes(filterCust)) return false;
 
             const tCont = (t.n_cont || '').toLowerCase();
-            const matchCont = !filterCont || tCont.includes(filterCont);
+            if (filterCont && !tCont.includes(filterCont) && !tRef.includes(filterCont)) return false;
 
             const tRel = (t.release_no || '').toLowerCase();
-            const matchRel = !filterRel || tRel.includes(filterRel);
+            if (filterRel && !tRel.includes(filterRel) && !tRef.includes(filterRel)) return false;
 
             const tOrd = (t.order_no || '').toLowerCase();
-            const matchOrd = !filterOrd || tOrd.includes(filterOrd);
+            if (filterOrd && !tOrd.includes(filterOrd) && !tRef.includes(filterOrd) && !tDesc.includes(filterOrd)) return false;
 
-            return matchDate && matchTipo && matchService && matchCust && matchCont && matchRel && matchOrd;
+            return true;
         });
 
         if (currentFilter === 'dups') {
@@ -794,6 +847,13 @@
         setText('acct-bank-in',       '+' + fmt(totals.totalBankIn));
         setText('acct-bank-out',      '-' + fmt(totals.totalBankOut));
         setText('acct-tx-count',      getFilteredTransactions().length);
+        const metaEl = document.getElementById('acct-load-meta');
+        if (metaEl) {
+            metaEl.textContent = 'Cargadas ' + (lastLoadMeta.trips || 0) + ' órdenes · '
+                + (lastLoadMeta.expenses || 0) + ' gastos · '
+                + (lastLoadMeta.ledger || 0) + ' asientos · '
+                + (lastLoadMeta.rows || 0) + ' filas ledger';
+        }
 
         const searchInput = document.getElementById('acct-text-search');
         renderDriverWalletAlerts(searchInput ? searchInput.value.trim() : '');
@@ -808,6 +868,8 @@
         if (!tbody) return;
 
         if (transactions.length === 0) {
+            const pagerEmpty = document.getElementById('acct-table-pager');
+            if (pagerEmpty) pagerEmpty.style.display = 'none';
             renderLedgerDupBanner({ groupCount: 0 });
             tbody.innerHTML = `
                 <tr>
@@ -819,31 +881,56 @@
             return;
         }
 
-        const dupStats = findLedgerDuplicates(transactions);
+        const needDupScan = currentFilter === 'dups' || transactions.length <= 2500;
+        const dupStats = needDupScan
+            ? findLedgerDuplicates(transactions)
+            : { dupIds: new Set(), extraMoney: 0, dupRows: 0, groupCount: 0 };
         renderLedgerDupBanner(dupStats);
 
         let runningBalance = 0;
-        // Calculate running balance in reverse (oldest first)
         const reversed = [...transactions].reverse();
-        const balances = [];
+        const balancesAll = [];
         reversed.forEach(t => {
             const amt = parseFloat(t.monto) || 0;
-            const multiplier = (t.metodo === 'cash' || t.metodo === 'driver_wallet') ? 1 : 1;
-            runningBalance += (t.tipo === 'ingreso' ? amt : -amt);
-            balances.push(runningBalance);
+            if (t.metodo !== 'driver_wallet') {
+                runningBalance += (t.tipo === 'ingreso' ? amt : -amt);
+            }
+            balancesAll.push(runningBalance);
         });
-        balances.reverse(); // Restore newest-first order
+        balancesAll.reverse();
 
-        tbody.innerHTML = transactions.map((t, i) => {
+        const maxPage = Math.max(0, Math.ceil(transactions.length / TABLE_PAGE_SIZE) - 1);
+        if (tablePage > maxPage) tablePage = maxPage;
+        const start = tablePage * TABLE_PAGE_SIZE;
+        const pageRows = transactions.slice(start, start + TABLE_PAGE_SIZE);
+        const pager = document.getElementById('acct-table-pager');
+        if (pager) {
+            const shownFrom = transactions.length ? start + 1 : 0;
+            const shownTo = Math.min(start + pageRows.length, transactions.length);
+            pager.style.display = 'flex';
+            pager.innerHTML = '<span style="font-size:0.78rem;font-weight:700;color:#475569;">Mostrando '
+                + shownFrom + '–' + shownTo + ' de ' + transactions.length
+                + ' (los totales de arriba usan todas las filas filtradas)</span>'
+                + '<span style="display:flex;gap:8px;">'
+                + '<button type="button" class="acct-toggle-btn" ' + (tablePage <= 0 ? 'disabled' : '') + ' onclick="window.acctTablePage(-1)">Anterior</button>'
+                + '<button type="button" class="acct-toggle-btn" ' + (tablePage >= maxPage ? 'disabled' : '') + ' onclick="window.acctTablePage(1)">Siguiente</button>'
+                + '</span>';
+        }
+
+        tbody.innerHTML = pageRows.map((t, i) => {
+            const globalIdx = start + i;
             const isIncome = t.tipo === 'ingreso';
-            const isCash   = t.metodo === 'cash' || t.metodo === 'driver_wallet';
+            const isWallet = t.metodo === 'driver_wallet';
+            const isCash   = t.metodo === 'cash';
             const amt      = parseFloat(t.monto) || 0;
-            const balance  = balances[i];
-            const isDuplicate = dupStats.dupIds.has(ledgerRowId(t, i));
+            const balance  = balancesAll[globalIdx];
+            const isDuplicate = dupStats.dupIds.has(ledgerRowId(t, globalIdx));
 
             const tipoColor  = isIncome ? '#10b981' : '#ef4444';
             const tipoIcon   = isIncome ? 'fa-arrow-down' : 'fa-arrow-up';
-            let badgeHtml = isCash
+            let badgeHtml = isWallet
+                ? `<span class="acct-badge" style="background:#fffbeb;color:#92400e;border:1px solid #fbbf24;"><i class="fas fa-user"></i> WALLET</span>`
+                : isCash
                 ? `<span class="acct-badge acct-badge-cash"><i class="fas fa-money-bill-wave"></i> CASH</span>`
                 : `<span class="acct-badge acct-badge-bank"><i class="fas fa-university"></i> BANK</span>`;
                 
@@ -956,6 +1043,7 @@
 
         const tipo       = document.getElementById('acct-form-tipo')?.value;
         const metodo     = document.getElementById('acct-form-metodo')?.value;
+        const fechaTx    = document.getElementById('acct-form-date')?.value;
         const monto      = parseFloat(document.getElementById('acct-form-monto')?.value) || 0;
         const descripcion = document.getElementById('acct-form-desc')?.value?.trim();
         const referencia  = document.getElementById('acct-form-ref')?.value?.trim();
@@ -981,12 +1069,12 @@
         const btn = document.getElementById('btn-acct-save-tx');
         if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
 
-        await window.logCashTransaction({ tipo, metodo, monto, descripcion, referencia, cliente, chofer });
+        await window.logCashTransaction({ tipo, metodo, monto, descripcion, referencia, cliente, chofer, date: fechaTx });
 
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> SAVE TRANSACTION'; }
 
         // Reset form
-        ['acct-form-monto', 'acct-form-desc', 'acct-form-ref', 'acct-form-cliente', 'acct-form-chofer'].forEach(id => {
+        ['acct-form-monto', 'acct-form-desc', 'acct-form-ref', 'acct-form-cliente', 'acct-form-chofer', 'acct-form-date'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -1007,8 +1095,16 @@
         if (source_table === 'cash_ledger') {
             if (!confirm('¿Estás seguro de que quieres eliminar esta transacción manual del Cash Ledger?')) return;
             try {
-                const { error } = await window.db.from('cash_ledger').delete().eq('id', id);
-                if (error) throw error;
+                const now = new Date().toISOString();
+                const { error } = await window.db.from('cash_ledger').update({
+                    is_deleted: true,
+                    deleted_at: now,
+                    deleted_by: window.userEmail || window.userName || 'Unknown'
+                }).eq('id', id);
+                if (error) {
+                    const { error: delErr } = await window.db.from('cash_ledger').delete().eq('id', id);
+                    if (delErr) throw delErr;
+                }
                 alert('Transacción eliminada con éxito.');
                 loadAccountingData(true);
             } catch (err) {
@@ -1020,6 +1116,10 @@
     };
 
     window.toggleCashLedgerMethod = async function(id, currentMethod) {
+        if (currentMethod === 'driver_wallet') {
+            alert('El pago desde wallet del chofer no se cambia a caja/banco aquí.');
+            return;
+        }
         if (!confirm('¿Deseas cambiar el método de pago de esta transacción (Cash ↔ Bank)?')) return;
         const newMethod = (currentMethod === 'cash') ? 'bank' : 'cash';
         
@@ -1153,7 +1253,9 @@
                     const view = document.getElementById('accounting-view');
                     if (view && view.style.display !== 'none' && view.style.display !== '') {
                         if (window.currentUserRole === 'admin') {
-                            loadAccountingData();
+                            const dateEl = document.getElementById('acct-form-date');
+                            if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+                            loadAccountingData(true);
                         }
                     }
                 }

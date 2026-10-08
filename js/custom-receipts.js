@@ -98,6 +98,8 @@ window.loadCustomReceiptsForProfit = async function (dateFrom, dateTo) {
         (data || []).forEach(r => {
             const fin = window.parseCustomReceiptFinance(r);
             if (!fin.include) return;
+            const st = (fin.status || '').toString().toUpperCase();
+            if (st !== 'PAID' && st !== 'COMPLETE') return;
             const d = (r.date || '').toString();
             if (dateFrom && d && d < dateFrom) return;
             if (dateTo && d && d > dateTo) return;
@@ -570,7 +572,7 @@ async function saveAndPreviewCustomReceipt() {
                         <strong>Date:</strong> ${date || ''}
                     </div>
                 `;
-                await window.addInvoiceToReceivables(
+                const arOk = await window.addInvoiceToReceivables(
                     customer,
                     arInvoiceNo,
                     bookedAmount,
@@ -580,28 +582,30 @@ async function saveAndPreviewCustomReceipt() {
                     amountPaid,
                     arMethod
                 );
-            }
-            if (payStatus === 'PAID' && paymentSplit && window.logCashTransaction) {
-                const desc = 'Payment for Invoice ' + arInvoiceNo;
-                if ((parseFloat(paymentSplit.cashAmt) || 0) > 0) {
-                    await window.logCashTransaction({
-                        tipo: 'ingreso',
-                        metodo: 'cash',
-                        monto: paymentSplit.cashAmt,
-                        descripcion: desc + ' (CASH)',
-                        referencia: arInvoiceNo,
-                        cliente: customer
-                    });
-                }
-                if ((parseFloat(paymentSplit.bankAmt) || 0) > 0) {
-                    await window.logCashTransaction({
-                        tipo: 'ingreso',
-                        metodo: 'bank',
-                        monto: paymentSplit.bankAmt,
-                        descripcion: desc + ' (BANK)',
-                        referencia: arInvoiceNo,
-                        cliente: customer
-                    });
+                if (arOk && payStatus === 'PAID' && paymentSplit && window.logCashTransaction) {
+                    const desc = 'Payment for Invoice ' + arInvoiceNo;
+                    if ((parseFloat(paymentSplit.cashAmt) || 0) > 0) {
+                        await window.logCashTransaction({
+                            tipo: 'ingreso',
+                            metodo: 'cash',
+                            monto: paymentSplit.cashAmt,
+                            descripcion: desc + ' (CASH)',
+                            referencia: arInvoiceNo,
+                            cliente: customer,
+                            date: date
+                        });
+                    }
+                    if ((parseFloat(paymentSplit.bankAmt) || 0) > 0) {
+                        await window.logCashTransaction({
+                            tipo: 'ingreso',
+                            metodo: 'bank',
+                            monto: paymentSplit.bankAmt,
+                            descripcion: desc + ' (BANK)',
+                            referencia: arInvoiceNo,
+                            cliente: customer,
+                            date: date
+                        });
+                    }
                 }
             }
         }

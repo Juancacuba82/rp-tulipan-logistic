@@ -757,10 +757,9 @@
             if (!editingSettlementId && liveWallet > 0.01) {
                 const leftover = parseFloat(document.getElementById('res-cash-bal')?.dataset?.value) || 0;
                 const ok = confirm(
-                    `${driverNameFinal} tiene $${liveWallet.toFixed(2)} de la empresa en órdenes.\n` +
-                    `El precio/cobro de las órdenes NO se borra.\n` +
-                    `Al archivar, ese cash pasa a TODO OFICINA (el chofer ya no lo debe en la orden).\n` +
-                    `Lo que quede ($${Math.max(0, leftover).toFixed(2)}) queda en Settlement History.\n\n¿Continuar?`
+                    `${driverNameFinal} tiene $${liveWallet.toFixed(2)} de la empresa (wallet).\n` +
+                    `Al liquidar, el sueldo se descuenta de ese wallet. NO entra a caja oficina.\n` +
+                    `Lo que quede ($${Math.max(0, leftover).toFixed(2)}) sigue debiendo el chofer hasta que use Entrego cash.\n\n¿Continuar?`
                 );
                 if (!ok) return;
             }
@@ -885,24 +884,48 @@
                             }
                         }
 
-                        // Re-create based on current payment method
-                        if (val_type === 'split') {
-                            const splitCash = parseFloat(document.getElementById('spm-split-cash')?.value) || 0;
-                            const splitBank = parseFloat(document.getElementById('spm-split-bank')?.value) || 0;
-                            if (splitCash > 0) await saveAndSync(buildExpenseObj(splitCash, 'cash', `${expenseDescription} (Cash)`), 'add');
-                            if (splitBank > 0) await saveAndSync(buildExpenseObj(splitBank, 'bank', `${expenseDescription} (Bank)`), 'add');
-                        } else {
+                        const walletPool = cashColl + lastBal;
+                        const fromWallet = Math.min(expenseAmount, Math.max(0, walletPool));
+                        const fromOffice = Math.round((expenseAmount - fromWallet) * 100) / 100;
+                        if (fromWallet > 0.009) {
+                            await saveAndSync(buildExpenseObj(fromWallet, 'driver_wallet', `${expenseDescription} (Wallet chofer)`), 'add');
+                        }
+                        if (fromOffice > 0.009) {
+                            if (val_type === 'split') {
+                                const splitCash = parseFloat(document.getElementById('spm-split-cash')?.value) || 0;
+                                const splitBank = parseFloat(document.getElementById('spm-split-bank')?.value) || 0;
+                                const splitTotal = splitCash + splitBank;
+                                const cShare = splitTotal > 0 ? fromOffice * (splitCash / splitTotal) : fromOffice;
+                                const bShare = fromOffice - cShare;
+                                if (cShare > 0.009) await saveAndSync(buildExpenseObj(cShare, 'cash', `${expenseDescription} (Cash)`), 'add');
+                                if (bShare > 0.009) await saveAndSync(buildExpenseObj(bShare, 'bank', `${expenseDescription} (Bank)`), 'add');
+                            } else {
+                                await saveAndSync(buildExpenseObj(fromOffice, val_type === 'bank' ? 'bank' : 'cash'), 'add');
+                            }
+                        } else if (fromWallet < 0.01) {
                             await saveAndSync(buildExpenseObj(expenseAmount, val_type === 'bank' ? 'bank' : 'cash'), 'add');
                         }
 
                     } else {
-                        // NEW SETTLEMENT: create expense(s)
-                        if (val_type === 'split') {
-                            const splitCash = parseFloat(document.getElementById('spm-split-cash')?.value) || 0;
-                            const splitBank = parseFloat(document.getElementById('spm-split-bank')?.value) || 0;
-                            if (splitCash > 0) await saveAndSync(buildExpenseObj(splitCash, 'cash', `${expenseDescription} (Cash)`), 'add');
-                            if (splitBank > 0) await saveAndSync(buildExpenseObj(splitBank, 'bank', `${expenseDescription} (Bank)`), 'add');
-                        } else {
+                        const walletPool = cashColl + lastBal;
+                        const fromWallet = Math.min(expenseAmount, Math.max(0, walletPool));
+                        const fromOffice = Math.round((expenseAmount - fromWallet) * 100) / 100;
+                        if (fromWallet > 0.009) {
+                            await saveAndSync(buildExpenseObj(fromWallet, 'driver_wallet', `${expenseDescription} (Wallet chofer)`), 'add');
+                        }
+                        if (fromOffice > 0.009) {
+                            if (val_type === 'split') {
+                                const splitCash = parseFloat(document.getElementById('spm-split-cash')?.value) || 0;
+                                const splitBank = parseFloat(document.getElementById('spm-split-bank')?.value) || 0;
+                                const splitTotal = splitCash + splitBank;
+                                const cShare = splitTotal > 0 ? fromOffice * (splitCash / splitTotal) : fromOffice;
+                                const bShare = fromOffice - cShare;
+                                if (cShare > 0.009) await saveAndSync(buildExpenseObj(cShare, 'cash', `${expenseDescription} (Cash)`), 'add');
+                                if (bShare > 0.009) await saveAndSync(buildExpenseObj(bShare, 'bank', `${expenseDescription} (Bank)`), 'add');
+                            } else {
+                                await saveAndSync(buildExpenseObj(fromOffice, val_type === 'bank' ? 'bank' : 'cash'), 'add');
+                            }
+                        } else if (fromWallet < 0.01) {
                             await saveAndSync(buildExpenseObj(expenseAmount, val_type === 'bank' ? 'bank' : 'cash'), 'add');
                         }
                     }

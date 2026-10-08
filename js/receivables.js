@@ -1167,6 +1167,10 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     };
 
     const processPayment = async (cashAmount, bankAmount, label) => {
+        if ((inv.status || '') === 'Paid') {
+            alert('This invoice is already paid.');
+            return;
+        }
         const btnAllBank = overlay.querySelector('#btn-pay-bank');
         const btnAllCash = overlay.querySelector('#btn-pay-cash');
         const btnSplit = overlay.querySelector('#btn-pay-split');
@@ -1212,7 +1216,8 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                         monto: cashAmount,
                         descripcion: `Payment for Invoice ${invoiceNumber} (CASH)`,
                         referencia: invoiceNumber,
-                        cliente: custName
+                        cliente: custName,
+                        date: new Date().toISOString().split('T')[0]
                     });
                 } else {
                     const entry = {
@@ -1237,7 +1242,8 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                         monto: bankAmount,
                         descripcion: `Payment for Invoice ${invoiceNumber} (BANK)`,
                         referencia: invoiceNumber,
-                        cliente: custName
+                        cliente: custName,
+                        date: new Date().toISOString().split('T')[0]
                     });
                 } else {
                     const entry = {

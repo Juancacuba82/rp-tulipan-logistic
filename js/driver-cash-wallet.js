@@ -227,11 +227,12 @@
         window.refreshCashCollectorUi();
     };
 
-    async function persistHold(tripId, held) {
+    async function persistHold(tripId, held, collectorWhenZero) {
         if (!window.db || !tripId) return;
+        const col = held > 0.009 ? 'driver' : (collectorWhenZero || 'office');
         const { error } = await window.db.from('trips').update({
             driver_cash_held: held,
-            cash_collector: held > 0.009 ? 'driver' : 'office'
+            cash_collector: col
         }).eq('trip_id', tripId);
         if (error) {
             console.warn('[DriverCash] persist hold failed:', error.message);
@@ -242,7 +243,7 @@
             const t = arr.find(r => r[0] === tripId);
             if (t) {
                 t[77] = held;
-                t[76] = held > 0.009 ? 'driver' : 'office';
+                t[76] = col;
             }
         };
         patch(window.currentTrips);
@@ -292,7 +293,7 @@
         const held = Math.max(0, parseFloat(row[77]) || 0);
         const payload = {
             driver_cash_held: held,
-            cash_collector: held > 0.009 ? 'driver' : 'office',
+            cash_collector: held > 0.009 ? 'driver' : 'turned_in',
             trans_cash_amt: parseFloat(row[66]) || 0,
             trans_bank_amt: parseFloat(row[67]) || 0,
             yard_cash_amt: parseFloat(row[68]) || 0,
@@ -341,7 +342,7 @@
             const take = Math.min(hold, left);
             const next = Math.round((hold - take) * 100) / 100;
             row[77] = next;
-            row[76] = next > 0.009 ? 'driver' : 'office';
+            row[76] = next > 0.009 ? 'driver' : 'turned_in';
             const conv = Math.min(take, bankLeft);
             if (conv > 0.009) {
                 moveCashToBankOnRow(row, conv);
@@ -360,7 +361,7 @@
         if (diff > 0.009) await window.reduceDriverHolds(driverName, diff);
     };
 
-    /** After a settlement: trip price/cash stay, but chofer hold → 0 and collector → office (TODO OFICINA). */
+    /** After a settlement: holds close (wallet leftover lives on settlement_history). Cash does not enter office. */
     window.closeDriverHoldsOnSettlement = async function (driverName, throughDate) {
         const key = normalizeDriver(driverName);
         if (!key || !window.db) return 0;
@@ -405,7 +406,7 @@
         }
 
         for (const row of candidates) {
-            await persistHold(row[0] || row.trip_id, 0);
+            await persistHold(row[0] || row.trip_id, 0, 'settled');
         }
         return candidates.length;
     };
@@ -661,7 +662,7 @@
             const fromOrders = Math.min(take, orders);
             let appliedOrders = 0;
             if (fromOrders > 0.009) {
-                appliedOrders = await window.reduceDriverHolds(driverName, fromOrders, bankAmt);
+                appliedOrders = await window.reduceDriverHolds(driverName, fromOrders, 0);
             }
             let appliedLast = 0;
             const rest = Math.round((take - appliedOrders) * 100) / 100;
@@ -685,7 +686,7 @@
                         metodo: 'cash',
                         monto: cashAmt,
                         descripcion: `Entrega de chofer — ${normalizeDriver(driverName)} (Cash)`,
-                        referencia: 'DRIVER_CASH_TURN_IN',
+                        referencia: 'DRIVER_TURN_IN',
                         chofer: normalizeDriver(driverName)
                     });
                 }
@@ -695,7 +696,7 @@
                         metodo: 'bank',
                         monto: bankAmt,
                         descripcion: `Entrega de chofer — ${normalizeDriver(driverName)} (Bank)`,
-                        referencia: 'DRIVER_CASH_TURN_IN',
+                        referencia: 'DRIVER_TURN_IN',
                         chofer: normalizeDriver(driverName)
                     });
                 }
