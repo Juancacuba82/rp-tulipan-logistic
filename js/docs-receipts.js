@@ -238,7 +238,6 @@
 
         window.drawReceipt();
         window.renderTripPhotos();
-        window.updateDocsCollectAtStop(trip);
 
         if (window.innerWidth <= 1024) {
             const previewToolbar = document.querySelector('#docs-view .receipt-preview-toolbar');
@@ -568,8 +567,16 @@
         let billingSectionHtml = (total > 0 && canSeeBilling) ? `<div class="receipt-section-title">Billing Summary</div><table class="receipt-table"><tbody>${billingRows}</tbody><tfoot><tr class="receipt-total-row"><td>TOTAL DUE</td><td style="text-align:right;">$${total.toFixed(2)}</td></tr></tfoot></table>` : '';
 
         const isJR = (options.companyOverride === 'JR SUPER CRANE' || options.companyOverride === 'JR_SUPER_CRANE');
+        const collectInfo = (!options.excludePhotos && window.getCollectAtStop) ? window.getCollectAtStop(trip) : null;
+        const collectNotice = collectInfo
+            ? `<div class="collect-at-stop-notice" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px 0;padding:6px 10px;background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;">
+                    <span style="font-size:0.68rem;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#92400e;">Collect at Stop</span>
+                    <span style="font-size:0.95rem;font-weight:900;color:#78350f;">$${collectInfo.amount.toFixed(2)}</span>
+               </div>`
+            : '';
         return `
             <div class="receipt-content-wrapper" style="font-family: 'Outfit', sans-serif;">
+                ${collectNotice}
                 <div class="receipt-header">
                     <div>
                         <h1 style="color:${isJR ? '#1e40af' : '#b91c1c'}; margin:0;">${isJR ? 'JR SUPER CRANE' : 'RP TULIPAN'}</h1>
@@ -649,28 +656,10 @@
         `;
     };
 
-    window.updateDocsCollectAtStop = function (trip) {
-        const box = document.getElementById('docs-collect-at-stop');
-        if (!box) return;
-        const info = window.getCollectAtStop ? window.getCollectAtStop(trip) : null;
-        if (!info) {
-            box.style.display = 'none';
-            box.innerHTML = '';
-            return;
-        }
-        box.style.display = 'block';
-        box.innerHTML = `
-            <div style="font-size:0.7rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#92400e; margin-bottom:4px;">Collect at Stop</div>
-            <div style="font-size:1.35rem; font-weight:900; color:#78350f;">$${info.amount.toFixed(2)}</div>
-            <div style="font-size:0.85rem; font-weight:700; color:#92400e; margin-top:4px;">Recoger o esperar transferencia en el lugar</div>
-        `;
-    };
-
     window.drawReceipt = function () {
         const preview = document.getElementById('receipt-a4');
         if (!preview || !window.currentDocTrip) return;
         preview.innerHTML = window.getTripReceiptContent(window.currentDocTrip);
-        window.updateDocsCollectAtStop(window.currentDocTrip);
     }
 
     window.clearDocsFilters = function () {
@@ -733,9 +722,11 @@
             .receipt-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
             .receipt-total-row td { background: #f1f5f9; font-weight: 900; font-size: 1.1rem; }
             img { max-width: 100%; }
+            .collect-at-stop-notice { display: none !important; }
             @media print {
                 @page { size: A4; margin: 10mm; }
                 body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .collect-at-stop-notice { display: none !important; }
             }
         `);
         printWin.document.write('</style></head><body>');
