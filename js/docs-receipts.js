@@ -137,13 +137,13 @@
             const vY = parseFloat(trip[13]) || 0;
             const vRent = parseFloat(trip[14]) || 0;
             const vR = parseFloat(trip[18]) || 0;
-            const vS = parseFloat(trip[22]) || 0; // index 22 is 'in-amount'
+            const vS = parseFloat(trip[20]) || 0;
             const takeTax = (trip[49] === true || trip[49] === 'true' || trip[49] === 'YES' || trip[49] === 'on' || trip[49] === 1);
 
             const clearY = (trip[30] === 'PAID' || vY <= 0.01);
             const clearRent = (trip[31] === 'PAID' || vRent <= 0.01);
             const clearR = (trip[32] === 'PAID' || vR <= 0.01);
-            const clearS = (trip[33] === 'PAID' || vS <= 0.01); // Only checks Sales checkbox, ignores Amount/Cash checkbox
+            const clearS = (trip[33] === 'PAID' || vS <= 0.01);
             const clearTax = (!takeTax || trip[52] === 'PAID');
 
             const isFullyPaid = (clearY && clearR && clearS && clearRent && clearTax);
@@ -196,12 +196,19 @@
                 const displayCustomer = isDriver ? '********' : (trip[11] || 'No Cust');
                 const displayCont = isDriver ? '********' : (trip[3] || 'No Cont');
                 const displayDriver = (trip[17] || 'No Driver');
+                const collectInfo = window.getCollectAtStop ? window.getCollectAtStop(trip) : null;
+                const collectChip = collectInfo
+                    ? `<p style="margin-top:6px; font-size:0.7rem; font-weight:800; color:#92400e; background:#fffbeb; border:1px solid #f59e0b; border-radius:6px; padding:4px 6px;">
+                            Collect at Stop: $${collectInfo.amount.toFixed(2)}
+                       </p>`
+                    : '';
 
                 div.innerHTML = `
                         <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}</h4>
                         <p style="font-weight:bold; color:#1e293b;">${displayDriver}</p>
                         <p>${displayCont} | ${displayCustomer}</p>
                         <p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>
+                        ${collectChip}
                     `;
                 div.onclick = () => fillReceiptFromTrip(trip, div);
                 list.appendChild(div);
@@ -231,6 +238,7 @@
 
         window.drawReceipt();
         window.renderTripPhotos();
+        window.updateDocsCollectAtStop(trip);
 
         if (window.innerWidth <= 1024) {
             const previewToolbar = document.querySelector('#docs-view .receipt-preview-toolbar');
@@ -641,10 +649,28 @@
         `;
     };
 
+    window.updateDocsCollectAtStop = function (trip) {
+        const box = document.getElementById('docs-collect-at-stop');
+        if (!box) return;
+        const info = window.getCollectAtStop ? window.getCollectAtStop(trip) : null;
+        if (!info) {
+            box.style.display = 'none';
+            box.innerHTML = '';
+            return;
+        }
+        box.style.display = 'block';
+        box.innerHTML = `
+            <div style="font-size:0.7rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#92400e; margin-bottom:4px;">Collect at Stop</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#78350f;">$${info.amount.toFixed(2)}</div>
+            <div style="font-size:0.85rem; font-weight:700; color:#92400e; margin-top:4px;">Recoger o esperar transferencia en el lugar</div>
+        `;
+    };
+
     window.drawReceipt = function () {
         const preview = document.getElementById('receipt-a4');
         if (!preview || !window.currentDocTrip) return;
         preview.innerHTML = window.getTripReceiptContent(window.currentDocTrip);
+        window.updateDocsCollectAtStop(window.currentDocTrip);
     }
 
     window.clearDocsFilters = function () {

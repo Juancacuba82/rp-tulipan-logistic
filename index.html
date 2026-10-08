@@ -23,17 +23,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=15"></script>
-    <script src="./js/data-mapping.js?v=15"></script>
-    <script src="./js/driver-cash-wallet.js?v=4"></script>
+    <script src="./js/data-mapping.js?v=17"></script>
+    <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1712" defer></script>
-    <script src="./js/delivery-calendar.js?v=1712" defer></script>
+    <script src="./js/delivery-calendar.js?v=1714" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1731" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1704" defer></script>
+    <script src="./js/docs-receipts.js?v=1706" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
@@ -2070,36 +2070,20 @@
                             </div>
                         </div>
 
-                        <!-- Amount is legacy (not used in Profit/Caja). Hidden to keep row mapping & old trip data. -->
-                        <div class="form-group" style="display:none;" aria-hidden="true">
-                            <label class="sidebar-label-btn">Amount</label>
-                            <div style="display: flex; flex-direction: column;">
-                                <div class="input-paid-wrap">
-                                    <input type="number" id="in-amount" placeholder="0.00">
-                                    <div class="input-paid-badges-group">
-                                        <label class="input-paid-badge" title="Mark as cash">
-                                            <input type="checkbox" id="in-amountpaid"
-                                                onchange="syncImmediate('st_amount', this.checked ? 'PAID' : 'PENDING'); if(window.refreshCashCollectorUi) refreshCashCollectorUi();">
-                                            <span>PAID</span>
-                                        </label>
-                                        <select id="in-amount-pay-method" class="input-paid-badge"
-                                            style="padding: 0 4px; border-color: #cbd5e1; color: #475569; background: #f1f5f9; outline: none; appearance: none; -webkit-appearance: none; text-align: center;"
-                                            onchange="window.toggleSplit('amount')">
-                                            <option value="bank">BANK</option>
-                                            <option value="cash">CASH</option>
-                                            <option value="split">SPLIT</option>
-                                        </select>
-                                        <input type="checkbox" id="in-amount-cash" style="display:none;">
-                                    </div>
-                                </div>
-                                <div id="amount-split-group" style="display:none; gap: 5px; margin-top: 5px;">
-                                    <input type="number" id="in-amount-cash-amt" placeholder="Cash $"
-                                        style="width: 50%; font-size:0.8rem; padding:4px;"
-                                        oninput="window.updateSplitTotal('amount')">
-                                    <input type="number" id="in-amount-bank-amt" placeholder="Bank $"
-                                        style="width: 50%; font-size:0.8rem; padding:4px;"
-                                        oninput="window.updateSplitTotal('amount')">
-                                </div>
+                        <!-- Collect at Stop: informational only (office + driver). Not billed, not caja/profit. -->
+                        <div class="form-group" id="collect-at-stop-group">
+                            <label class="sidebar-label-btn" style="background-color: #d97706 !important; border-color: #d97706 !important;" title="Amount to collect or wait for at the stop. Not billed.">Collect at Stop</label>
+                            <input type="number" id="in-amount" placeholder="0.00" step="0.01" title="How much to collect or wait for at the stop">
+                            <input type="checkbox" id="in-amountpaid" style="display:none;">
+                            <select id="in-amount-pay-method" style="display:none;">
+                                <option value="bank">BANK</option>
+                                <option value="cash">CASH</option>
+                                <option value="split">SPLIT</option>
+                            </select>
+                            <input type="checkbox" id="in-amount-cash" style="display:none;">
+                            <div id="amount-split-group" style="display:none;">
+                                <input type="number" id="in-amount-cash-amt">
+                                <input type="number" id="in-amount-bank-amt">
                             </div>
                         </div>
 
@@ -2725,6 +2709,7 @@
                     <!-- Scrollable Preview Area -->
                     <div
                         style="flex:1; overflow-y:auto; padding:40px; display:flex; justify-content:center; scroll-behavior:smooth;">
+                        <div id="docs-collect-at-stop" style="display:none; width:210mm; margin-bottom:16px; padding:14px 16px; border-radius:10px; background:#fffbeb; border:2px solid #d97706; box-shadow:0 10px 30px rgba(0,0,0,0.25); box-sizing:border-box;"></div>
                         <div id="receipt-a4" class="a4-paper">
                             <div
                                 style="text-align: center; margin-top: 50% !important; color: #cbd5e1; font-style: italic;">
@@ -4616,8 +4601,8 @@
                                     <i class="fas fa-filter"></i>
                                     <select id="bc-f-payment" class="form-select" autocomplete="off"
                                         onchange="renderBillingTable()" style="width:120px;font-weight:700;">
-                                        <option value="all" selected>All</option>
-                                        <option value="pending">Pending</option>
+                                        <option value="all">All</option>
+                                        <option value="pending" selected>Pending</option>
                                         <option value="partial">Partial</option>
                                         <option value="sent">Sent</option>
                                     </select>
@@ -8891,9 +8876,18 @@
         window.resetSplitForms = function () {
             ['rate', 'yard', 'sales', 'amount'].forEach(type => {
                 const select = document.getElementById(`in-${type}-pay-method`);
-                if (select) {
-                    select.value = 'bank'; // Default to bank or cash
-                    // window.toggleSplit(type); // Toggle visually
+                if (select) select.value = 'bank';
+                const splitGroup = document.getElementById(`${type}-split-group`);
+                if (splitGroup) splitGroup.style.display = 'none';
+                const cashAmt = document.getElementById(`in-${type}-cash-amt`);
+                const bankAmt = document.getElementById(`in-${type}-bank-amt`);
+                if (cashAmt) cashAmt.value = '';
+                if (bankAmt) bankAmt.value = '';
+                const mainInputId = type === 'yard' ? 'in-yardrate' : `in-${type}`;
+                const mainInput = document.getElementById(mainInputId);
+                if (mainInput) {
+                    mainInput.readOnly = false;
+                    mainInput.style.backgroundColor = '';
                 }
             });
         };

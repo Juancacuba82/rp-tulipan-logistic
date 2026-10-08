@@ -35,15 +35,6 @@
         cash += serviceCash(row, 32, 47, 18, 66, true);
         cash += serviceCash(row, 30, 46, 13, 68, true);
         cash += serviceCash(row, 33, 48, 20, 70, true);
-        if (paid(row[34])) {
-            const splitA = parseFloat(row[72]) || 0;
-            const splitB = parseFloat(row[73]) || 0;
-            const amt = parseFloat(row[22]) || 0;
-            if (splitA > 0.009) cash += splitA;
-            else if (splitB > 0.009) { /* bank / split remainder — not driver cash */ }
-            else if ((row[76] || '').toString().toLowerCase() === 'driver' && amt > 0) cash += amt;
-            else if (!(row[76]) && amt > 0) cash += amt; // legacy Amount PAID
-        }
         return Math.round(cash * 100) / 100;
     }
 
@@ -85,16 +76,8 @@
     };
 
     window.applyDriverCashOnSave = function (rowData, prevRow) {
-        const amtMethod = document.getElementById('in-amount-pay-method')?.value;
-        const amtVal = parseFloat(rowData[22]) || 0;
-        if (paid(rowData[34]) && amtMethod === 'cash' && amtVal > 0 && !(parseFloat(rowData[72]) > 0) && !(parseFloat(rowData[73]) > 0)) {
-            rowData[72] = amtVal;
-            rowData[73] = 0;
-        }
-        if (paid(rowData[34]) && amtMethod === 'bank' && amtVal > 0 && !(parseFloat(rowData[72]) > 0) && !(parseFloat(rowData[73]) > 0)) {
-            rowData[72] = 0;
-            rowData[73] = amtVal;
-        }
+        rowData[72] = 0;
+        rowData[73] = 0;
         const driverAmt = parseFloat(document.getElementById('in-cash-driver-amt')?.value) || 0;
         const held = Math.max(0, Math.round(driverAmt * 100) / 100);
         rowData[76] = held > 0.009 ? 'driver' : 'office';
@@ -107,8 +90,7 @@
         const lines = [
             { type: 'rate', paid: 'in-ratepaid', total: 'in-rate', qty: true },
             { type: 'yard', paid: 'in-yardpaid', total: 'in-yardrate', qty: true },
-            { type: 'sales', paid: 'in-salespaid', total: 'in-sales', qty: true },
-            { type: 'amount', paid: 'in-amountpaid', total: 'in-amount', qty: false }
+            { type: 'sales', paid: 'in-salespaid', total: 'in-sales', qty: true }
         ];
         let cash = 0;
         lines.forEach(s => {
@@ -186,7 +168,7 @@
     };
 
     window.formHasCashPayment = function () {
-        const methods = ['rate', 'yard', 'sales', 'amount'];
+        const methods = ['rate', 'yard', 'sales'];
         return methods.some(type => {
             const sel = document.getElementById(`in-${type}-pay-method`);
             if (sel && (sel.value === 'cash' || sel.value === 'split')) {
@@ -255,8 +237,7 @@
     const PAY_LINES = [
         { paid: 32, flag: 47, total: 18, cashI: 66, bankI: 67, useQty: true },
         { paid: 30, flag: 46, total: 13, cashI: 68, bankI: 69, useQty: true },
-        { paid: 33, flag: 48, total: 20, cashI: 70, bankI: 71, useQty: true },
-        { paid: 34, flag: null, total: 22, cashI: 72, bankI: 73, useQty: false }
+        { paid: 33, flag: 48, total: 20, cashI: 70, bankI: 71, useQty: true }
     ];
 
     function lineCashOnRow(row, spec) {

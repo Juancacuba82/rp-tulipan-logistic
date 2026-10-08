@@ -579,7 +579,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (stYard === 'PEND') pending += (parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0) * qtyMultiplier;
                 if (stRate === 'PEND') pending += (parseFloat(document.getElementById('in-rate')?.value || '0') || 0) * qtyMultiplier;
                 if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
-                if (stAmount === 'PEND') pending += parseFloat(document.getElementById('in-amount')?.value || '0') || 0;
 
                 let existingSig = '', existingPhotos = [], existingSigDriver = '';
                 if (editingIndex !== null && window.currentTrips[editingIndex]) {
@@ -1905,18 +1904,30 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const totalSplit = cashAmt + bankAmt;
                 const payMethodSelect = document.getElementById(`in-${s.type}-pay-method`);
                 const cashCheckbox = document.getElementById(s.type === 'amount' ? 'in-amount-cash' : `in-${s.type}-cash`);
-                
-                if (totalSplit > 0) {
+                const cInput = document.getElementById(`in-${s.type}-cash-amt`);
+                const bInput = document.getElementById(`in-${s.type}-bank-amt`);
+
+                if (s.type === 'amount') {
+                    if (cashAmt > 0.009 && bankAmt > 0.009) {
+                        if (payMethodSelect) payMethodSelect.value = 'split';
+                        if (cInput) cInput.value = cashAmt;
+                        if (bInput) bInput.value = bankAmt;
+                    } else if (cashAmt > 0.009) {
+                        if (payMethodSelect) payMethodSelect.value = 'cash';
+                        if (cInput) cInput.value = '';
+                        if (bInput) bInput.value = '';
+                    } else {
+                        if (payMethodSelect) payMethodSelect.value = 'bank';
+                        if (cInput) cInput.value = '';
+                        if (bInput) bInput.value = '';
+                    }
+                } else if (totalSplit > 0) {
                     if (payMethodSelect) payMethodSelect.value = 'split';
-                    const cInput = document.getElementById(`in-${s.type}-cash-amt`);
-                    const bInput = document.getElementById(`in-${s.type}-bank-amt`);
                     if (cInput) cInput.value = cashAmt > 0 ? cashAmt : '';
                     if (bInput) bInput.value = bankAmt > 0 ? bankAmt : '';
                 } else {
                     const isCash = cashCheckbox ? cashCheckbox.checked : false;
                     if (payMethodSelect) payMethodSelect.value = isCash ? 'cash' : 'bank';
-                    const cInput = document.getElementById(`in-${s.type}-cash-amt`);
-                    const bInput = document.getElementById(`in-${s.type}-bank-amt`);
                     if (cInput) cInput.value = '';
                     if (bInput) bInput.value = '';
                 }

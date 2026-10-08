@@ -1357,6 +1357,9 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
             amount_paid: 0,
             created_by: opts.created_by || window.userEmail || window.userName || 'Unknown'
         };
+        if (opts.date_generated) {
+            insertPayload.date_generated = String(opts.date_generated).split('T')[0];
+        }
 
         const amt = parseFloat(amountPaid) || 0;
         const tot = parseFloat(totalAmount) || 0;
@@ -1541,6 +1544,7 @@ window.openReceivablePreview = async function (id) {
                 preselected = svcClean;
             }
         }
+        window.pendingMasterInvoiceDate = inv.date_generated || null;
         window.openMasterBillingModal(rows, invoiceNumber, customerName, false, preselected, true, groupBy, companyKey);
     } else {
         alert("Billing module is not fully loaded.");

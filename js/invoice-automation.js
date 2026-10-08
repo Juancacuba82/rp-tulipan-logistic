@@ -607,7 +607,17 @@
                 const groupByVal = document.getElementById('mb-group-by-select')?.value || 'ORDER';
                 svcFilter = (selectedServices.join(',') || svcFilter) + `|GROUP:${groupByVal}`;
                 if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
-                window.addInvoiceToReceivables(templateParams.customer_name, window.currentMasterInvoiceNo || masterTitle, totalNum, detailsHtml, masterTripIds, svcFilter);
+                window.addInvoiceToReceivables(
+                    templateParams.customer_name,
+                    window.currentMasterInvoiceNo || masterTitle,
+                    totalNum,
+                    detailsHtml,
+                    masterTripIds,
+                    svcFilter,
+                    0,
+                    '',
+                    window.currentMasterInvoiceDate ? { date_generated: window.currentMasterInvoiceDate } : {}
+                );
             }
 
             // Update tracking for all rows

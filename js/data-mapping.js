@@ -1,3 +1,9 @@
+        window.getCollectAtStop = function (row) {
+            const amount = parseFloat(row && row[22]) || 0;
+            if (amount < 0.01) return null;
+            return { amount };
+        };
+
         // Global Utility for Date Formatting (MM/DD/YYYY)
         window.formatDateMMDDYYYY = (ds) => {
             if (!ds || ds === '---') return '---';

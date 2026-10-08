@@ -325,7 +325,7 @@
         const fRelease  = (document.getElementById('bc-f-release')?.value  || '').trim();
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
-        const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
+        const fPayment  = (document.getElementById('bc-f-payment')?.value || 'pending').toLowerCase();
         const fDebt     = (document.getElementById('bc-f-debt')?.value || 'unpaid').toLowerCase();
 
         (window.combinedBillingTrips || []).forEach(row => {
@@ -458,7 +458,7 @@
         const fRelease  = (document.getElementById('bc-f-release')?.value || '').trim();
         const fFrom     = document.getElementById('bc-f-from')?.value || '';
         const fTo       = document.getElementById('bc-f-to')?.value   || '';
-        const fPayment  = (document.getElementById('bc-f-payment')?.value || 'all').toLowerCase();
+        const fPayment  = (document.getElementById('bc-f-payment')?.value || 'pending').toLowerCase();
         const fDebt     = (document.getElementById('bc-f-debt')?.value || 'unpaid').toLowerCase();
 
         const filtered = (window.combinedBillingTrips || []).filter(row => {
@@ -806,7 +806,7 @@
         ['bc-f-order','bc-f-booking','bc-f-city','bc-f-place','bc-f-customer','bc-f-driver','bc-f-service','bc-f-release','bc-f-from','bc-f-to','bc-f-invoice']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const fPayment = document.getElementById('bc-f-payment');
-        if (fPayment) fPayment.value = 'all';
+        if (fPayment) fPayment.value = 'pending';
         const fDebt = document.getElementById('bc-f-debt');
         if (fDebt) fDebt.value = 'unpaid';
         if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
@@ -1196,11 +1196,11 @@
         }
     };
 
-    // Force default payment filter to 'all' on load to prevent browser cache issues
+    // Force default payment filter on load to prevent browser cache restoring "All"
     document.addEventListener('DOMContentLoaded', () => {
         const paymentFilter = document.getElementById('bc-f-payment');
         if (paymentFilter) {
-            paymentFilter.value = 'all';
+            paymentFilter.value = 'pending';
         }
     });
 
@@ -1526,7 +1526,23 @@
         }
 
         document.getElementById('mb-bill-to-name').textContent = customer;
-        document.getElementById('mb-date-display').textContent = new Date().toLocaleDateString('en-US');
+
+        let invDateYmd = null;
+        if (window.pendingMasterInvoiceDate) {
+            invDateYmd = String(window.pendingMasterInvoiceDate).split('T')[0];
+            window.pendingMasterInvoiceDate = null;
+        } else if (!(window.isMasterBillingReadOnly && overrideInvoiceNo)) {
+            invDateYmd = getMasterBillingInvoiceDateYmd(rows);
+        } else {
+            invDateYmd = getOldestOrderDateYmd(rows);
+        }
+        if (!invDateYmd) invDateYmd = new Date().toISOString().split('T')[0];
+        window.currentMasterInvoiceDate = invDateYmd;
+        const dateDisplayEl = document.getElementById('mb-date-display');
+        if (dateDisplayEl) {
+            const dObj = new Date(invDateYmd + 'T12:00:00');
+            dateDisplayEl.textContent = isNaN(dObj.getTime()) ? invDateYmd : dObj.toLocaleDateString('en-US');
+        }
 
         const fromDateStr = document.getElementById('bc-f-from')?.value;
         const toDateStr = document.getElementById('bc-f-to')?.value;
@@ -1904,7 +1920,11 @@
         if (!overrideInvoiceNo) {
             window.currentMasterInvoiceRandomNo = generatedNo;
         }
-        const invoiceNo = overrideInvoiceNo || generatedNo;
+        const uniqueOrders = getMasterBillingUniqueOrders(rows);
+        let invoiceNo = overrideInvoiceNo || generatedNo;
+        if (!overrideInvoiceNo && uniqueOrders.length === 1) {
+            invoiceNo = uniqueOrders[0];
+        }
 
         const invoiceNoField = document.getElementById('mb-invoice-number');
         if (invoiceNoField) {
@@ -1929,6 +1949,31 @@
                 .map(r => (r[5] || '').toString().trim().toUpperCase())
                 .filter(o => o && o !== '---')
         )];
+    }
+
+    function getOldestOrderDateYmd(rows) {
+        const dates = (rows || [])
+            .map(r => (r[1] || '').toString().trim())
+            .filter(d => d && d !== '---')
+            .map(d => d.split('T')[0])
+            .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+            .sort();
+        return dates[0] || null;
+    }
+
+    function getMasterBillingInvoiceDateYmd(rows) {
+        const fromDateStr = (document.getElementById('bc-f-from')?.value || '').trim();
+        const toDateStr = (document.getElementById('bc-f-to')?.value || '').trim();
+        if (fromDateStr && toDateStr) return toDateStr;
+        if (toDateStr) return toDateStr;
+        if (fromDateStr) return fromDateStr;
+        return getOldestOrderDateYmd(rows);
+    }
+
+    function arInvoiceDateOpts() {
+        return window.currentMasterInvoiceDate
+            ? { date_generated: window.currentMasterInvoiceDate }
+            : {};
     }
 
     window.updateMasterInvoiceOrderNoButton = function () {
@@ -2028,7 +2073,7 @@
                 svcFilter += `|GROUP:${groupByVal}`;
                 if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
                 
-                const savedToAr = await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                const savedToAr = await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter, 0, '', arInvoiceDateOpts());
                 if (!savedToAr) {
                     alert(`No se pudo guardar la factura ${invNo} en Accounts Receivable (el número ya existe o hubo un error).\n\nCambie el número de factura e intente de nuevo. Las órdenes NO fueron marcadas como facturadas.`);
                     return;
@@ -2213,7 +2258,7 @@
                 if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
 
                 if (window.addInvoiceToReceivables) {
-                    const savedToAr = await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                    const savedToAr = await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter, 0, '', arInvoiceDateOpts());
                     if (!savedToAr) {
                         console.warn(`[Billing] Invoice ${invNo} was not stored in AR; leaving order ${singleRow[5]} as pending.`);
                         continue;
@@ -2349,7 +2394,7 @@
                     let svcFilter = document.getElementById('bc-f-service')?.value || '';
                     svcFilter += '|GROUP:ORDER';
                     if (window.appendBillingCompanyToSvcFilter) svcFilter = window.appendBillingCompanyToSvcFilter(svcFilter);
-                    await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter);
+                    await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter, 0, '', arInvoiceDateOpts());
                 }
 
                 // Update locally
