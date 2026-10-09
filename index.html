@@ -17,14 +17,14 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=14">
+    <link rel="stylesheet" href="./style.css?v=15">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=15"></script>
     <script src="./js/data-mapping.js?v=21"></script>
-    <script src="./js/order-pdf.js?v=4"></script>
+    <script src="./js/order-pdf.js?v=5"></script>
     <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
@@ -34,7 +34,8 @@
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1731" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1714" defer></script>
+    <script src="./js/docs-receipts.js?v=1715" defer></script>
+    <script src="./js/order-pdf-sign.js?v=1" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
@@ -52,6 +53,8 @@
     <script src="./js/recycle-bin.js?v=3" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"
@@ -8517,6 +8520,23 @@
                     CONFIGURATION</button>
             </div>
         </div>
+    </div>
+
+    <div id="order-pdf-viewer-modal" class="order-pdf-viewer-modal" style="display:none;">
+        <div class="order-pdf-viewer-bar">
+            <div class="order-pdf-viewer-bar-left">
+                <button type="button" class="order-pdf-viewer-btn" onclick="closeOrderPdfViewer()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <span id="order-pdf-viewer-title">Order PDF</span>
+            </div>
+            <p id="order-pdf-viewer-hint">Tap Sign, then tap the exact line on the PDF.</p>
+            <button type="button" id="btn-pdf-viewer-sign" class="order-pdf-viewer-btn order-pdf-viewer-sign"
+                onclick="togglePdfSignPlaceMode()">
+                <i class="fas fa-file-signature"></i> SIGN
+            </button>
+        </div>
+        <div id="order-pdf-viewer-pages" class="order-pdf-viewer-pages"></div>
     </div>
 
     <!-- Digital Signature Modal -->

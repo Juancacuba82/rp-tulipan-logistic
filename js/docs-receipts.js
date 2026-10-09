@@ -1002,7 +1002,7 @@
     };
 
     window.saveSignature = async function () {
-        if (!_sigCanvas || !window.currentDocTrip) return;
+        if (!_sigCanvas) return;
 
         // Check if canvas is blank
         const px = _sigCtx.getImageData(0, 0, _sigCanvas.width, _sigCanvas.height).data;
@@ -1011,6 +1011,13 @@
             alert('Please draw a signature before saving.');
             return;
         }
+
+        if (window._pdfSignPlacement && typeof window.finishOrderPdfSignature === 'function') {
+            await window.finishOrderPdfSignature(_sigCanvas);
+            return;
+        }
+
+        if (!window.currentDocTrip) return;
 
         const dataUrl = _sigCanvas.toDataURL('image/png');
         const tripId = window.currentDocTrip[0];

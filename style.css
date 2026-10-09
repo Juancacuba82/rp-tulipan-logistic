@@ -4609,3 +4609,114 @@ main {
         box-sizing: border-box !important;
     }
 }
+
+.order-pdf-viewer-modal {
+    position: fixed;
+    z-index: 9990;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: #0f172a;
+    display: none;
+    flex-direction: column;
+}
+
+.order-pdf-viewer-bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #1e293b;
+    color: #fff;
+    flex-wrap: wrap;
+}
+
+.order-pdf-viewer-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+#order-pdf-viewer-title {
+    font-weight: 800;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+
+#order-pdf-viewer-hint {
+    margin: 0;
+    flex: 1;
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #cbd5e1;
+}
+
+.order-pdf-viewer-btn {
+    border: none;
+    border-radius: 6px;
+    height: 40px;
+    padding: 0 14px;
+    font-weight: 800;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: #fff;
+    background: #475569;
+    white-space: nowrap;
+}
+
+.order-pdf-viewer-sign {
+    background: #0f766e;
+}
+
+.order-pdf-viewer-sign.is-active {
+    background: #f59e0b;
+    color: #1e293b;
+}
+
+.order-pdf-viewer-pages {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.order-pdf-viewer-pages.pdf-place-mode {
+    cursor: crosshair;
+}
+
+.order-pdf-page-wrap {
+    width: 100%;
+    max-width: 900px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.order-pdf-page-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    background: #fff;
+    touch-action: manipulation;
+}
+
+@media (max-width: 700px) {
+    #order-pdf-viewer-hint {
+        order: 3;
+        flex: 1 0 100%;
+        font-size: 0.72rem;
+    }
+    .order-pdf-viewer-sign {
+        min-width: 120px;
+    }
+}

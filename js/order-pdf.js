@@ -88,9 +88,13 @@
         return saved;
     };
 
-    window.openOrderPdf = function (url) {
+    window.openOrderPdf = function (url, tripId, name) {
         if (!url) {
             alert('This order has no PDF attached.');
+            return;
+        }
+        if (typeof window.openOrderPdfViewer === 'function') {
+            window.openOrderPdfViewer({ url: url, tripId: tripId, name: name });
             return;
         }
         window.open(url, '_blank', 'noopener');
@@ -105,14 +109,14 @@
     window.openCurrentDocOrderPdf = function () {
         const trip = window.currentDocTrip;
         const pdf = currentPdfFromRow(trip);
-        window.openOrderPdf(pdf.url);
+        window.openOrderPdf(pdf.url, trip && trip[0], pdf.name);
     };
 
     window.openCalendarOrderPdf = function () {
         const tripId = window.editingTripDbId || null;
         const row = (window.currentTrips || []).find(t => t && t[0] === tripId);
         const pdf = currentPdfFromRow(row);
-        window.openOrderPdf(pdf.url);
+        window.openOrderPdf(pdf.url, tripId, pdf.name);
     };
 
     window.renderCalendarOrderPdf = function () {
