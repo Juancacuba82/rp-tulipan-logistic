@@ -307,8 +307,8 @@
         try {
             if (!window.db) throw new Error('DB not available');
 
-            const tripCols = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt, cash_collector, driver_cash_held';
-            const tripColsNoHold = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt';
+            const tripCols = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, note, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt, cash_collector, driver_cash_held';
+            const tripColsNoHold = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, note, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt';
 
             const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger, resInvoices] = await Promise.all([
                 fetchAllPaged(() => window.db.from('trips').select(tripCols).or('is_deleted.eq.false,is_deleted.is.null')),
@@ -462,15 +462,17 @@
                     const bAmt = parseFloat(cfg.bankAmt) || 0;
                     if (hideDriverCash) cAmt = 0;
                     const paid = servicePaid(cfg.st);
-                    if (!paid && cAmt < 0.01 && bAmt < 0.01) return;
+                    const cashPaid = paid || !!cfg.cashPaid;
+                    const bankPaid = paid || !!cfg.bankPaid;
+                    if (!paid && !cashPaid && !bankPaid && cAmt < 0.01 && bAmt < 0.01) return;
                     if (cAmt > 0.009 || bAmt > 0.009) {
-                        if (cAmt > 0.009) {
+                        if (cAmt > 0.009 && cashPaid) {
                             unified.push(Object.assign({}, base, {
                                 id: t.trip_id + cfg.idCash, metodo: 'cash', monto: cAmt,
                                 descripcion: cfg.desc, chofer: cfg.chofer || '', sub_type: cfg.subCash
                             }));
                         }
-                        if (bAmt > 0.009) {
+                        if (bAmt > 0.009 && bankPaid) {
                             unified.push(Object.assign({}, base, {
                                 id: t.trip_id + cfg.idBank, metodo: 'bank', monto: bAmt,
                                 descripcion: cfg.desc, chofer: cfg.chofer || '', sub_type: cfg.subBank
@@ -501,11 +503,13 @@
                     desc: 'Venta de Contenedor', chofer: '',
                     idCash: '-sc', idBank: '-sb', idFb: '-s', subCash: 'sales_c', subBank: 'sales_b', subFb: 'sales'
                 });
+                const transPay = window.parsePayMeta ? window.parsePayMeta(t.note) : {};
                 pushService({
                     covered: cov.has('TRANSPORT'),
                     enabled: flagYes(t.has_trans),
                     cashAmt: t.trans_cash_amt, bankAmt: t.trans_bank_amt, st: t.st_rate,
                     cashFlag: t.r_cash, fallback: (parseFloat(t.trans_pay) || 0) * qty,
+                    cashPaid: !!transPay.tc, bankPaid: !!transPay.tb,
                     desc: 'Servicio de Transporte', chofer: t.driver || '',
                     idCash: '-tc', idBank: '-tb', idFb: '-t', subCash: 'trans_c', subBank: 'trans_b', subFb: 'trans'
                 });

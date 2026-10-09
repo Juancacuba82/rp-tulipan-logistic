@@ -613,6 +613,15 @@
         const subtotal = data.yard + data.storage + data.transp + data.sales;
         const taxVal = subtotal * (data.taxRate / 100);
         const total = subtotal + taxVal;
+        const transProg = (typeof window.getTransportSplitProgress === 'function')
+            ? window.getTransportSplitProgress(trip)
+            : { received: 0, due: data.transp, isSplit: false, fullyPaid: data.transpStatus === 'PAID' };
+        const transDue = transProg.fullyPaid ? 0 : (transProg.isSplit ? transProg.due : data.transp);
+        const yardDue = data.yardStatus === 'PAID' ? 0 : data.yard;
+        const storageDue = data.storageStatus === 'PAID' ? 0 : data.storage;
+        const salesDue = data.salesStatus === 'PAID' ? 0 : data.sales;
+        const taxDue = (!data.takeTax || data.taxStatus === 'PAID') ? 0 : taxVal;
+        const totalDue = yardDue + storageDue + transDue + salesDue + taxDue;
 
         const f = (label, val) => {
             if (!val || val === '---') return '';
@@ -642,16 +651,28 @@
 
         let inspectionSectionHtml = inspectionContent ? `<div class="receipt-section-title">Inspection & Condition</div><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; font-size: 0.8rem;">${inspectionContent}</div>` : '';
 
-        const bBadge = (st) => `<span style="font-size:0.65rem; font-weight:bold; padding:2px 6px; border-radius:4px; margin-right:8px; display:inline-block; vertical-align:middle; ${st==='PAID' ? 'background:#dcfce7; color:#166534; border:1px solid #166534;' : 'background:#fee2e2; color:#991b1b; border:1px solid #991b1b;'}">${st}</span>`;
+        const bBadge = (st) => `<span style="font-size:0.65rem; font-weight:bold; padding:2px 6px; border-radius:4px; margin-right:8px; display:inline-block; vertical-align:middle; ${st==='PAID' ? 'background:#dcfce7; color:#166534; border:1px solid #166534;' : (st==='PARTIAL' ? 'background:#ffedd5; color:#9a3412; border:1px solid #c2410c;' : 'background:#fee2e2; color:#991b1b; border:1px solid #991b1b;')}">${st}</span>`;
         let billingRows = '';
         if (data.yard > 0) billingRows += `<tr><td>Yard Fee</td><td style="text-align:right;">${bBadge(data.yardStatus)}$${data.yard.toFixed(2)}</td></tr>`;
         if (data.storage > 0) billingRows += `<tr><td>Storage</td><td style="text-align:right;">${bBadge(data.storageStatus)}$${data.storage.toFixed(2)}</td></tr>`;
-        if (data.transp > 0) billingRows += `<tr><td>Transport</td><td style="text-align:right;">${bBadge(data.transpStatus)}$${data.transp.toFixed(2)}</td></tr>`;
+        if (data.transp > 0) {
+            const tBadge = transProg.fullyPaid ? 'PAID' : (transProg.isSplit && transProg.received > 0.009 ? 'PARTIAL' : data.transpStatus);
+            billingRows += `<tr><td>Transport</td><td style="text-align:right;">${bBadge(tBadge)}$${data.transp.toFixed(2)}</td></tr>`;
+            if (!transProg.fullyPaid && transProg.isSplit && transProg.received > 0.009) {
+                if (transProg.bankPaid && transProg.bank > 0.009) {
+                    billingRows += `<tr><td style="padding-left:18px;color:#166534;">Paid (bank)</td><td style="text-align:right;color:#166534;">−$${transProg.bank.toFixed(2)}</td></tr>`;
+                }
+                if (transProg.cashPaid && transProg.cash > 0.009) {
+                    billingRows += `<tr><td style="padding-left:18px;color:#166534;">Paid (cash)</td><td style="text-align:right;color:#166534;">−$${transProg.cash.toFixed(2)}</td></tr>`;
+                }
+                billingRows += `<tr><td style="padding-left:18px;color:#9a3412;">Balance due</td><td style="text-align:right;color:#9a3412;">$${transProg.due.toFixed(2)}</td></tr>`;
+            }
+        }
         if (data.sales > 0) billingRows += `<tr><td>Sales</td><td style="text-align:right;">${bBadge(data.salesStatus)}$${data.sales.toFixed(2)}</td></tr>`;
         if (data.takeTax && taxVal > 0) billingRows += `<tr><td>Taxes (${data.taxRate}%)</td><td style="text-align:right;">${bBadge(data.taxStatus)}$${taxVal.toFixed(2)}</td></tr>`;
 
         const canSeeBilling = data.showBilling;
-        let billingSectionHtml = (total > 0 && canSeeBilling) ? `<div class="receipt-section-title">Billing Summary</div><table class="receipt-table"><tbody>${billingRows}</tbody><tfoot><tr class="receipt-total-row"><td>TOTAL DUE</td><td style="text-align:right;">$${total.toFixed(2)}</td></tr></tfoot></table>` : '';
+        let billingSectionHtml = (total > 0 && canSeeBilling) ? `<div class="receipt-section-title">Billing Summary</div><table class="receipt-table"><tbody>${billingRows}</tbody><tfoot><tr class="receipt-total-row"><td>TOTAL DUE</td><td style="text-align:right;">$${totalDue.toFixed(2)}</td></tr></tfoot></table>` : '';
 
         const isJR = (options.companyOverride === 'JR SUPER CRANE' || options.companyOverride === 'JR_SUPER_CRANE');
         const collectInfo = (!options.excludePhotos && window.getCollectAtStop) ? window.getCollectAtStop(trip) : null;

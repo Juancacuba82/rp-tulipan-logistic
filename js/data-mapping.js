@@ -4,6 +4,40 @@
             return { amount };
         };
 
+        window.getServiceSplitProgress = function (opts) {
+            const total = parseFloat(opts && opts.total) || 0;
+            const cash = parseFloat(opts && opts.cash) || 0;
+            const bank = parseFloat(opts && opts.bank) || 0;
+            const paidRaw = opts && opts.paid;
+            const stPaid = paidRaw === true || paidRaw === 'PAID' || paidRaw === 'true' || paidRaw === 'YES';
+            const isSplit = cash > 0.009 && bank > 0.009;
+            const cashPaid = !!(opts && opts.cashPaid) || stPaid;
+            const bankPaid = !!(opts && opts.bankPaid) || stPaid;
+            if (stPaid && !isSplit) {
+                return { total, received: total, due: 0, cash, bank, cashPaid, bankPaid, isSplit, fullyPaid: true };
+            }
+            if (isSplit) {
+                const received = (bankPaid ? bank : 0) + (cashPaid ? cash : 0);
+                const due = Math.max(0, total - received);
+                return { total, received, due, cash, bank, cashPaid, bankPaid, isSplit: true, fullyPaid: due < 0.01 };
+            }
+            return { total, received: stPaid ? total : 0, due: stPaid ? 0 : total, cash, bank, cashPaid, bankPaid, isSplit: false, fullyPaid: stPaid };
+        };
+
+        window.getTransportSplitProgress = function (row) {
+            if (!row) return window.getServiceSplitProgress({});
+            const qty = parseInt(row[53]) || 1;
+            const pay = window.parsePayMeta ? window.parsePayMeta(row[25]) : {};
+            return window.getServiceSplitProgress({
+                total: (parseFloat(String(row[18] || '0').replace(/[$,]/g, '')) || 0) * qty,
+                cash: parseFloat(row[66]) || 0,
+                bank: parseFloat(row[67]) || 0,
+                paid: row[32],
+                cashPaid: !!pay.tc,
+                bankPaid: !!pay.tb
+            });
+        };
+
         // Global Utility for Date Formatting (MM/DD/YYYY)
         window.formatDateMMDDYYYY = (ds) => {
             if (!ds || ds === '---') return '---';
@@ -446,9 +480,37 @@ if (document.readyState === 'loading') {
 
 (function setupOrderMoves() {
     const MOVE_RE = /⟦MOVE\|p:([^|]+)\|n:(\d+)⟧/;
+    const PAY_RE = /⟦PAY\|([^⟧]*)⟧/;
+
+    window.stripPayTag = function (note) {
+        return String(note || '').replace(PAY_RE, '').replace(/\s+/g, ' ').trim();
+    };
+
+    window.parsePayMeta = function (note) {
+        const m = String(note || '').match(PAY_RE);
+        const out = {};
+        if (!m) return out;
+        String(m[1]).split('|').forEach(part => {
+            const kv = part.split(':');
+            if (kv.length === 2) out[kv[0]] = kv[1] === '1' || kv[1] === 'true';
+        });
+        return out;
+    };
+
+    window.stampPayNote = function (note, flags) {
+        const clean = window.stripPayTag(note);
+        const parts = [];
+        Object.keys(flags || {}).forEach(k => {
+            if (flags[k]) parts.push(k + ':1');
+        });
+        if (!parts.length) return clean || '---';
+        const tag = `⟦PAY|${parts.join('|')}⟧`;
+        if (!clean || clean === '---') return tag;
+        return `${tag} ${clean}`;
+    };
 
     window.stripMoveTag = function (note) {
-        return String(note || '').replace(MOVE_RE, '').replace(/\s+/g, ' ').trim();
+        return String(note || '').replace(MOVE_RE, '').replace(PAY_RE, '').replace(/\s+/g, ' ').trim();
     };
 
     window.parseMoveMeta = function (note) {
@@ -458,9 +520,11 @@ if (document.readyState === 'loading') {
     };
 
     window.stampMoveNote = function (note, parentId, seq) {
+        const pay = window.parsePayMeta(note);
         const clean = window.stripMoveTag(note);
         const tag = `⟦MOVE|p:${parentId}|n:${seq}⟧`;
-        return clean ? `${tag} ${clean}` : tag;
+        const withMove = clean ? `${tag} ${clean}` : tag;
+        return window.stampPayNote(withMove, pay);
     };
 
     window.isFollowOnTrip = function (row) {

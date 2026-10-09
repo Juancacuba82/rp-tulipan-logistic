@@ -23,17 +23,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=15"></script>
-    <script src="./js/data-mapping.js?v=18"></script>
+    <script src="./js/data-mapping.js?v=20"></script>
     <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1713" defer></script>
-    <script src="./js/delivery-calendar.js?v=1721" defer></script>
+    <script src="./js/delivery-calendar.js?v=1723" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1731" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1710" defer></script>
+    <script src="./js/docs-receipts.js?v=1712" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
@@ -41,7 +41,7 @@
     <script src="./js/billing-manager.js?v=27" defer></script>
     <script src="./js/invoice-automation.js?v=20" defer></script>
     <script src="./js/attendance.js?v=4" defer></script>
-    <script src="./js/accounting.js?v=106" defer></script>
+    <script src="./js/accounting.js?v=108" defer></script>
     <script src="./js/receivables.js?v=31" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
@@ -1955,13 +1955,26 @@
                                             onchange="syncImmediate('r_cash', this.checked)">
                                     </div>
                                 </div>
-                                <div id="rate-split-group" style="display:none; gap: 5px; margin-top: 5px;">
-                                    <input type="number" id="in-rate-cash-amt" placeholder="Cash $"
-                                        style="width: 50%; font-size:0.8rem; padding:4px;"
-                                        oninput="window.updateSplitTotal('rate')">
-                                    <input type="number" id="in-rate-bank-amt" placeholder="Bank $"
-                                        style="width: 50%; font-size:0.8rem; padding:4px;"
-                                        oninput="window.updateSplitTotal('rate')">
+                                <div id="rate-split-group" style="display:none; flex-direction:column; gap: 5px; margin-top: 5px;">
+                                    <div style="display:flex; align-items:center; gap:5px;">
+                                        <input type="number" id="in-rate-cash-amt" placeholder="Cash $"
+                                            style="flex:1; font-size:0.8rem; padding:4px;"
+                                            oninput="window.updateSplitTotal('rate')">
+                                        <label class="input-paid-badge" title="Mark cash as paid when you receive it">
+                                            <input type="checkbox" id="in-rate-cash-paid" onchange="if(window.syncRateSplitPaid) window.syncRateSplitPaid();">
+                                            <span>PAID</span>
+                                        </label>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:5px;">
+                                        <input type="number" id="in-rate-bank-amt" placeholder="Bank $"
+                                            style="flex:1; font-size:0.8rem; padding:4px;"
+                                            oninput="window.updateSplitTotal('rate')">
+                                        <label class="input-paid-badge" title="Mark bank as paid when the transfer arrives">
+                                            <input type="checkbox" id="in-rate-bank-paid" onchange="if(window.syncRateSplitPaid) window.syncRateSplitPaid();">
+                                            <span>PAID</span>
+                                        </label>
+                                    </div>
+                                    <small style="font-size:0.62rem; color:#475569; font-weight:700;">Mark PAID on each amount when you actually receive it. Nothing posts to caja until you mark it.</small>
                                 </div>
                             </div>
                         </div>
@@ -8870,6 +8883,13 @@
                     cashCheckbox.checked = false;
                     cashCheckbox.dispatchEvent(new Event('change'));
                 }
+                if (type === 'rate') {
+                    const mainPaid = document.getElementById('in-ratepaid');
+                    if (mainPaid) {
+                        mainPaid.disabled = true;
+                        mainPaid.title = 'Use PAID next to Cash and Bank';
+                    }
+                }
             } else {
                 splitGroup.style.display = 'none';
                 mainInput.readOnly = false;
@@ -8885,6 +8905,17 @@
                 if (cashCheckbox) {
                     cashCheckbox.checked = (method === 'cash');
                     cashCheckbox.dispatchEvent(new Event('change'));
+                }
+                if (type === 'rate') {
+                    const mainPaid = document.getElementById('in-ratepaid');
+                    if (mainPaid) {
+                        mainPaid.disabled = false;
+                        mainPaid.title = 'Mark as paid';
+                    }
+                    const cPaid = document.getElementById('in-rate-cash-paid');
+                    const bPaid = document.getElementById('in-rate-bank-paid');
+                    if (cPaid) cPaid.checked = false;
+                    if (bPaid) bPaid.checked = false;
                 }
             }
             if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();

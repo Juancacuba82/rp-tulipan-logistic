@@ -112,7 +112,47 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
         window.syncImmediate = syncImmediate;
 
-        const CALENDAR_PAID_CHECK_IDS = ['in-yardpaid', 'in-rentpaid', 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-taxpaid'];
+        window.syncRateSplitPaid = async function () {
+            const tripId = editingTripDbId;
+            const cashPaid = !!document.getElementById('in-rate-cash-paid')?.checked;
+            const bankPaid = !!document.getElementById('in-rate-bank-paid')?.checked;
+            const both = cashPaid && bankPaid;
+            const ratePaidEl = document.getElementById('in-ratepaid');
+            if (ratePaidEl) ratePaidEl.checked = both;
+            const stVal = both ? 'PAID' : 'PEND';
+            if (!tripId) return;
+            const pools = [window.currentTrips, window.combinedBillingTrips, window.allTripsUnfiltered, window.rentalInvoiceTrips];
+            let note = '';
+            pools.forEach(pool => {
+                if (!pool) return;
+                const localTrip = pool.find(t => t && t[0] === tripId);
+                if (localTrip) {
+                    localTrip[32] = stVal;
+                    if (window.stampPayNote) localTrip[25] = window.stampPayNote(localTrip[25], { tc: cashPaid, tb: bankPaid });
+                    note = localTrip[25];
+                }
+            });
+            if (!note && window.stampPayNote) {
+                const raw = document.getElementById('in-note')?.value || '';
+                note = window.stampPayNote(raw, { tc: cashPaid, tb: bankPaid });
+            }
+            try {
+                await updateTrip(tripId, { note: note, st_rate: stVal });
+                if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+                if (window.currentDocTrip && window.currentDocTrip[0] === tripId && window.drawReceipt) {
+                    const updatedTrip = (window.currentTrips || []).find(t => t[0] === tripId);
+                    if (updatedTrip) {
+                        window.currentDocTrip = updatedTrip;
+                        window.drawReceipt();
+                    }
+                }
+            } catch (err) {
+                console.error('Split paid sync failed:', err);
+                alert('DATABASE ERROR: ' + (err.message || 'Failed to save split paid'));
+            }
+        };
+
+        const CALENDAR_PAID_CHECK_IDS = ['in-yardpaid', 'in-rentpaid', 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-taxpaid', 'in-rate-cash-paid', 'in-rate-bank-paid'];
 
         window.applyCalendarArLock = async function (tripId) {
             const banner = document.getElementById('cal-ar-invoice-banner');
@@ -150,6 +190,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     el.checked = row[paidMap[id]] === 'PAID';
                 }
             });
+            if (!info.locked && document.getElementById('in-rate-pay-method')?.value === 'split') {
+                const mainPaid = document.getElementById('in-ratepaid');
+                if (mainPaid) {
+                    mainPaid.disabled = true;
+                    mainPaid.title = 'Use PAID next to Cash and Bank';
+                }
+            }
             if (banner) {
                 if (info.invoices && info.invoices.length) {
                     banner.style.display = 'block';
@@ -596,7 +643,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 let pending = 0;
                 const qtyMultiplier = parseInt(document.getElementById('in-qty')?.value) || 1;
                 if (stYard === 'PEND') pending += (parseFloat(document.getElementById('in-yardrate')?.value || '0') || 0) * qtyMultiplier;
-                if (stRate === 'PEND') pending += (parseFloat(document.getElementById('in-rate')?.value || '0') || 0) * qtyMultiplier;
+                if (stRate === 'PEND') {
+                    const rateCash = parseFloat(document.getElementById('in-rate-cash-amt')?.value || '0') || 0;
+                    const rateBank = parseFloat(document.getElementById('in-rate-bank-amt')?.value || '0') || 0;
+                    const rateTotal = (parseFloat(document.getElementById('in-rate')?.value || '0') || 0) * qtyMultiplier;
+                    const cashPaid = !!document.getElementById('in-rate-cash-paid')?.checked;
+                    const bankPaid = !!document.getElementById('in-rate-bank-paid')?.checked;
+                    if (rateCash > 0.009 && rateBank > 0.009) {
+                        if (!cashPaid) pending += rateCash;
+                        if (!bankPaid) pending += rateBank;
+                    } else {
+                        pending += rateTotal;
+                    }
+                }
                 if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
 
                 let existingSig = '', existingPhotos = [], existingSigDriver = '';
@@ -651,6 +710,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     rowData[20] = 0;
                     rowData[43] = 'NO';
                     rowData[74] = false;
+                }
+                if (window.stampPayNote) {
+                    const splitOn = document.getElementById('in-rate-pay-method')?.value === 'split';
+                    dbObj.note = window.stampPayNote(dbObj.note, splitOn ? {
+                        tc: !!document.getElementById('in-rate-cash-paid')?.checked,
+                        tb: !!document.getElementById('in-rate-bank-paid')?.checked
+                    } : {});
+                    const bothSplitPaid = splitOn
+                        && document.getElementById('in-rate-cash-paid')?.checked
+                        && document.getElementById('in-rate-bank-paid')?.checked;
+                    if (bothSplitPaid) {
+                        dbObj.st_rate = 'PAID';
+                        stRate = 'PAID';
+                        rowData[32] = 'PAID';
+                    }
                 }
                 rowData[25] = dbObj.note;
                 const yardData = {
@@ -1887,6 +1961,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             document.getElementById('in-yardpaid').checked = (rowData[30] === 'PAID');
             document.getElementById('in-rentpaid').checked = (rowData[31] === 'PAID');
             document.getElementById('in-ratepaid').checked = (rowData[32] === 'PAID');
+            const payMeta = window.parsePayMeta ? window.parsePayMeta(rowData[25]) : {};
+            const rateFully = rowData[32] === 'PAID';
+            const cashPaidEl = document.getElementById('in-rate-cash-paid');
+            const bankPaidEl = document.getElementById('in-rate-bank-paid');
+            if (cashPaidEl) cashPaidEl.checked = rateFully || !!payMeta.tc;
+            if (bankPaidEl) bankPaidEl.checked = rateFully || !!payMeta.tb;
             document.getElementById('in-salespaid').checked = (rowData[33] === 'PAID');
             document.getElementById('in-amountpaid').checked = (rowData[34] === 'PAID');
 
@@ -2745,12 +2825,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.style.color = isClear ? '#166534' : '#991b1b';
                                 } else if (i === 13) { // Transport (Driver Pay)
                                     const isClear = (stRate === 'PAID' || val <= 0.01);
+                                    const transProg = window.getTransportSplitProgress ? window.getTransportSplitProgress(rowData) : null;
+                                    const isPartial = !isClear && transProg && transProg.isSplit && transProg.received > 0.009;
                                     const isCash = !!rowData[47];
                                     const iconClass = isCash ? 'fas fa-money-bill-wave' : 'fas fa-university';
                                     const iconColor = isCash ? '#059669' : '#3b82f6';
                                     td.innerHTML = `<i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;" title="${isCash ? 'CASH' : 'ONLINE/BANK'}"></i>$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-                                    td.style.backgroundColor = isClear ? '#dcfce7' : '#fee2e2';
-                                    td.style.color = isClear ? '#166534' : '#991b1b';
+                                    td.style.backgroundColor = isClear ? '#dcfce7' : (isPartial ? '#ffedd5' : '#fee2e2');
+                                    td.style.color = isClear ? '#166534' : (isPartial ? '#9a3412' : '#991b1b');
+                                    if (isPartial) td.title = 'Partial: $' + transProg.received.toFixed(2) + ' received, $' + transProg.due.toFixed(2) + ' due';
                                 } else if (i === 14) { // Sales
                                     const isClear = (stSales === 'PAID' || val <= 0.01);
                                     const isCash = !!rowData[48];
