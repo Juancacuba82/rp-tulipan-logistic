@@ -21,6 +21,20 @@ body {
     min-height: 100vh;
 }
 
+/* Typed/pasted text displays uppercase; JS stores uppercase. Emails stay as typed. */
+input:not([type="email"]):not([type="password"]):not([type="number"]):not([type="date"]):not([type="time"]):not([type="datetime-local"]):not([type="month"]):not([type="week"]):not([type="color"]):not([type="range"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([id*="email" i]):not([name*="email" i]),
+textarea:not([id*="email" i]):not([name*="email" i]) {
+    text-transform: uppercase;
+}
+
+input[type="email"],
+input[id*="email" i],
+input[name*="email" i],
+textarea[id*="email" i],
+textarea[name*="email" i] {
+    text-transform: none;
+}
+
 .hidden {
     display: none !important;
     visibility: hidden !important;
