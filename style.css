@@ -4672,6 +4672,21 @@ main {
     white-space: nowrap;
 }
 
+.order-pdf-viewer-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.order-pdf-viewer-download {
+    background: #c2410c;
+}
+
+.order-pdf-viewer-download:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .order-pdf-viewer-sign {
     background: #0f766e;
 }
@@ -4700,6 +4715,60 @@ main {
     width: 100%;
     max-width: 900px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    position: relative;
+}
+
+.order-pdf-sig-overlay {
+    position: absolute;
+    pointer-events: auto;
+    z-index: 2;
+    touch-action: none;
+}
+
+.order-pdf-sig-overlay.is-draggable {
+    cursor: grab;
+}
+
+.order-pdf-sig-overlay.is-dragging {
+    cursor: grabbing;
+    z-index: 5;
+    outline: 2px dashed #f59e0b;
+    opacity: 0.95;
+}
+
+.order-pdf-sig-overlay img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+}
+
+.order-pdf-sig-overlay.is-moving {
+    outline: 2px dashed #f59e0b;
+}
+
+.order-pdf-sig-tools {
+    position: absolute;
+    top: -28px;
+    right: 0;
+    display: flex;
+    gap: 4px;
+}
+
+.order-pdf-sig-tools button {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: #1e293b;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.order-pdf-sig-tools button[data-act="del"] {
+    background: #991b1b;
 }
 
 .order-pdf-page-canvas {

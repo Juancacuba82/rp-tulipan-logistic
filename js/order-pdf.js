@@ -1,6 +1,8 @@
 (function () {
     const URL_IDX = 78;
     const NAME_IDX = 79;
+    const SIGS_IDX = 80;
+    window.ORDER_PDF_SIGS_IDX = SIGS_IDX;
     const MAX_BYTES = 10 * 1024 * 1024;
 
     window.ORDER_PDF_URL_IDX = URL_IDX;
@@ -35,7 +37,7 @@
 
     window.getOrderPdfFromRow = currentPdfFromRow;
 
-    window.patchTripPdfLocal = function (tripId, url, name) {
+    window.patchTripPdfLocal = function (tripId, url, name, sigs) {
         const pools = [
             window.currentTrips,
             window.allTripsUnfiltered,
@@ -48,11 +50,13 @@
             if (t) {
                 t[URL_IDX] = url || '';
                 t[NAME_IDX] = name || '';
+                if (sigs !== undefined) t[SIGS_IDX] = sigs;
             }
         });
         if (window.currentDocTrip && window.currentDocTrip[0] === tripId) {
             window.currentDocTrip[URL_IDX] = url || '';
             window.currentDocTrip[NAME_IDX] = name || '';
+            if (sigs !== undefined) window.currentDocTrip[SIGS_IDX] = sigs;
         }
     };
 
@@ -81,10 +85,10 @@
     window.uploadOrderPdfFile = async function (tripId, file) {
         const saved = await window.uploadOrderPdfToStorage(tripId, file);
         const { error: updateError } = await window.db.from('trips')
-            .update({ order_pdf_url: saved.url, order_pdf_name: saved.name })
+            .update({ order_pdf_url: saved.url, order_pdf_name: saved.name, order_pdf_signatures: [] })
             .eq('trip_id', tripId);
         if (updateError) throw updateError;
-        window.patchTripPdfLocal(tripId, saved.url, saved.name);
+        window.patchTripPdfLocal(tripId, saved.url, saved.name, []);
         return saved;
     };
 
@@ -197,10 +201,10 @@
         }
         try {
             const { error } = await window.db.from('trips')
-                .update({ order_pdf_url: null, order_pdf_name: null })
+                .update({ order_pdf_url: null, order_pdf_name: null, order_pdf_signatures: [] })
                 .eq('trip_id', tripId);
             if (error) throw error;
-            window.patchTripPdfLocal(tripId, '', '');
+            window.patchTripPdfLocal(tripId, '', '', []);
             window.renderCalendarOrderPdf();
             window.renderDocsOrderPdf();
             if (window.showToast) window.showToast('PDF removed', 'success');
@@ -225,7 +229,7 @@
         if (!file || !tripId) return currentPdfFromRow((window.currentTrips || []).find(t => t && t[0] === tripId));
         const saved = await window.uploadOrderPdfToStorage(tripId, file);
         window.pendingOrderPdfFile = null;
-        window.patchTripPdfLocal(tripId, saved.url, saved.name);
+        window.patchTripPdfLocal(tripId, saved.url, saved.name, []);
         return saved;
     };
 

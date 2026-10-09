@@ -179,7 +179,8 @@
                 t.cash_collector || '',         // 76 — office | driver
                 parseFloat(t.driver_cash_held) || 0, // 77 — open cash still with driver
                 t.order_pdf_url || '',          // 78 — attached order PDF url
-                t.order_pdf_name || ''          // 79 — original PDF file name
+                t.order_pdf_name || '',         // 79 — original PDF file name
+                safeParse(t.order_pdf_signatures, []) // 80 — overlay signatures on original PDF
             ];
         }
 
@@ -262,7 +263,8 @@
                 cash_collector: row[76] || 'office',
                 driver_cash_held: parseFloat(row[77]) || 0,
                 order_pdf_url: row[78] || null,
-                order_pdf_name: row[79] || null
+                order_pdf_name: row[79] || null,
+                order_pdf_signatures: Array.isArray(row[80]) ? row[80] : []
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB

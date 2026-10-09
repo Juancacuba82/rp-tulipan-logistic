@@ -322,6 +322,9 @@
                 trip[56] = details.signature_driver || trip[56] || '';
                 trip[78] = details.order_pdf_url || trip[78] || '';
                 trip[79] = details.order_pdf_name || trip[79] || '';
+                trip[80] = Array.isArray(details.order_pdf_signatures)
+                    ? details.order_pdf_signatures
+                    : (trip[80] || []);
             }
         }
 

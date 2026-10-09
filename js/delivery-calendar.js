@@ -661,12 +661,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 let existingSig = '', existingPhotos = [], existingSigDriver = '';
                 let existingPdfUrl = '', existingPdfName = '';
+                let existingPdfSigs = [];
                 if (editingIndex !== null && window.currentTrips[editingIndex]) {
                     existingSig = window.currentTrips[editingIndex][54] || '';
                     existingPhotos = window.currentTrips[editingIndex][55] || [];
                     existingSigDriver = window.currentTrips[editingIndex][56] || '';
                     existingPdfUrl = window.currentTrips[editingIndex][78] || '';
                     existingPdfName = window.currentTrips[editingIndex][79] || '';
+                    existingPdfSigs = Array.isArray(window.currentTrips[editingIndex][80])
+                        ? window.currentTrips[editingIndex][80] : [];
                 }
 
                 const rowData = [
@@ -699,6 +702,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (window.applyDriverCashOnSave) window.applyDriverCashOnSave(rowData, prevCashRow);
                 rowData[78] = existingPdfUrl;
                 rowData[79] = existingPdfName;
+                rowData[80] = existingPdfSigs;
 
                 const dbObj = mapArrayToTrip(rowData);
                 const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
@@ -767,8 +771,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         if (pdfSaved && pdfSaved.url) {
                             dbObj.order_pdf_url = pdfSaved.url;
                             dbObj.order_pdf_name = pdfSaved.name;
+                            dbObj.order_pdf_signatures = [];
                             rowData[78] = pdfSaved.url;
                             rowData[79] = pdfSaved.name;
+                            rowData[80] = [];
                         }
                     } catch (pdfErr) {
                         console.error('Order PDF upload failed:', pdfErr);
@@ -802,12 +808,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name/i.test(masterErr.message || '')) {
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures/i.test(masterErr.message || '')) {
                     console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
                     delete masterPayload.order_pdf_url;
                     delete masterPayload.order_pdf_name;
+                    delete masterPayload.order_pdf_signatures;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
@@ -1840,6 +1847,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     rowData[56] = details.signature_driver || '';
                     rowData[78] = details.order_pdf_url || '';
                     rowData[79] = details.order_pdf_name || '';
+                    if (Array.isArray(details.order_pdf_signatures)) {
+                        rowData[80] = details.order_pdf_signatures;
+                    } else if (typeof details.order_pdf_signatures === 'string') {
+                        try { rowData[80] = JSON.parse(details.order_pdf_signatures || '[]') || []; }
+                        catch (e) { rowData[80] = []; }
+                    } else {
+                        rowData[80] = [];
+                    }
                 }
             }
 
