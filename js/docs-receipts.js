@@ -96,7 +96,7 @@
             return;
         }
 
-        let sourceTrips = window.docsTripsCache || window.currentTrips || [];
+        let sourceTrips = (!force && (window.docsTripsCache || window.currentTrips)) || [];
         if (force || !sourceTrips.length) {
             try {
                 const fetchFn = (fromDate || toDate) && typeof getAllTrips === 'function'
@@ -106,7 +106,11 @@
                 sourceTrips = (data || []).map(mapTripToArray);
                 window.docsTripsCache = sourceTrips;
                 if (!window.currentTrips || window.currentTrips.length === 0) {
-                    window.currentTrips = sourceTrips;
+                    window.currentTrips = sourceTrips.slice();
+                } else {
+                    const byId = new Map(window.currentTrips.map(t => [t[0], t]));
+                    sourceTrips.forEach(t => byId.set(t[0], t));
+                    window.currentTrips = Array.from(byId.values());
                 }
             } catch (e) {
                 console.error("Failed to load trips for Docs:", e);
@@ -185,6 +189,7 @@
             if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownCustomerMatch && dropdownStatusMatch && dropdownPaymentMatch) {
                 const div = document.createElement('div');
                 div.className = 'trip-item';
+                div.dataset.tripid = trip[0] || '';
                 if (window.currentDocTrip && window.currentDocTrip[0] === trip[0]) div.classList.add('active');
 
                 const note = trip[25] || '';
@@ -214,6 +219,15 @@
                 list.appendChild(div);
             }
         });
+
+        const openId = window.currentDocTrip && window.currentDocTrip[0];
+        if (openId) {
+            const fresh = sourceTrips.find(t => t[0] === openId);
+            const el = list.querySelector('.trip-item[data-tripid="' + openId + '"]');
+            if (fresh) {
+                window.fillReceiptFromTrip(fresh, el);
+            }
+        }
     }
 
     window.fillReceiptFromTrip = async function (trip, el) {
@@ -224,15 +238,19 @@
         // --- ON-DEMAND LOADING FOR DOCS ---
         if (trip && trip[0] && typeof window.getTripDetails === 'function') {
             const tripId = trip[0];
-            // Only fetch if we don't have photos or signatures yet
-            if (!trip[54] && (!trip[55] || trip[55].length === 0)) {
-                console.log("Docs: Fetching on-demand details for trip:", tripId);
-                const details = await window.getTripDetails(tripId);
-                if (details) {
-                    trip[54] = details.signature || '';
-                    trip[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : []);
-                    trip[56] = details.signature_driver || '';
+            const details = await window.getTripDetails(tripId);
+            if (details && typeof mapTripToArray === 'function') {
+                const fresh = mapTripToArray(details);
+                window.currentDocTrip = fresh;
+                trip = fresh;
+                if (window.docsTripsCache) {
+                    const i = window.docsTripsCache.findIndex(t => t[0] === tripId);
+                    if (i !== -1) window.docsTripsCache[i] = fresh;
                 }
+            } else if (details) {
+                trip[54] = details.signature || trip[54] || '';
+                trip[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : (trip[55] || []));
+                trip[56] = details.signature_driver || trip[56] || '';
             }
         }
 
@@ -497,7 +515,11 @@
                 const name = window.globalUserNameMap ? window.globalUserNameMap[cleanEmail] : null;
                 return name || val.split('@')[0].toUpperCase();
             })(),
-            notes: (trip[25] && trip[25] !== '---') ? trip[25] : '',
+            notes: (() => {
+                const raw = (trip[25] && trip[25] !== '---') ? String(trip[25]) : '';
+                const cleaned = window.stripMoveTag ? window.stripMoveTag(raw) : raw;
+                return cleaned || '';
+            })(),
             cond: {
                 asis: (trip[25] || '').toUpperCase().includes('AS IS'),
                 wwt: (trip[25] || '').toUpperCase().includes('WWT'),
@@ -593,7 +615,7 @@
                 ${s('Client', clientContent)}
                 ${inspectionSectionHtml}
                 ${billingSectionHtml}
-                <div style="margin-top:25px; border-left: 4px solid #b91c1c; padding-left:10px; background:#f8fafc;">${data.notes}</div>
+                ${data.notes ? `<div style="margin-top:25px; border-left: 4px solid #b91c1c; padding-left:10px; background:#f8fafc;">${data.notes}</div>` : ''}
                 <div class="receipt-signatures-wrapper">
                     <div class="signature-box" style="border-top:1px solid #000; text-align:center; position:relative;">
                         ${data.signature_driver ? `<img src="${data.signature_driver}" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); max-height:60px;">` : ''}
@@ -677,7 +699,7 @@
         if (statusDd) statusDd.value = '';
         if (paymentDd) paymentDd.value = '';
 
-        window.loadDocTrips();
+        window.loadDocTrips(true);
     }
 
     window.refreshDocsModule = async function () {

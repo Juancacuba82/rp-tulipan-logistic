@@ -443,3 +443,53 @@ if (document.readyState === 'loading') {
 } else {
     startMdyDateEnhancer();
 }
+
+(function setupOrderMoves() {
+    const MOVE_RE = /⟦MOVE\|p:([^|]+)\|n:(\d+)⟧/;
+
+    window.stripMoveTag = function (note) {
+        return String(note || '').replace(MOVE_RE, '').replace(/\s+/g, ' ').trim();
+    };
+
+    window.parseMoveMeta = function (note) {
+        const m = String(note || '').match(MOVE_RE);
+        if (!m) return { parentId: null, seq: 1 };
+        return { parentId: m[1], seq: parseInt(m[2], 10) || 2 };
+    };
+
+    window.stampMoveNote = function (note, parentId, seq) {
+        const clean = window.stripMoveTag(note);
+        const tag = `⟦MOVE|p:${parentId}|n:${seq}⟧`;
+        return clean ? `${tag} ${clean}` : tag;
+    };
+
+    window.isFollowOnTrip = function (row) {
+        if (!row) return false;
+        return !!window.parseMoveMeta(row[25]).parentId;
+    };
+
+    window.getMoveFamily = function (tripId, trips) {
+        const list = trips || window.currentTrips || [];
+        const self = list.find(t => t && t[0] === tripId);
+        if (!self) return { parentId: tripId, moves: [] };
+        const meta = window.parseMoveMeta(self[25]);
+        const parentId = meta.parentId || tripId;
+        const moves = list.filter(t => {
+            if (!t || !t[0]) return false;
+            if (t[0] === parentId) return true;
+            const m = window.parseMoveMeta(t[25]);
+            return m.parentId === parentId;
+        }).sort((a, b) => {
+            const sa = (a[0] === parentId) ? 1 : (window.parseMoveMeta(a[25]).seq || 99);
+            const sb = (b[0] === parentId) ? 1 : (window.parseMoveMeta(b[25]).seq || 99);
+            return sa - sb;
+        });
+        return { parentId, moves };
+    };
+
+    window.getMoveSeq = function (row, parentId) {
+        if (!row) return 1;
+        if (row[0] === parentId) return 1;
+        return window.parseMoveMeta(row[25]).seq || 2;
+    };
+})();

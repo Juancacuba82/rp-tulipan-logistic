@@ -176,6 +176,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     html += `<span class="cal-ar-badge" style="display:block;margin:3px auto 0;font-size:0.62rem;font-weight:800;padding:1px 6px;border-radius:999px;background:${bg};color:${color};width:fit-content;text-align:center;user-select:none;-webkit-user-select:none;">AR ${arInfo.statusText}</span>`;
                 }
             }
+            if (tripId && typeof window.getMoveFamily === 'function') {
+                const fam = window.getMoveFamily(tripId);
+                if (fam.moves && fam.moves.length > 1) {
+                    const pending = fam.moves.filter(m => {
+                        const st = (m[41] || '').toUpperCase();
+                        return st !== 'COMPLETE' && st !== 'PAID';
+                    });
+                    const label = pending.length
+                        ? `${fam.moves.length} moves · ${pending.length} left`
+                        : `${fam.moves.length} moves`;
+                    html += `<span class="cal-move-badge" style="display:block;margin:3px auto 0;font-size:0.62rem;font-weight:800;padding:1px 6px;border-radius:999px;background:#ffedd5;color:#9a3412;width:fit-content;text-align:center;">${label}</span>`;
+                }
+            }
             return `<div class="cal-order-cell" style="display:flex;flex-direction:column;align-items:center;text-align:center;">${html}</div>`;
         };
 
@@ -423,8 +436,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // --- MANUAL DEDUCT TOGGLE (replaces all old automatic rules) ---
                 const manualDeductStock = document.getElementById('in-deduct-stock')?.checked ?? true;
-                const isDeductionCandidate = !isYardSource && (selectedRelease && selectedRelease !== '---' && releaseExists) && manualDeductStock;
-                const isYardDeductionCandidate = isYardSource && yardItemId && isFinalized;
+                const prevMoveRow = (editingTripDbId && window.currentTrips)
+                    ? window.currentTrips.find(t => t[0] === editingTripDbId) : null;
+                const followMeta = (window.parseMoveMeta && prevMoveRow)
+                    ? window.parseMoveMeta(prevMoveRow[25]) : { parentId: null, seq: 1 };
+                const isFollowOnSave = !!followMeta.parentId;
+
+                const isDeductionCandidate = !isFollowOnSave && !isYardSource && (selectedRelease && selectedRelease !== '---' && releaseExists) && manualDeductStock;
+                const isYardDeductionCandidate = !isFollowOnSave && isYardSource && yardItemId && isFinalized;
 
                 let wasFinalized = false;
                 let wasDeductionCandidate = false;
@@ -624,6 +643,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 
                 // Save the Storage Yard marker to the trips table as well, so it persists in the calendar UI
                 dbObj.note = combinedNotes || '---';
+                if (isFollowOnSave && window.stampMoveNote) {
+                    dbObj.note = window.stampMoveNote(dbObj.note, followMeta.parentId, followMeta.seq);
+                    dbObj.has_sales = 'NO';
+                    dbObj.sales_price = 0;
+                    dbObj.deduct_stock = false;
+                    rowData[20] = 0;
+                    rowData[43] = 'NO';
+                    rowData[74] = false;
+                }
                 rowData[25] = dbObj.note;
                 const yardData = {
                     container_no: (document.getElementById('in-ncont')?.value || '---').toUpperCase(),
@@ -1017,6 +1045,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             console.log("Starting a new order entry (clearing state)...");
             editingIndex = null;
             editingTripDbId = null;
+            const parentHid = document.getElementById('in-parent-trip-id');
+            if (parentHid) parentHid.value = '';
+            const orderEl = document.getElementById('in-order');
+            if (orderEl) orderEl.readOnly = false;
+            if (typeof window.renderOrderMovesPanel === 'function') window.renderOrderMovesPanel(null);
 
             // 1. Text, Number, and Date Inputs
             const fieldsToClear = [
@@ -1808,6 +1841,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         if (noteStr.includes('[Storage Yard]')) {
                             noteStr = noteStr.replace('[Storage Yard] ', '').replace('[Storage Yard]', '').trim();
                         }
+                        if (window.stripMoveTag) noteStr = window.stripMoveTag(noteStr);
                         el.value = noteStr;
                     } else {
                         el.value = (v === '---' || v === undefined || v === null) ? '' : v;
@@ -2102,8 +2136,246 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 await window.applyCalendarArLock(editingTripDbId);
             }
 
+            const followOn = window.isFollowOnTrip && window.isFollowOnTrip(rowData);
+            const orderEl = document.getElementById('in-order');
+            if (orderEl) orderEl.readOnly = !!followOn;
+            if (followOn) {
+                const salesFlag = document.getElementById('in-flag3');
+                if (salesFlag) {
+                    salesFlag.checked = false;
+                    if (window.toggleSalesPrice) window.toggleSalesPrice();
+                }
+            }
+            if (typeof window.renderOrderMovesPanel === 'function') {
+                window.renderOrderMovesPanel(tripId);
+            }
+            if (typeof window.syncCalendarRowToSelectedMove === 'function') {
+                window.syncCalendarRowToSelectedMove(tripId);
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
+        window.syncCalendarRowToSelectedMove = function (selectedId) {
+            if (!selectedId || typeof window.getMoveFamily !== 'function') return;
+            const fam = window.getMoveFamily(selectedId);
+            const parent = (fam.moves || []).find(m => m[0] === fam.parentId);
+            const view = (fam.moves || []).find(m => m[0] === selectedId) || parent;
+            if (!parent || !view) return;
+            const tr = document.querySelector('#table-body tr[data-tripid="' + fam.parentId + '"]');
+            if (!tr) return;
+            const cells = tr.querySelectorAll('td');
+            const fmt = window.formatDateMMDDYYYY;
+            const setTxt = (i, v) => { if (cells[i]) cells[i].textContent = (v && v !== '---') ? v : ''; };
+            setTxt(0, fmt(view[1]));
+            setTxt(7, view[7]);
+            setTxt(8, view[8]);
+            setTxt(9, view[9]);
+            setTxt(10, view[10]);
+            setTxt(18, view[16]);
+            if (cells[19]) {
+                const drv = (view[17] && view[17] !== '---') ? view[17] : '';
+                const holdAmt = window.getTripOpenHold ? window.getTripOpenHold(view) : 0;
+                cells[19].textContent = drv;
+                if (holdAmt > 0.01) {
+                    cells[19].innerHTML = drv + ` <i class="fas fa-money-bill-wave" style="color:#d97706; margin-left:4px;" title="Driver holds $${holdAmt.toFixed(2)}"></i>`;
+                }
+            }
+            if (cells[21]) {
+                const pay = (parseFloat(String(view[24]).replace(/[$,]/g, '')) || 0) * (parseInt(view[53]) || 1);
+                cells[21].textContent = `$${pay.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            }
+        };
+
+        window.renderOrderMovesPanel = function (tripId) {
+            const panel = document.getElementById('order-moves-panel');
+            const tabs = document.getElementById('order-moves-tabs');
+            const parentHid = document.getElementById('in-parent-trip-id');
+            if (!panel || !tabs) return;
+            if (!tripId || typeof window.getMoveFamily !== 'function') {
+                panel.style.display = 'none';
+                if (parentHid) parentHid.value = '';
+                return;
+            }
+            const fam = window.getMoveFamily(tripId);
+            panel.style.display = 'block';
+            if (parentHid) parentHid.value = fam.parentId || '';
+            tabs.innerHTML = (fam.moves || []).map((m) => {
+                const seq = window.getMoveSeq(m, fam.parentId);
+                const st = (m[41] || '').toUpperCase();
+                const done = st === 'COMPLETE' || st === 'PAID';
+                const drv = (m[17] && m[17] !== '---') ? m[17] : 'No driver';
+                const from = (m[7] && m[7] !== '---') ? m[7] : '—';
+                const to = (m[8] && m[8] !== '---') ? m[8] : '—';
+                const active = m[0] === tripId;
+                const pay = parseFloat(String(m[39] || m[24] || 0).replace(/[$,]/g, '')) || 0;
+                const isExtra = m[0] !== fam.parentId;
+                const delBtn = isExtra
+                    ? `<button type="button" title="Delete this move" onclick="event.stopPropagation(); window.deleteExtraMove('${m[0]}')" style="flex-shrink:0;border:none;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:6px 8px;cursor:pointer;font-weight:800;"><i class="fas fa-trash"></i></button>`
+                    : '';
+                return `<div onclick="window.switchOrderMove('${m[0]}')" style="display:flex;align-items:flex-start;gap:8px;text-align:left;padding:8px;border-radius:8px;border:2px solid ${active ? '#ea580c' : '#fed7aa'};background:${active ? '#fff' : '#fffbeb'};cursor:pointer;font-size:0.72rem;width:100%;box-sizing:border-box;">
+                    <div style="flex:1;min-width:0;">
+                        <b>Move ${seq}</b> · ${done ? 'Complete' : 'Pending'}
+                        ${pay > 0 ? ` · driver $${pay.toFixed(2)}` : ''}
+                        <br><span style="color:#9a3412;font-weight:700;">${drv}</span>
+                        <br><span style="color:#64748b;">${from} → ${to}</span>
+                    </div>
+                    ${delBtn}
+                </div>`;
+            }).join('');
+        };
+
+        window.switchOrderMove = function (id) {
+            if (!id || !window.currentTrips) return;
+            const idx = window.currentTrips.findIndex(t => t[0] === id);
+            if (idx >= 0) loadTripToEdit(idx);
+        };
+
+        window.deleteExtraMove = async function (moveId) {
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role !== 'admin') {
+                alert('Only an administrator can delete extra moves.');
+                return;
+            }
+            const row = (window.currentTrips || []).find(t => t[0] === moveId);
+            if (!row || !window.isFollowOnTrip(row)) {
+                alert('Only extra moves (2, 3, …) can be deleted here, not the main order.');
+                return;
+            }
+            const seq = window.parseMoveMeta(row[25]).seq || '?';
+            if (!confirm('Delete Move ' + seq + '?\nThe order stays. Customer billing and Move 1 are not changed.')) return;
+            try {
+                await deleteTrip(moveId);
+                if (window.currentTrips) window.currentTrips = window.currentTrips.filter(t => t[0] !== moveId);
+                if (window.allTripsUnfiltered) window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => t[0] !== moveId);
+                const parentId = window.parseMoveMeta(row[25]).parentId;
+                await loadTableData(window.currentTrips);
+                const pIdx = window.currentTrips.findIndex(t => t[0] === parentId);
+                if (pIdx >= 0) await loadTripToEdit(pIdx);
+                else if (window.resetForm) window.resetForm();
+            } catch (err) {
+                console.error('deleteExtraMove', err);
+                alert('Could not delete: ' + (err.message || err));
+            }
+        };
+
+        window.addNextMove = async function () {
+            if (!editingTripDbId) {
+                alert('Open the order first, then add the next move.');
+                return;
+            }
+            const role = (window.currentUserRole || '').toLowerCase().trim();
+            if (role === 'student') {
+                alert('Students cannot create or modify calendar orders.');
+                return;
+            }
+            const fam = window.getMoveFamily(editingTripDbId);
+            const parent = (fam.moves || []).find(m => m[0] === fam.parentId)
+                || window.currentTrips.find(t => t[0] === editingTripDbId);
+            if (!parent) {
+                alert('No se encontró la orden.');
+                return;
+            }
+            const last = fam.moves[fam.moves.length - 1] || parent;
+            const nextSeq = Math.max(2, (fam.moves || []).length + 1);
+            const newTripId = window.newTripIdForDb();
+            const today = new Date();
+            const todayStrLocal = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+            const clone = [...parent];
+            clone[0] = newTripId;
+            clone[1] = todayStrLocal;
+            clone[5] = parent[5];
+            clone[7] = (last[8] && last[8] !== '---') ? last[8] : last[7];
+            clone[8] = '';
+            clone[10] = 0;
+            clone[13] = 0;
+            clone[18] = 0;
+            clone[20] = 0;
+            clone[22] = 0;
+            clone[24] = 0;
+            clone[25] = window.stampMoveNote(
+                'Next move. Do not charge the customer again.',
+                fam.parentId || parent[0],
+                nextSeq
+            );
+            clone[30] = 'PEND';
+            clone[31] = 'PEND';
+            clone[32] = 'PEND';
+            clone[33] = 'PEND';
+            clone[34] = 'PEND';
+            clone[35] = '$0.00';
+            clone[39] = 0;
+            clone[40] = false;
+            clone[41] = 'PENDING_PAYMENT';
+            clone[42] = 'YES';
+            clone[43] = 'NO';
+            clone[52] = 'PEND';
+            clone[54] = '';
+            clone[55] = [];
+            clone[56] = '';
+            clone[57] = 'NO';
+            clone[60] = window.userEmail || '---';
+            clone[62] = false;
+            clone[63] = null;
+            clone[64] = 0;
+            clone[74] = false;
+            clone[17] = '---';
+            if (clone.length > 75) clone[75] = null;
+
+            try {
+                const dbObj = mapArrayToTrip(clone);
+                dbObj.trip_id = newTripId;
+                dbObj.has_sales = 'NO';
+                dbObj.sales_price = 0;
+                dbObj.has_trans = 'YES';
+                dbObj.deduct_stock = false;
+                dbObj.note = clone[25];
+                delete dbObj.invoice_sent;
+                delete dbObj.invoice_last_sent;
+                delete dbObj.invoice_reminder_count;
+                delete dbObj.invoiced_services;
+
+                const { error: rpcErr } = await db.rpc('sync_order_with_yard', {
+                    p_trip_id: newTripId,
+                    p_trip_data: dbObj,
+                    p_order_no: parent[5] || '---',
+                    p_is_finalized: false,
+                    p_move_to_yard: false,
+                    p_yard_data: {
+                        container_no: (clone[3] || '---').toString().trim().toUpperCase(),
+                        size: clone[2] || '---',
+                        type: (clone[44] === '---' ? 'DRY' : clone[44]) || 'DRY',
+                        condition: (clone[45] === '---' ? 'USED' : clone[45]) || 'USED',
+                        origin_release: parent[5] || '---',
+                        notes: clone[25],
+                        customer_name: clone[11] || '---',
+                        customer_phone: (clone[23] === '---' ? '' : clone[23]) || '',
+                        daily_rate: 0,
+                        liftCostStr: ''
+                    }
+                });
+                if (rpcErr) throw rpcErr;
+
+                const { trip_id: _ignoredId, ...masterPayload } = dbObj;
+                masterPayload.move_to_yard = false;
+                const { error: upErr } = await db.from('trips').update(masterPayload).eq('trip_id', newTripId);
+                if (upErr) throw upErr;
+
+                if (!window.currentTrips) window.currentTrips = [];
+                window.currentTrips.push(clone);
+                if (!window.allTripsUnfiltered) window.allTripsUnfiltered = [];
+                window.allTripsUnfiltered.push(clone);
+
+                await loadTableData(window.currentTrips);
+                const idx = window.currentTrips.findIndex(t => t[0] === newTripId);
+                if (idx >= 0) await loadTripToEdit(idx);
+                alert('Move ' + nextSeq + ' created on the same order. Fill in driver, destination (port), and driver pay. The customer is not charged again.');
+            } catch (err) {
+                console.error('addNextMove', err);
+                alert('Could not create the next move: ' + (err.message || err));
+            }
+        };
 
         let lastDateFrom = null;
         let lastDateTo = null;
@@ -2216,6 +2488,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // --- DUPLICATE CONTAINER DETECTION ---
                 const containerCounts = {};
                 renderedTrips.forEach(rt => {
+                    if (window.isFollowOnTrip && window.isFollowOnTrip(rt)) return;
                     const cNum = (rt[3] || '').toString().trim().toUpperCase();
                     if (cNum && cNum !== '---' && cNum !== 'TBA') {
                         containerCounts[cNum] = (containerCounts[cNum] || 0) + 1;
@@ -2230,6 +2503,31 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 renderedTrips.forEach((rowData, idx) => {
                     try {
+                        if (window.isFollowOnTrip && window.isFollowOnTrip(rowData)) return;
+
+                        const moveFam = (typeof window.getMoveFamily === 'function')
+                            ? window.getMoveFamily(rowData[0], renderedTrips)
+                            : { parentId: rowData[0], moves: [rowData] };
+                        const familyMoves = (moveFam.moves && moveFam.moves.length) ? moveFam.moves : [rowData];
+                        const pendingMoves = familyMoves.filter(m => {
+                            const st = (m[41] || '').toUpperCase();
+                            return st !== 'COMPLETE' && st !== 'PAID';
+                        });
+                        const selectedId = editingTripDbId || (window.selectedTripIds && window.selectedTripIds[0]);
+                        const viewMove = (familyMoves.find(m => m[0] === selectedId) || rowData);
+                        const displayRow = familyMoves.length > 1 ? Object.assign([], rowData) : rowData;
+                        if (familyMoves.length > 1) {
+                            displayRow[1] = viewMove[1];
+                            displayRow[7] = viewMove[7];
+                            displayRow[8] = viewMove[8];
+                            displayRow[9] = viewMove[9];
+                            displayRow[10] = viewMove[10];
+                            displayRow[16] = viewMove[16];
+                            displayRow[17] = viewMove[17];
+                            displayRow[18] = viewMove[18];
+                            displayRow[24] = viewMove[24];
+                        }
+
                         const tr = document.createElement('tr');
                         
                         // AUTHOR TOOLTIP: Dynamically resolve creator name from global map
@@ -2240,7 +2538,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             tr.title = `Creado por: ${creatorName || creatorEmail}`;
                         }
                         
-                        const isTodayEntry = (rowData[1] === todayStr);
+                        const isTodayEntry = (displayRow[1] === todayStr);
                         const mode = rowData[26];
                         const stYard = rowData[30];
                         const stRate = rowData[32];
@@ -2255,7 +2553,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.strate = stRate || 'PEND';
                         tr.dataset.stsales = stSales || 'PEND';
                         tr.dataset.stamount = stAmount || 'PEND';
-                        tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
+                        tr.dataset.status = pendingMoves.length
+                            ? 'PENDING_PAYMENT'
+                            : (rowData[41] || 'PENDING_PAYMENT');
+                        tr.dataset.drivers = familyMoves.map(m => (m[17] || '').toString().trim()).filter(Boolean).join('|');
+                        tr.dataset.pickups = familyMoves.map(m => (m[7] || '').toString().trim()).filter(Boolean).join('|');
+                        tr.dataset.deliveries = familyMoves.map(m => (m[8] || '').toString().trim()).filter(Boolean).join('|');
                         tr.dataset.seller = rowData[61] || '';
                         tr.dataset.invoiceSent = rowData[57] || 'NO';
                         // Service type flags for filtering
@@ -2293,7 +2596,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
 
                         // Past Due (Pending) Highlight
-                        if (rowData[41] === 'PENDING_PAYMENT' && rowData[1] < todayStr) {
+                        const pastDueMove = pendingMoves.find(m => m[1] && m[1] < todayStr);
+                        if (pastDueMove || ((tr.dataset.status === 'PENDING_PAYMENT') && (viewMove[1] < todayStr))) {
                             tr.style.backgroundColor = '#fee2e2'; // Light Red
                             tr.style.border = '2px solid #ef4444'; // Red Border
                         }
@@ -2301,7 +2605,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         // Numerical values to handle $0.00 entries in filters
                         tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;
-                        tr.dataset.rateval = parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0;
+                        tr.dataset.rateval = familyMoves.reduce((s, m) => s + (parseFloat(String(m[18]).replace(/[$,]/g, '')) || 0), 0);
+                        tr.dataset.flagTransport = familyMoves.some(m => m[42] === 'YES') ? 'YES' : (rowData[42] === 'YES' ? 'YES' : 'NO');
                         tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.rentval = parseFloat(String(rowData[27]).replace(/[$,]/g, '')) || 0;
@@ -2311,30 +2616,31 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const fmtDate = (ds) => window.formatDateMMDDYYYY(ds);
 
                         // Display columns
+                        const displayNote = (window.stripMoveTag ? window.stripMoveTag(rowData[25]) : rowData[25]) || '';
                         const displayData = [
-                            fmtDate(rowData[1]),  // 0: Date (MM/DD/YYYY)
+                            fmtDate(displayRow[1]),  // 0: Date (MM/DD/YYYY)
                             rowData[2],           // 1: Size
                             rowData[3],           // 2: N. Cont
                             (rowData[65] && rowData[65] !== '---') ? rowData[65] : '', // 3: Booking Number
                             rowData[4],           // 4: Release #
                             rowData[5],           // 5: Order
                             rowData[6],           // 6: City
-                            rowData[7],           // 7: Pick Up Address
-                            rowData[8],           // 8: Delivery Place
-                            rowData[9],           // 9: Doors Direction
-                            rowData[10],          // 10: Miles
+                            displayRow[7],        // 7: Pick Up Address
+                            displayRow[8],        // 8: Delivery Place
+                            displayRow[9],        // 9: Doors Direction
+                            displayRow[10],       // 10: Miles
                             rowData[11],          // 11: Customer
                             (parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 12: Yard Rate
-                            (parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 13: Transport (Showing Driver Pay)
+                            (parseFloat(String(displayRow[18]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 13: Transport
                             (parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 14: Sales Price
                             (parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 15: Storage (Price per Day)
                             parseFloat(String(rowData[27]).replace(/[$,]/g, '')) || 0, // 16: Rent (Monthly Rate)
                             fmtDate(rowData[15]), // 17: Date Out (MM/DD/YYYY)
-                            rowData[16],          // 18: Company
-                            rowData[17],          // 19: Driver
+                            displayRow[16],       // 18: Company
+                            displayRow[17],       // 19: Driver
                             rowData[23],          // 20: Phone #
-                            (parseFloat(String(rowData[24]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 21: Paid Driver
-                            rowData[25],          // 22: Note
+                            (parseFloat(String(displayRow[24]).replace(/[$,]/g, '')) || 0) * (parseInt(rowData[53]) || 1), // 21: Paid Driver
+                            displayNote,          // 22: Note
                             (() => {
                                 const emailVal = rowData[61];
                                 if (!emailVal || emailVal === '---') return '---';
@@ -2537,18 +2843,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                         tr.style.cursor = 'pointer';
                         tr.onclick = (e) => {
-                            const tripId = rowData[0];
-                            const isAlreadySelected = window.selectedTripIds.includes(tripId);
+                            const familyIds = familyMoves.map(m => m[0]);
+                            const openId = rowData[0];
+                            const isAlreadySelected = familyIds.some(id => window.selectedTripIds.includes(id));
                             
                             if (isAlreadySelected) {
                                 window.selectedTripIds = [];
                             } else {
-                                window.selectedTripIds = [tripId];
+                                window.selectedTripIds = [openId];
                             }
 
                             if (window.selectedTripIds.length > 0) {
                                 // Find the actual index in currentTrips for editing
-                                let realIdx = window.currentTrips.findIndex(t => t[0] === tripId);
+                                let realIdx = window.currentTrips.findIndex(t => t[0] === openId);
+                                if (realIdx === -1) realIdx = window.currentTrips.findIndex(t => t[0] === rowData[0]);
                                 if (realIdx === -1) realIdx = idx;
                                 loadTripToEdit(realIdx);
                             } else {
@@ -2576,9 +2884,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         };
                         
                         // Check if this row is the editing row
-                        const globalIdxForThis = window.currentTrips.findIndex(t => t[0] === rowData[0]);
-                        if (editingIndex === globalIdxForThis || window.selectedTripIds.includes(rowData[0])) {
-                            tr.classList.add(editingIndex === globalIdxForThis ? 'editing-row' : 'selected-row');
+                        const familyIdsHi = familyMoves.map(m => m[0]);
+                        const editingThisFamily = familyIdsHi.includes(window.currentTrips[editingIndex]?.[0]) || familyIdsHi.includes(editingTripDbId);
+                        if (editingThisFamily || familyIdsHi.some(id => window.selectedTripIds.includes(id))) {
+                            tr.classList.add(editingThisFamily ? 'editing-row' : 'selected-row');
                         }
 
                         // OVERDUE RENT HIGHLIGHTING
@@ -3812,14 +4121,26 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
 
     if (typeof window.loadYardData === 'function') await window.loadYardData(true);
 
-    await deleteTrip(rowData[0]); // This is trip_id
+    const extraMoveIds = [];
+    if (typeof window.getMoveFamily === 'function' && !window.isFollowOnTrip(rowData)) {
+        const fam = window.getMoveFamily(rowData[0]);
+        (fam.moves || []).forEach(m => {
+            if (m[0] && m[0] !== rowData[0]) extraMoveIds.push(m[0]);
+        });
+    }
 
+    await deleteTrip(rowData[0]); // This is trip_id
+    for (const mid of extraMoveIds) {
+        try { await deleteTrip(mid); } catch (e) { console.warn('Could not delete linked move', mid, e); }
+    }
+
+    const idsGone = new Set([rowData[0], ...extraMoveIds]);
     // Remove from local cache
     if (window.currentTrips) {
-        window.currentTrips = window.currentTrips.filter(t => t[0] !== rowData[0]);
+        window.currentTrips = window.currentTrips.filter(t => !idsGone.has(t[0]));
     }
     if (window.allTripsUnfiltered) {
-        window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => t[0] !== rowData[0]);
+        window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => !idsGone.has(t[0]));
     }
 
     if (!skipAlertAndReload) {
