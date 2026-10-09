@@ -27,13 +27,13 @@
     <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1712" defer></script>
-    <script src="./js/delivery-calendar.js?v=1718" defer></script>
+    <script src="./js/data-managers.js?v=1713" defer></script>
+    <script src="./js/delivery-calendar.js?v=1721" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1731" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1709" defer></script>
+    <script src="./js/docs-receipts.js?v=1710" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
@@ -2681,6 +2681,10 @@
                                 onchange="loadDocTrips()">
                                 <option value="">All Customers</option>
                             </select>
+
+                            <input type="text" id="docs-order-search" class="form-input filter-sel-docs"
+                                placeholder="Order / BOL #" oninput="window.applyDocsFiltersDebounced && window.applyDocsFiltersDebounced()"
+                                style="min-width:120px; font-weight:700;">
 
                             <select id="docs-status-dropdown" class="form-input filter-sel-docs"
                                 onchange="loadDocTrips()">
@@ -6949,9 +6953,13 @@
                 const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                 const isSuperDriver = (drvRef === "ROBERT CORTEZ");
 
-                // Driver should NOT see the driver picker in Docs view (EXCEPT Robert)
-                const docsDrvSel = document.getElementById('docs-driver-dropdown');
-                if (docsDrvSel) docsDrvSel.style.display = isSuperDriver ? '' : 'none';
+                // Driver should NOT see Docs staff filters (EXCEPT Robert Cortez)
+                if (typeof window.applyDocsStaffFilterVisibility === 'function') {
+                    window.applyDocsStaffFilterVisibility();
+                } else {
+                    const docsDrvSel = document.getElementById('docs-driver-dropdown');
+                    if (docsDrvSel) docsDrvSel.style.display = isSuperDriver ? '' : 'none';
+                }
 
                 // Allow Photos button in Docs & Receipts for drivers
                 const docsPhotoBtn = document.getElementById('btn-docs-photos');
@@ -7043,8 +7051,12 @@
                 const reportDrvFilter = document.getElementById('filter-search')?.parentElement;
                 if (reportDrvFilter) reportDrvFilter.style.display = '';
 
-                const docsDrvSel = document.getElementById('docs-driver-dropdown');
-                if (docsDrvSel) docsDrvSel.style.display = '';
+                if (typeof window.applyDocsStaffFilterVisibility === 'function') {
+                    window.applyDocsStaffFilterVisibility();
+                } else {
+                    const docsDrvSel = document.getElementById('docs-driver-dropdown');
+                    if (docsDrvSel) docsDrvSel.style.display = '';
+                }
 
                 const docsPhotoBtn = document.getElementById('btn-docs-photos');
                 if (docsPhotoBtn) docsPhotoBtn.style.display = '';
@@ -7807,16 +7819,23 @@
             const valZeller = CALENDAR_CASCADE_SELECTS.zeller.get(rowData);
 
             const tripStatus = tr.dataset.status || 'PENDING_PAYMENT';
+            const hasPendingMove = tr.dataset.statusPending
+                ? tr.dataset.statusPending === 'YES'
+                : (tripStatus === 'PENDING_PAYMENT');
+            const hasCompleteMove = tr.dataset.statusComplete
+                ? tr.dataset.statusComplete === 'YES'
+                : (tripStatus === 'COMPLETE' || tripStatus === 'DELIVERED' || tripStatus === 'PAID');
             const isoValDate = valDate.includes('T') ? valDate.split('T')[0] : valDate;
+            const moveDates = (tr.dataset.moveDates || isoValDate || '').split('|').map(d => d.split('T')[0]).filter(Boolean);
             const todayStr = calendarLocalToday();
-            const isPastDue = !!(isoValDate && isoValDate < todayStr && tripStatus === 'PENDING_PAYMENT');
+            const isPastDue = !!(isoValDate && isoValDate < todayStr && hasPendingMove);
 
             let matchStatus = true;
             if (filters.status) {
                 if (filters.status === 'COMPLETE') {
-                    matchStatus = (tripStatus === 'COMPLETE' || tripStatus === 'DELIVERED' || tripStatus === 'PAID');
+                    matchStatus = hasCompleteMove;
                 } else if (filters.status === 'PENDING_PAYMENT') {
-                    matchStatus = (tripStatus === 'PENDING_PAYMENT');
+                    matchStatus = hasPendingMove;
                 }
             }
 
@@ -7880,7 +7899,11 @@
                 order: calendarContainsi(valOrder, filters.order),
                 release: calendarContainsi(valRelease, filters.release),
                 phone: !cleanFilterPhone || cleanValPhone.includes(cleanFilterPhone),
-                date: (!filters.fromDate || isoValDate >= filters.fromDate) && (!filters.toDate || isoValDate <= filters.toDate),
+                date: !filters.fromDate && !filters.toDate
+                    ? true
+                    : (moveDates.length ? moveDates : [isoValDate]).some(d =>
+                        (!filters.fromDate || d >= filters.fromDate) && (!filters.toDate || d <= filters.toDate)
+                    ),
                 status: matchStatus,
                 payStatus: matchPayStatus,
                 serviceType: matchServiceType,

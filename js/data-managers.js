@@ -474,17 +474,8 @@
             populate(sideSel, false);
             populate(filterSel, true);
 
-            const docsCustSel = document.getElementById('docs-customer-dropdown');
-            if (docsCustSel) {
-                const currentVal = docsCustSel.value;
-                docsCustSel.innerHTML = '<option value="">All Customers</option>';
-                currentCustomers.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.name;
-                    opt.textContent = c.name;
-                    docsCustSel.appendChild(opt);
-                });
-                if (currentVal) docsCustSel.value = currentVal;
+            if (typeof window.rebuildDocsFilterPickers === 'function') {
+                window.rebuildDocsFilterPickers();
             }
 
             if (window.populateYardCustomerSelect) {

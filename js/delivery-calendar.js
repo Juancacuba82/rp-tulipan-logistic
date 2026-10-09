@@ -1200,7 +1200,22 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             tr.dataset.strate = stRate || 'PEND';
             tr.dataset.stsales = stSales || 'PEND';
             tr.dataset.stamount = stAmount || 'PEND';
-            tr.dataset.status = rowData[41] || 'PENDING_PAYMENT';
+            const famRefresh = (typeof window.getMoveFamily === 'function')
+                ? window.getMoveFamily(rowData[0])
+                : { moves: [rowData] };
+            const famMoves = (famRefresh.moves && famRefresh.moves.length) ? famRefresh.moves : [rowData];
+            const famHasPending = famMoves.some(m => {
+                const st = (m[41] || '').toUpperCase();
+                return st !== 'COMPLETE' && st !== 'PAID' && st !== 'DELIVERED';
+            });
+            const famHasComplete = famMoves.some(m => {
+                const st = (m[41] || '').toUpperCase();
+                return st === 'COMPLETE' || st === 'PAID' || st === 'DELIVERED';
+            });
+            tr.dataset.status = famHasPending ? 'PENDING_PAYMENT' : (rowData[41] || 'PENDING_PAYMENT');
+            tr.dataset.statusPending = famHasPending ? 'YES' : 'NO';
+            tr.dataset.statusComplete = famHasComplete ? 'YES' : 'NO';
+            tr.dataset.moveDates = famMoves.map(m => (m[1] || '').toString().split('T')[0]).filter(Boolean).join('|');
             tr.dataset.seller = rowData[61] || '';
             tr.dataset.invoiceSent = rowData[57] || 'NO';
             tr.dataset.flagYard = (rowData[12] === 'YES') ? 'YES' : 'NO';
@@ -2215,7 +2230,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     : '';
                 return `<div onclick="window.switchOrderMove('${m[0]}')" style="display:flex;align-items:flex-start;gap:8px;text-align:left;padding:8px;border-radius:8px;border:2px solid ${active ? '#ea580c' : '#fed7aa'};background:${active ? '#fff' : '#fffbeb'};cursor:pointer;font-size:0.72rem;width:100%;box-sizing:border-box;">
                     <div style="flex:1;min-width:0;">
-                        <b>Move ${seq}</b> · ${done ? 'Complete' : 'Pending'}
+                        <b>Move ${seq}</b> · <span style="font-weight:800;color:${done ? '#15803d' : '#b91c1c'};">${done ? 'Complete' : 'Pending'}</span>
                         ${pay > 0 ? ` · driver $${pay.toFixed(2)}` : ''}
                         <br><span style="color:#9a3412;font-weight:700;">${drv}</span>
                         <br><span style="color:#64748b;">${from} → ${to}</span>
@@ -2377,6 +2392,27 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
         };
 
+        window.ensureLinkedMovesLoaded = async function (mappedTrips) {
+            if (!mappedTrips || !mappedTrips.length || !window.db) return mappedTrips || [];
+            const orderNos = [...new Set(mappedTrips.map(t => String(t[5] || '').trim()).filter(o => o && o !== '---'))];
+            if (!orderNos.length) return mappedTrips;
+            const byId = new Map(mappedTrips.map(t => [t[0], t]));
+            try {
+                const { data, error } = await window.db.from('trips')
+                    .select('*')
+                    .in('order_no', orderNos)
+                    .or('is_deleted.eq.false,is_deleted.is.null');
+                if (error) throw error;
+                (data || []).forEach(raw => {
+                    const arr = mapTripToArray(raw);
+                    if (arr[0] && !byId.has(arr[0])) byId.set(arr[0], arr);
+                });
+            } catch (e) {
+                console.warn('ensureLinkedMovesLoaded', e);
+            }
+            return Array.from(byId.values());
+        };
+
         let lastDateFrom = null;
         let lastDateTo = null;
         let isLoadingTable = false;
@@ -2420,15 +2456,27 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         data = preloadedData;
                     }
                     
-                    // Apply local date filtering even on preloadedData to prevent UI resets on edit
+                    // Keep a trip if ITS date or a linked move's date is in range
                     if (dateFrom || dateTo) {
-                        data = data.filter(trip => {
-                            const tDate = isAlreadyMapped ? trip[1] : (trip.date || '');
-                            if (!tDate) return false;
-                            if (dateFrom && tDate < dateFrom) return false;
-                            if (dateTo && tDate > dateTo) return false;
-                            return true;
+                        const pool = isAlreadyMapped ? data : data.map(t => (Array.isArray(t) ? t : (typeof mapTripToArray === 'function' ? mapTripToArray(t) : t)));
+                        const keepIds = new Set();
+                        pool.forEach(trip => {
+                            const tDate = (trip[1] || '').toString().split('T')[0];
+                            const selfIn = tDate && (!dateFrom || tDate >= dateFrom) && (!dateTo || tDate <= dateTo);
+                            if (selfIn) keepIds.add(trip[0]);
                         });
+                        if (typeof window.getMoveFamily === 'function') {
+                            pool.forEach(trip => {
+                                const fam = window.getMoveFamily(trip[0], pool);
+                                const anyIn = (fam.moves || []).some(m => {
+                                    const d = (m[1] || '').toString().split('T')[0];
+                                    return d && (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
+                                });
+                                if (anyIn) (fam.moves || []).forEach(m => keepIds.add(m[0]));
+                            });
+                        }
+                        data = pool.filter(trip => keepIds.has(trip[0]));
+                        isAlreadyMapped = true;
                     }
                 } else {
                     if (dateFrom || dateTo) {
@@ -2464,6 +2512,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     const smode = (t[26] || '').toString().toUpperCase();
                     return smode !== 'RENTAL INVOICE' && smode !== 'YARD INVOICE';
                 });
+
+                if ((dateFrom || dateTo) && typeof window.ensureLinkedMovesLoaded === 'function') {
+                    renderedTrips = await window.ensureLinkedMovesLoaded(renderedTrips);
+                }
 
                 // Update currentTrips unconditionally so applyAdvancedFilters can read the rows
                 window.currentTrips = renderedTrips;
@@ -2514,7 +2566,18 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             return st !== 'COMPLETE' && st !== 'PAID';
                         });
                         const selectedId = editingTripDbId || (window.selectedTripIds && window.selectedTripIds[0]);
-                        const viewMove = (familyMoves.find(m => m[0] === selectedId) || rowData);
+                        let viewMove = (familyMoves.find(m => m[0] === selectedId) || rowData);
+                        if (!selectedId && (dateFrom || dateTo) && familyMoves.length > 1) {
+                            const inRangeMoves = familyMoves.filter(m => {
+                                const d = (m[1] || '').toString().split('T')[0];
+                                return d && (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
+                            });
+                            const pendingInRange = inRangeMoves.filter(m => {
+                                const st = (m[41] || '').toUpperCase();
+                                return st !== 'COMPLETE' && st !== 'PAID';
+                            });
+                            viewMove = pendingInRange[0] || inRangeMoves[0] || viewMove;
+                        }
                         const displayRow = familyMoves.length > 1 ? Object.assign([], rowData) : rowData;
                         if (familyMoves.length > 1) {
                             displayRow[1] = viewMove[1];
@@ -2553,12 +2616,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.strate = stRate || 'PEND';
                         tr.dataset.stsales = stSales || 'PEND';
                         tr.dataset.stamount = stAmount || 'PEND';
+                        const famHasComplete = familyMoves.some(m => {
+                            const st = (m[41] || '').toUpperCase();
+                            return st === 'COMPLETE' || st === 'PAID' || st === 'DELIVERED';
+                        });
                         tr.dataset.status = pendingMoves.length
                             ? 'PENDING_PAYMENT'
                             : (rowData[41] || 'PENDING_PAYMENT');
+                        tr.dataset.statusPending = pendingMoves.length ? 'YES' : 'NO';
+                        tr.dataset.statusComplete = famHasComplete ? 'YES' : 'NO';
                         tr.dataset.drivers = familyMoves.map(m => (m[17] || '').toString().trim()).filter(Boolean).join('|');
                         tr.dataset.pickups = familyMoves.map(m => (m[7] || '').toString().trim()).filter(Boolean).join('|');
                         tr.dataset.deliveries = familyMoves.map(m => (m[8] || '').toString().trim()).filter(Boolean).join('|');
+                        tr.dataset.moveDates = familyMoves.map(m => (m[1] || '').toString().split('T')[0]).filter(Boolean).join('|');
                         tr.dataset.seller = rowData[61] || '';
                         tr.dataset.invoiceSent = rowData[57] || 'NO';
                         // Service type flags for filtering

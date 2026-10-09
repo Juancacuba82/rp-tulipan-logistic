@@ -16,6 +16,69 @@
 
     window.currentDocTrip = null;
 
+    function isDocsRobert() {
+        const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+        const email = (window.userEmail || '').toLowerCase();
+        return email === 'cortes410@aol.com' || drvRef === 'ROBERT CORTEZ' || drvRef === 'ROBER CORTES';
+    }
+
+    function canSeeDocsStaffFilters() {
+        const role = (window.currentUserRole || '').toLowerCase();
+        if (role !== 'driver') return true;
+        return isDocsRobert();
+    }
+
+    window.applyDocsStaffFilterVisibility = function () {
+        const show = canSeeDocsStaffFilters();
+        const ids = [
+            'docs-customer-dropdown',
+            'docs-status-dropdown',
+            'docs-payment-dropdown',
+            'docs-order-search',
+            'docs-source-dropdown',
+            'docs-driver-dropdown'
+        ];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = show ? '' : 'none';
+        });
+    };
+
+    function rebuildSelectOptions(sel, values, placeholder) {
+        if (!sel) return;
+        const currentVal = sel.value;
+        const unique = [...new Set((values || []).map(v => String(v || '').trim()).filter(v => v && v !== '---'))]
+            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        sel.innerHTML = '<option value="">' + placeholder + '</option>';
+        unique.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            sel.appendChild(opt);
+        });
+        if (currentVal && unique.some(n => n.toLowerCase() === currentVal.toLowerCase())) {
+            const match = unique.find(n => n.toLowerCase() === currentVal.toLowerCase());
+            sel.value = match || currentVal;
+        }
+    }
+
+    window.rebuildDocsFilterPickers = function (trips) {
+        const source = trips || window.docsTripsCache || window.currentTrips || [];
+        const customers = source.map(t => t[11]);
+        (window.currentCustomers || []).forEach(c => {
+            if (c && c.name) customers.push(c.name);
+        });
+        rebuildSelectOptions(document.getElementById('docs-customer-dropdown'), customers, 'All Customers');
+    };
+
+    let docsFilterTimeout = null;
+    window.applyDocsFiltersDebounced = function () {
+        if (docsFilterTimeout) clearTimeout(docsFilterTimeout);
+        docsFilterTimeout = setTimeout(() => {
+            if (window.loadDocTrips) window.loadDocTrips(false);
+        }, 250);
+    };
+
     window.loadDocTrips = async function (force = false) {
         const today = new Date();
         const tomorrow = new Date(today);
@@ -35,11 +98,15 @@
         const docsStatusFilter = (document.getElementById('docs-status-dropdown')?.value || '');
         const docsPaymentFilter = (document.getElementById('docs-payment-dropdown')?.value || '');
         const docsCustomerFilter = (document.getElementById('docs-customer-dropdown')?.value || '').toLowerCase();
+        const docsOrderFilter = (document.getElementById('docs-order-search')?.value || '').trim().toLowerCase();
         const fromDate = document.getElementById('trip-from-date')?.value;
         const toDate = document.getElementById('trip-to-date')?.value;
         const sourceFilter = document.getElementById('docs-source-dropdown')?.value || 'calendar';
         const list = document.getElementById('trip-list-scroll');
         if (!list) return;
+        if (typeof window.applyDocsStaffFilterVisibility === 'function') {
+            window.applyDocsStaffFilterVisibility();
+        }
 
         if (sourceFilter === 'custom') {
             list.innerHTML = '<p style="text-align:center; padding: 20px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Loading Custom Receipts...</p>';
@@ -118,6 +185,10 @@
             }
         }
 
+        if (typeof window.rebuildDocsFilterPickers === 'function') {
+            window.rebuildDocsFilterPickers(sourceTrips);
+        }
+
         list.innerHTML = '';
 
         // Custom sorting for drivers: based on numeric prefix in Notes (index 25)
@@ -153,7 +224,9 @@
             const isFullyPaid = (clearY && clearR && clearS && clearRent && clearTax);
 
             const dropdownDriverMatch = !docsDriverFilter || drv === docsDriverFilter || drv.includes(docsDriverFilter);
+            const orderNo = (trip[5] || '').toLowerCase();
             const dropdownCustomerMatch = !docsCustomerFilter || cust === docsCustomerFilter || cust.includes(docsCustomerFilter);
+            const dropdownOrderMatch = !docsOrderFilter || orderNo.includes(docsOrderFilter);
             const dropdownStatusMatch = !docsStatusFilter || orderStatus === docsStatusFilter;
             
             let dropdownPaymentMatch = true;
@@ -167,15 +240,7 @@
             let roleDriverMatch = true;
             if (window.currentUserRole === 'driver') {
                 const drvRef = (window.currentDriverNameRef || '').toUpperCase();
-                const userEmail = (window.userEmail || '').toLowerCase();
-                const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === "ROBERT CORTEZ" || drvRef === "ROBER CORTES");
-
-                // --- UI Visibility for Robert ---
-                const filtersToHide = ['docs-customer-dropdown', 'docs-status-dropdown', 'docs-payment-dropdown'];
-                filtersToHide.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.style.display = isRobert ? 'none' : (window.currentUserRole === 'driver' ? 'none' : '');
-                });
+                const isRobert = isDocsRobert();
 
                 const isComplete = (trip[41] === 'COMPLETE');
                 const drvClean = drv.replace(/[^a-z0-9]/gi, '');
@@ -186,7 +251,7 @@
                 roleDriverMatch = nameMatch && !isComplete;
             }
 
-            if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownCustomerMatch && dropdownStatusMatch && dropdownPaymentMatch) {
+            if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownCustomerMatch && dropdownOrderMatch && dropdownStatusMatch && dropdownPaymentMatch) {
                 const div = document.createElement('div');
                 div.className = 'trip-item';
                 div.dataset.tripid = trip[0] || '';
@@ -698,6 +763,8 @@
         if (customerDd) customerDd.value = '';
         if (statusDd) statusDd.value = '';
         if (paymentDd) paymentDd.value = '';
+        const orderSearch = document.getElementById('docs-order-search');
+        if (orderSearch) orderSearch.value = '';
 
         window.loadDocTrips(true);
     }
