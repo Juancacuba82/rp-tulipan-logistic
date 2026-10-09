@@ -1328,7 +1328,66 @@ main {
 }
 
 
-#calendar-view .trip-entry-form .form-group input,
+#calendar-view .order-pdf-controls {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    position: relative;
+    z-index: 2;
+}
+
+#in-order-pdf.order-pdf-file-input {
+    position: fixed !important;
+    left: -9999px !important;
+    top: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    flex: none !important;
+}
+
+#calendar-view #order-pdf-status {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+
+#calendar-view .btn-order-pdf-action {
+    position: relative;
+    z-index: 3;
+    pointer-events: auto !important;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: #1e293b;
+    color: #fff;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+#calendar-view .btn-order-pdf-open {
+    background: #0f766e;
+}
+
+#calendar-view .btn-order-pdf-remove {
+    background: #991b1b;
+}
+
+#calendar-view .trip-entry-form .form-group input:not([type="file"]),
 #calendar-view .trip-entry-form .form-group select {
     flex: 1;
     height: 32px;
@@ -2438,7 +2497,8 @@ main {
 
 .btn-signature-docs,
 .btn-print-docs,
-.btn-photo-docs {
+.btn-photo-docs,
+.btn-pdf-docs {
     height: 40px;
     padding: 0 20px;
     border-radius: 6px;
@@ -2458,6 +2518,17 @@ main {
     background: #059669;
     /* Green for success/camera */
     box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2);
+}
+
+.btn-pdf-docs {
+    background: #0f766e;
+    box-shadow: 0 4px 10px rgba(15, 118, 110, 0.25);
+}
+
+.btn-pdf-docs:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .btn-signature-docs {
@@ -2570,7 +2641,9 @@ main {
     }
 
     .btn-signature-docs,
-    .btn-print-docs {
+    .btn-print-docs,
+    .btn-photo-docs,
+    .btn-pdf-docs {
         flex: 1;
         justify-content: center;
         padding: 0 10px;

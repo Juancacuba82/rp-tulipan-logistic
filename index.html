@@ -17,23 +17,24 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=12">
+    <link rel="stylesheet" href="./style.css?v=14">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=15"></script>
-    <script src="./js/data-mapping.js?v=20"></script>
+    <script src="./js/data-mapping.js?v=21"></script>
+    <script src="./js/order-pdf.js?v=4"></script>
     <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1713" defer></script>
-    <script src="./js/delivery-calendar.js?v=1723" defer></script>
+    <script src="./js/delivery-calendar.js?v=1724" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1731" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1712" defer></script>
+    <script src="./js/docs-receipts.js?v=1714" defer></script>
     <script src="./js/custom-receipts.js?v=4" defer></script>
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
@@ -2202,6 +2203,26 @@
                         <!-- Removed INVOICE as per user request -->
                         <div class="form-group"><label class="sidebar-label-btn">Note</label><input type="text"
                                 id="in-note"></div>
+                        <div class="form-group" id="order-pdf-block">
+                            <label class="sidebar-label-btn">Order PDF</label>
+                            <div class="order-pdf-controls">
+                                <span id="order-pdf-status">No PDF attached</span>
+                                <button type="button" id="btn-order-pdf-attach" class="btn-order-pdf-action"
+                                    onclick="triggerOrderPdfPicker()">
+                                    <i class="fas fa-paperclip"></i> Attach
+                                </button>
+                                <button type="button" id="btn-order-pdf-open" class="btn-order-pdf-action btn-order-pdf-open"
+                                    style="display:none;" onclick="openCalendarOrderPdf()">
+                                    <i class="fas fa-file-pdf"></i> Open
+                                </button>
+                                <button type="button" id="btn-order-pdf-remove" class="btn-order-pdf-action btn-order-pdf-remove"
+                                    style="display:none;" onclick="removeOrderPdf()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="in-order-pdf" accept="application/pdf" class="order-pdf-file-input"
+                            onchange="handleOrderPdfPick(this)">
                         <div class="form-group">
                             <label class="sidebar-label-btn" style="background: #1e293b !important;">Employee</label>
                             <select id="in-seller">
@@ -2647,6 +2668,11 @@
                             <button id="btn-docs-photos" onclick="document.getElementById('trip-photo-input').click()"
                                 class="btn-photo-docs" title="Upload Delivery Photo">
                                 <i class="fas fa-camera"></i> PHOTOS
+                            </button>
+                            <button type="button" id="btn-docs-order-pdf" class="btn-pdf-docs"
+                                title="Open the PDF attached to this order" onclick="openCurrentDocOrderPdf()"
+                                style="display:none;">
+                                <i class="fas fa-file-pdf"></i> OPEN PDF
                             </button>
                             <input type="file" id="trip-photo-input" accept="image/*" multiple style="display: none;"
                                 onchange="handleTripPhotoUpload(this)">
@@ -6977,6 +7003,7 @@
                 // Allow Photos button in Docs & Receipts for drivers
                 const docsPhotoBtn = document.getElementById('btn-docs-photos');
                 if (docsPhotoBtn) docsPhotoBtn.style.display = 'inline-flex';
+                if (window.renderDocsOrderPdf) window.renderDocsOrderPdf();
 
                 // RESTRICTIONS inside Reports view for Drivers:
                 const archiveBtn = document.querySelector('button[onclick*="archiveSettlement"]');

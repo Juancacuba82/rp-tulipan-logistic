@@ -272,6 +272,9 @@
                             Collect at Stop: $${collectInfo.amount.toFixed(2)}
                        </p>`
                     : '';
+                const pdfChip = (trip[78])
+                    ? `<p style="margin-top:6px; font-size:0.7rem; font-weight:800; color:#0f766e;"><i class="fas fa-file-pdf"></i> PDF attached</p>`
+                    : '';
 
                 div.innerHTML = `
                         <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}</h4>
@@ -279,6 +282,7 @@
                         <p>${displayCont} | ${displayCustomer}</p>
                         <p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>
                         ${collectChip}
+                        ${pdfChip}
                     `;
                 div.onclick = () => fillReceiptFromTrip(trip, div);
                 list.appendChild(div);
@@ -316,11 +320,14 @@
                 trip[54] = details.signature || trip[54] || '';
                 trip[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : (trip[55] || []));
                 trip[56] = details.signature_driver || trip[56] || '';
+                trip[78] = details.order_pdf_url || trip[78] || '';
+                trip[79] = details.order_pdf_name || trip[79] || '';
             }
         }
 
         window.drawReceipt();
         window.renderTripPhotos();
+        if (window.renderDocsOrderPdf) window.renderDocsOrderPdf();
 
         if (window.innerWidth <= 1024) {
             const previewToolbar = document.querySelector('#docs-view .receipt-preview-toolbar');

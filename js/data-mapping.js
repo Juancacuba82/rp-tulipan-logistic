@@ -177,7 +177,9 @@
                 t.deduct_stock !== null && t.deduct_stock !== undefined ? t.deduct_stock : null, // 74 — Manual deduct stock toggle (null = use backward compat logic)
                 t.invoiced_services || null,    // 75 — Invoiced Services
                 t.cash_collector || '',         // 76 — office | driver
-                parseFloat(t.driver_cash_held) || 0 // 77 — open cash still with driver
+                parseFloat(t.driver_cash_held) || 0, // 77 — open cash still with driver
+                t.order_pdf_url || '',          // 78 — attached order PDF url
+                t.order_pdf_name || ''          // 79 — original PDF file name
             ];
         }
 
@@ -258,7 +260,9 @@
                 deduct_stock: row[74] !== null && row[74] !== undefined ? (row[74] === true || row[74] === 'true') : null,
                 invoiced_services: row[75] || null,
                 cash_collector: row[76] || 'office',
-                driver_cash_held: parseFloat(row[77]) || 0
+                driver_cash_held: parseFloat(row[77]) || 0,
+                order_pdf_url: row[78] || null,
+                order_pdf_name: row[79] || null
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB

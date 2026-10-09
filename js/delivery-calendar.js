@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // --- UI STATE FOR TRIP ENTRY ---
 let editingIndex = null;
 let editingTripDbId = null;
+window.editingTripDbId = null;
 
 function getTripArchiveButton() {
     return document.getElementById('btn-archive-order');
@@ -659,10 +660,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
 
                 let existingSig = '', existingPhotos = [], existingSigDriver = '';
+                let existingPdfUrl = '', existingPdfName = '';
                 if (editingIndex !== null && window.currentTrips[editingIndex]) {
                     existingSig = window.currentTrips[editingIndex][54] || '';
                     existingPhotos = window.currentTrips[editingIndex][55] || [];
                     existingSigDriver = window.currentTrips[editingIndex][56] || '';
+                    existingPdfUrl = window.currentTrips[editingIndex][78] || '';
+                    existingPdfName = window.currentTrips[editingIndex][79] || '';
                 }
 
                 const rowData = [
@@ -693,6 +697,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     ? window.currentTrips.find(t => t[0] === editingTripDbId)
                     : (editingIndex !== null && window.currentTrips ? window.currentTrips[editingIndex] : null);
                 if (window.applyDriverCashOnSave) window.applyDriverCashOnSave(rowData, prevCashRow);
+                rowData[78] = existingPdfUrl;
+                rowData[79] = existingPdfName;
 
                 const dbObj = mapArrayToTrip(rowData);
                 const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
@@ -755,6 +761,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // CRITICAL FIX: Ensure dbObj has the correct trip_id so the local cache preserves it
                 dbObj.trip_id = finalTripId;
 
+                if (window.savePendingOrderPdfIfNeeded && window.pendingOrderPdfFile) {
+                    try {
+                        const pdfSaved = await window.savePendingOrderPdfIfNeeded(finalTripId);
+                        if (pdfSaved && pdfSaved.url) {
+                            dbObj.order_pdf_url = pdfSaved.url;
+                            dbObj.order_pdf_name = pdfSaved.name;
+                            rowData[78] = pdfSaved.url;
+                            rowData[79] = pdfSaved.name;
+                        }
+                    } catch (pdfErr) {
+                        console.error('Order PDF upload failed:', pdfErr);
+                        alert('Order will save, but the PDF could not be uploaded: ' + (pdfErr.message || pdfErr));
+                    }
+                }
+
                 // Billing owns invoice tracking. Calendar must never overwrite those columns
                 // (receipt email is not a customer invoice).
                 delete dbObj.invoice_sent;
@@ -781,10 +802,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held/i.test(masterErr.message || '')) {
-                    console.warn('[DriverCash] Missing columns — run supabase-driver-cash-wallet.sql', masterErr.message);
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name/i.test(masterErr.message || '')) {
+                    console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
+                    delete masterPayload.order_pdf_url;
+                    delete masterPayload.order_pdf_name;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
@@ -988,7 +1011,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // --- REFRESH YARD UI ---
                 if (isMoveToYard && typeof window.loadYardData === 'function') await window.loadYardData(true);
 
-                editingIndex = null; editingTripDbId = null; window.selectedTripIds = [];
+                editingIndex = null; editingTripDbId = null; window.editingTripDbId = null; window.selectedTripIds = [];
                 if (window.toggleDeleteSelectedBtn) window.toggleDeleteSelectedBtn();
 
                 // --- STOCK UPDATE (RELEASES) ---
@@ -1119,6 +1142,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             console.log("Starting a new order entry (clearing state)...");
             editingIndex = null;
             editingTripDbId = null;
+            window.editingTripDbId = null;
+            window.pendingOrderPdfFile = null;
             const parentHid = document.getElementById('in-parent-trip-id');
             if (parentHid) parentHid.value = '';
             const orderEl = document.getElementById('in-order');
@@ -1251,6 +1276,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (driverAmt) driverAmt.value = '';
             if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();
             if (typeof window.applyCalendarArLock === 'function') window.applyCalendarArLock(null);
+            if (window.renderCalendarOrderPdf) window.renderCalendarOrderPdf();
         }
         window.startNewOrder = startNewOrder;
         window.resetForm = startNewOrder; // Alias for safety
@@ -1801,6 +1827,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 console.error("CRITICAL: Selected trip row is missing its TRIP_ID at index 0.", rowData);
             }
             editingTripDbId = tripId || null;
+            window.editingTripDbId = editingTripDbId;
+            window.pendingOrderPdfFile = null;
 
             // --- ON-DEMAND LOADING FOR HEAVY ASSETS ---
             if (editingTripDbId && typeof window.getTripDetails === 'function') {
@@ -1810,6 +1838,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     rowData[54] = details.signature || '';
                     rowData[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : []);
                     rowData[56] = details.signature_driver || '';
+                    rowData[78] = details.order_pdf_url || '';
+                    rowData[79] = details.order_pdf_name || '';
                 }
             }
 
@@ -2247,6 +2277,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (typeof window.syncCalendarRowToSelectedMove === 'function') {
                 window.syncCalendarRowToSelectedMove(tripId);
             }
+            if (window.renderCalendarOrderPdf) window.renderCalendarOrderPdf();
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -3015,6 +3046,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             } else {
                                 editingIndex = null;
                                 editingTripDbId = null;
+                                window.editingTripDbId = null;
                                 if (window.resetForm) window.resetForm();
                             }
 
