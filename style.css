@@ -1186,7 +1186,7 @@ main {
     cursor: pointer;
 }
 
-.form-group input,
+.form-group input:not([type="checkbox"]):not([type="radio"]),
 .form-group select {
     flex: 1 !important;
     width: 100% !important;
@@ -1209,7 +1209,7 @@ main {
 }
 
 
-.form-group input:focus,
+.form-group input:not([type="checkbox"]):not([type="radio"]):focus,
 .form-group select:focus {
     border-color: var(--corporate-red);
     box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.1);
@@ -1401,7 +1401,7 @@ main {
     background: #991b1b;
 }
 
-#calendar-view .trip-entry-form .form-group input:not([type="file"]),
+#calendar-view .trip-entry-form .form-group input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
 #calendar-view .trip-entry-form .form-group select {
     flex: 1;
     height: 32px;
@@ -1411,6 +1411,23 @@ main {
     border: 1px solid #cbd5e1;
     background: #f8fafc;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* Native checkboxes. Safari clips them when text-field padding, border, and width:100% apply. */
+#calendar-view .trip-entry-form .form-group input[type="checkbox"] {
+    flex: 0 0 18px !important;
+    width: 18px !important;
+    min-width: 18px !important;
+    max-width: 18px !important;
+    height: 18px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    appearance: auto;
+    -webkit-appearance: checkbox;
 }
 
 /* Hide number input spinners (arrows) in the calendar sidebar form */
@@ -1437,7 +1454,7 @@ main {
     appearance: textfield;
 }
 
-#calendar-view .trip-entry-form .form-group input:focus,
+#calendar-view .trip-entry-form .form-group input:not([type="checkbox"]):not([type="radio"]):focus,
 #calendar-view .trip-entry-form .form-group select:focus {
     border-color: var(--navy-blue);
     background: #fff;
@@ -1615,7 +1632,7 @@ main {
         text-align: left;
     }
 
-    .form-group input,
+    .form-group input:not([type="checkbox"]):not([type="radio"]),
     .form-group select {
         width: 100%;
     }
