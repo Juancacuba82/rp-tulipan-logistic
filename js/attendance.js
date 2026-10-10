@@ -1,4 +1,115 @@
 // Attendance Tracking Logic
+const ATT_HIDDEN_EMAILS = ['garridoyariselis@gmail.com'];
+const ATT_HIDDEN_NAME_PARTS = ['YARISELIS'];
+const ATT_VISIBLE_NAME_PARTS = ['BIANCA', 'ISABELLA', 'ANTHONY'];
+const ATT_RATES_LS = 'attendance_hourly_rates';
+const ATT_DEFAULT_HOURLY_RATES = {
+    'garridoyariselis@gmail.com': 25.00,
+    'rptulipantransport@gmail.com': 17.50
+};
+
+function attNormEmail(email) {
+    return (email || '').toString().toLowerCase().trim();
+}
+
+function attNormName(name) {
+    return (name || '').toString().toUpperCase().trim();
+}
+
+function isHiddenAttendancePerson(name, email) {
+    const e = attNormEmail(email);
+    const n = attNormName(name);
+    if (e && ATT_HIDDEN_EMAILS.includes(e)) return true;
+    return ATT_HIDDEN_NAME_PARTS.some(part => n.includes(part));
+}
+
+function isAllowedAttendancePerson(name, email) {
+    if (isHiddenAttendancePerson(name, email)) return false;
+    const n = attNormName(name);
+    return ATT_VISIBLE_NAME_PARTS.some(part => n.includes(part));
+}
+
+function loadAttendanceHourlyRates() {
+    let stored = {};
+    try {
+        stored = JSON.parse(localStorage.getItem(ATT_RATES_LS) || '{}');
+    } catch (e) {
+        stored = {};
+    }
+    return { ...ATT_DEFAULT_HOURLY_RATES, ...stored };
+}
+
+function getAttendanceHourlyRate(email) {
+    const rates = loadAttendanceHourlyRates();
+    return parseFloat(rates[attNormEmail(email)]) || 0;
+}
+
+window.saveAttendanceHourlyRate = async function (email, rate) {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role !== 'admin') {
+        alert('Only administrators can change hourly rates.');
+        return;
+    }
+    const key = attNormEmail(email);
+    if (!key) return;
+    const value = Math.max(0, parseFloat(rate) || 0);
+    const rates = loadAttendanceHourlyRates();
+    rates[key] = value;
+    localStorage.setItem(ATT_RATES_LS, JSON.stringify(rates));
+    if (window.showToast) window.showToast(`Hourly rate saved: $${value.toFixed(2)}/hr`, 'success');
+    await window.loadAttendanceData(true);
+};
+
+function renderAttendanceRatesPanel(employees) {
+    const panel = document.getElementById('attendance-rates-panel');
+    if (!panel) return;
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role !== 'admin') {
+        panel.style.display = 'none';
+        panel.innerHTML = '';
+        return;
+    }
+    const list = (employees || []).filter(emp => isAllowedAttendancePerson(emp.name, emp.email));
+    if (list.length === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+    panel.style.display = 'block';
+    const rates = loadAttendanceHourlyRates();
+    panel.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+            <div>
+                <div style="font-size:0.7rem; font-weight:800; color:#64748b; letter-spacing:0.6px; text-transform:uppercase;">Hourly rates</div>
+                <div style="font-size:0.85rem; color:#334155; font-weight:700;">Edit what each employee is paid per hour</div>
+            </div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+            ${list.map(emp => {
+                const rate = parseFloat(rates[emp.email]) || 0;
+                const safeEmail = String(emp.email || '').replace(/'/g, "\\'");
+                return `
+                    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px;">
+                        <div style="font-weight:800; color:#0f172a; margin-bottom:8px;">${emp.name}</div>
+                        <div style="font-size:0.7rem; color:#94a3b8; margin-bottom:10px;">${emp.email}</div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <span style="font-weight:800; color:#64748b;">$</span>
+                            <input type="number" min="0" step="0.01" value="${rate.toFixed(2)}"
+                                id="att-rate-${emp.email.replace(/[^a-z0-9]/g, '')}"
+                                style="flex:1; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-weight:700;">
+                            <span style="font-size:0.8rem; color:#64748b; font-weight:700;">/hr</span>
+                            <button type="button"
+                                onclick="window.saveAttendanceHourlyRate('${safeEmail}', document.getElementById('att-rate-${emp.email.replace(/[^a-z0-9]/g, '')}').value)"
+                                style="padding:8px 12px; background:#0f172a; color:white; border:none; border-radius:8px; font-weight:800; cursor:pointer;">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
 window.getLastAttendanceState = async function(email) {
     if (!window.db) return null;
     try {
@@ -681,11 +792,15 @@ window.loadAttendanceData = async function(force = false) {
             }
         });
 
+        const visibleSessions = allSessions.filter(s => {
+            if (!isAdmin && userEmail) return attNormEmail(s.email) === userEmail;
+            return !isHiddenAttendancePerson(s.employee, s.email);
+        });
+        allSessions.length = 0;
+        visibleSessions.forEach(s => allSessions.push(s));
+
         // --- NEW: PAYROLL CALCULATION ---
-        const HOURLY_RATES = {
-            'garridoyariselis@gmail.com': 25.00,
-            'rptulipantransport@gmail.com': 17.50
-        };
+        const HOURLY_RATES = loadAttendanceHourlyRates();
 
         const payrollSummary = {}; // employeeName -> { hours, pay, email }
 
@@ -737,13 +852,16 @@ window.loadAttendanceData = async function(force = false) {
                         </button>
                     ` : '';
 
+                    const empRate = getAttendanceHourlyRate(data.email);
+                    const rateLabel = isAdmin ? `<p style="margin: 0 0 10px; font-size: 0.75rem; color:#0369a1; font-weight:800;">$${empRate.toFixed(2)} / hour</p>` : `<p style="margin: 2px 0 10px; font-size: 0.7rem; color: #94a3b8;">${data.email || 'No email'}</p>`;
+
                     card.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                             <span style="font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">${isAdmin ? 'Employee Total' : 'My Summary'}</span>
                             <i class="fas fa-money-check-alt" style="color: #10b981;"></i>
                         </div>
                         <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 900;">${name}</h3>
-                        <p style="margin: 2px 0 10px; font-size: 0.7rem; color: #94a3b8;">${data.email || 'No email'}</p>
+                        ${isAdmin ? `<p style="margin: 2px 0 6px; font-size: 0.7rem; color: #94a3b8;">${data.email || 'No email'}</p>${rateLabel}` : rateLabel}
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-bottom: 14px;">
                             <div>
                                 <span style="display: block; font-size: 0.6rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Total Hours</span>
@@ -1068,16 +1186,17 @@ window.populateAttendanceEmployeeFilter = async function() {
         // Sort by friendly name
         uniqueList.sort((a, b) => a.name.localeCompare(b.name));
 
-        const allowedNames = ['YARISELIS', 'ISABELLA', 'ANTHONY'];
-        uniqueList.forEach(emp => {
-            const upperName = emp.name.toUpperCase().trim();
-            if (allowedNames.includes(upperName)) {
-                const opt = document.createElement('option');
-                opt.value = emp.email;
-                opt.textContent = emp.name;
-                sel.appendChild(opt);
-            }
+        const visibleEmployees = uniqueList.filter(emp => isAllowedAttendancePerson(emp.name, emp.email));
+        window._attendanceVisibleEmployees = visibleEmployees;
+
+        visibleEmployees.forEach(emp => {
+            const opt = document.createElement('option');
+            opt.value = emp.email;
+            opt.textContent = emp.name;
+            sel.appendChild(opt);
         });
+
+        renderAttendanceRatesPanel(visibleEmployees);
         
         if (currentVal) sel.value = currentVal;
     } catch (err) {
