@@ -959,9 +959,10 @@
         window.archiveSettlement = archiveSettlement;
 
         async function deleteSettlement(id) {
+            if (typeof window.denyNonAdminDelete === 'function' && window.denyNonAdminDelete()) return;
             const role = (window.currentUserRole || '').toLowerCase().trim();
-            if (role === 'student') {
-                alert("Students cannot delete settlements.");
+            if (role !== 'admin') {
+                alert("Only administrators can delete records.");
                 return;
             }
             if (!confirm("Are you sure you want to delete this historical record?")) return;

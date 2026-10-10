@@ -2351,7 +2351,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const active = m[0] === tripId;
                 const pay = parseFloat(String(m[39] || m[24] || 0).replace(/[$,]/g, '')) || 0;
                 const isExtra = m[0] !== fam.parentId;
-                const delBtn = isExtra
+                const canDelete = typeof window.isAdmin === 'function' && window.isAdmin();
+                const delBtn = (isExtra && canDelete)
                     ? `<button type="button" title="Delete this move" onclick="event.stopPropagation(); window.deleteExtraMove('${m[0]}')" style="flex-shrink:0;border:none;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:6px 8px;cursor:pointer;font-weight:800;"><i class="fas fa-trash"></i></button>`
                     : '';
                 return `<div onclick="window.switchOrderMove('${m[0]}')" style="display:flex;align-items:flex-start;gap:8px;text-align:left;padding:8px;border-radius:8px;border:2px solid ${active ? '#ea580c' : '#fed7aa'};background:${active ? '#fff' : '#fffbeb'};cursor:pointer;font-size:0.72rem;width:100%;box-sizing:border-box;">
@@ -3755,7 +3756,8 @@ document.addEventListener('DOMContentLoaded', function() {
 window.toggleDeleteSelectedBtn = function() {
     const btn = document.getElementById('btn-delete-selected');
     if (btn) {
-        if (window.selectedTripIds && window.selectedTripIds.length > 0) {
+        const canDelete = typeof window.isAdmin === 'function' && window.isAdmin();
+        if (canDelete && window.selectedTripIds && window.selectedTripIds.length > 0) {
             btn.style.display = 'flex';
         } else {
             btn.style.display = 'none';

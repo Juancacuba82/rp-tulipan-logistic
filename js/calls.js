@@ -537,7 +537,13 @@ function editCallLog(id) {
     const btnTrans = document.getElementById('btn-top-transfer');
     const btnDel = document.getElementById('btn-top-delete');
     if (btnTrans) { btnTrans.disabled = false; btnTrans.style.opacity = '1'; btnTrans.style.cursor = 'pointer'; }
-    if (btnDel) { btnDel.disabled = false; btnDel.style.opacity = '1'; btnDel.style.cursor = 'pointer'; }
+    const canDelete = typeof window.isAdmin === 'function' && window.isAdmin();
+    if (btnDel) {
+        btnDel.disabled = !canDelete;
+        btnDel.style.opacity = canDelete ? '1' : '0.5';
+        btnDel.style.cursor = canDelete ? 'pointer' : 'not-allowed';
+        btnDel.style.display = canDelete ? 'flex' : 'none';
+    }
 
     renderCallsTable();
 }

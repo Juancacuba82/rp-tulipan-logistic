@@ -1243,7 +1243,8 @@
 
         // Show/Hide global delete button
         const delBtn = document.getElementById('btn-delete-rental-global');
-        if (delBtn) delBtn.style.display = editingRentalId ? 'flex' : 'none';
+        const canDelete = typeof window.isAdmin === 'function' && window.isAdmin();
+        if (delBtn) delBtn.style.display = (editingRentalId && canDelete) ? 'flex' : 'none';
         const totalEl = document.getElementById('rentals-total-income');
         if (totalEl) totalEl.textContent = `$${totalAccumulated.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     }

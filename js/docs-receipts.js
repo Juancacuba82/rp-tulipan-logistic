@@ -374,14 +374,18 @@
         gallery.style.display = 'block';
         list.innerHTML = '';
 
+        const canDeletePhoto = typeof window.isAdmin === 'function' && window.isAdmin();
         photos.forEach((url, idx) => {
             const div = document.createElement('div');
             div.style.position = 'relative';
+            const delBtn = canDeletePhoto
+                ? `<button onclick="deleteTripPhoto(${idx})" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="Delete photo">
+                    <i class="fas fa-times"></i>
+                </button>`
+                : '';
             div.innerHTML = `
                 <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer;" onclick="window.open('${url}', '_blank')">
-                <button onclick="deleteTripPhoto(${idx})" style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="Delete photo">
-                    <i class="fas fa-times"></i>
-                </button>
+                ${delBtn}
             `;
             list.appendChild(div);
         });
@@ -494,6 +498,7 @@
     };
 
     window.deleteTripPhoto = async function (idx) {
+        if (typeof window.denyNonAdminDelete === 'function' && window.denyNonAdminDelete()) return;
         if (!window.currentDocTrip) return;
         if (!confirm('Delete this photo? This cannot be undone.')) return;
 

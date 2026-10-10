@@ -394,10 +394,12 @@
             if (chk) chk.checked = false;
 
             document.getElementById('fleet-form-title').textContent = 'Editing Truck #' + unit.num;
-            document.getElementById('fleet-delete-btn').style.display = 'block';
+            const delBtn = document.getElementById('fleet-delete-btn');
+            if (delBtn) delBtn.style.display = (typeof window.isAdmin === 'function' && window.isAdmin()) ? 'block' : 'none';
         };
 
         window.deleteFleetUnit = async function (id) {
+            if (typeof window.denyNonAdminDelete === 'function' && window.denyNonAdminDelete()) return;
             if (!confirm('Permanently delete this truck?')) return;
             try { await window.supabaseDeleteFleetUnit(id); await loadFleetData(true); } catch (err) {}
         };

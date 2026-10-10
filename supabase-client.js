@@ -29,6 +29,15 @@ function isAdmin() {
 }
 window.isAdmin = isAdmin;
 
+function denyNonAdminDelete() {
+    if (!isAdmin()) {
+        alert("Acceso denegado: Solo los administradores pueden eliminar registros.");
+        return true;
+    }
+    return false;
+}
+window.denyNonAdminDelete = denyNonAdminDelete;
+
 function checkStudentPermission(moduleName, action = 'modify') {
     if (isStudent()) {
         // Whitelist: Allow creating Tasks and Calls
@@ -344,7 +353,7 @@ async function saveFleet(fleetData) {
 }
 
 async function supabaseDeleteFleetUnit(unitId) {
-    if (!checkStudentPermission('fleet', 'delete')) return;
+    if (denyNonAdminDelete()) return;
     const { error } = await db.from('fleet').update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: window.userEmail }).eq('unit_id', unitId);
     if (error) { console.error('Error deleting unit:', error); throw error; }
     if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Equipo Flota ID: ${unitId}`);
