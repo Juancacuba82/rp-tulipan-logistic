@@ -48,7 +48,7 @@
     <script src="./js/receivables.js?v=31" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
-    <script src="./js/csv-import.js?v=11" defer></script>
+    <script src="./js/csv-import.js?v=12" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="./js/recycle-bin.js?v=3" defer></script>
@@ -9706,6 +9706,27 @@
                     Cada cargo entra por separado con la <strong>fecha del banco</strong>.
                     Si coincide con los últimos 4 dígitos de un chofer (Manage Drivers), el gasto queda con <strong>nombre + *1234</strong> para filtrarlo en Expenses.
                 </p>
+            </div>
+
+            <div id="csv-existing-expenses" style="margin-bottom: 16px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+                    <h3 style="margin: 0; color: #334155; font-weight: 800; font-size: 0.95rem;">Gastos ya en Expenses <span id="csv-existing-count" style="color:#64748b; font-weight:700;"></span></h3>
+                    <input type="text" id="csv-existing-search" placeholder="Buscar en lo ya cargado (fecha, nota, monto...)" style="flex: 1; min-width: 220px; max-width: 420px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+                    <table class="data-table" style="font-size: 0.78rem;">
+                        <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 2;">
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th style="text-align:right;">Amount</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csv-existing-body"></tbody>
+                    </table>
+                </div>
             </div>
 
             <div id="csv-preview-container" style="display: none;">

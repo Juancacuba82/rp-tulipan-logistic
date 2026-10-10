@@ -198,8 +198,9 @@ window.openCsvImportModal = async function() {
     }
 
     if (typeof window.loadExpensesData === 'function') {
-        try { await window.loadExpensesData(); } catch (e) { console.error(e); }
+        try { await window.loadExpensesData(true); } catch (e) { console.error(e); }
     }
+    renderExistingExpensesInCsvModal();
 
     if (window.db) {
         try {
@@ -210,6 +211,36 @@ window.openCsvImportModal = async function() {
         }
     }
 };
+
+function renderExistingExpensesInCsvModal() {
+    const body = document.getElementById('csv-existing-body');
+    const countEl = document.getElementById('csv-existing-count');
+    if (!body) return;
+    const q = (document.getElementById('csv-existing-search')?.value || '').trim().toLowerCase();
+    const rows = (window.currentExpenses || []).slice().sort((a, b) => String(b[0] || '').localeCompare(String(a[0] || '')));
+    const filtered = q
+        ? rows.filter(r => [r[0], r[1], r[2], r[3], r[4], r[7]].join(' ').toLowerCase().includes(q))
+        : rows;
+    if (countEl) countEl.textContent = `(${filtered.length}${q ? ' de ' + rows.length : ''})`;
+    if (!filtered.length) {
+        body.innerHTML = `<tr><td colspan="5" style="color:#64748b; padding:10px;">No hay gastos cargados${q ? ' con esa búsqueda' : ''}.</td></tr>`;
+        return;
+    }
+    body.innerHTML = filtered.slice(0, 400).map(r => {
+        const note = String(r[4] || '').replace(/\s+/g, ' ').trim();
+        return `<tr>
+            <td style="white-space:nowrap;">${escapeHtml(formatCsvDate(r[0]))}</td>
+            <td>${escapeHtml(r[2] || '')}</td>
+            <td>${escapeHtml(r[1] || '')}</td>
+            <td style="text-align:right; font-weight:800; color:#b91c1c;">${escapeHtml(r[3] || '')}</td>
+            <td style="color:#64748b; max-width:280px;">${escapeHtml(note.slice(0, 140))}</td>
+        </tr>`;
+    }).join('') + (filtered.length > 400 ? `<tr><td colspan="5" style="color:#64748b;">Mostrando 400 de ${filtered.length}. Afina la búsqueda.</td></tr>` : '');
+}
+
+document.getElementById('csv-existing-search')?.addEventListener('input', function() {
+    renderExistingExpensesInCsvModal();
+});
 
 window.closeCsvImportModal = function() {
     document.getElementById('csv-import-modal').style.display = 'none';
