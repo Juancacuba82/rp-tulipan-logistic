@@ -378,11 +378,13 @@
      * Called from the SEND EMAIL button inside the detail modal.
      */
     window.sendBillingEmailWithValidation = async function (externalBtn = null, numPDFs = 3) {
-        const isAdminUser = typeof window.isAdmin === 'function'
-            ? window.isAdmin()
-            : (window.currentUserRole || '').toLowerCase().trim() === 'admin';
+        const isAdminUser = typeof window.canManageBillingAndReceivables === 'function'
+            ? window.canManageBillingAndReceivables()
+            : (typeof window.isAdmin === 'function'
+                ? window.isAdmin()
+                : (window.currentUserRole || '').toLowerCase().trim() === 'admin');
         if (!isAdminUser) {
-            alert('Only administrators can create or send invoices.');
+            alert('You do not have permission to create or send invoices.');
             return;
         }
         const rows = window.currentBillingOrderRows;

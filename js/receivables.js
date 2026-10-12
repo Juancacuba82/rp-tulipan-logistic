@@ -650,6 +650,9 @@ window.renderReceivables = function () {
     if (!container) return;
 
     const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+    const canManageReceivables = typeof window.canManageBillingAndReceivables === 'function'
+        ? window.canManageBillingAndReceivables()
+        : isAdmin;
 
     if (!window.recvActiveTab) window.recvActiveTab = 'pending';
     const tabFilters = getRecvTabFilters();
@@ -856,7 +859,7 @@ window.renderReceivables = function () {
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    ${isAdmin ? `<button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}')">
+                                    ${canManageReceivables ? `<button class="glossy-green-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="markReceivablePaid('${inv.id}')">
                                         PAY
                                     </button>` : ''}
                                     ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
@@ -939,7 +942,7 @@ window.renderReceivables = function () {
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    ${isAdmin ? `<button class="glossy-dark-btn" style="height:30px; padding:0 12px; font-size:0.7rem;" onclick="revertReceivable('${inv.id}')" title="Revert payment">
+                                    ${canManageReceivables ? `<button class="glossy-dark-btn" style="height:30px; padding:0 12px; font-size:0.7rem;" onclick="revertReceivable('${inv.id}')" title="Revert payment">
                                         Revertir
                                     </button>` : ''}
                                     ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
@@ -985,8 +988,11 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     const isAdmin = typeof window.isAdmin === 'function'
         ? window.isAdmin()
         : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
-    if (!isAdmin) {
-        alert('Only administrators can register payments in Accounts Receivable.');
+    const canManageReceivables = typeof window.canManageBillingAndReceivables === 'function'
+        ? window.canManageBillingAndReceivables()
+        : isAdmin;
+    if (!canManageReceivables) {
+        alert('You do not have permission to register payments in Accounts Receivable.');
         return;
     }
     const inv = (window.receivablesData.invoices || []).find(i => String(i.id) === String(id));
@@ -1055,7 +1061,7 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
                 <input type="number" id="recv-payment-amount" value="${balance.toFixed(2)}" max="${balance.toFixed(2)}" style="width: 100%; padding: 15px 15px 15px 35px; border: 2px solid #3b82f6; border-radius: 10px; font-size: 1.2rem; font-weight: 900; color:#0f172a; outline: none;">
             </div>
             <button id="btn-next-step" class="glossy-blue-btn" style="width: 100%; justify-content: center; font-size:1.1rem; padding:15px;">NEXT <i class="fas fa-arrow-right" style="margin-left:10px;"></i></button>
-            <button type="button" id="btn-write-off" style="margin-top:12px; width:100%; background:#faf5ff; border:1px solid #d8b4fe; padding:12px; border-radius:10px; cursor:pointer; color:#6b21a8; font-weight:800;">Write off / Complimentary (no collection)</button>
+            ${canManageReceivables ? `<button type="button" id="btn-write-off" style="margin-top:12px; width:100%; background:#faf5ff; border:1px solid #d8b4fe; padding:12px; border-radius:10px; cursor:pointer; color:#6b21a8; font-weight:800;">Write off / Complimentary (no collection)</button>` : ''}
         </div>
         
         <div id="recv-step-2" style="display: none;">
@@ -1101,6 +1107,10 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
     };
 
     const processWriteOff = async () => {
+        if (!canManageReceivables) {
+            alert('You do not have permission to write off invoices.');
+            return;
+        }
         const reason = prompt('Write off this invoice with no collection.\nReason (required), e.g. complimentary week:');
         if (reason === null) return;
         const trimmed = (reason || '').trim();
@@ -1391,9 +1401,11 @@ window.addInvoiceToReceivables = async function (customerName, invoiceNumber, to
 };
 
 window.revertReceivable = async function (id) {
-    const isAdmin = (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
-    if (!isAdmin) {
-        alert('Acceso denegado: Solo los administradores pueden revertir facturas.');
+    const canManageReceivables = typeof window.canManageBillingAndReceivables === 'function'
+        ? window.canManageBillingAndReceivables()
+        : (window.currentUserRole || '').toString().toLowerCase().trim() === 'admin';
+    if (!canManageReceivables) {
+        alert('Acceso denegado: no tiene permiso para revertir facturas.');
         return;
     }
     const inv = (window.receivablesData.invoices || []).find(i => String(i.id) === String(id));

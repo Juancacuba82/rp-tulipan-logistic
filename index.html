@@ -22,7 +22,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
-    <script src="./supabase-client.js?v=15"></script>
+    <script src="./supabase-client.js?v=17"></script>
     <script src="./js/force-uppercase.js?v=1"></script>
     <script src="./js/data-mapping.js?v=22"></script>
     <script src="./js/order-pdf.js?v=6"></script>
@@ -30,10 +30,11 @@
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1713" defer></script>
-    <script src="./js/delivery-calendar.js?v=1725" defer></script>
+    <script src="./js/delivery-calendar.js?v=1726" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1731" defer></script>
+    <script src="./js/company-money.js?v=2" defer></script>
 
     <script src="./js/docs-receipts.js?v=1716" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
@@ -41,11 +42,11 @@
     <script src="./js/email-service.js?v=10" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
     <script src="./js/tasks.js?v=11" defer></script>
-    <script src="./js/billing-manager.js?v=27" defer></script>
-    <script src="./js/invoice-automation.js?v=20" defer></script>
+    <script src="./js/billing-manager.js?v=29" defer></script>
+    <script src="./js/invoice-automation.js?v=21" defer></script>
     <script src="./js/attendance.js?v=5" defer></script>
     <script src="./js/accounting.js?v=108" defer></script>
-    <script src="./js/receivables.js?v=31" defer></script>
+    <script src="./js/receivables.js?v=33" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
     <script src="./js/csv-import.js?v=13" defer></script>
@@ -1329,6 +1330,8 @@
                         class="fas fa-truck"></i> FLEET</button>
                 <button onclick="closeMenu(); showView('profit-report')" class="btn-calendar" title="PROFIT REPORT"><i
                         class="fas fa-chart-line"></i> PROFIT</button>
+                <button onclick="closeMenu(); showView('company-money')" class="btn-calendar" title="CÓMO VA LA EMPRESA"><i
+                        class="fas fa-chart-bar"></i> DINERO</button>
                 <button onclick="closeMenu(); showView('reports')" class="btn-calendar" title="DRIVERS REPORTS"><i
                         class="fas fa-truck-loading"></i> DRIVERS</button>
                 <button onclick="closeMenu(); showView('releases')" class="btn-calendar" title="FORM RELEASES"><i
@@ -1434,6 +1437,10 @@
                     <button onclick="showView('profit-report')" class="dash-card">
                         <i class="fas fa-chart-line"></i>
                         <span>PROFIT REPORT</span>
+                    </button>
+                    <button onclick="showView('company-money')" class="dash-card">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>CÓMO VA LA EMPRESA</span>
                     </button>
                     <button onclick="showView('reports')" class="dash-card">
                         <i class="fas fa-truck-loading"></i>
@@ -2545,6 +2552,11 @@
                                             class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(59,130,246,0.3); transition: all 0.2s;">
                                             <i class="fas fa-map-marker-alt"></i> FIND NEARBY TRUCKS
+                                        </button>
+                                        <button type="button" onclick="openDriversNearToday()" id="btn-drivers-near-today"
+                                            class="btn-reset-modern"
+                                            style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #0f766e, #14b8a6); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: none; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(20,184,166,0.3); transition: all 0.2s;">
+                                            <i class="fas fa-user-check"></i> DRIVERS CERCA (HOY)
                                         </button>
                                         <button onclick="resetAdvancedFilters()" class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 25px; height: 45px;">
@@ -4160,6 +4172,80 @@
                 </div>
             </div>
         </section>
+        <section id="company-money-view" class="view-section hidden">
+            <div class="report-container" style="max-width: 1200px;">
+                <div class="attendance-toolbar-modern">
+                    <div class="report-title">
+                        <h2 style="font-size: 1.8rem; font-weight: 900; color: #1e293b; margin: 0;">Cómo va la empresa</h2>
+                        <p id="cm-range-label" style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">Elige un día, una semana o un mes de trabajo.</p>
+                    </div>
+                    <div class="attendance-filters-wrapper" style="flex-wrap: wrap;">
+                        <div class="attendance-input-group">
+                            <label>VER</label>
+                            <select id="cm-mode" class="form-input" onchange="window.onCompanyMoneyModeChange()" style="min-width: 160px;">
+                                <option value="day">Un día</option>
+                                <option value="days">Varios días</option>
+                                <option value="week">Semana (lun–sáb)</option>
+                                <option value="workmonth" selected>Mes de trabajo</option>
+                                <option value="year">Año</option>
+                            </select>
+                        </div>
+                        <div class="attendance-input-group" id="cm-field-day">
+                            <label>DÍA</label>
+                            <input type="date" id="cm-day" class="form-input" onchange="window.renderCompanyMoney()">
+                        </div>
+                        <div class="attendance-input-group" id="cm-field-from" style="display:none;">
+                            <label>DESDE</label>
+                            <input type="date" id="cm-from" class="form-input" onchange="window.renderCompanyMoney()">
+                        </div>
+                        <div class="attendance-input-group" id="cm-field-to" style="display:none;">
+                            <label>HASTA</label>
+                            <input type="date" id="cm-to" class="form-input" onchange="window.renderCompanyMoney()">
+                        </div>
+                        <div class="attendance-input-group" id="cm-field-week" style="display:none;">
+                            <label>UN DÍA DE LA SEMANA</label>
+                            <input type="date" id="cm-week" class="form-input" onchange="window.renderCompanyMoney()">
+                        </div>
+                        <div class="attendance-input-group" id="cm-field-month">
+                            <label>MES</label>
+                            <input type="month" id="cm-month" class="form-input" onchange="window.renderCompanyMoney()">
+                        </div>
+                        <div class="attendance-input-group" id="cm-field-year" style="display:none;">
+                            <label>AÑO</label>
+                            <input type="number" id="cm-year" class="form-input" min="2020" max="2100" onchange="window.renderCompanyMoney()" style="width: 110px;">
+                        </div>
+                        <button type="button" class="btn-module-refresh" onclick="window.renderCompanyMoney(true)">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div id="cm-kpis" style="display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 16px 0;"></div>
+                <p id="cm-grouped-note" style="display:none; margin: 0 0 12px; padding: 10px 12px; background:#fffbeb; border:1px solid #fcd34d; border-radius:8px; color:#92400e; font-size:0.85rem; font-weight:700;"></p>
+                <div style="display:grid; grid-template-columns: 1.4fr 0.8fr; gap: 16px; align-items: start;">
+                    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                        <h3 style="margin:0 0 4px; font-size:1rem;">Entró, se gastó, se invirtió</h3>
+                        <p id="cm-chart-hint" style="margin:0 0 12px; color:#64748b; font-size:0.78rem;"></p>
+                        <div id="cm-chart" style="display:flex; align-items:flex-end; gap:10px; min-height:240px; overflow-x:auto;"></div>
+                        <div style="display:flex; gap:14px; margin-top:10px; font-size:0.75rem; font-weight:800; color:#475569;">
+                            <span><i style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;"></i> Entró</span>
+                            <span><i style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;"></i> Se gastó</span>
+                            <span><i style="display:inline-block;width:10px;height:10px;background:#d97706;border-radius:2px;"></i> Contenedores</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                            <h3 style="margin:0 0 10px; font-size:1rem;">En qué se gastó</h3>
+                            <div id="cm-spend-rank"></div>
+                        </div>
+                        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                            <h3 style="margin:0 0 10px; font-size:1rem;">De dónde entró</h3>
+                            <div id="cm-income-rank"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- PROFIT REPORT View -->
         <section id="profit-report-view" class="view-section hidden">
             <div class="report-container">
@@ -6936,19 +7022,23 @@
             
             // Exclusive access for juancathalia1@gmail.com
             const csvImportBtn = document.getElementById('btn-import-csv');
+            const isJuanExclusive = (window.userEmail || '').toLowerCase().trim() === 'juancathalia1@gmail.com';
             if (csvImportBtn) {
-                if (window.userEmail === 'juancathalia1@gmail.com') {
-                    csvImportBtn.style.display = 'inline-flex';
-                } else {
-                    csvImportBtn.style.display = 'none';
-                }
+                csvImportBtn.style.display = isJuanExclusive ? 'inline-flex' : 'none';
+            }
+            const driversNearBtn = document.getElementById('btn-drivers-near-today');
+            if (driversNearBtn) {
+                driversNearBtn.style.display = isJuanExclusive ? 'flex' : 'none';
             }
 
             // Hide restricted views from navigation & dashboard
             const adminOnlySelectors = [
                 'button[onclick*="profit-report"]',
                 '.dash-card[onclick*="profit-report"]',
-                '#nav-actions-container button[onclick*="profit-report"]'
+                '#nav-actions-container button[onclick*="profit-report"]',
+                'button[onclick*="company-money"]',
+                '.dash-card[onclick*="company-money"]',
+                '#nav-actions-container button[onclick*="company-money"]'
             ];
 
             const receivablesSelectors = [
@@ -6993,9 +7083,10 @@
             const emailBtn = document.getElementById('btn-email-settings');
             if (emailBtn) emailBtn.style.display = isAdmin ? 'inline-flex' : 'none';
 
+            const canManageBilling = isAdmin || (typeof window.canManageBillingAndReceivables === 'function' && window.canManageBillingAndReceivables());
             ['btn-send-filtered-invoice', 'btn-bulk-create', 'btn-bulk-send', 'mb-btn-send-email', 'mb-btn-create-record'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el && !isAdmin) el.style.display = 'none';
+                if (el && !canManageBilling) el.style.display = 'none';
             });
 
             if (!isAdmin) {
@@ -7334,19 +7425,19 @@
                     finalView = 'docs';
                 }
             } else if (normalizedRole === 'driver') {
-                const forbiddenForDrivers = ['profit-report', 'expenses', 'releases', 'calendar', 'billing-center', 'receivables', 'rentals', 'tasks', 'inventory', 'calls'];
+                const forbiddenForDrivers = ['profit-report', 'company-money', 'expenses', 'releases', 'calendar', 'billing-center', 'receivables', 'rentals', 'tasks', 'inventory', 'calls'];
                 if (finalView === 'hero' || forbiddenForDrivers.includes(finalView)) {
                     console.warn("Driver redirected to Docs from:", finalView);
                     finalView = 'docs';
                 }
             } else if (normalizedRole === 'student') {
-                const forbiddenForStudents = ['profit-report', 'accounting', 'receivables'];
+                const forbiddenForStudents = ['profit-report', 'company-money', 'accounting', 'receivables'];
                 if (forbiddenForStudents.includes(finalView)) {
                     console.warn("Restricted user redirected to Hero from:", finalView);
                     finalView = 'hero';
                 }
             } else if (normalizedRole === 'employee' || normalizedRole === 'staff') {
-                const forbiddenForEmployees = ['profit-report', 'accounting'];
+                const forbiddenForEmployees = ['profit-report', 'company-money', 'accounting'];
                 if (forbiddenForEmployees.includes(finalView)) {
                     console.warn("Restricted user redirected to Hero from:", finalView);
                     finalView = 'hero';
@@ -7542,6 +7633,8 @@
                             if (window.loadReleasesData) await window.loadReleasesData();
                             if (window.renderProfitReport) await window.renderProfitReport();
                         })();
+                    } else if (finalView === 'company-money') {
+                        if (window.renderCompanyMoney) window.renderCompanyMoney();
                     } else if (finalView === 'expenses') {
                         if (window.loadExpensesData) window.loadExpensesData();
                     } else if (finalView === 'inventory') {
@@ -8768,6 +8861,39 @@
                 style="padding:15px 25px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end;">
                 <button onclick="closeNearbyTrucksModal()"
                     style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; padding:10px 24px; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="drivers-near-today-modal"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.85); z-index:9999; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px);">
+        <div
+            style="background:white; border-radius:16px; width:100%; max-width:720px; box-shadow:0 25px 60px rgba(0,0,0,0.35); overflow:hidden; display:flex; flex-direction:column; max-height:90vh;">
+            <div
+                style="background:linear-gradient(135deg, #134e4a, #0f766e); padding:20px 25px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h3
+                        style="margin:0; color:white; font-size:1.2rem; font-weight:800; display:flex; align-items:center; gap:10px;">
+                        <i class="fas fa-user-check" style="color:#5eead4;"></i> Drivers cerca (hoy)
+                    </h3>
+                    <p id="drivers-near-today-subtitle" style="margin:4px 0 0; color:#99f6e4; font-size:0.8rem;">
+                        Ordenados por cercanía al pickup. Elige uno para rellenar Driver.
+                    </p>
+                </div>
+                <button onclick="closeDriversNearToday()"
+                    style="background:rgba(255,255,255,0.1); border:none; color:white; width:36px; height:36px; border-radius:8px; font-size:1.3rem; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+            </div>
+            <div id="drivers-near-today-status"
+                style="display:none; padding:15px 25px; background:#ecfdf5; border-bottom:1px solid #a7f3d0; color:#115e59; font-size:0.85rem; font-weight:600; align-items:center; gap:10px;">
+                <i class="fas fa-spinner fa-spin"></i> <span id="drivers-near-today-status-text">Calculando distancias...</span>
+            </div>
+            <div id="drivers-near-today-results" style="overflow-y:auto; flex:1; padding:20px 25px;">
+                <div id="drivers-near-today-list"></div>
+            </div>
+            <div
+                style="padding:15px 25px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end;">
+                <button onclick="closeDriversNearToday()"
+                    style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; padding:10px 24px; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">Cerrar</button>
             </div>
         </div>
     </div>

@@ -6,13 +6,16 @@
 (function () {
 
     function isBillingAdmin() {
+        if (typeof window.canManageBillingAndReceivables === 'function') {
+            return window.canManageBillingAndReceivables();
+        }
         return typeof window.isAdmin === 'function'
             ? window.isAdmin()
             : (window.currentUserRole || '').toLowerCase().trim() === 'admin';
     }
 
     function denyBillingWrite() {
-        alert('Only administrators can create or send invoices.');
+        alert('You do not have permission to create or send invoices.');
         return false;
     }
 
@@ -775,7 +778,6 @@
             }
         }
 
-        // Toggle Filtered Invoice Button (admin write actions only)
         const custInput = document.getElementById('bc-f-customer');
         const sendFilteredBtn = document.getElementById('btn-send-filtered-invoice');
         const btnBulkCreate = document.getElementById('btn-bulk-create');

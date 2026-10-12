@@ -29,6 +29,20 @@ function isAdmin() {
 }
 window.isAdmin = isAdmin;
 
+// Employee with full admin actions in Billing and Accounts Receivable,
+// except delete. Other modules stay employee.
+const BILLING_ACCOUNT_CLERK_EMAILS = ['brenditahdez1208@yahoo.com'];
+
+function canManageBillingAndReceivables() {
+    if (isAdmin()) return true;
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    const email = (window.userEmail || '').toLowerCase().trim();
+    const isEmployee = role === 'employee' || role === 'staff';
+    return isEmployee && BILLING_ACCOUNT_CLERK_EMAILS.includes(email);
+}
+window.canManageBillingAndReceivables = canManageBillingAndReceivables;
+window.canCreateInvoicesAndPayments = canManageBillingAndReceivables;
+
 function denyNonAdminDelete() {
     if (!isAdmin()) {
         alert("Acceso denegado: Solo los administradores pueden eliminar registros.");

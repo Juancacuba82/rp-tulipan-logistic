@@ -3710,12 +3710,264 @@ window.searchNearbyTrucks = async function () {
     }
 };
 
+window._canUseDriversNearToday = function () {
+    return (window.userEmail || '').toLowerCase().trim() === 'juancathalia1@gmail.com';
+};
+
+function getFormPickupAddress() {
+    const pickupSel = document.getElementById('in-pickup-sel');
+    const pickupMan = document.getElementById('in-pickup');
+    let origin = (pickupMan && pickupMan.style.display !== 'none')
+        ? pickupMan.value
+        : (pickupSel ? pickupSel.value : '');
+    origin = (origin || '').toString().trim();
+    if (!origin || origin === '---' || origin.toLowerCase().includes('select') || origin.toLowerCase().includes('loading')) {
+        return '';
+    }
+    return origin;
+}
+
+function getDriversNearHintDay() {
+    const from = document.getElementById('f-from-date')?.value || '';
+    const to = document.getElementById('f-to-date')?.value || '';
+    if (from && to && from === to) return from;
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function collectTodayDriverDrops(dayKey) {
+    const pools = [window.allTripsUnfiltered, window.currentTrips];
+    const byId = new Map();
+    pools.forEach(pool => {
+        if (!Array.isArray(pool)) return;
+        pool.forEach(trip => {
+            if (trip && trip[0]) byId.set(trip[0], trip);
+        });
+    });
+
+    const byDriver = {};
+    byId.forEach(trip => {
+        const dateKey = (trip[1] || '').toString().split('T')[0];
+        if (dateKey !== dayKey) return;
+        const driver = (trip[17] || '').toString().trim();
+        const delivery = (trip[8] || '').toString().trim();
+        if (!driver || driver === '---') return;
+        if (!delivery || delivery === '---') return;
+        const key = driver.toUpperCase();
+        if (!byDriver[key]) byDriver[key] = [];
+        byDriver[key].push(trip);
+    });
+
+    return Object.keys(byDriver).map(key => {
+        const list = byDriver[key];
+        const pending = list.filter(t => {
+            const st = (t[41] || '').toString().toUpperCase();
+            return st !== 'COMPLETE' && st !== 'PAID' && st !== 'DELIVERED';
+        });
+        const pickFrom = pending.length ? pending : list;
+        pickFrom.sort((a, b) => {
+            const da = (a[1] || '').toString();
+            const db = (b[1] || '').toString();
+            return da.localeCompare(db);
+        });
+        const chosen = pickFrom[pickFrom.length - 1];
+        return {
+            driver: (chosen[17] || '').toString().trim(),
+            delivery: (chosen[8] || '').toString().trim(),
+            orderNo: (chosen[5] || chosen[4] || '').toString().trim(),
+            city: (chosen[6] || '').toString().trim(),
+            status: (chosen[41] || 'PENDING_PAYMENT').toString(),
+            date: (chosen[1] || '').toString().split('T')[0],
+            pending: pending.length > 0
+        };
+    });
+}
+
+window.closeDriversNearToday = function () {
+    const modal = document.getElementById('drivers-near-today-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.applySuggestedDriver = function (driverName) {
+    if (!window._canUseDriversNearToday()) return;
+    const name = (driverName || '').toString().trim();
+    if (!name) return;
+    const sel = document.getElementById('in-driver');
+    if (!sel) return;
+    let matched = '';
+    for (let i = 0; i < sel.options.length; i++) {
+        if ((sel.options[i].value || '').toUpperCase() === name.toUpperCase()) {
+            matched = sel.options[i].value;
+            break;
+        }
+    }
+    if (!matched) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+        matched = name;
+    }
+    sel.value = matched;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    window.closeDriversNearToday();
+};
+
+window.openDriversNearToday = async function () {
+    if (!window._canUseDriversNearToday()) return;
+
+    const origin = getFormPickupAddress();
+    if (!origin) {
+        alert('Pon primero el Pick Up Address de la orden. La lista se ordena por cercanía a ese pickup.');
+        return;
+    }
+
+    const dayKey = getDriversNearHintDay();
+    const drivers = collectTodayDriverDrops(dayKey);
+    const modal = document.getElementById('drivers-near-today-modal');
+    const listEl = document.getElementById('drivers-near-today-list');
+    const statusEl = document.getElementById('drivers-near-today-status');
+    const statusText = document.getElementById('drivers-near-today-status-text');
+    const subtitle = document.getElementById('drivers-near-today-subtitle');
+    if (!modal || !listEl) return;
+
+    if (subtitle) {
+        subtitle.textContent = 'Pickup: ' + origin + '  ·  Día: ' + dayKey + '  ·  Clic en un driver para rellenarlo (no guarda la orden).';
+    }
+
+    modal.style.display = 'flex';
+    listEl.innerHTML = '';
+    if (!drivers.length) {
+        listEl.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#64748b;">' +
+            '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No hay drivers con entrega ese día</p>' +
+            '<p style="font-size:0.85rem; margin:0;">Necesitan viaje el ' + dayKey + ' con driver y delivery place.</p></div>';
+        if (statusEl) statusEl.style.display = 'none';
+        return;
+    }
+
+    if (statusEl) statusEl.style.display = 'flex';
+    if (statusText) statusText.textContent = 'Calculando distancias...';
+
+    try {
+        let apiKey = localStorage.getItem('google_maps_api_key') || '';
+        if (!apiKey) {
+            const userKey = prompt('Ingresa tu Google Maps API Key para calcular distancias:');
+            if (userKey) {
+                localStorage.setItem('google_maps_api_key', userKey.trim());
+                apiKey = userKey.trim();
+            } else {
+                throw new Error('No se proporcionó una API Key.');
+            }
+        }
+
+        if (typeof google === 'undefined' || !google.maps) {
+            if (typeof window.loadGoogleMapsScript === 'function') {
+                await window.loadGoogleMapsScript(apiKey);
+            } else {
+                throw new Error('Google Maps SDK no está disponible.');
+            }
+        }
+
+        const uniqueDeliveries = [...new Set(drivers.map(d => d.delivery))];
+        const distByDelivery = {};
+        const service = new google.maps.DistanceMatrixService();
+        const BATCH_SIZE = 25;
+
+        for (let i = 0; i < uniqueDeliveries.length; i += BATCH_SIZE) {
+            const batch = uniqueDeliveries.slice(i, i + BATCH_SIZE);
+            if (statusText) {
+                statusText.textContent = 'Calculando distancias... (' + Math.min(i + BATCH_SIZE, uniqueDeliveries.length) + ' / ' + uniqueDeliveries.length + ')';
+            }
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error('Google API timeout')), 20000);
+                service.getDistanceMatrix({
+                    origins: [origin],
+                    destinations: batch,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.IMPERIAL,
+                }, (response, status) => {
+                    clearTimeout(timer);
+                    if (status !== 'OK') {
+                        reject(new Error('Google API Error: ' + status));
+                        return;
+                    }
+                    response.rows[0].elements.forEach((el, idx) => {
+                        if (el.status === 'OK') {
+                            distByDelivery[batch[idx]] = {
+                                miles: el.distance.value * 0.000621371,
+                                distanceText: el.distance.text,
+                                durationText: el.duration.text
+                            };
+                        } else {
+                            distByDelivery[batch[idx]] = { miles: Number.POSITIVE_INFINITY, distanceText: 'N/A', durationText: el.status };
+                        }
+                    });
+                    resolve();
+                });
+            });
+        }
+
+        const ranked = drivers.map(d => Object.assign({}, d, distByDelivery[d.delivery] || {
+            miles: Number.POSITIVE_INFINITY,
+            distanceText: 'N/A',
+            durationText: ''
+        })).sort((a, b) => a.miles - b.miles);
+
+        listEl.innerHTML = '';
+        ranked.forEach((item, idx) => {
+            const card = document.createElement('div');
+            card.style.cssText = 'border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; padding:12px 14px; cursor:pointer; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; gap:12px;';
+            card.onmouseenter = function () { this.style.background = '#ecfdf5'; this.style.borderColor = '#5eead4'; };
+            card.onmouseleave = function () { this.style.background = '#f8fafc'; this.style.borderColor = '#e2e8f0'; };
+            card.onclick = function () { window.applySuggestedDriver(item.driver); };
+
+            let badgeColor = '#10b981';
+            if (!isFinite(item.miles)) badgeColor = '#94a3b8';
+            else if (item.miles > 50) badgeColor = '#ef4444';
+            else if (item.miles > 25) badgeColor = '#f59e0b';
+
+            const rank = idx + 1;
+            const stLabel = item.pending ? 'Pendiente' : 'Completada';
+            card.innerHTML =
+                '<div style="min-width:0; flex:1;">' +
+                '<div style="font-weight:800; color:#134e4a; font-size:0.95rem; display:flex; align-items:center; gap:8px;">' +
+                '<span style="background:#0f766e; color:white; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem;">' + rank + '</span>' +
+                '<i class="fas fa-truck"></i> ' + item.driver + '</div>' +
+                '<div style="font-size:0.8rem; color:#475569; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                '<i class="fas fa-map-pin" style="color:#0f766e; margin-right:4px;"></i>' + item.delivery + '</div>' +
+                '<div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">' +
+                (item.orderNo ? ('Orden ' + item.orderNo + ' · ') : '') + (item.city || '') + ' · ' + stLabel + '</div>' +
+                '</div>' +
+                '<div style="text-align:right; flex-shrink:0;">' +
+                '<div style="background:' + badgeColor + '; color:white; padding:4px 10px; border-radius:16px; font-size:0.78rem; font-weight:800; white-space:nowrap;">' +
+                item.distanceText + '</div>' +
+                (item.durationText ? '<div style="font-size:0.72rem; color:#64748b; margin-top:4px;">~' + item.durationText + '</div>' : '') +
+                '<div style="font-size:0.7rem; color:#0f766e; margin-top:6px; font-weight:700;">Usar driver</div>' +
+                '</div>';
+            listEl.appendChild(card);
+        });
+        if (statusEl) statusEl.style.display = 'none';
+    } catch (err) {
+        if (statusEl) statusEl.style.display = 'none';
+        listEl.innerHTML =
+            '<div style="text-align:center; padding:30px 20px;">' +
+            '<p style="font-weight:700; color:#991b1b; margin:0 0 5px;">Error</p>' +
+            '<p style="font-size:0.85rem; color:#64748b; margin:0;">' + (err.message || 'Unknown error') + '</p></div>';
+    }
+};
+
 // Close modal when clicking outside (on the dark backdrop)
 document.addEventListener('DOMContentLoaded', function() {
     var modal = document.getElementById('nearby-trucks-modal');
     if (modal) {
         modal.addEventListener('click', function(e) {
             if (e.target === modal) window.closeNearbyTrucksModal();
+        });
+    }
+    var nearModal = document.getElementById('drivers-near-today-modal');
+    if (nearModal) {
+        nearModal.addEventListener('click', function(e) {
+            if (e.target === nearModal) window.closeDriversNearToday();
         });
     }
     
