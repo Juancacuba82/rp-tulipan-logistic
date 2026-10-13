@@ -94,7 +94,7 @@
             sales: 0, yard: 0, rentals: 0, tulipan: 0, jr: 0, contractor: 0,
             storageTulipan: 0, storageYard: 0, customInvoices: 0, ledgerIncome: 0,
             expenses: 0, releases: 0, internalSalesHaul: 0,
-            byCategory: {}, groupedCount: 0, groupedAmount: 0
+            byCategory: {}, byLine: {}, groupedCount: 0, groupedAmount: 0
         };
     }
 
@@ -205,6 +205,12 @@
             totals.expenses += amount;
             const catName = window.normalizeExpenseCategory ? window.normalizeExpenseCategory(category) : (category || 'Other');
             totals.byCategory[catName] = (totals.byCategory[catName] || 0) + amount;
+            const rawLine = (row[7] || '').toString().trim();
+            const line = rawLine && window.normalizeExpenseProfitLine
+                ? (window.normalizeExpenseProfitLine(rawLine) || 'unassigned')
+                : (rawLine || 'unassigned');
+            if (!totals.byLine[line]) totals.byLine[line] = {};
+            totals.byLine[line][catName] = (totals.byLine[line][catName] || 0) + amount;
             if (looksGrouped(row)) {
                 totals.groupedCount += 1;
                 totals.groupedAmount += amount;
@@ -247,6 +253,7 @@
             groupedCount: t.groupedCount,
             groupedAmount: t.groupedAmount,
             byCategory: t.byCategory,
+            byLine: t.byLine,
             sources: [
                 { label: 'Ventas', amount: t.sales },
                 { label: 'Transporte RP', amount: t.tulipan },
@@ -493,9 +500,6 @@
         }
 
         const haul = total.internalHaul || 0;
-        const spend = Object.keys(total.byCategory).map(name => ({ label: name, amount: total.byCategory[name] }));
-        if (haul > 0) spend.push({ label: 'Viajes internos', amount: haul });
-        spend.sort((a, b) => b.amount - a.amount);
         const spendNote = haul > 0
             ? 'Viajes internos es el precio del viaje cuando el cliente es la propia empresa. No es combustible ni un cargo del banco. La misma cifra está dentro de Entró, por eso no cambia lo que quedó.'
             : '';
@@ -503,10 +507,48 @@
             ? 'Dentro de transporte hay ' + money(haul) + ' de viajes internos. Esa cifra también aparece en Se gastó, así que no es plata nueva.'
             : '';
         const spendEl = document.getElementById('cm-spend-rank');
-        if (spendEl) rankHost(spendEl, spend, total.spent, '#dc2626', spendNote);
+        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, spendNote);
         const incomeEl = document.getElementById('cm-income-rank');
         if (incomeEl) rankHost(incomeEl, total.sources, total.revenue, '#16a34a', incomeNote);
     };
+
+    function lineLabel(id) {
+        if (id === 'unassigned') return 'Sin asignar';
+        if (window.formatExpenseProfitLineLabel) return window.formatExpenseProfitLineLabel(id);
+        return id;
+    }
+
+    function spendByProfitLine(byLine, haul, grand, note) {
+        const order = (window.EXPENSE_PROFIT_LINES || []).map(l => l.id).concat(['unassigned']);
+        const ids = order.filter(id => byLine[id] && Object.keys(byLine[id]).length);
+        Object.keys(byLine).forEach(id => { if (!ids.includes(id)) ids.push(id); });
+        const pct = (n) => (grand > 0 ? Math.round((n / grand) * 100) : 0);
+        const card = (title, sub, body) =>
+            '<div style="flex:1 1 200px; min-width:200px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 14px 12px;">' +
+            '<div style="display:flex; justify-content:space-between; gap:8px; font-size:0.78rem; font-weight:900; color:#0f172a; margin-bottom:8px;">' +
+            '<span>' + title + '</span><span style="white-space:nowrap;">' + money(sub) + ' <span style="color:#dc2626;">' + pct(sub) + '%</span></span></div>' +
+            body + '</div>';
+        let html = '<div style="display:flex; flex-wrap:wrap; gap:12px; align-items:stretch;">';
+        ids.forEach(id => {
+            const cats = Object.keys(byLine[id]).map(name => ({ label: name, amount: byLine[id][name] }))
+                .sort((a, b) => b.amount - a.amount);
+            const sub = cats.reduce((s, c) => s + c.amount, 0);
+            const body = cats.map(c => '<div style="display:flex; justify-content:space-between; gap:8px; font-size:0.75rem; color:#475569; padding:3px 0;">' +
+                '<span>' + c.label + '</span><span style="white-space:nowrap;">' + money(c.amount) + ' <span style="color:#dc2626; font-weight:800;">' + pct(c.amount) + '%</span></span></div>').join('');
+            html += card(lineLabel(id), sub, body);
+        });
+        if (haul > 0) {
+            html += card('Viajes internos', haul, '<p style="margin:0; font-size:0.75rem; line-height:1.4; color:#475569;">Precio del viaje cuando el cliente es la propia empresa. No sale del banco.</p>');
+        }
+        html += '</div>';
+        html += '<div style="display:flex; justify-content:space-between; margin-top:12px; font-size:0.9rem; font-weight:900; color:#0f172a;">' +
+            '<span>Total</span><span>' + money(grand) + '</span></div>';
+        if (note) html += '<p style="margin:8px 0 0; font-size:0.75rem; line-height:1.4; color:#475569;">' + note + '</p>';
+        if (!ids.length && haul <= 0) {
+            return '<p style="margin:0; color:#94a3b8; font-size:0.85rem;">Nada en este rango.</p>' + html;
+        }
+        return html;
+    }
 
     function rankHost(el, items, total, color, note) {
         el.innerHTML = rankList(items, total, color, note);
