@@ -232,10 +232,12 @@
         (receipts || []).forEach(r => {
             const fin = window.parseCustomReceiptFinance ? window.parseCustomReceiptFinance(r) : null;
             if (!fin || !fin.include) return;
-            const st = (fin.status || '').toString().toUpperCase();
-            if (st !== 'PAID' && st !== 'COMPLETE') return;
             if (!inRange((r.date || '').toString(), from, to)) return;
-            totals.customInvoices += fin.postedAmount || 0;
+            if (typeof window.applyCustomReceiptToRevenueTotals === 'function') {
+                window.applyCustomReceiptToRevenueTotals(totals, fin);
+            } else {
+                totals.customInvoices += fin.postedAmount || 0;
+            }
         });
     }
 

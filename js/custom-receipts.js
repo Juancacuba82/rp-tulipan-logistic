@@ -21,6 +21,7 @@ function openCustomReceiptModal() {
     if (includeEl) includeEl.checked = false;
     const pendingRadio = document.querySelector('input[name="cr-pay-status"][value="PENDING"]');
     if (pendingRadio) pendingRadio.checked = true;
+    fillCustomReceiptProfitLineSelect('');
     if (typeof toggleCustomReceiptFinanceOptions === 'function') toggleCustomReceiptFinanceOptions();
 
     const btnSave = document.getElementById('btn-save-cr');
@@ -34,11 +35,21 @@ function openCustomReceiptModal() {
     document.getElementById('custom-receipt-modal').style.display = 'block';
 }
 
+function fillCustomReceiptProfitLineSelect(selected) {
+    const sel = document.getElementById('cr-profit-line');
+    if (!sel) return;
+    if (typeof window.buildProfitLineSelectOptions === 'function') {
+        sel.innerHTML = window.buildProfitLineSelectOptions(selected || '', 'Select profit line...');
+    }
+}
+
 function toggleCustomReceiptFinanceOptions() {
     const includeEl = document.getElementById('cr-include-finance');
     const options = document.getElementById('cr-finance-options');
     if (!options) return;
-    options.style.display = includeEl && includeEl.checked ? 'block' : 'none';
+    const on = includeEl && includeEl.checked;
+    options.style.display = on ? 'block' : 'none';
+    if (on) fillCustomReceiptProfitLineSelect(document.getElementById('cr-profit-line')?.value || '');
 }
 
 function parseCustomReceiptContact(raw) {
@@ -76,13 +87,30 @@ function buildCustomArInvoiceNo(orderNo, date) {
 
 window.parseCustomReceiptFinance = function (receipt) {
     const parsed = parseCustomReceiptContact(receipt && receipt.customer_contact);
+    const rawLine = parsed.profit_line || parsed.profitLine || '';
+    const profitLine = window.normalizeExpenseProfitLine
+        ? (window.normalizeExpenseProfitLine(rawLine) || '')
+        : String(rawLine || '').trim();
     return {
         include: parsed.include_in_finance === true,
         status: parsed.finance_status || 'PENDING',
         arInvoiceNumber: parsed.ar_invoice_number || '',
         postedAmount: getCustomReceiptBookedAmount(receipt),
-        paymentMethod: parsed.payment_method || ''
+        paymentMethod: parsed.payment_method || '',
+        profitLine: profitLine
     };
+};
+
+window.applyCustomReceiptToRevenueTotals = function (totals, fin) {
+    if (!totals || !fin) return;
+    const amt = fin.postedAmount || 0;
+    if (amt <= 0) return;
+    const line = fin.profitLine || '';
+    if (line === 'rpt_sales') totals.sales += amt;
+    else if (line === 'rpt_transportation') totals.tulipan += amt;
+    else if (line === 'rpt_yard') totals.yard += amt;
+    else if (line === 'contractors') totals.contractor += amt;
+    else totals.customInvoices += amt;
 };
 
 window.loadCustomReceiptsForProfit = async function (dateFrom, dateTo) {
@@ -95,17 +123,22 @@ window.loadCustomReceiptsForProfit = async function (dateFrom, dateTo) {
             return 0;
         }
         let sum = 0;
+        const byLine = {
+            rpt_sales: 0, rpt_transportation: 0, rpt_yard: 0, contractors: 0, rpt_operating: 0, unassigned: 0
+        };
         (data || []).forEach(r => {
             const fin = window.parseCustomReceiptFinance(r);
             if (!fin.include) return;
-            const st = (fin.status || '').toString().toUpperCase();
-            if (st !== 'PAID' && st !== 'COMPLETE') return;
             const d = (r.date || '').toString();
             if (dateFrom && d && d < dateFrom) return;
             if (dateTo && d && d > dateTo) return;
-            sum += fin.postedAmount || 0;
+            const amt = fin.postedAmount || 0;
+            sum += amt;
+            const line = fin.profitLine || 'unassigned';
+            if (byLine.hasOwnProperty(line)) byLine[line] += amt;
+            else byLine.unassigned += amt;
         });
-        return sum;
+        return { total: sum, byLine };
     } catch (err) {
         console.warn('[CustomReceipts] Profit load error:', err.message);
         return 0;
@@ -488,6 +521,9 @@ async function saveAndPreviewCustomReceipt() {
         const email = document.getElementById('cr-email').value;
         const totals = updateCustomReceiptTotals();
         const includeFinance = !!(document.getElementById('cr-include-finance') && document.getElementById('cr-include-finance').checked);
+        const profitLineChosen = includeFinance
+            ? ((document.getElementById('cr-profit-line') && document.getElementById('cr-profit-line').value) || '').trim()
+            : '';
         const payStatusEl = document.querySelector('input[name="cr-pay-status"]:checked');
         const payStatus = includeFinance ? ((payStatusEl && payStatusEl.value) || 'PENDING') : '';
         const bookedAmount = getCustomReceiptBookedAmount(null, totals);
@@ -504,6 +540,12 @@ async function saveAndPreviewCustomReceipt() {
             }
             if (!customer || !customer.trim()) {
                 alert('Enter a customer name before including this invoice in Accounts Rec.');
+                return;
+            }
+            const profitLineEl = document.getElementById('cr-profit-line');
+            const profitLine = (profitLineEl && profitLineEl.value) ? profitLineEl.value.trim() : '';
+            if (!profitLine) {
+                alert('Select the profit line this invoice belongs to (Sales, Transport, Yard…).');
                 return;
             }
             arInvoiceNo = buildCustomArInvoiceNo(orderNo, date);
@@ -535,7 +577,8 @@ async function saveAndPreviewCustomReceipt() {
             finance_status: includeFinance ? (payStatus === 'PAID' ? 'PAID' : 'PENDING') : '',
             payment_method: arMethod,
             ar_invoice_number: arInvoiceNo,
-            posted_amount: includeFinance ? bookedAmount : 0
+            posted_amount: includeFinance ? bookedAmount : 0,
+            profit_line: profitLineChosen || ''
         });
         
         const payload = {

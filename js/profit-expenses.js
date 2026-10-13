@@ -878,7 +878,20 @@
             }
 
             if (typeof window.loadCustomReceiptsForProfit === 'function') {
-                totals.customInvoices = await window.loadCustomReceiptsForProfit(dateFrom || '', dateTo || '');
+                const custom = await window.loadCustomReceiptsForProfit(dateFrom || '', dateTo || '');
+                if (custom && typeof custom === 'object' && custom.byLine) {
+                    if (typeof window.applyCustomReceiptToRevenueTotals === 'function') {
+                        Object.keys(custom.byLine).forEach(line => {
+                            const amt = custom.byLine[line] || 0;
+                            if (!amt) return;
+                            window.applyCustomReceiptToRevenueTotals(totals, { postedAmount: amt, profitLine: line === 'unassigned' ? '' : line });
+                        });
+                    } else {
+                        totals.customInvoices = custom.total || 0;
+                    }
+                } else {
+                    totals.customInvoices = custom || 0;
+                }
             }
 
             // 3. Final Summaries
