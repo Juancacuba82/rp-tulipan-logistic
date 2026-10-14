@@ -111,7 +111,7 @@
      * @param {Array} rowData - Trip data array
      * @param {Blob} existingBlob - Optional existing blob
      */
-    window.sendReceiptEmail = async function (rowData, existingBlob = null, companyOverride = null) {
+    window.sendReceiptEmail = async function (rowData, existingBlob = null, companyOverride = null, extraParams = null) {
         let pdfBlob = existingBlob;
         
         try {
@@ -183,7 +183,8 @@
                     photos_url: photosUrl,
                     pdf_url: receiptUrl, // Fallback in case old template variable is used
                     adjunto_recibo: base64Recibo,
-                    adjunto_fotos: base64Fotos
+                    adjunto_fotos: base64Fotos,
+                    document_type: (extraParams && extraParams.document_type) || 'INVOICE'
                 };
 
                 emailjs.send(serviceId, templateId, templateParams, publicKey).then(response => {

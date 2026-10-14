@@ -36,10 +36,10 @@
     <script src="./js/profit-expenses.js?v=1733" defer></script>
     <script src="./js/company-money.js?v=19" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1716" defer></script>
+    <script src="./js/docs-receipts.js?v=1717" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
-    <script src="./js/custom-receipts.js?v=5" defer></script>
-    <script src="./js/email-service.js?v=10" defer></script>
+    <script src="./js/custom-receipts.js?v=6" defer></script>
+    <script src="./js/email-service.js?v=11" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
     <script src="./js/tasks.js?v=11" defer></script>
     <script src="./js/billing-manager.js?v=29" defer></script>
@@ -9919,9 +9919,16 @@
     <div id="custom-receipt-modal" class="simple-modal" style="display: none; z-index: 9999;">
         <div class="modal-content" style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
             <span class="close" onclick="closeCustomReceiptModal()" style="color: #ef4444; font-size: 2.5rem; position: absolute; top: 15px; right: 20px; line-height: 1;">&times;</span>
-            <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                <i class="fas fa-file-invoice" style="font-size: 1.8rem; color: #2563eb; margin-right: 15px;"></i>
-                <h2 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 1.5rem;">Custom Receipt Generator</h2>
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+                <i class="fas fa-file-invoice" id="cr-title-icon" style="font-size: 1.8rem; color: #2563eb;"></i>
+                <div>
+                    <label for="cr-doc-type" style="display: block; font-weight: 800; font-size: 0.75rem; color: #64748b; margin-bottom: 4px; letter-spacing: 0.04em;">DOCUMENT TYPE</label>
+                    <select id="cr-doc-type" onchange="onCustomReceiptDocTypeChange()"
+                        style="font-size: 1.35rem; font-weight: 900; color: #0f172a; border: 2px solid #cbd5e1; border-radius: 10px; padding: 6px 12px; background: white; cursor: pointer;">
+                        <option value="invoice">Invoice</option>
+                        <option value="quote">Quote</option>
+                    </select>
+                </div>
             </div>
             
             <div style="display: flex; gap: 15px; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; flex-wrap: wrap;">
@@ -9937,7 +9944,7 @@
                     <input type="date" id="cr-date" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" onchange="previewCustomReceipt()">
                 </div>
                 <div style="flex: 1; min-width: 200px;">
-                    <label style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Order / Invoice #</label>
+                    <label id="cr-order-label" style="display: block; font-weight: 800; font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Order / Invoice #</label>
                     <input type="text" id="cr-order" placeholder="e.g. SUN-RENT0713" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600;" oninput="previewCustomReceipt()">
                 </div>
             </div>
@@ -10012,7 +10019,7 @@
                 </div>
             </div>
 
-            <div style="margin-top: 20px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 16px;">
+            <div id="cr-finance-box" style="margin-top: 20px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 16px;">
                 <label for="cr-include-finance" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
                     <input type="checkbox" id="cr-include-finance" onchange="toggleCustomReceiptFinanceOptions()" style="width: 18px; height: 18px; margin-top: 2px; cursor: pointer;">
                     <span>

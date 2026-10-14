@@ -2,8 +2,36 @@
 
 let customReceiptItems = [];
 
+function getCustomReceiptDocType() {
+    const el = document.getElementById('cr-doc-type');
+    return (el && el.value === 'quote') ? 'quote' : 'invoice';
+}
+
+function onCustomReceiptDocTypeChange() {
+    const isQuote = getCustomReceiptDocType() === 'quote';
+    const financeBox = document.getElementById('cr-finance-box');
+    const includeEl = document.getElementById('cr-include-finance');
+    const orderLabel = document.getElementById('cr-order-label');
+    const icon = document.getElementById('cr-title-icon');
+    const typeSel = document.getElementById('cr-doc-type');
+
+    if (financeBox) financeBox.style.display = isQuote ? 'none' : 'block';
+    if (includeEl && isQuote) {
+        includeEl.checked = false;
+        if (typeof toggleCustomReceiptFinanceOptions === 'function') toggleCustomReceiptFinanceOptions();
+    }
+    if (orderLabel) orderLabel.textContent = isQuote ? 'Quote #' : 'Order / Invoice #';
+    if (icon) icon.style.color = isQuote ? '#d97706' : '#2563eb';
+    if (typeSel) typeSel.style.borderColor = isQuote ? '#f59e0b' : '#cbd5e1';
+
+    if (typeof previewCustomReceipt === 'function') previewCustomReceipt();
+}
+window.onCustomReceiptDocTypeChange = onCustomReceiptDocTypeChange;
+
 function openCustomReceiptModal() {
     // Reset form
+    const typeEl = document.getElementById('cr-doc-type');
+    if (typeEl) typeEl.value = 'invoice';
     document.getElementById('cr-company').value = 'tulipan';
     document.getElementById('cr-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('cr-order').value = '';
@@ -31,6 +59,7 @@ function openCustomReceiptModal() {
     addCustomReceiptItem(); // Add one empty row by default
     
     updateCustomReceiptTotals();
+    onCustomReceiptDocTypeChange();
     
     document.getElementById('custom-receipt-modal').style.display = 'block';
 }
@@ -61,6 +90,7 @@ function parseCustomReceiptContact(raw) {
     }
     return { email: raw };
 }
+window.parseCustomReceiptContact = parseCustomReceiptContact;
 
 function getCustomReceiptBookedAmount(receipt, totals) {
     if (totals) {
@@ -334,6 +364,10 @@ function previewCustomReceipt() {
     
     const totals = updateCustomReceiptTotals();
     const company = getCompanyDetails(companyKey);
+    const isQuote = getCustomReceiptDocType() === 'quote';
+    const docTitle = isQuote ? 'QUOTE' : 'INVOICE';
+    const docNoLabel = isQuote ? 'QUOTE NO.' : 'INVOICE NO.';
+    const totalLabel = isQuote ? 'Estimated Total' : 'Balance Due';
     
     let itemsHtml = '';
     customReceiptItems.forEach(item => {
@@ -376,11 +410,11 @@ function previewCustomReceipt() {
                         <div style="margin-bottom: 3px; font-size: 14px; color: #475569;"><span style="color: ${company.color}; font-weight: 800; font-size: 13px; padding-right: 5px;">EMAIL:</span> ${company.email}</div>
                     </td>
                     <td class="cr-header-right" style="vertical-align: top; text-align: right; padding-bottom: 20px; width: 40%;">
-                        <div style="font-size: 40px; font-weight: 900; color: #e2e8f0; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; text-align: right;">INVOICE</div>
+                        <div style="font-size: 40px; font-weight: 900; color: #e2e8f0; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; text-align: right;">${docTitle}</div>
                         <table style="width: 180px; border-collapse: collapse; margin-left: auto; background: #f8fafc; border: 1px solid #e2e8f0;">
                             <tr>
                                 <td style="padding: 10px 15px; text-align: left;">
-                                    <div style="font-weight: 700; color: #64748b; font-size: 13px; margin-bottom: 2px;">INVOICE NO.</div>
+                                    <div style="font-weight: 700; color: #64748b; font-size: 13px; margin-bottom: 2px;">${docNoLabel}</div>
                                     <div style="font-weight: 900; color: #1e293b; font-size: 18px; margin-bottom: 8px;">${orderNo}</div>
                                     <div style="border-top: 1px solid #cbd5e1; margin-bottom: 8px;"></div>
                                     <div style="font-weight: 700; color: #64748b; font-size: 13px; margin-bottom: 2px;">DATE</div>
@@ -394,7 +428,7 @@ function previewCustomReceipt() {
 
             <!-- Bill To -->
             <div style="margin-bottom: 30px;">
-                <div style="font-size: 14px; color: ${company.color}; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">BILL TO</div>
+                <div style="font-size: 14px; color: ${company.color}; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">${isQuote ? 'QUOTE FOR' : 'BILL TO'}</div>
                 <div style="margin-bottom: 5px; font-size: 18px; font-weight: 700; color: #1e293b;">${customer}</div>
                 ${contactName ? `<div style="margin-bottom: 2px; font-size: 14px; font-weight: 600; color: #334155;">ATTN: ${contactName}</div>` : ''}
                 ${address ? `<div style="margin-bottom: 2px; font-size: 14px; color: #475569;">${address}</div>` : ''}
@@ -446,7 +480,7 @@ function previewCustomReceipt() {
                             </tr>
                             ` : ''}
                             <tr>
-                                <td style="padding: 15px 0 5px 0; border-top: 2px solid ${company.color}; font-weight: 900; color: #0f172a; font-size: 19px; text-transform: uppercase; text-align: left;">Balance Due</td>
+                                <td style="padding: 15px 0 5px 0; border-top: 2px solid ${company.color}; font-weight: 900; color: #0f172a; font-size: 19px; text-transform: uppercase; text-align: left;">${totalLabel}</td>
                                 <td style="padding: 15px 0 5px 0; border-top: 2px solid ${company.color}; font-weight: 900; color: ${company.color}; font-size: 19px; text-align: right;">$${Math.max(0, totals.totalDue).toFixed(2)}</td>
                             </tr>
                         </table>
@@ -454,6 +488,11 @@ function previewCustomReceipt() {
                 </tr>
             </table>
             
+            ${isQuote ? `
+            <div style="margin-top: 40px; margin-bottom: 20px; background: #fffbeb; border-radius: 8px; border: 1px solid #fcd34d; padding: 16px 20px;">
+                <p style="margin: 0; font-size: 14px; color: #92400e; font-weight: 700;">This is a quotation only. It is not an invoice and does not request payment.</p>
+            </div>
+            ` : `
             <div style="margin-top: 40px; margin-bottom: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 20px;">
                 <h3 style="font-size: 15px; color: ${company.color}; font-weight: 800; text-transform: uppercase; margin-top: 0; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">ACH / Wire Payment Information</h3>
                 <p style="margin: 0 0 15px 0; font-size: 14px; color: #475569;">Please use the following information to submit ACH/WIRE payments.</p>
@@ -495,9 +534,10 @@ function previewCustomReceipt() {
                     </tbody>
                 </table>
             </div>
+            `}
             
             <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 14px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-                <p>Thank you for your business!</p>
+                <p>${isQuote ? 'Thank you for the opportunity to quote.' : 'Thank you for your business!'}</p>
             </div>
         </div>
     `;
@@ -520,7 +560,8 @@ async function saveAndPreviewCustomReceipt() {
         const phone = document.getElementById('cr-phone').value;
         const email = document.getElementById('cr-email').value;
         const totals = updateCustomReceiptTotals();
-        const includeFinance = !!(document.getElementById('cr-include-finance') && document.getElementById('cr-include-finance').checked);
+        const docType = getCustomReceiptDocType();
+        const includeFinance = docType === 'invoice' && !!(document.getElementById('cr-include-finance') && document.getElementById('cr-include-finance').checked);
         const profitLineChosen = includeFinance
             ? ((document.getElementById('cr-profit-line') && document.getElementById('cr-profit-line').value) || '').trim()
             : '';
@@ -573,6 +614,7 @@ async function saveAndPreviewCustomReceipt() {
             contact_name: contactName,
             address: address,
             phone: phone,
+            doc_type: docType,
             include_in_finance: includeFinance,
             finance_status: includeFinance ? (payStatus === 'PAID' ? 'PAID' : 'PENDING') : '',
             payment_method: arMethod,
@@ -610,7 +652,7 @@ async function saveAndPreviewCustomReceipt() {
             if (window.addInvoiceToReceivables) {
                 const detailsHtml = `
                     <div style="font-size:0.85rem; color:#475569;">
-                        <strong>Custom Invoice</strong><br>
+                        <strong>Custom ${docType === 'quote' ? 'Quote' : 'Invoice'}</strong><br>
                         <strong>Order:</strong> ${orderNo || arInvoiceNo}<br>
                         <strong>Date:</strong> ${date || ''}
                     </div>
@@ -654,6 +696,16 @@ async function saveAndPreviewCustomReceipt() {
         }
         
         previewCustomReceipt();
+        const previewTitle = document.querySelector('#cr-preview-modal h3');
+        if (previewTitle) previewTitle.innerHTML = docType === 'quote'
+            ? '<i class="fas fa-eye"></i> Quote Preview'
+            : '<i class="fas fa-eye"></i> Invoice Preview';
+        const emailBtn = document.getElementById('btn-email-cr');
+        if (emailBtn && !emailBtn.disabled) {
+            emailBtn.innerHTML = docType === 'quote'
+                ? '<i class="fas fa-envelope"></i> EMAIL QUOTE'
+                : '<i class="fas fa-envelope"></i> EMAIL INVOICE';
+        }
         document.getElementById('cr-preview-modal').style.display = 'block';
         
     } catch (err) {
@@ -712,6 +764,8 @@ window.viewCustomReceiptHistory = function(receiptData) {
     document.getElementById('cr-customer').value = receiptData.customer_name || '';
     
     const parsedContact = parseCustomReceiptContact(receiptData.customer_contact);
+    const typeEl = document.getElementById('cr-doc-type');
+    if (typeEl) typeEl.value = parsedContact.doc_type === 'quote' ? 'quote' : 'invoice';
     document.getElementById('cr-email').value = parsedContact.email || (typeof receiptData.customer_contact === 'string' && !String(receiptData.customer_contact).startsWith('{') ? receiptData.customer_contact : '');
     document.getElementById('cr-contact-name').value = parsedContact.contact_name || '';
     document.getElementById('cr-address').value = parsedContact.address || '';
@@ -735,11 +789,21 @@ window.viewCustomReceiptHistory = function(receiptData) {
     // Render
     renderCustomReceiptItems();
     updateCustomReceiptTotals();
-    previewCustomReceipt();
+    onCustomReceiptDocTypeChange();
     
     // Hide the save button since this is history (optional, or let them clone it)
     const btnSave = document.getElementById('btn-save-cr');
     if (btnSave) btnSave.style.display = 'none'; // We can hide it in the modal, but preview modal only has Print/Close
+
+    const isQuote = getCustomReceiptDocType() === 'quote';
+    const previewTitle = document.querySelector('#cr-preview-modal h3');
+    if (previewTitle) previewTitle.innerHTML = isQuote
+        ? '<i class="fas fa-eye"></i> Quote Preview'
+        : '<i class="fas fa-eye"></i> Invoice Preview';
+    const emailBtn = document.getElementById('btn-email-cr');
+    if (emailBtn) emailBtn.innerHTML = isQuote
+        ? '<i class="fas fa-envelope"></i> EMAIL QUOTE'
+        : '<i class="fas fa-envelope"></i> EMAIL INVOICE';
     
     // Show preview modal directly
     document.getElementById('cr-preview-modal').style.display = 'block';
@@ -787,7 +851,9 @@ window.emailCustomReceipt = async function() {
         let companyOverride = 'RP TULIPAN';
         if (companyKey === 'supercrane') companyOverride = 'JR SUPER CRANE';
         
-        await window.sendReceiptEmail(mockRowData, pdfBlob, companyOverride);
+        await window.sendReceiptEmail(mockRowData, pdfBlob, companyOverride, {
+            document_type: getCustomReceiptDocType() === 'quote' ? 'QUOTE' : 'INVOICE'
+        });
         
         // Success
         btn.innerHTML = '<i class="fas fa-check"></i> SENT!';
