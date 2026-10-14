@@ -2736,8 +2736,8 @@
                                         </button>
                                         <button type="button" onclick="openDriversNearToday()" id="btn-drivers-near-today"
                                             class="btn-reset-modern"
-                                            style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #0f766e, #14b8a6); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: none; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(20,184,166,0.3); transition: all 0.2s;">
-                                            <i class="fas fa-user-check"></i> DRIVERS CERCA (HOY)
+                                            style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #0f766e, #14b8a6); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(20,184,166,0.3); transition: all 0.2s;">
+                                            <i class="fas fa-user-check"></i> DRIVERS NEARBY (TODAY)
                                         </button>
                                         <button onclick="resetAdvancedFilters()" class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 25px; height: 45px;">
@@ -7223,7 +7223,7 @@
             }
             const driversNearBtn = document.getElementById('btn-drivers-near-today');
             if (driversNearBtn) {
-                driversNearBtn.style.display = isJuanExclusive ? 'flex' : 'none';
+                driversNearBtn.style.display = 'flex';
             }
 
             // Hide restricted views from navigation & dashboard
@@ -9064,34 +9064,45 @@
     </div>
 
     <div id="drivers-near-today-modal"
-        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.85); z-index:9999; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(6px);">
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.85); z-index:9999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(6px);">
         <div
-            style="background:white; border-radius:16px; width:100%; max-width:720px; box-shadow:0 25px 60px rgba(0,0,0,0.35); overflow:hidden; display:flex; flex-direction:column; max-height:90vh;">
+            style="background:white; border-radius:16px; width:100%; max-width:1240px; box-shadow:0 25px 60px rgba(0,0,0,0.35); overflow:hidden; display:flex; flex-direction:column; height:90vh; max-height:90vh;">
             <div
-                style="background:linear-gradient(135deg, #134e4a, #0f766e); padding:20px 25px; display:flex; justify-content:space-between; align-items:center;">
+                style="background:linear-gradient(135deg, #134e4a, #0f766e); padding:16px 22px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
                 <div>
                     <h3
                         style="margin:0; color:white; font-size:1.2rem; font-weight:800; display:flex; align-items:center; gap:10px;">
-                        <i class="fas fa-user-check" style="color:#5eead4;"></i> Drivers cerca (hoy)
+                        <i class="fas fa-user-check" style="color:#5eead4;"></i> Drivers Nearby (Today)
                     </h3>
                     <p id="drivers-near-today-subtitle" style="margin:4px 0 0; color:#99f6e4; font-size:0.8rem;">
-                        Ordenados por cercanía al pickup. Elige uno para rellenar Driver.
+                        Today's routes vs this order's pickup. Click a driver to see their path.
                     </p>
                 </div>
                 <button onclick="closeDriversNearToday()"
                     style="background:rgba(255,255,255,0.1); border:none; color:white; width:36px; height:36px; border-radius:8px; font-size:1.3rem; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
             </div>
             <div id="drivers-near-today-status"
-                style="display:none; padding:15px 25px; background:#ecfdf5; border-bottom:1px solid #a7f3d0; color:#115e59; font-size:0.85rem; font-weight:600; align-items:center; gap:10px;">
-                <i class="fas fa-spinner fa-spin"></i> <span id="drivers-near-today-status-text">Calculando distancias...</span>
+                style="display:none; padding:12px 22px; background:#ecfdf5; border-bottom:1px solid #a7f3d0; color:#115e59; font-size:0.85rem; font-weight:600; align-items:center; gap:10px; flex-shrink:0;">
+                <i class="fas fa-spinner fa-spin"></i> <span id="drivers-near-today-status-text">Calculating distances...</span>
             </div>
-            <div id="drivers-near-today-results" style="overflow-y:auto; flex:1; padding:20px 25px;">
-                <div id="drivers-near-today-list"></div>
+            <div id="drivers-near-today-results" style="flex:1; min-height:0; display:flex; overflow:hidden;">
+                <div id="drivers-near-today-list" style="width:380px; max-width:42%; overflow-y:auto; padding:16px 14px; border-right:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0;"></div>
+                <div style="flex:1; min-width:0; position:relative; background:#e2e8f0;">
+                    <div id="drivers-near-today-map" style="position:absolute; inset:0;"></div>
+                    <div id="drivers-near-today-map-msg" style="display:none; position:absolute; left:12px; top:12px; z-index:3; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:10px; padding:8px 10px; font-size:0.75rem; max-width:70%;"></div>
+                    <div style="position:absolute; left:12px; bottom:12px; z-index:2; background:rgba(255,255,255,0.96); border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.72rem; color:#334155; box-shadow:0 8px 20px rgba(15,23,42,0.12); line-height:1.45;">
+                        <div style="font-weight:800; color:#0f766e; margin-bottom:4px;">How to read the map</div>
+                        <div><span style="display:inline-block; width:11px; height:11px; background:#f59e0b; border-radius:50%; vertical-align:middle; margin-right:6px;"></span><b>Yellow dot</b> = pick up this order</div>
+                        <div><span style="display:inline-block; width:18px; height:0; border-top:3px solid #0f766e; vertical-align:middle; margin-right:6px;"></span><b>Solid line</b> = loaded trip (pickup → delivery)</div>
+                        <div><span style="display:inline-block; width:18px; height:0; border-top:3px dashed #0f766e; vertical-align:middle; margin-right:6px;"></span><b>Dashed line</b> = empty miles to this pickup if assigned</div>
+                        <div style="margin-top:2px; color:#64748b;">Click a driver to focus their path.</div>
+                    </div>
+                </div>
             </div>
             <div
-                style="padding:15px 25px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end;">
+                style="padding:12px 22px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:flex-end; flex-shrink:0;">
                 <button onclick="closeDriversNearToday()"
-                    style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; padding:10px 24px; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">Cerrar</button>
+                    style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; padding:10px 24px; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">Close</button>
             </div>
         </div>
     </div>

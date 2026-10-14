@@ -3711,7 +3711,7 @@ window.searchNearbyTrucks = async function () {
 };
 
 window._canUseDriversNearToday = function () {
-    return (window.userEmail || '').toLowerCase().trim() === 'juancathalia1@gmail.com';
+    return true;
 };
 
 function getFormPickupAddress() {
@@ -3735,6 +3735,14 @@ function getDriversNearHintDay() {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+function usableTripAddress(value) {
+    const addr = (value || '').toString().trim();
+    if (!addr || addr === '---') return '';
+    const lower = addr.toLowerCase();
+    if (lower.includes('select') || lower.includes('loading')) return '';
+    return addr;
+}
+
 function collectTodayDriverDrops(dayKey) {
     const pools = [window.allTripsUnfiltered, window.currentTrips];
     const byId = new Map();
@@ -3750,43 +3758,438 @@ function collectTodayDriverDrops(dayKey) {
         const dateKey = (trip[1] || '').toString().split('T')[0];
         if (dateKey !== dayKey) return;
         const driver = (trip[17] || '').toString().trim();
-        const delivery = (trip[8] || '').toString().trim();
+        const delivery = usableTripAddress(trip[8]);
         if (!driver || driver === '---') return;
-        if (!delivery || delivery === '---') return;
+        if (!delivery) return;
         const key = driver.toUpperCase();
         if (!byDriver[key]) byDriver[key] = [];
         byDriver[key].push(trip);
     });
 
     return Object.keys(byDriver).map(key => {
-        const list = byDriver[key];
+        const list = byDriver[key].slice().sort((a, b) => {
+            const da = (a[1] || '').toString();
+            const db = (b[1] || '').toString();
+            return da.localeCompare(db);
+        });
         const pending = list.filter(t => {
             const st = (t[41] || '').toString().toUpperCase();
             return st !== 'COMPLETE' && st !== 'PAID' && st !== 'DELIVERED';
         });
         const pickFrom = pending.length ? pending : list;
-        pickFrom.sort((a, b) => {
-            const da = (a[1] || '').toString();
-            const db = (b[1] || '').toString();
-            return da.localeCompare(db);
-        });
         const chosen = pickFrom[pickFrom.length - 1];
+        const legs = list.map(t => ({
+            pickup: usableTripAddress(t[7]),
+            delivery: usableTripAddress(t[8]),
+            orderNo: (t[5] || t[4] || '').toString().trim(),
+            city: (t[6] || '').toString().trim()
+        })).filter(leg => leg.delivery);
         return {
             driver: (chosen[17] || '').toString().trim(),
-            delivery: (chosen[8] || '').toString().trim(),
+            delivery: usableTripAddress(chosen[8]),
+            pickup: usableTripAddress(chosen[7]),
             orderNo: (chosen[5] || chosen[4] || '').toString().trim(),
             city: (chosen[6] || '').toString().trim(),
             status: (chosen[41] || 'PENDING_PAYMENT').toString(),
             date: (chosen[1] || '').toString().split('T')[0],
-            pending: pending.length > 0
+            pending: pending.length > 0,
+            tripCount: legs.length,
+            legs: legs,
+            color: '#0f766e'
         };
     });
+}
+
+const DRIVERS_NEAR_ROUTE_COLORS = ['#0f766e', '#2563eb', '#c2410c', '#7c3aed', '#be123c', '#0369a1', '#a16207', '#15803d', '#4338ca', '#0e7490'];
+
+function latLngFromRoutesPoint(point) {
+    if (!point) return null;
+    if (typeof point.lat === 'function') return point;
+    const ll = point.latLng || point;
+    const lat = ll.latitude != null ? ll.latitude : ll.lat;
+    const lng = ll.longitude != null ? ll.longitude : (ll.lng != null ? ll.lng : ll.lon);
+    if (lat == null || lng == null) return null;
+    return new google.maps.LatLng(Number(lat), Number(lng));
+}
+
+function decodeRoutesPolyline(encoded) {
+    if (!encoded) return [];
+    if (google.maps.geometry && google.maps.geometry.encoding) {
+        return google.maps.geometry.encoding.decodePath(encoded);
+    }
+    return [];
+}
+
+async function fetchComputeRoute(apiKey, origin, destination) {
+    const res = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': 'routes.polyline.encodedPolyline,routes.legs.polyline.encodedPolyline,routes.legs.startLocation,routes.legs.endLocation'
+        },
+        body: JSON.stringify({
+            origin: { address: origin },
+            destination: { address: destination },
+            travelMode: 'DRIVE',
+            routingPreference: 'TRAFFIC_UNAWARE'
+        })
+    });
+    if (!res.ok) {
+        let detail = '';
+        try { detail = await res.text(); } catch (e) { detail = ''; }
+        console.warn('Routes API HTTP', res.status, detail);
+        return { error: 'HTTP ' + res.status, path: [], start: null, end: null };
+    }
+    const data = await res.json();
+    const route = data.routes && data.routes[0];
+    if (!route) return { error: 'NO_ROUTE', path: [], start: null, end: null };
+    let path = decodeRoutesPolyline(route.polyline && route.polyline.encodedPolyline);
+    if ((!path || !path.length) && Array.isArray(route.legs)) {
+        path = [];
+        route.legs.forEach(leg => {
+            const chunk = decodeRoutesPolyline(leg.polyline && leg.polyline.encodedPolyline);
+            if (chunk && chunk.length) path = path.concat(chunk);
+        });
+    }
+    const start = latLngFromRoutesPoint(route.legs && route.legs[0] && route.legs[0].startLocation);
+    const lastLeg = route.legs && route.legs[route.legs.length - 1];
+    const end = latLngFromRoutesPoint(lastLeg && lastLeg.endLocation);
+    return { error: null, path: path, start: start, end: end };
+}
+
+function fetchLegacyDirections(origin, destination) {
+    return new Promise(resolve => {
+        if (typeof google === 'undefined' || !google.maps || !google.maps.DirectionsService) {
+            resolve(null);
+            return;
+        }
+        const ds = new google.maps.DirectionsService();
+        const timer = setTimeout(() => resolve(null), 15000);
+        ds.route({
+            origin: origin,
+            destination: destination,
+            travelMode: google.maps.TravelMode.DRIVING
+        }, (result, status) => {
+            clearTimeout(timer);
+            if (status !== 'OK' || !result || !result.routes || !result.routes[0]) {
+                resolve(null);
+                return;
+            }
+            const r = result.routes[0];
+            const lastLeg = r.legs[r.legs.length - 1];
+            resolve({
+                error: null,
+                path: r.overview_path || [],
+                start: r.legs[0] && r.legs[0].start_location,
+                end: lastLeg && lastLeg.end_location
+            });
+        });
+    });
+}
+
+async function requestDriverRoute(apiKey, origin, destination, cache) {
+    const key = origin + ' => ' + destination;
+    if (cache[key]) return cache[key];
+    let result = null;
+    try {
+        result = await fetchComputeRoute(apiKey, origin, destination);
+    } catch (err) {
+        console.warn('Routes fetch failed', err);
+        result = { error: err.message || 'FETCH', path: [], start: null, end: null };
+    }
+    if (!result || !result.path || !result.path.length) {
+        const legacy = await fetchLegacyDirections(origin, destination);
+        if (legacy && legacy.path && legacy.path.length) result = legacy;
+    }
+    cache[key] = result || { error: 'NO_ROUTE', path: [], start: null, end: null };
+    return cache[key];
+}
+
+function clearDriversNearMap() {
+    const state = window._driversNearMapState;
+    if (!state) return;
+    (state.markers || []).forEach(m => m.setMap(null));
+    (state.polylines || []).forEach(p => p.setMap(null));
+    window._driversNearMapState = null;
 }
 
 window.closeDriversNearToday = function () {
     const modal = document.getElementById('drivers-near-today-modal');
     if (modal) modal.style.display = 'none';
+    clearDriversNearMap();
 };
+
+window.highlightDriversNearRoute = function (driverName, opts) {
+    const state = window._driversNearMapState;
+    if (!state) return;
+    const key = (driverName || '').toString().trim().toUpperCase();
+    const doFit = !(opts && opts.fit === false);
+    Object.keys(state.byDriver || {}).forEach(name => {
+        const layer = state.byDriver[name];
+        const active = name === key;
+        (layer.loadedLines || []).forEach(line => {
+            line.setOptions({
+                strokeOpacity: active ? 1 : 0.35,
+                strokeWeight: active ? 7 : 4,
+                zIndex: active ? 80 : 12
+            });
+        });
+        (layer.deadheadLines || []).forEach(line => {
+            line.setOptions({
+                strokeOpacity: active ? 0 : 0,
+                icons: [{
+                    icon: { path: 'M 0,-1 0,1', strokeOpacity: active ? 1 : 0.35, scale: 3, strokeColor: layer.color },
+                    offset: '0',
+                    repeat: '12px'
+                }],
+                zIndex: active ? 85 : 11
+            });
+        });
+        (layer.markers || []).forEach(marker => {
+            marker.setOpacity(active ? 1 : 0.55);
+            marker.setZIndex(active ? 90 : 20);
+        });
+    });
+    document.querySelectorAll('#drivers-near-today-list [data-driver-key]').forEach(card => {
+        const active = (card.getAttribute('data-driver-key') || '') === key;
+        card.style.background = active ? '#ecfdf5' : '#ffffff';
+        card.style.borderColor = active ? '#0f766e' : '#e2e8f0';
+        card.style.boxShadow = active ? '0 0 0 2px rgba(15,118,110,0.18)' : 'none';
+    });
+    const layer = state.byDriver[key];
+    if (doFit && layer && layer.bounds && !layer.bounds.isEmpty() && state.map) {
+        const fit = new google.maps.LatLngBounds();
+        if (state.originLoc) fit.extend(state.originLoc);
+        const sw = layer.bounds.getSouthWest();
+        const ne = layer.bounds.getNorthEast();
+        if (sw) fit.extend(sw);
+        if (ne) fit.extend(ne);
+        state.map.fitBounds(fit, 70);
+    }
+};
+
+function addLoadedRouteLine(map, path, color, onClick) {
+    return new google.maps.Polyline({
+        map: map,
+        path: path,
+        geodesic: path.length === 2,
+        strokeColor: color,
+        strokeOpacity: 0.95,
+        strokeWeight: 5,
+        zIndex: 20,
+        icons: [{
+            icon: {
+                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 3.5,
+                fillColor: color,
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 1
+            },
+            offset: '50%',
+            repeat: '90px'
+        }]
+    });
+}
+
+function addDeadheadLine(map, path, color) {
+    return new google.maps.Polyline({
+        map: map,
+        path: path,
+        geodesic: path.length === 2,
+        strokeColor: color,
+        strokeOpacity: 0,
+        strokeWeight: 4,
+        zIndex: 15,
+        icons: [{
+            icon: { path: 'M 0,-1 0,1', strokeOpacity: 0.85, scale: 3, strokeColor: color },
+            offset: '0',
+            repeat: '12px'
+        }]
+    });
+}
+
+function shortDriverLabel(name, rank) {
+    const parts = (name || '').toString().trim().split(/\s+/);
+    const first = parts[0] || name || '';
+    return rank + ' ' + first;
+}
+
+async function drawDriversNearRoutes(apiKey, origin, ranked, statusText) {
+    const mapEl = document.getElementById('drivers-near-today-map');
+    const msgEl = document.getElementById('drivers-near-today-map-msg');
+    if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; }
+    if (!mapEl || typeof google === 'undefined' || !google.maps) return;
+
+    clearDriversNearMap();
+    const map = new google.maps.Map(mapEl, {
+        zoom: 7,
+        center: { lat: 27.8, lng: -81.7 },
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true
+    });
+    const info = new google.maps.InfoWindow();
+    const state = { map: map, markers: [], polylines: [], byDriver: {}, cache: {}, originLoc: null };
+    window._driversNearMapState = state;
+    const allBounds = new google.maps.LatLngBounds();
+    let drawn = 0;
+    let lastError = '';
+
+    const extendAll = function (loc, layer) {
+        if (!loc) return;
+        allBounds.extend(loc);
+        if (layer) layer.bounds.extend(loc);
+    };
+
+    if (ranked[0] && ranked[0].delivery) {
+        if (statusText) statusText.textContent = 'Marking this order pickup...';
+        const originRoute = await requestDriverRoute(apiKey, origin, ranked[0].delivery, state.cache);
+        if (originRoute.error) lastError = originRoute.error;
+        state.originLoc = originRoute.start || null;
+        if (state.originLoc) {
+            extendAll(state.originLoc);
+            const originMarker = new google.maps.Marker({
+                map: map,
+                position: state.originLoc,
+                title: 'PICK UP THIS ORDER',
+                zIndex: 300,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 14,
+                    fillColor: '#f59e0b',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 3
+                },
+                label: { text: '★', color: '#78350f', fontSize: '14px', fontWeight: '900' }
+            });
+            originMarker.addListener('click', function () {
+                info.setContent('<div style="font-weight:800;color:#92400e;margin-bottom:4px;">Pick up this order here</div><div style="font-size:12px;color:#475569;max-width:240px;">' + origin + '</div>');
+                info.open(map, originMarker);
+            });
+            state.markers.push(originMarker);
+            info.setContent('<div style="font-weight:800;color:#92400e;">Pick up this order</div><div style="font-size:12px;color:#475569;max-width:240px;">' + origin + '</div>');
+            info.open(map, originMarker);
+        }
+    }
+
+    for (let i = 0; i < ranked.length; i++) {
+        const item = ranked[i];
+        const color = DRIVERS_NEAR_ROUTE_COLORS[i % DRIVERS_NEAR_ROUTE_COLORS.length];
+        item.color = color;
+        const driverKey = item.driver.toUpperCase();
+        const layer = { polylines: [], loadedLines: [], deadheadLines: [], markers: [], bounds: new google.maps.LatLngBounds(), color: color };
+        state.byDriver[driverKey] = layer;
+        if (state.originLoc) layer.bounds.extend(state.originLoc);
+        if (statusText) {
+            statusText.textContent = 'Drawing routes... (' + (i + 1) + ' / ' + ranked.length + ') ' + item.driver;
+        }
+
+        let lastDrop = null;
+        for (let li = 0; li < item.legs.length; li++) {
+            const leg = item.legs[li];
+            const startAddr = leg.pickup || origin;
+            const routed = await requestDriverRoute(apiKey, startAddr, leg.delivery, state.cache);
+            if (routed.error) lastError = routed.error;
+            const path = (routed.path && routed.path.length)
+                ? routed.path
+                : [routed.start, routed.end].filter(Boolean);
+            if (path.length >= 2) {
+                drawn += 1;
+                path.forEach(pt => extendAll(pt, layer));
+                const line = addLoadedRouteLine(map, path, color);
+                line.addListener('click', function () { window.highlightDriversNearRoute(item.driver); });
+                layer.loadedLines.push(line);
+                layer.polylines.push(line);
+                state.polylines.push(line);
+            } else if (path.length === 1) {
+                extendAll(path[0], layer);
+            }
+            const pickLoc = routed.start || (path.length ? path[0] : null);
+            const dropLoc = routed.end || (path.length ? path[path.length - 1] : null);
+            lastDrop = dropLoc || lastDrop;
+            if (pickLoc) {
+                const pMarker = new google.maps.Marker({
+                    map: map,
+                    position: pickLoc,
+                    title: item.driver + ' picks up: ' + startAddr,
+                    zIndex: 35,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 7,
+                        fillColor: '#ffffff',
+                        fillOpacity: 1,
+                        strokeColor: color,
+                        strokeWeight: 3
+                    }
+                });
+                pMarker.addListener('click', function () { window.highlightDriversNearRoute(item.driver); });
+                layer.markers.push(pMarker);
+                state.markers.push(pMarker);
+                extendAll(pickLoc, layer);
+            }
+            if (dropLoc) {
+                const marker = new google.maps.Marker({
+                    map: map,
+                    position: dropLoc,
+                    title: item.driver + ' delivers here',
+                    label: { text: String(i + 1), color: '#fff', fontSize: '12px', fontWeight: '800' },
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 14,
+                        fillColor: color,
+                        fillOpacity: 1,
+                        strokeColor: '#ffffff',
+                        strokeWeight: 2
+                    },
+                    zIndex: 50
+                });
+                marker.addListener('click', function () {
+                    window.highlightDriversNearRoute(item.driver);
+                    info.setContent(
+                        '<div style="font-weight:800;color:' + color + ';margin-bottom:4px;">' + (i + 1) + '. ' + item.driver + '</div>' +
+                        '<div style="font-size:12px;color:#334155;max-width:260px;"><b>Loaded:</b> ' + (startAddr || '—') + ' → ' + leg.delivery + '</div>' +
+                        '<div style="font-size:12px;color:#64748b;margin-top:4px;max-width:260px;"><b>If assigned:</b> empty miles from that delivery to your pickup.</div>'
+                    );
+                    info.open(map, marker);
+                });
+                layer.markers.push(marker);
+                state.markers.push(marker);
+                extendAll(dropLoc, layer);
+            }
+            await new Promise(r => setTimeout(r, 80));
+        }
+
+        if (lastDrop && origin) {
+            const dead = await requestDriverRoute(apiKey, item.delivery, origin, state.cache);
+            const deadPath = (dead.path && dead.path.length >= 2)
+                ? dead.path
+                : [lastDrop, state.originLoc].filter(Boolean);
+            if (deadPath.length >= 2) {
+                drawn += 1;
+                deadPath.forEach(pt => extendAll(pt, layer));
+                const dline = addDeadheadLine(map, deadPath, color);
+                dline.addListener('click', function () { window.highlightDriversNearRoute(item.driver); });
+                layer.deadheadLines.push(dline);
+                layer.polylines.push(dline);
+                state.polylines.push(dline);
+            }
+        }
+    }
+
+    if (!allBounds.isEmpty()) map.fitBounds(allBounds, 56);
+    setTimeout(function () {
+        google.maps.event.trigger(map, 'resize');
+        if (!allBounds.isEmpty()) map.fitBounds(allBounds, 56);
+    }, 250);
+
+    if (!drawn && msgEl) {
+        msgEl.style.display = 'block';
+        msgEl.textContent = 'Could not draw routes (' + (lastError || 'no polyline') + '). Make sure Routes API is allowed on this API key.';
+    }
+}
 
 window.applySuggestedDriver = function (driverName) {
     if (!window._canUseDriversNearToday()) return;
@@ -3818,7 +4221,7 @@ window.openDriversNearToday = async function () {
 
     const origin = getFormPickupAddress();
     if (!origin) {
-        alert('Pon primero el Pick Up Address de la orden. La lista se ordena por cercanía a ese pickup.');
+        alert('Set the Pick Up Address on this order first. The list is sorted by closeness to that pickup.');
         return;
     }
 
@@ -3832,31 +4235,32 @@ window.openDriversNearToday = async function () {
     if (!modal || !listEl) return;
 
     if (subtitle) {
-        subtitle.textContent = 'Pickup: ' + origin + '  ·  Día: ' + dayKey + '  ·  Clic en un driver para rellenarlo (no guarda la orden).';
+        subtitle.textContent = 'Pickup: ' + origin + '  ·  Day: ' + dayKey + '  ·  Click a driver to see the route. Use driver does not save the order.';
     }
 
     modal.style.display = 'flex';
     listEl.innerHTML = '';
     if (!drivers.length) {
         listEl.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#64748b;">' +
-            '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No hay drivers con entrega ese día</p>' +
-            '<p style="font-size:0.85rem; margin:0;">Necesitan viaje el ' + dayKey + ' con driver y delivery place.</p></div>';
+            '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No drivers with a delivery that day</p>' +
+            '<p style="font-size:0.85rem; margin:0;">They need a trip on ' + dayKey + ' with a driver and delivery place.</p></div>';
         if (statusEl) statusEl.style.display = 'none';
+        clearDriversNearMap();
         return;
     }
 
     if (statusEl) statusEl.style.display = 'flex';
-    if (statusText) statusText.textContent = 'Calculando distancias...';
+    if (statusText) statusText.textContent = 'Calculating distances...';
 
     try {
         let apiKey = localStorage.getItem('google_maps_api_key') || '';
         if (!apiKey) {
-            const userKey = prompt('Ingresa tu Google Maps API Key para calcular distancias:');
+            const userKey = prompt('Enter your Google Maps API Key to calculate distances:');
             if (userKey) {
                 localStorage.setItem('google_maps_api_key', userKey.trim());
                 apiKey = userKey.trim();
             } else {
-                throw new Error('No se proporcionó una API Key.');
+                throw new Error('No API key was provided.');
             }
         }
 
@@ -3864,7 +4268,7 @@ window.openDriversNearToday = async function () {
             if (typeof window.loadGoogleMapsScript === 'function') {
                 await window.loadGoogleMapsScript(apiKey);
             } else {
-                throw new Error('Google Maps SDK no está disponible.');
+                throw new Error('Google Maps SDK is not available.');
             }
         }
 
@@ -3876,7 +4280,7 @@ window.openDriversNearToday = async function () {
         for (let i = 0; i < uniqueDeliveries.length; i += BATCH_SIZE) {
             const batch = uniqueDeliveries.slice(i, i + BATCH_SIZE);
             if (statusText) {
-                statusText.textContent = 'Calculando distancias... (' + Math.min(i + BATCH_SIZE, uniqueDeliveries.length) + ' / ' + uniqueDeliveries.length + ')';
+                statusText.textContent = 'Calculating distances... (' + Math.min(i + BATCH_SIZE, uniqueDeliveries.length) + ' / ' + uniqueDeliveries.length + ')';
             }
             await new Promise((resolve, reject) => {
                 const timer = setTimeout(() => reject(new Error('Google API timeout')), 20000);
@@ -3913,13 +4317,15 @@ window.openDriversNearToday = async function () {
             durationText: ''
         })).sort((a, b) => a.miles - b.miles);
 
+        if (statusText) statusText.textContent = 'Drawing routes...';
+        await drawDriversNearRoutes(apiKey, origin, ranked, statusText);
+
         listEl.innerHTML = '';
         ranked.forEach((item, idx) => {
             const card = document.createElement('div');
-            card.style.cssText = 'border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; padding:12px 14px; cursor:pointer; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; gap:12px;';
-            card.onmouseenter = function () { this.style.background = '#ecfdf5'; this.style.borderColor = '#5eead4'; };
-            card.onmouseleave = function () { this.style.background = '#f8fafc'; this.style.borderColor = '#e2e8f0'; };
-            card.onclick = function () { window.applySuggestedDriver(item.driver); };
+            card.setAttribute('data-driver-key', item.driver.toUpperCase());
+            card.style.cssText = 'border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; padding:12px 14px; cursor:pointer; background:#ffffff; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;';
+            card.onclick = function () { window.highlightDriversNearRoute(item.driver); };
 
             let badgeColor = '#10b981';
             if (!isFinite(item.miles)) badgeColor = '#94a3b8';
@@ -3927,14 +4333,17 @@ window.openDriversNearToday = async function () {
             else if (item.miles > 25) badgeColor = '#f59e0b';
 
             const rank = idx + 1;
-            const stLabel = item.pending ? 'Pendiente' : 'Completada';
+            const stLabel = item.pending ? 'Pending' : 'Completed';
+            const routeHint = item.tripCount > 1 ? (item.tripCount + ' trips') : (item.pickup ? (item.pickup + ' →') : 'Delivery');
             card.innerHTML =
                 '<div style="min-width:0; flex:1;">' +
                 '<div style="font-weight:800; color:#134e4a; font-size:0.95rem; display:flex; align-items:center; gap:8px;">' +
-                '<span style="background:#0f766e; color:white; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem;">' + rank + '</span>' +
+                '<span style="background:' + (item.color || '#0f766e') + '; color:white; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem;">' + rank + '</span>' +
                 '<i class="fas fa-truck"></i> ' + item.driver + '</div>' +
-                '<div style="font-size:0.8rem; color:#475569; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                '<i class="fas fa-map-pin" style="color:#0f766e; margin-right:4px;"></i>' + item.delivery + '</div>' +
+                '<div style="font-size:0.75rem; color:#64748b; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                routeHint + '</div>' +
+                '<div style="font-size:0.8rem; color:#475569; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                '<i class="fas fa-map-pin" style="color:' + (item.color || '#0f766e') + '; margin-right:4px;"></i>' + item.delivery + '</div>' +
                 '<div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">' +
                 (item.orderNo ? ('Orden ' + item.orderNo + ' · ') : '') + (item.city || '') + ' · ' + stLabel + '</div>' +
                 '</div>' +
@@ -3942,11 +4351,19 @@ window.openDriversNearToday = async function () {
                 '<div style="background:' + badgeColor + '; color:white; padding:4px 10px; border-radius:16px; font-size:0.78rem; font-weight:800; white-space:nowrap;">' +
                 item.distanceText + '</div>' +
                 (item.durationText ? '<div style="font-size:0.72rem; color:#64748b; margin-top:4px;">~' + item.durationText + '</div>' : '') +
-                '<div style="font-size:0.7rem; color:#0f766e; margin-top:6px; font-weight:700;">Usar driver</div>' +
+                '<button type="button" class="drivers-near-use-btn" style="margin-top:8px; background:#0f766e; color:white; border:none; border-radius:8px; padding:6px 10px; font-size:0.7rem; font-weight:800; cursor:pointer;">Use driver</button>' +
                 '</div>';
+            const useBtn = card.querySelector('.drivers-near-use-btn');
+            if (useBtn) {
+                useBtn.onclick = function (ev) {
+                    ev.stopPropagation();
+                    window.applySuggestedDriver(item.driver);
+                };
+            }
             listEl.appendChild(card);
         });
         if (statusEl) statusEl.style.display = 'none';
+        if (ranked[0]) window.highlightDriversNearRoute(ranked[0].driver, { fit: false });
     } catch (err) {
         if (statusEl) statusEl.style.display = 'none';
         listEl.innerHTML =
