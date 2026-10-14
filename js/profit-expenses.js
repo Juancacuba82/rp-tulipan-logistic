@@ -434,7 +434,7 @@
 
             window.updateExpenseProfitLineBanner();
 
-            // Update Global Expense Banner
+            // Update Global Expense Banner (always below the module navbar)
             const expenseBanner = document.getElementById('global-expense-banner');
             const expenseCountSpan = document.getElementById('pending-expenses-count');
             if (expenseBanner && expenseCountSpan) {
@@ -443,26 +443,14 @@
                     expenseBanner.style.display = 'flex';
                     expenseBanner.style.justifyContent = 'center';
                     expenseBanner.style.alignItems = 'center';
-                    
-                    if (document.body.classList.contains('banner-active')) {
-                        expenseBanner.style.top = '45px';
-                        document.body.style.paddingTop = '90px';
-                        document.getElementById('header-nav').style.top = '90px';
-                    } else {
-                        expenseBanner.style.top = '0';
-                        document.body.style.paddingTop = '45px';
-                        document.getElementById('header-nav').style.top = '45px';
-                    }
+                    document.body.classList.add('expense-banner-active');
                 } else {
                     expenseBanner.style.display = 'none';
-                    if (document.body.classList.contains('banner-active')) {
-                        document.body.style.paddingTop = '45px';
-                        document.getElementById('header-nav').style.top = '45px';
-                    } else {
-                        document.body.style.paddingTop = '0';
-                        document.getElementById('header-nav').style.top = '0';
-                    }
+                    document.body.classList.remove('expense-banner-active');
                 }
+                const headerNav = document.getElementById('header-nav');
+                if (headerNav) headerNav.style.top = '0';
+                document.body.style.paddingTop = '';
             }
         };
 

@@ -33,7 +33,7 @@
     <script src="./js/delivery-calendar.js?v=1726" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1732" defer></script>
+    <script src="./js/profit-expenses.js?v=1733" defer></script>
     <script src="./js/company-money.js?v=19" defer></script>
 
     <script src="./js/docs-receipts.js?v=1716" defer></script>
@@ -1337,51 +1337,83 @@
             line-height: 1.2;
         }
 
-        /* Sticky Task Banner Styles */
         #global-task-banner {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: #fef08a;
-            /* Yellow */
-            color: #854d0e;
-            /* Dark yellow/brown text */
-            text-align: center;
-            padding: 12px 20px;
-            font-weight: 900;
-            z-index: 100000;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            border-bottom: 2px solid #eab308;
-            font-size: 0.95rem;
+            inset: 0;
+            z-index: 4000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
             box-sizing: border-box;
+            pointer-events: none;
         }
 
         #global-task-banner.show {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            animation: slideDown 0.4s ease-out;
         }
 
-        @keyframes slideDown {
-            from {
-                transform: translateY(-100%);
-            }
+        #global-task-banner .task-toast-card {
+            pointer-events: auto;
+            width: min(360px, 92vw);
+            background: #fffbeb;
+            color: #854d0e;
+            border: 1px solid #facc15;
+            border-radius: 14px;
+            box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+            padding: 22px 22px 18px;
+            text-align: center;
+            position: relative;
+            animation: taskToastIn 0.25s ease-out;
+        }
 
-            to {
-                transform: translateY(0);
+        #global-task-banner .task-toast-icon {
+            font-size: 1.6rem;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        #global-task-banner .task-toast-title {
+            font-size: 0.95rem;
+            font-weight: 900;
+            margin: 0 0 6px;
+        }
+
+        #global-task-banner .task-toast-text {
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin: 0 0 16px;
+            color: #a16207;
+        }
+
+        #global-task-banner .task-toast-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        @keyframes taskToastIn {
+            from {
+                transform: translateY(10px) scale(0.96);
+                opacity: 0;
             }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        #global-expense-banner {
+            top: 56px !important;
+            z-index: 1490 !important;
         }
 
         .btn-banner-action {
             background-color: #ca8a04;
             color: white;
             border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
+            padding: 8px 14px;
+            border-radius: 8px;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.2s;
@@ -1392,22 +1424,59 @@
             background-color: #a16207;
         }
 
-        body.banner-active {
-            padding-top: 45px;
+        .btn-banner-dismiss {
+            position: absolute;
+            right: 8px;
+            top: 6px;
+            background: transparent;
+            border: none;
+            color: #854d0e;
+            font-size: 1.35rem;
+            font-weight: 900;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
         }
 
-        body.banner-active #header-nav {
-            top: 45px;
-            /* Adjust sticky nav if active */
+        .btn-banner-dismiss:hover {
+            background: rgba(133, 77, 14, 0.12);
+        }
+
+        .btn-banner-secondary {
+            background: #fff;
+            color: #854d0e;
+            border: 1px solid #eab308;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 800;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        body.expense-banner-active #header-nav {
+            top: 0 !important;
+        }
+
+        body.expense-banner-active .view-section {
+            padding-top: 108px;
         }
     </style>
 </head>
 
 <body>
-    <!-- Sticky Pending Tasks Banner -->
-    <div id="global-task-banner">
-        <span>⚠️ You have <span id="pending-tasks-count">0</span> pending assigned tasks.</span>
-        <button class="btn-banner-action" onclick="goToTasks()">VIEW TASKS</button>
+    <!-- Floating pending-tasks card (does not cover the module navbar) -->
+    <div id="global-task-banner" role="dialog" aria-labelledby="task-toast-title" aria-modal="false">
+        <div class="task-toast-card">
+            <button type="button" class="btn-banner-dismiss" onclick="dismissTaskBanner()" aria-label="Cerrar aviso">&times;</button>
+            <div class="task-toast-icon">⚠️</div>
+            <p id="task-toast-title" class="task-toast-title">Tienes tareas pendientes</p>
+            <p class="task-toast-text">Tienes <span id="pending-tasks-count">0</span> aviso(s) asignado(s).</p>
+            <div class="task-toast-actions">
+                <button type="button" class="btn-banner-secondary" onclick="dismissTaskBanner()">Cerrar</button>
+                <button type="button" class="btn-banner-action" onclick="goToTasks()">Ver tareas</button>
+            </div>
+        </div>
     </div>
 
     <!-- Sticky Pending Expenses Banner -->
@@ -7028,8 +7097,7 @@
                 document.getElementById('auth-password').value = '';
 
                 // Hide banner on logout
-                document.getElementById('global-task-banner').classList.remove('show');
-                document.body.classList.remove('banner-active');
+                if (window.hideTaskBanner) window.hideTaskBanner();
 
                 showView('auth');
             } catch (err) {
@@ -7039,9 +7107,40 @@
         window.handleLogout = handleLogout;
 
         // Sticky Banner Global Check
+        function taskBannerDismissKey() {
+            const email = (window.userEmail || 'guest').toLowerCase().trim();
+            return 'task-card-dismissed-date:' + email;
+        }
+
+        function todayLocalDate() {
+            const d = new Date();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return d.getFullYear() + '-' + m + '-' + day;
+        }
+
+        function wasTaskBannerDismissedToday() {
+            try {
+                return localStorage.getItem(taskBannerDismissKey()) === todayLocalDate();
+            } catch (e) {
+                return false;
+            }
+        }
+
+        window.hideTaskBanner = function () {
+            const banner = document.getElementById('global-task-banner');
+            if (banner) banner.classList.remove('show');
+        };
+
+        window.dismissTaskBanner = function () {
+            try {
+                localStorage.setItem(taskBannerDismissKey(), todayLocalDate());
+            } catch (e) { }
+            window.hideTaskBanner();
+        };
+
         window.goToTasks = function () {
-            document.getElementById('global-task-banner').classList.remove('show');
-            document.body.classList.remove('banner-active');
+            window.dismissTaskBanner();
             if (typeof closeMenu === 'function') closeMenu();
             showView('tasks');
         };
@@ -7051,11 +7150,11 @@
             try {
                 const role = (window.currentUserRole || '').toLowerCase().trim();
                 const email = (window.userEmail || '').toLowerCase().trim();
+                const currentView = (localStorage.getItem('activeSection') || '').replace(/-view$/, '');
 
-                // Solo mostrar la barra a empleados y estudiantes, no a los administradores.
-                if (role === 'admin') {
-                    document.getElementById('global-task-banner').classList.remove('show');
-                    document.body.classList.remove('banner-active');
+                // Solo a empleados/estudiantes. Si ya lo cerraron hoy, no vuelve a salir.
+                if (role === 'admin' || currentView === 'tasks' || wasTaskBannerDismissedToday()) {
+                    window.hideTaskBanner();
                     return;
                 }
 
@@ -7073,10 +7172,8 @@
                 if (count && count > 0) {
                     countEl.textContent = count;
                     banner.classList.add('show');
-                    document.body.classList.add('banner-active');
                 } else {
-                    banner.classList.remove('show');
-                    document.body.classList.remove('banner-active');
+                    window.hideTaskBanner();
                 }
             } catch (err) {
                 console.error("Error checking global tasks:", err);
@@ -7518,6 +7615,9 @@
 
         function showView(viewId) {
             console.log("Navigating to:", viewId);
+            if (String(viewId || '').replace(/-view$/, '') === 'tasks' && window.hideTaskBanner) {
+                window.hideTaskBanner();
+            }
 
             // Safe reference to sections
             const sections = document.querySelectorAll('.view-section');
