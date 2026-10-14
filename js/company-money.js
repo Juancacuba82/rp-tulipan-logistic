@@ -256,18 +256,20 @@
             groupedAmount: t.groupedAmount,
             byCategory: t.byCategory,
             byLine: t.byLine,
-            sources: [
-                { label: 'Ventas', amount: t.sales },
-                { label: 'Transporte RP', amount: t.tulipan },
-                { label: 'JR Super Crane', amount: t.jr },
-                { label: 'Contractors', amount: t.contractor },
-                { label: 'Yard del pedido', amount: t.yard },
-                { label: 'Storage RP', amount: t.storageTulipan },
-                { label: 'Storage Yard', amount: t.storageYard },
+            incomes: {
+                tulipan: t.tulipan,
+                jr: t.jr,
+                sales: t.sales,
+                yard: t.yard,
+                contractor: t.contractor
+            },
+            leftoverSources: [
                 { label: 'Rentals', amount: t.rentals },
+                { label: 'Storage Yard', amount: t.storageYard },
+                { label: 'Storage RP', amount: t.storageTulipan },
                 { label: 'Facturas custom', amount: t.customInvoices },
                 { label: 'Ingreso manual', amount: t.ledgerIncome }
-            ].filter(s => s.amount > 0).sort((a, b) => b.amount - a.amount)
+            ].filter(s => s.amount > 0)
         };
     }
 
@@ -385,11 +387,14 @@
         return rows + totalRow + noteRow;
     }
 
-    function kpiCard(label, value, hint, color) {
-        return '<div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px;">' +
-            '<div style="font-size:0.72rem; font-weight:800; letter-spacing:0.04em; color:#64748b;">' + label + '</div>' +
-            '<div style="font-size:1.45rem; font-weight:900; color:' + color + '; margin-top:4px;">' + value + '</div>' +
-            '<div style="font-size:0.75rem; color:#64748b; margin-top:4px;">' + hint + '</div></div>';
+    function kpiCard(label, value, hint, color, cornerPercent) {
+        const pct = cornerPercent
+            ? '<span style="position:absolute; top:12px; right:14px; font-size:0.95rem; font-weight:900; color:' + color + ';">' + cornerPercent + '</span>'
+            : '';
+        return '<div style="position:relative; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px;">' +
+            '<div style="font-size:0.72rem; font-weight:800; letter-spacing:0.04em; color:#64748b; padding-right:56px;">' + label + '</div>' +
+            pct +
+            '<div style="font-size:1.45rem; font-weight:900; color:' + color + '; margin-top:4px;">' + value + '</div></div>';
     }
 
     function syncModeFields() {
@@ -465,16 +470,12 @@
 
         const kpis = document.getElementById('cm-kpis');
         if (kpis) {
-            const margin = total.revenue > 0 ? ((total.net / total.revenue) * 100).toFixed(1) + '% de lo que entró' : 'Sin ingreso en el rango';
-            const haul = total.internalHaul || 0;
-            const spentHint = haul > 0
-                ? money(total.bankSpent) + ' salieron de la cuenta. ' + money(haul) + ' son viajes internos: también están en Entró y no salen del banco.'
-                : 'Todo esto salió de la cuenta (banco o efectivo).';
+            const marginPct = total.revenue > 0 ? ((total.net / total.revenue) * 100).toFixed(1) + '%' : '';
             kpis.innerHTML =
-                kpiCard('ENTRÓ', money(total.revenue), 'La suma de De dónde entró', '#166534') +
-                kpiCard('SE GASTÓ', money(total.spent), spentHint, '#b91c1c') +
-                kpiCard('CONTENEDORES', money(total.invested), 'Costo de compra de lo vendido en el rango. No está en Expenses.', '#b45309') +
-                kpiCard('QUEDÓ', money(total.net), margin, total.net >= 0 ? '#166534' : '#b91c1c');
+                kpiCard('ENTRÓ', money(total.revenue), '', '#166534') +
+                kpiCard('SE GASTÓ', money(total.spent), '', '#b91c1c') +
+                kpiCard('CONTENEDORES', money(total.invested), '', '#b45309') +
+                kpiCard('QUEDÓ', money(total.net), '', total.net >= 0 ? '#166534' : '#b91c1c', marginPct);
         }
 
         const note = document.getElementById('cm-grouped-note');
@@ -505,13 +506,12 @@
         const spendNote = haul > 0
             ? 'Viajes internos es el precio del viaje cuando el cliente es la propia empresa. No es combustible ni un cargo del banco. La misma cifra está dentro de Entró, por eso no cambia lo que quedó.'
             : '';
-        const incomeNote = haul > 0
-            ? 'Dentro de transporte hay ' + money(haul) + ' de viajes internos. Esa cifra también aparece en Se gastó, así que no es plata nueva.'
-            : '';
+        const leftover = total.leftoverSources || [];
+        const leftoverSum = leftover.reduce((s, it) => s + (it.amount || 0), 0);
         const spendEl = document.getElementById('cm-spend-rank');
-        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, spendNote);
+        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, spendNote, total.incomes, leftover, total.invested || 0);
         const incomeEl = document.getElementById('cm-income-rank');
-        if (incomeEl) rankHost(incomeEl, total.sources, total.revenue, '#16a34a', incomeNote);
+        if (incomeEl) rankHost(incomeEl, leftover, leftoverSum, '#16a34a', '');
     };
 
     function lineLabel(id) {
@@ -520,37 +520,142 @@
         return id;
     }
 
-    function spendByProfitLine(byLine, haul, grand, note) {
+    function spendByProfitLine(byLine, haul, grand, note, incomes, leftover, invested) {
+        incomes = incomes || {};
+        const inMap = {
+            rpt_transportation: [
+                { label: 'Transport RP', amount: incomes.tulipan || 0 },
+                { label: 'JR Super Crane', amount: incomes.jr || 0 }
+            ],
+            rpt_sales: [{ label: 'Ventas', amount: incomes.sales || 0 }],
+            rpt_yard: [{ label: 'Yard del pedido', amount: incomes.yard || 0 }],
+            contractors: [{ label: 'Contractors', amount: incomes.contractor || 0 }]
+        };
         const order = (window.EXPENSE_PROFIT_LINES || []).map(l => l.id).concat(['unassigned']);
-        const ids = order.filter(id => byLine[id] && Object.keys(byLine[id]).length);
+        const ids = order.filter(id => (byLine[id] && Object.keys(byLine[id]).length) || (inMap[id] && inMap[id].some(r => r.amount > 0)));
         Object.keys(byLine).forEach(id => { if (!ids.includes(id)) ids.push(id); });
-        const pct = (n) => (grand > 0 ? Math.round((n / grand) * 100) : 0);
-        const card = (title, sub, body) =>
-            '<div style="flex:1 1 200px; min-width:200px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 14px 12px;">' +
-            '<div style="display:flex; justify-content:space-between; gap:8px; font-size:0.78rem; font-weight:900; color:#0f172a; margin-bottom:8px;">' +
-            '<span>' + title + '</span><span style="white-space:nowrap;">' + money(sub) + ' <span style="color:#dc2626;">' + pct(sub) + '%</span></span></div>' +
-            body + '</div>';
+        const pctOf = (n, base) => (base > 0 ? Math.round((n / base) * 100) : 0);
+        const row = (label, valueHtml, extraClass) =>
+            '<div class="cm-kv-row' + (extraClass ? ' ' + extraClass : '') + '">' +
+            '<span class="cm-kv-label">' + label + '</span>' +
+            '<span class="cm-kv-lead" aria-hidden="true"></span>' +
+            '<span class="cm-kv-val">' + valueHtml + '</span></div>';
+        const box = (bg, fg, inner) =>
+            '<div style="background:' + bg + '; color:' + fg + '; border-radius:10px; padding:10px 10px 8px; margin-bottom:8px; overflow:hidden;">' + inner + '</div>';
+
         let html = '<div style="display:flex; flex-wrap:wrap; gap:12px; align-items:stretch;">';
         ids.forEach(id => {
-            const cats = Object.keys(byLine[id]).map(name => ({ label: name, amount: byLine[id][name] }))
+            const cats = Object.keys(byLine[id] || {}).map(name => ({ label: name, amount: byLine[id][name] }))
                 .sort((a, b) => b.amount - a.amount);
-            const sub = cats.reduce((s, c) => s + c.amount, 0);
-            const body = cats.map(c => '<div style="display:flex; justify-content:space-between; gap:8px; font-size:0.75rem; color:#475569; padding:3px 0;">' +
-                '<span>' + c.label + '</span><span style="white-space:nowrap;">' + money(c.amount) + ' <span style="color:#dc2626; font-weight:800;">' + pct(c.amount) + '%</span></span></div>').join('');
-            html += card(lineLabel(id), sub, body);
+            const spent = cats.reduce((s, c) => s + c.amount, 0);
+            const inRows = inMap[id] || [];
+            const entered = inRows.reduce((s, r) => s + r.amount, 0);
+            const profit = entered - spent;
+            let body = '';
+            if (inRows.length) {
+                let inHtml = '<div style="font-size:0.78rem; font-weight:900; letter-spacing:0.04em; margin-bottom:6px; color:#ecfdf5;">ENTRÓ</div>';
+                inRows.forEach(r => {
+                    inHtml += row(r.label, money(r.amount));
+                });
+                if (inRows.length > 1) inHtml += row('Total que entró', money(entered), 'cm-kv-total');
+                body += box('#166534', '#ecfdf5', inHtml);
+            }
+            let spentHtml = row('SE GASTÓ', money(spent) + '<span class="cm-kv-pct">100%</span>', 'cm-kv-total');
+            spentHtml += cats.map(c => row(c.label, money(c.amount) + '<span class="cm-kv-pct">' + pctOf(c.amount, spent) + '%</span>'))
+                .join('');
+            if (!cats.length) spentHtml += '<p style="margin:0; color:#fecaca; font-size:0.75rem;">Sin gastos en esta línea.</p>';
+            body += box('#b91c1c', '#fff', spentHtml);
+            if (inRows.length) {
+                const ok = profit >= 0;
+                const pBg = ok ? '#bbf7d0' : '#fecaca';
+                const pFg = ok ? '#14532d' : '#7f1d1d';
+                const gPct = entered > 0 ? ((profit / entered) * 100).toFixed(1) + '%' : '';
+                let pHtml = row('GANANCIA', money(profit) + (gPct ? '<span class="cm-kv-pct">' + gPct + '</span>' : ''));
+                body += box(pBg, pFg, pHtml);
+            }
+            html += '<div class="cm-line-card" onclick="window.focusCompanyMoneyCard(this)" style="flex:1 1 200px; min-width:0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; overflow:hidden;">' +
+                '<div style="font-size:0.82rem; font-weight:900; color:#0f172a; margin-bottom:10px;">' + lineLabel(id) + '</div>' +
+                body + '</div>';
         });
         if (haul > 0) {
-            html += card('Viajes internos', haul, '<p style="margin:0; font-size:0.75rem; line-height:1.4; color:#475569;">Precio del viaje cuando el cliente es la propia empresa. No sale del banco.</p>');
+            html += '<div class="cm-line-card" onclick="window.focusCompanyMoneyCard(this)" style="flex:1 1 200px; min-width:0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; overflow:hidden;">' +
+                '<div style="font-size:0.82rem; font-weight:900; color:#0f172a; margin-bottom:8px;">Viajes internos</div>' +
+                box('#b91c1c', '#fff', row('SE GASTÓ', money(haul) + '<span class="cm-kv-pct">100%</span>')) + '</div>';
         }
         html += '</div>';
+
+        const lineSpent = (id) => Object.keys(byLine[id] || {}).reduce((s, k) => s + (byLine[id][k] || 0), 0);
+        const profitTransport = (incomes.tulipan || 0) + (incomes.jr || 0) - lineSpent('rpt_transportation');
+        const profitSales = (incomes.sales || 0) - lineSpent('rpt_sales');
+        const profitYard = (incomes.yard || 0) - lineSpent('rpt_yard');
+        const profitContractors = (incomes.contractor || 0) - lineSpent('contractors');
+        const profitsSum = profitTransport + profitSales + profitYard + profitContractors;
+        const extraIn = (leftover || []).reduce((s, it) => s + (it.amount || 0), 0);
+        const operating = lineSpent('rpt_operating');
+        const containers = invested || 0;
+        const internals = haul || 0;
+        const afterExtras = profitsSum + extraIn;
+        const finalNet = afterExtras - operating - containers - internals;
+        const finalOk = finalNet >= 0;
+        const band = (label, amt, kind) => {
+            const styles = {
+                plus: { bg: '#bbf7d0', fg: '#14532d' },
+                minus: { bg: '#fecaca', fg: '#7f1d1d' },
+                orange: { bg: '#ffedd5', fg: '#9a3412' },
+                sum: { bg: '#e2e8f0', fg: '#0f172a' }
+            };
+            const tone = kind === 'orange' ? 'orange' : (kind === 'sum' ? 'sum' : (amt >= 0 && kind !== 'minus' ? 'plus' : 'minus'));
+            const s = styles[tone];
+            return '<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; box-sizing:border-box; background:' + s.bg + '; color:' + s.fg + '; border-radius:10px; padding:10px 14px; margin-bottom:8px; font-weight:900;">' +
+                '<span>' + label + '</span><span style="white-space:nowrap;">' + money(amt) + '</span></div>';
+        };
+        html += '<div style="margin-top:16px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">' +
+            '<div style="font-size:0.95rem; font-weight:900; color:#0f172a; margin-bottom:8px;">Lo que queda después de Operating</div>' +
+            '<p style="margin:0 0 10px; font-size:0.8rem; color:#64748b; line-height:1.4;">Se suman las ganancias de Transport, Sales, Yard y Contractors, más Rentals y Storage. A ese total se le resta Operating, contenedores y viajes internos.</p>' +
+            band('Ganancia Transport', profitTransport) +
+            band('Ganancia Sales', profitSales) +
+            band('Ganancia Yard', profitYard) +
+            band('Ganancia Contractors', profitContractors) +
+            (leftover || []).map(it => band('+ ' + it.label, it.amount)).join('') +
+            band('Suma', afterExtras, 'sum') +
+            band('− Operating expenses', operating, 'minus') +
+            band('− Contenedores (inversión)', containers, 'orange') +
+            band('− Viajes internos', internals, 'minus') +
+            '<div style="margin-top:4px; background:' + (finalOk ? '#86efac' : '#fca5a5') + '; color:' + (finalOk ? '#14532d' : '#7f1d1d') + '; border-radius:10px; padding:14px 16px; display:flex; justify-content:space-between; gap:12px; font-size:1.15rem; font-weight:900;">' +
+            '<span>QUEDA</span><span>' + money(finalNet) + '</span></div>' +
+            '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' de ganancias + ' + money(extraIn) + ' de Rentals/Storage − ' + money(operating) + ' de Operating − ' + money(containers) + ' de contenedores − ' + money(internals) + ' de viajes internos = ' + money(finalNet) + '.</p>' +
+            '</div>';
+
         html += '<div style="display:flex; justify-content:space-between; margin-top:12px; font-size:0.9rem; font-weight:900; color:#0f172a;">' +
-            '<span>Total</span><span>' + money(grand) + '</span></div>';
+            '<span>Total gastado</span><span>' + money(grand) + '</span></div>';
         if (note) html += '<p style="margin:8px 0 0; font-size:0.75rem; line-height:1.4; color:#475569;">' + note + '</p>';
         if (!ids.length && haul <= 0) {
             return '<p style="margin:0; color:#94a3b8; font-size:0.85rem;">Nada en este rango.</p>' + html;
         }
         return html;
     }
+
+    window.focusCompanyMoneyCard = function (el) {
+        const overlay = document.getElementById('cm-card-focus');
+        const body = document.getElementById('cm-card-focus-body');
+        if (!overlay || !body || !el) return;
+        body.innerHTML = el.innerHTML;
+        overlay.classList.add('open');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeCompanyMoneyCard = function () {
+        const overlay = document.getElementById('cm-card-focus');
+        if (!overlay) return;
+        overlay.classList.remove('open');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    };
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.closeCompanyMoneyCard();
+    });
 
     function rankHost(el, items, total, color, note) {
         el.innerHTML = rankList(items, total, color, note);

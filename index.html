@@ -34,7 +34,7 @@
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1732" defer></script>
-    <script src="./js/company-money.js?v=6" defer></script>
+    <script src="./js/company-money.js?v=19" defer></script>
 
     <script src="./js/docs-receipts.js?v=1716" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
@@ -534,6 +534,118 @@
 
         #csv-import-modal.csv-dragging .csv-drag-handle {
             cursor: grabbing;
+        }
+
+        .cm-line-card {
+            cursor: pointer;
+            overflow: hidden;
+            min-width: 0;
+            transition: transform 0.22s ease, box-shadow 0.22s ease;
+        }
+        .cm-line-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+        }
+        .cm-kv-row {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+            font-size: 0.78rem;
+        }
+        .cm-kv-row:last-child {
+            border-bottom: none;
+        }
+        .cm-kv-label {
+            flex: 0 1 auto;
+            min-width: 0;
+            max-width: 55%;
+            overflow-wrap: anywhere;
+            line-height: 1.25;
+        }
+        .cm-kv-lead {
+            flex: 1 1 12px;
+            min-width: 10px;
+            border-bottom: 1px dotted currentColor;
+            opacity: 0.45;
+            transform: translateY(-3px);
+        }
+        .cm-kv-val {
+            flex: 0 0 auto;
+            text-align: right;
+            font-weight: 900;
+            line-height: 1.25;
+        }
+        .cm-kv-pct {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 800;
+            opacity: 0.92;
+        }
+        .cm-kv-row.cm-kv-total {
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            border-bottom: none;
+            margin-top: 4px;
+            padding-top: 7px;
+            font-weight: 900;
+        }
+        #cm-card-focus {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10040;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        #cm-card-focus.open {
+            display: flex;
+        }
+        .cm-card-focus-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.58);
+            backdrop-filter: blur(10px);
+            animation: cmFocusFade 0.28s ease;
+        }
+        .cm-card-focus-panel {
+            position: relative;
+            width: min(860px, 96vw);
+            max-height: 90vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 22px;
+            padding: 36px 36px 30px;
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.28);
+            animation: cmFocusPop 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+            z-index: 1;
+        }
+        .cm-card-focus-close {
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            border: none;
+            background: #f1f5f9;
+            color: #0f172a;
+            width: 36px;
+            height: 36px;
+            border-radius: 999px;
+            font-size: 1.4rem;
+            line-height: 1;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        #cm-card-focus-body {
+            zoom: 1.55;
+        }
+        @keyframes cmFocusFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes cmFocusPop {
+            from { opacity: 0; transform: translateY(18px) scale(0.94); }
+            to { opacity: 1; transform: none; }
         }
 
         .modal-content {
@@ -4221,7 +4333,7 @@
                 </div>
                 <div id="cm-kpis" style="display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 16px 0;"></div>
                 <p id="cm-grouped-note" style="display:none; margin: 0 0 12px; padding: 10px 12px; background:#fffbeb; border:1px solid #fcd34d; border-radius:8px; color:#92400e; font-size:0.85rem; font-weight:700;"></p>
-                <div style="display:grid; grid-template-columns: 1.4fr 0.8fr; gap: 16px; align-items: start;">
+                <div style="display:grid; grid-template-columns: 2.1fr 0.7fr; gap: 16px; align-items: start;">
                     <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
                         <h3 style="margin:0 0 4px; font-size:1rem;">Entró, se gastó, se invirtió</h3>
                         <p id="cm-chart-hint" style="margin:0 0 12px; color:#64748b; font-size:0.78rem;"></p>
@@ -4239,10 +4351,18 @@
                         </div>
                     </div>
                 </div>
-                <h3 style="margin:18px 0 10px; font-size:1rem;">En qué se gastó</h3>
+                <h3 style="margin:18px 0 4px; font-size:1rem;">En qué se gastó</h3>
+                <p style="margin:0 0 10px; font-size:0.78rem; color:#64748b;">Toca una tarjeta para verla grande.</p>
                 <div id="cm-spend-rank"></div>
             </div>
         </section>
+        <div id="cm-card-focus" aria-hidden="true">
+            <div class="cm-card-focus-backdrop" onclick="window.closeCompanyMoneyCard()"></div>
+            <div class="cm-card-focus-panel" role="dialog" aria-modal="true">
+                <button type="button" class="cm-card-focus-close" onclick="window.closeCompanyMoneyCard()" aria-label="Cerrar">×</button>
+                <div id="cm-card-focus-body"></div>
+            </div>
+        </div>
 
         <!-- PROFIT REPORT View -->
         <section id="profit-report-view" class="view-section hidden">
