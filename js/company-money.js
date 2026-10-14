@@ -284,67 +284,68 @@
     }
 
     function resolveRange() {
-        const mode = document.getElementById('cm-mode').value;
         const today = toISO(new Date());
-        if (mode === 'day') {
-            const day = document.getElementById('cm-day').value || today;
-            const d = parseISO(day);
-            return { mode: mode, start: d, end: d, label: shortDay(day) };
-        }
-        if (mode === 'days') {
-            const from = parseISO(document.getElementById('cm-from').value || today);
-            const to = parseISO(document.getElementById('cm-to').value || today);
-            const start = from <= to ? from : to;
-            const end = from <= to ? to : from;
-            return { mode: mode, start: start, end: end, label: shortDay(toISO(start)) + ' – ' + shortDay(toISO(end)) };
-        }
-        if (mode === 'week') {
-            const range = weekMonSat(document.getElementById('cm-week').value || today);
-            return { mode: mode, start: range.start, end: range.end, label: 'Semana ' + shortDay(toISO(range.start)) + ' – ' + shortDay(toISO(range.end)) };
-        }
-        if (mode === 'year') {
-            const year = parseInt(document.getElementById('cm-year').value, 10) || new Date().getFullYear();
-            const first = workMonthRange(year, 0);
-            const last = workMonthRange(year, 11);
-            return { mode: mode, start: first.start, end: last.end, year: year, label: 'Año ' + year + ' (meses de trabajo)' };
-        }
-        const monthVal = document.getElementById('cm-month').value;
-        const base = monthVal ? parseISO(monthVal + '-01') : new Date();
-        const range = workMonthRange(base.getFullYear(), base.getMonth());
+        const fromVal = document.getElementById('cm-from')?.value || today;
+        const toVal = document.getElementById('cm-to')?.value || today;
+        let start = parseISO(fromVal) || new Date();
+        let end = parseISO(toVal) || new Date();
+        if (end < start) { const tmp = start; start = end; end = tmp; }
+        const days = Math.round((end - start) / 86400000) + 1;
+        let grain = 'day';
+        if (days > 90) grain = 'month';
+        else if (days > 16) grain = 'week';
         return {
-            mode: 'workmonth',
-            start: range.start,
-            end: range.end,
-            year: base.getFullYear(),
-            monthIndex: base.getMonth(),
-            label: 'Mes de trabajo ' + monthLabel(base.getFullYear(), base.getMonth()) + ' · ' + shortDay(toISO(range.start)) + ' – ' + shortDay(toISO(range.end))
+            start: start,
+            end: end,
+            grain: grain,
+            label: shortDay(toISO(start)) + ' – ' + shortDay(toISO(end))
         };
     }
 
+    function clipIso(d, lo, hi) {
+        const iso = toISO(d);
+        if (iso < lo) return lo;
+        if (iso > hi) return hi;
+        return iso;
+    }
+
     function buildBuckets(range) {
-        if (range.mode === 'year') {
+        const lo = toISO(range.start);
+        const hi = toISO(range.end);
+        if (range.grain === 'month') {
             const buckets = [];
-            for (let m = 0; m < 12; m++) {
-                const wm = workMonthRange(range.year, m);
-                buckets.push({ label: monthLabel(range.year, m), from: toISO(wm.start), to: toISO(wm.end) });
+            let cursor = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+            while (cursor <= range.end) {
+                const last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+                buckets.push({
+                    label: monthLabel(cursor.getFullYear(), cursor.getMonth()),
+                    from: clipIso(cursor, lo, hi),
+                    to: clipIso(last, lo, hi)
+                });
+                cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
             }
             return buckets;
         }
-        if (range.mode === 'workmonth') {
+        if (range.grain === 'week') {
             const buckets = [];
-            let monday = new Date(range.start);
+            const wk = weekMonSat(lo);
+            let monday = wk.start;
             while (monday <= range.end) {
                 const sat = addDays(monday, 5);
-                buckets.push({
-                    label: shortDay(toISO(monday)) + ' – ' + shortDay(toISO(sat)),
-                    from: toISO(monday),
-                    to: toISO(sat)
-                });
+                const from = clipIso(monday, lo, hi);
+                const to = clipIso(sat, lo, hi);
+                if (from <= to) {
+                    buckets.push({
+                        label: shortDay(from) + ' – ' + shortDay(to),
+                        from: from,
+                        to: to
+                    });
+                }
                 monday = addDays(monday, 7);
             }
             return buckets;
         }
-        return eachDay(range.start, range.end, range.mode === 'week').map(iso => ({
+        return eachDay(range.start, range.end, false).map(iso => ({
             label: shortDay(iso),
             from: iso,
             to: iso
@@ -397,31 +398,10 @@
             '<div style="font-size:1.45rem; font-weight:900; color:' + color + '; margin-top:4px;">' + value + '</div></div>';
     }
 
-    function syncModeFields() {
-        const mode = document.getElementById('cm-mode').value;
-        const show = {
-            day: ['cm-field-day'],
-            days: ['cm-field-from', 'cm-field-to'],
-            week: ['cm-field-week'],
-            workmonth: ['cm-field-month'],
-            year: ['cm-field-year']
-        };
-        ['cm-field-day', 'cm-field-from', 'cm-field-to', 'cm-field-week', 'cm-field-month', 'cm-field-year'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = (show[mode] || []).includes(id) ? '' : 'none';
-        });
-    }
-
-    window.onCompanyMoneyModeChange = function () {
-        syncModeFields();
-        window.renderCompanyMoney();
-    };
-
     let renderToken = 0;
 
     window.renderCompanyMoney = async function () {
         const token = ++renderToken;
-        syncModeFields();
         const range = resolveRange();
         const label = document.getElementById('cm-range-label');
         if (label) label.textContent = range.label + ' · cargando…';
@@ -490,8 +470,8 @@
 
         const hint = document.getElementById('cm-chart-hint');
         if (hint) {
-            const grain = range.mode === 'year' ? 'Cada barra es un mes de trabajo.' :
-                range.mode === 'workmonth' ? 'Cada grupo es una semana de lunes a sábado.' :
+            const grain = range.grain === 'month' ? 'Cada barra es un mes.' :
+                range.grain === 'week' ? 'Cada grupo es una semana.' :
                     'Cada grupo es un día.';
             hint.textContent = grain + ' El número de arriba es lo que quedó en ese tramo.';
         }
@@ -503,13 +483,10 @@
         }
 
         const haul = total.internalHaul || 0;
-        const spendNote = haul > 0
-            ? 'Viajes internos es el precio del viaje cuando el cliente es la propia empresa. No es combustible ni un cargo del banco. La misma cifra está dentro de Entró, por eso no cambia lo que quedó.'
-            : '';
         const leftover = total.leftoverSources || [];
         const leftoverSum = leftover.reduce((s, it) => s + (it.amount || 0), 0);
         const spendEl = document.getElementById('cm-spend-rank');
-        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, spendNote, total.incomes, leftover, total.invested || 0);
+        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, '', total.incomes, leftover, total.invested || 0);
         const incomeEl = document.getElementById('cm-income-rank');
         if (incomeEl) rankHost(incomeEl, leftover, leftoverSum, '#16a34a', '');
     };
@@ -532,9 +509,9 @@
             contractors: [{ label: 'Contractors', amount: incomes.contractor || 0 }]
         };
         const order = (window.EXPENSE_PROFIT_LINES || []).map(l => l.id).concat(['unassigned']);
-        const ids = order.filter(id => (byLine[id] && Object.keys(byLine[id]).length) || (inMap[id] && inMap[id].some(r => r.amount > 0)));
+        const ids = order.filter(id => (byLine[id] && Object.keys(byLine[id]).length) || (inMap[id] && inMap[id].some(r => r.amount > 0)) || (id === 'rpt_sales' && haul > 0));
         Object.keys(byLine).forEach(id => { if (!ids.includes(id)) ids.push(id); });
-        const pctOf = (n, base) => (base > 0 ? Math.round((n / base) * 100) : 0);
+        const pctOf = (n, base) => (base > 0 ? ((n / base) * 100).toFixed(1) : '0');
         const row = (label, valueHtml, extraClass) =>
             '<div class="cm-kv-row' + (extraClass ? ' ' + extraClass : '') + '">' +
             '<span class="cm-kv-label">' + label + '</span>' +
@@ -547,21 +524,25 @@
         ids.forEach(id => {
             const cats = Object.keys(byLine[id] || {}).map(name => ({ label: name, amount: byLine[id][name] }))
                 .sort((a, b) => b.amount - a.amount);
+            if (id === 'rpt_sales' && haul > 0) cats.push({ label: 'Viajes internos', amount: haul });
+            cats.sort((a, b) => b.amount - a.amount);
             const spent = cats.reduce((s, c) => s + c.amount, 0);
             const inRows = inMap[id] || [];
             const entered = inRows.reduce((s, r) => s + r.amount, 0);
             const profit = entered - spent;
             let body = '';
+            const pctBase = entered > 0 ? entered : spent;
             if (inRows.length) {
                 let inHtml = '<div style="font-size:0.78rem; font-weight:900; letter-spacing:0.04em; margin-bottom:6px; color:#ecfdf5;">ENTRÓ</div>';
                 inRows.forEach(r => {
-                    inHtml += row(r.label, money(r.amount));
+                    inHtml += row(r.label, money(r.amount) + (entered > 0 ? '<span class="cm-kv-pct">' + pctOf(r.amount, entered) + '%</span>' : ''));
                 });
-                if (inRows.length > 1) inHtml += row('Total que entró', money(entered), 'cm-kv-total');
+                if (entered > 0) inHtml += row('Total que entró', money(entered) + '<span class="cm-kv-pct">100%</span>', 'cm-kv-total');
                 body += box('#166534', '#ecfdf5', inHtml);
             }
-            let spentHtml = row('SE GASTÓ', money(spent) + '<span class="cm-kv-pct">100%</span>', 'cm-kv-total');
-            spentHtml += cats.map(c => row(c.label, money(c.amount) + '<span class="cm-kv-pct">' + pctOf(c.amount, spent) + '%</span>'))
+            const spentPct = pctBase > 0 ? pctOf(spent, pctBase) + '%' : '';
+            let spentHtml = row('SE GASTÓ', money(spent) + (spentPct ? '<span class="cm-kv-pct">' + spentPct + '</span>' : ''), 'cm-kv-total');
+            spentHtml += cats.map(c => row(c.label, money(c.amount) + (pctBase > 0 ? '<span class="cm-kv-pct">' + pctOf(c.amount, pctBase) + '%</span>' : '')))
                 .join('');
             if (!cats.length) spentHtml += '<p style="margin:0; color:#fecaca; font-size:0.75rem;">Sin gastos en esta línea.</p>';
             body += box('#b91c1c', '#fff', spentHtml);
@@ -569,7 +550,7 @@
                 const ok = profit >= 0;
                 const pBg = ok ? '#bbf7d0' : '#fecaca';
                 const pFg = ok ? '#14532d' : '#7f1d1d';
-                const gPct = entered > 0 ? ((profit / entered) * 100).toFixed(1) + '%' : '';
+                const gPct = entered > 0 ? pctOf(profit, entered) + '%' : '';
                 let pHtml = row('GANANCIA', money(profit) + (gPct ? '<span class="cm-kv-pct">' + gPct + '</span>' : ''));
                 body += box(pBg, pFg, pHtml);
             }
@@ -577,25 +558,19 @@
                 '<div style="font-size:0.82rem; font-weight:900; color:#0f172a; margin-bottom:10px;">' + lineLabel(id) + '</div>' +
                 body + '</div>';
         });
-        if (haul > 0) {
-            html += '<div class="cm-line-card" onclick="window.focusCompanyMoneyCard(this)" style="flex:1 1 200px; min-width:0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; overflow:hidden;">' +
-                '<div style="font-size:0.82rem; font-weight:900; color:#0f172a; margin-bottom:8px;">Viajes internos</div>' +
-                box('#b91c1c', '#fff', row('SE GASTÓ', money(haul) + '<span class="cm-kv-pct">100%</span>')) + '</div>';
-        }
         html += '</div>';
 
         const lineSpent = (id) => Object.keys(byLine[id] || {}).reduce((s, k) => s + (byLine[id][k] || 0), 0);
         const profitTransport = (incomes.tulipan || 0) + (incomes.jr || 0) - lineSpent('rpt_transportation');
-        const profitSales = (incomes.sales || 0) - lineSpent('rpt_sales');
+        const profitSales = (incomes.sales || 0) - lineSpent('rpt_sales') - (haul || 0);
         const profitYard = (incomes.yard || 0) - lineSpent('rpt_yard');
         const profitContractors = (incomes.contractor || 0) - lineSpent('contractors');
         const profitsSum = profitTransport + profitSales + profitYard + profitContractors;
         const extraIn = (leftover || []).reduce((s, it) => s + (it.amount || 0), 0);
         const operating = lineSpent('rpt_operating');
         const containers = invested || 0;
-        const internals = haul || 0;
         const afterExtras = profitsSum + extraIn;
-        const finalNet = afterExtras - operating - containers - internals;
+        const finalNet = afterExtras - operating - containers;
         const finalOk = finalNet >= 0;
         const band = (label, amt, kind) => {
             const styles = {
@@ -611,7 +586,7 @@
         };
         html += '<div style="margin-top:16px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">' +
             '<div style="font-size:0.95rem; font-weight:900; color:#0f172a; margin-bottom:8px;">Lo que queda después de Operating</div>' +
-            '<p style="margin:0 0 10px; font-size:0.8rem; color:#64748b; line-height:1.4;">Se suman las ganancias de Transport, Sales, Yard y Contractors, más Rentals y Storage. A ese total se le resta Operating, contenedores y viajes internos.</p>' +
+            '<p style="margin:0 0 10px; font-size:0.8rem; color:#64748b; line-height:1.4;">Se suman las ganancias de Transport, Sales, Yard y Contractors, más Rentals y Storage. A ese total se le resta Operating y contenedores. Los viajes internos ya van dentro de Sales.</p>' +
             band('Ganancia Transport', profitTransport) +
             band('Ganancia Sales', profitSales) +
             band('Ganancia Yard', profitYard) +
@@ -620,10 +595,9 @@
             band('Suma', afterExtras, 'sum') +
             band('− Operating expenses', operating, 'minus') +
             band('− Contenedores (inversión)', containers, 'orange') +
-            band('− Viajes internos', internals, 'minus') +
             '<div style="margin-top:4px; background:' + (finalOk ? '#86efac' : '#fca5a5') + '; color:' + (finalOk ? '#14532d' : '#7f1d1d') + '; border-radius:10px; padding:14px 16px; display:flex; justify-content:space-between; gap:12px; font-size:1.15rem; font-weight:900;">' +
             '<span>QUEDA</span><span>' + money(finalNet) + '</span></div>' +
-            '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' de ganancias + ' + money(extraIn) + ' de Rentals/Storage − ' + money(operating) + ' de Operating − ' + money(containers) + ' de contenedores − ' + money(internals) + ' de viajes internos = ' + money(finalNet) + '.</p>' +
+            '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' de ganancias + ' + money(extraIn) + ' de Rentals/Storage − ' + money(operating) + ' de Operating − ' + money(containers) + ' de contenedores = ' + money(finalNet) + '.</p>' +
             '</div>';
 
         html += '<div style="display:flex; justify-content:space-between; margin-top:12px; font-size:0.9rem; font-weight:900; color:#0f172a;">' +
@@ -664,14 +638,11 @@
     function initDefaults() {
         const now = new Date();
         const today = toISO(now);
-        const set = (id, val) => { const el = document.getElementById(id); if (el && !el.value) el.value = val; };
-        set('cm-day', today);
-        set('cm-from', today);
-        set('cm-to', today);
-        set('cm-week', today);
-        set('cm-month', today.slice(0, 7));
-        set('cm-year', String(now.getFullYear()));
-        syncModeFields();
+        const monthStart = today.slice(0, 8) + '01';
+        const fromEl = document.getElementById('cm-from');
+        const toEl = document.getElementById('cm-to');
+        if (fromEl && !fromEl.value) fromEl.value = monthStart;
+        if (toEl && !toEl.value) toEl.value = today;
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initDefaults);

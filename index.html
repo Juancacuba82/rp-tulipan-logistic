@@ -34,7 +34,7 @@
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1733" defer></script>
-    <script src="./js/company-money.js?v=19" defer></script>
+    <script src="./js/company-money.js?v=22" defer></script>
 
     <script src="./js/docs-receipts.js?v=1717" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
@@ -4358,42 +4358,22 @@
                 <div class="attendance-toolbar-modern">
                     <div class="report-title">
                         <h2 style="font-size: 1.8rem; font-weight: 900; color: #1e293b; margin: 0;">Cómo va la empresa</h2>
-                        <p id="cm-range-label" style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">Elige un día, una semana o un mes de trabajo.</p>
+                        <p id="cm-range-label" style="color: #64748b; font-size: 0.9rem; margin-top: 5px;">Elige fecha de inicio y fecha final.</p>
                     </div>
                     <div class="attendance-filters-wrapper" style="flex-wrap: wrap;">
                         <div class="attendance-input-group">
-                            <label>VER</label>
-                            <select id="cm-mode" class="form-input" onchange="window.onCompanyMoneyModeChange()" style="min-width: 160px;">
-                                <option value="day">Un día</option>
-                                <option value="days">Varios días</option>
-                                <option value="week">Semana (lun–sáb)</option>
-                                <option value="workmonth" selected>Mes de trabajo</option>
-                                <option value="year">Año</option>
-                            </select>
+                            <label><i class="far fa-calendar-alt"></i> FROM</label>
+                            <div class="attendance-field-with-icon">
+                                <i class="fas fa-calendar-day"></i>
+                                <input type="date" id="cm-from" class="form-input" onchange="window.renderCompanyMoney()">
+                            </div>
                         </div>
-                        <div class="attendance-input-group" id="cm-field-day">
-                            <label>DÍA</label>
-                            <input type="date" id="cm-day" class="form-input" onchange="window.renderCompanyMoney()">
-                        </div>
-                        <div class="attendance-input-group" id="cm-field-from" style="display:none;">
-                            <label>DESDE</label>
-                            <input type="date" id="cm-from" class="form-input" onchange="window.renderCompanyMoney()">
-                        </div>
-                        <div class="attendance-input-group" id="cm-field-to" style="display:none;">
-                            <label>HASTA</label>
-                            <input type="date" id="cm-to" class="form-input" onchange="window.renderCompanyMoney()">
-                        </div>
-                        <div class="attendance-input-group" id="cm-field-week" style="display:none;">
-                            <label>UN DÍA DE LA SEMANA</label>
-                            <input type="date" id="cm-week" class="form-input" onchange="window.renderCompanyMoney()">
-                        </div>
-                        <div class="attendance-input-group" id="cm-field-month">
-                            <label>MES</label>
-                            <input type="month" id="cm-month" class="form-input" onchange="window.renderCompanyMoney()">
-                        </div>
-                        <div class="attendance-input-group" id="cm-field-year" style="display:none;">
-                            <label>AÑO</label>
-                            <input type="number" id="cm-year" class="form-input" min="2020" max="2100" onchange="window.renderCompanyMoney()" style="width: 110px;">
+                        <div class="attendance-input-group">
+                            <label><i class="far fa-calendar-check"></i> TO</label>
+                            <div class="attendance-field-with-icon">
+                                <i class="fas fa-calendar-check"></i>
+                                <input type="date" id="cm-to" class="form-input" onchange="window.renderCompanyMoney()">
+                            </div>
                         </div>
                         <button type="button" class="btn-module-refresh" onclick="window.renderCompanyMoney(true)">
                             <i class="fas fa-sync-alt"></i> Refresh
