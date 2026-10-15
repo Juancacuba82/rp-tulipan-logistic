@@ -639,7 +639,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         if (orderReviewHybridEmpty('in-delivery-sel', 'in-delivery')) missing.transport.push('Delivery');
                         if (orderReviewFieldEmpty('in-city')) missing.transport.push('City');
                         if (orderReviewFieldEmpty('in-company')) missing.transport.push('Company');
-                        if (orderReviewFieldEmpty('in-driver')) missing.transport.push('Driver');
+                        const statusVal = (document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT').toUpperCase();
+                        const completing = (statusVal === 'COMPLETE' || statusVal === 'PAID');
+                        if (completing && orderReviewFieldEmpty('in-driver')) missing.transport.push('Driver (required to Complete)');
                         if (orderReviewMoneyEmpty(modalVal('transport'))) missing.transport.push('Trans. Price');
                         if (orderReviewFieldEmpty('in-ncont')) missing.transport.push('N. Cont');
                     }
@@ -805,8 +807,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const isTransport = document.getElementById('in-flag2').checked;
                 const compVal = document.getElementById('in-company').value;
                 const driverVal = document.getElementById('in-driver').value;
+                const finalizeNow = (document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT').toUpperCase();
+                const completingNow = (finalizeNow === 'COMPLETE' || finalizeNow === 'PAID');
 
-                // Company and Driver are MANDATORY if it's a transport-related order
+                // Company is mandatory if it's a transport-related order
                 if (isTransport && (!compVal || compVal === '---')) {
                     alert("ERROR: Debes seleccionar una compañía para órdenes que incluyan servicios de transporte.");
                     isSaving = false;
@@ -814,8 +818,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     return;
                 }
 
-                if (isTransport && (!driverVal || driverVal === '---')) {
-                    alert("ERROR: Debes seleccionar un conductor para órdenes que incluyan servicios de transporte.");
+                if (completingNow && (!driverVal || driverVal === '---')) {
+                    alert("ERROR: Para guardar una orden Complete debes seleccionar un chofer.");
                     isSaving = false;
                     restoreTripArchiveButtonUI();
                     return;
@@ -4261,6 +4265,126 @@ function formatNearbyOrderDate(iso) {
     return raw;
 }
 
+const NEARBY_MAX_MILES = 120;
+const NEARBY_MAX_DAYS = 4;
+const NEARBY_CACHE_KEY = 'rp_drivers_nearby_cache_v1';
+
+function nearbyNormAddr(addr) {
+    return (addr || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+function nearbyLocalISODate() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function getNearbyRefDate() {
+    const formDate = (document.getElementById('in-date')?.value || '').toString().split('T')[0];
+    return formDate || nearbyLocalISODate();
+}
+
+function nearbyDaysApart(a, b) {
+    const da = Date.parse(String(a || '').split('T')[0] + 'T00:00:00');
+    const db = Date.parse(String(b || '').split('T')[0] + 'T00:00:00');
+    if (!da || !db) return 999;
+    return Math.abs(Math.round((da - db) / 86400000));
+}
+
+function nearbyLatLngPlain(ll) {
+    if (!ll) return null;
+    const lat = typeof ll.lat === 'function' ? ll.lat() : ll.lat;
+    const lng = typeof ll.lng === 'function' ? ll.lng() : (ll.lng != null ? ll.lng : ll.lon);
+    if (lat == null || lng == null) return null;
+    return { lat: Number(lat), lng: Number(lng) };
+}
+
+function loadNearbyMapsCache() {
+    try {
+        const raw = localStorage.getItem(NEARBY_CACHE_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (!parsed || typeof parsed !== 'object') return { distances: {}, routes: {} };
+        return {
+            distances: parsed.distances && typeof parsed.distances === 'object' ? parsed.distances : {},
+            routes: parsed.routes && typeof parsed.routes === 'object' ? parsed.routes : {}
+        };
+    } catch (e) {
+        return { distances: {}, routes: {} };
+    }
+}
+
+function saveNearbyMapsCache(data) {
+    try {
+        localStorage.setItem(NEARBY_CACHE_KEY, JSON.stringify({
+            distances: data.distances || {},
+            routes: data.routes || {}
+        }));
+    } catch (e) {
+        try {
+            const slim = { distances: data.distances || {}, routes: {} };
+            const keys = Object.keys(data.routes || {});
+            keys.slice(Math.max(0, keys.length - 80)).forEach(k => { slim.routes[k] = data.routes[k]; });
+            localStorage.setItem(NEARBY_CACHE_KEY, JSON.stringify(slim));
+        } catch (err) {
+            console.warn('Could not save nearby maps cache', err);
+        }
+    }
+}
+
+function nearbyDistKey(origin, dest) {
+    return nearbyNormAddr(origin) + '||' + nearbyNormAddr(dest);
+}
+
+function nearbyRouteKey(origin, dest) {
+    return nearbyNormAddr(origin) + ' => ' + nearbyNormAddr(dest);
+}
+
+function getCachedNearbyDistance(origin, dest) {
+    const store = loadNearbyMapsCache();
+    return store.distances[nearbyDistKey(origin, dest)] || null;
+}
+
+function putCachedNearbyDistances(origin, distByDelivery) {
+    const store = loadNearbyMapsCache();
+    Object.keys(distByDelivery || {}).forEach(dest => {
+        const info = distByDelivery[dest];
+        if (!info || !isFinite(info.miles)) return;
+        store.distances[nearbyDistKey(origin, dest)] = {
+            miles: info.miles,
+            distanceText: info.distanceText,
+            durationText: info.durationText
+        };
+    });
+    saveNearbyMapsCache(store);
+}
+
+function hydrateCachedNearbyRoute(saved) {
+    if (!saved) return null;
+    const start = saved.start && typeof google !== 'undefined' && google.maps
+        ? new google.maps.LatLng(saved.start.lat, saved.start.lng) : null;
+    const end = saved.end && typeof google !== 'undefined' && google.maps
+        ? new google.maps.LatLng(saved.end.lat, saved.end.lng) : null;
+    let path = [];
+    if (saved.encoded) path = decodeRoutesPolyline(saved.encoded);
+    if ((!path || !path.length) && start && end) path = [start, end];
+    if (!path.length) return null;
+    return { error: null, path: path, start: start, end: end, encoded: saved.encoded || '' };
+}
+
+function putCachedNearbyRoute(origin, dest, result) {
+    if (!result || result.error || !result.path || !result.path.length) return;
+    const store = loadNearbyMapsCache();
+    let encoded = result.encoded || '';
+    if (!encoded && google.maps.geometry && google.maps.geometry.encoding) {
+        try { encoded = google.maps.geometry.encoding.encodePath(result.path); } catch (e) { encoded = ''; }
+    }
+    store.routes[nearbyRouteKey(origin, dest)] = {
+        encoded: encoded,
+        start: nearbyLatLngPlain(result.start || result.path[0]),
+        end: nearbyLatLngPlain(result.end || result.path[result.path.length - 1])
+    };
+    saveNearbyMapsCache(store);
+}
+
 function collectTodayDriverDrops() {
     const pools = [window.allTripsUnfiltered, window.currentTrips];
     const byId = new Map();
@@ -4272,6 +4396,8 @@ function collectTodayDriverDrops() {
     });
 
     const items = [];
+    const refDate = getNearbyRefDate();
+    const currentOrder = (document.getElementById('in-order')?.value || '').toString().trim().toUpperCase();
     byId.forEach(trip => {
         if (!isPendingNearbyTrip(trip)) return;
         const driver = (trip[17] || '').toString().trim();
@@ -4279,9 +4405,11 @@ function collectTodayDriverDrops() {
         const delivery = usableTripAddress(trip[8]);
         if (!driver || driver === '---') return;
         if (!pickup || !delivery) return;
-        const orderNo = (trip[5] || trip[4] || '').toString().trim();
-        const city = (trip[6] || '').toString().trim();
         const date = (trip[1] || '').toString().split('T')[0];
+        if (nearbyDaysApart(date, refDate) > NEARBY_MAX_DAYS) return;
+        const orderNo = (trip[5] || trip[4] || '').toString().trim();
+        if (currentOrder && orderNo && currentOrder === orderNo.toUpperCase() && !currentOrder.includes('XXXX')) return;
+        const city = (trip[6] || '').toString().trim();
         const tripId = String(trip[0]);
         items.push({
             tripId: tripId,
@@ -4346,7 +4474,8 @@ async function fetchComputeRoute(apiKey, origin, destination) {
     const data = await res.json();
     const route = data.routes && data.routes[0];
     if (!route) return { error: 'NO_ROUTE', path: [], start: null, end: null };
-    let path = decodeRoutesPolyline(route.polyline && route.polyline.encodedPolyline);
+    const encoded = (route.polyline && route.polyline.encodedPolyline) || '';
+    let path = decodeRoutesPolyline(encoded);
     if ((!path || !path.length) && Array.isArray(route.legs)) {
         path = [];
         route.legs.forEach(leg => {
@@ -4357,7 +4486,7 @@ async function fetchComputeRoute(apiKey, origin, destination) {
     const start = latLngFromRoutesPoint(route.legs && route.legs[0] && route.legs[0].startLocation);
     const lastLeg = route.legs && route.legs[route.legs.length - 1];
     const end = latLngFromRoutesPoint(lastLeg && lastLeg.endLocation);
-    return { error: null, path: path, start: start, end: end };
+    return { error: null, path: path, start: start, end: end, encoded: encoded };
 }
 
 function fetchLegacyDirections(origin, destination) {
@@ -4391,8 +4520,14 @@ function fetchLegacyDirections(origin, destination) {
 }
 
 async function requestDriverRoute(apiKey, origin, destination, cache) {
-    const key = origin + ' => ' + destination;
+    const key = nearbyRouteKey(origin, destination);
     if (cache[key]) return cache[key];
+    const persisted = loadNearbyMapsCache().routes[key];
+    const hydrated = hydrateCachedNearbyRoute(persisted);
+    if (hydrated) {
+        cache[key] = hydrated;
+        return hydrated;
+    }
     let result = null;
     try {
         result = await fetchComputeRoute(apiKey, origin, destination);
@@ -4405,6 +4540,7 @@ async function requestDriverRoute(apiKey, origin, destination, cache) {
         if (legacy && legacy.path && legacy.path.length) result = legacy;
     }
     cache[key] = result || { error: 'NO_ROUTE', path: [], start: null, end: null };
+    if (cache[key] && cache[key].path && cache[key].path.length) putCachedNearbyRoute(origin, destination, cache[key]);
     return cache[key];
 }
 
@@ -4728,6 +4864,7 @@ window.openDriversNearToday = async function () {
         return;
     }
 
+    const refDate = getNearbyRefDate();
     const drivers = collectTodayDriverDrops();
     const modal = document.getElementById('drivers-near-today-modal');
     const listEl = document.getElementById('drivers-near-today-list');
@@ -4737,15 +4874,15 @@ window.openDriversNearToday = async function () {
     if (!modal || !listEl) return;
 
     if (subtitle) {
-        subtitle.textContent = 'Pickup: ' + origin + '  ·  All pending orders with pickup and delivery. Closest drop-off first. Use driver does not save the order.';
+        subtitle.textContent = 'Pickup: ' + origin + '  ·  Pending within ' + NEARBY_MAX_DAYS + ' days of ' + formatNearbyOrderDate(refDate) + '  ·  Max ' + NEARBY_MAX_MILES + ' mi  ·  Routes saved in this browser.';
     }
 
     modal.style.display = 'flex';
     listEl.innerHTML = '';
     if (!drivers.length) {
         listEl.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#64748b;">' +
-            '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No pending orders with pickup and delivery</p>' +
-            '<p style="font-size:0.85rem; margin:0;">A pending order needs a driver, pick up address, and delivery place to show here.</p></div>';
+            '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No pending orders in the 4-day window</p>' +
+            '<p style="font-size:0.85rem; margin:0;">Need a Pending trip within ' + NEARBY_MAX_DAYS + ' days of ' + formatNearbyOrderDate(refDate) + ', with driver, pickup, and delivery.</p></div>';
         if (statusEl) statusEl.style.display = 'none';
         clearDriversNearMap();
         return;
@@ -4776,13 +4913,23 @@ window.openDriversNearToday = async function () {
 
         const uniqueDeliveries = [...new Set(drivers.map(d => d.delivery).filter(Boolean))];
         const distByDelivery = {};
+        const missingDeliveries = [];
+        uniqueDeliveries.forEach(dest => {
+            const cached = getCachedNearbyDistance(origin, dest);
+            if (cached) distByDelivery[dest] = cached;
+            else missingDeliveries.push(dest);
+        });
         const service = new google.maps.DistanceMatrixService();
         const BATCH_SIZE = 25;
 
-        for (let i = 0; i < uniqueDeliveries.length; i += BATCH_SIZE) {
-            const batch = uniqueDeliveries.slice(i, i + BATCH_SIZE);
+        if (!missingDeliveries.length && statusText) {
+            statusText.textContent = 'Using saved distances...';
+        }
+
+        for (let i = 0; i < missingDeliveries.length; i += BATCH_SIZE) {
+            const batch = missingDeliveries.slice(i, i + BATCH_SIZE);
             if (statusText) {
-                statusText.textContent = 'Calculating distances... (' + Math.min(i + BATCH_SIZE, uniqueDeliveries.length) + ' / ' + uniqueDeliveries.length + ')';
+                statusText.textContent = 'Calculating distances... (' + Math.min(i + BATCH_SIZE, missingDeliveries.length) + ' / ' + missingDeliveries.length + ')';
             }
             await new Promise((resolve, reject) => {
                 const timer = setTimeout(() => reject(new Error('Google API timeout')), 20000);
@@ -4812,12 +4959,22 @@ window.openDriversNearToday = async function () {
                 });
             });
         }
+        if (missingDeliveries.length) putCachedNearbyDistances(origin, distByDelivery);
 
         const ranked = drivers.map(d => Object.assign({}, d, distByDelivery[d.delivery] || {
             miles: Number.POSITIVE_INFINITY,
             distanceText: 'N/A',
             durationText: ''
-        })).sort((a, b) => a.miles - b.miles);
+        })).filter(d => isFinite(d.miles) && d.miles <= NEARBY_MAX_MILES).sort((a, b) => a.miles - b.miles);
+
+        if (!ranked.length) {
+            if (statusEl) statusEl.style.display = 'none';
+            listEl.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#64748b;">' +
+                '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No pending orders within ' + NEARBY_MAX_MILES + ' miles</p>' +
+                '<p style="font-size:0.85rem; margin:0;">There are pending trips in the 4-day window, but all drop-offs are farther than ' + NEARBY_MAX_MILES + ' miles from this pickup.</p></div>';
+            clearDriversNearMap();
+            return;
+        }
 
         if (statusText) statusText.textContent = 'Drawing routes...';
         await drawDriversNearRoutes(apiKey, origin, ranked, statusText);

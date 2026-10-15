@@ -29,8 +29,8 @@
     <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1714" defer></script>
-    <script src="./js/delivery-calendar.js?v=1735" defer></script>
+    <script src="./js/data-managers.js?v=1715" defer></script>
+    <script src="./js/delivery-calendar.js?v=1737" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1735" defer></script>
@@ -2146,8 +2146,8 @@
                                     style="margin-right: 0 !important;">Driver</label>
                                 <button onclick="openDriverManager()" class="btn-manage-inline">Manage</button>
                             </div>
-                            <select id="in-driver" required>
-                                <option value="" disabled selected>Loading drivers...</option>
+                            <select id="in-driver">
+                                <option value="">No driver yet (pending OK)</option>
                             </select>
                         </div>
                         <div class="form-group" id="trans-pay-group" style="display:none;">
