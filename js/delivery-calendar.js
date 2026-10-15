@@ -292,6 +292,488 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             });
         }
 
+        function orderCommissionNote(tripId, orderNo) {
+            return `Auto-generated from order ${orderNo || '---'} (trip ${tripId})`;
+        }
+
+        async function findOrderCommissionExpense(tripId) {
+            if (!tripId || typeof db === 'undefined') return null;
+            try {
+                const { data, error } = await db.from('expenses')
+                    .select('id, amount, description, note, payment_method, date')
+                    .eq('category', 'COMMISSION')
+                    .ilike('note', `%trip ${tripId}%`)
+                    .or('is_deleted.eq.false,is_deleted.is.null')
+                    .limit(3);
+                if (error) throw error;
+                return (data && data[0]) || null;
+            } catch (err) {
+                console.warn('Could not load existing commission expense:', err);
+                return null;
+            }
+        }
+
+        async function syncOrderCommissionExpense({ tripId, orderNo, date, commission }) {
+            if (!tripId) return;
+            const existing = await findOrderCommissionExpense(tripId);
+            const has = !!(commission && commission.has);
+            const amount = has ? (parseFloat(commission.amount) || 0) : 0;
+            const payee = (commission && commission.payee) ? String(commission.payee).trim() : '';
+            const pm = (commission && commission.paymentMethod === 'bank') ? 'bank' : 'cash';
+
+            if (!has || amount <= 0) {
+                if (existing && existing.id) {
+                    await db.from('expenses').update({
+                        is_deleted: true,
+                        deleted_at: new Date().toISOString(),
+                        deleted_by: window.userEmail || null
+                    }).eq('id', existing.id);
+                    if (window.syncExpenseToLedger) window.syncExpenseToLedger({ id: existing.id }, 'delete');
+                    if (Array.isArray(window.currentExpenses)) {
+                        window.currentExpenses = window.currentExpenses.filter(row => row[5] !== existing.id);
+                    }
+                }
+                return;
+            }
+
+            const desc = payee
+                ? `Commission — ${orderNo || '---'} — ${payee}`
+                : `Commission — ${orderNo || '---'}`;
+            const note = orderCommissionNote(tripId, orderNo);
+            const rowData = [
+                date || new Date().toISOString().split('T')[0],
+                'COMMISSION',
+                desc,
+                `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+                note,
+                null,
+                pm,
+                'rpt_sales'
+            ];
+            const expenseObj = window.mapArrayToExpense
+                ? window.mapArrayToExpense(rowData)
+                : {
+                    date: rowData[0],
+                    category: 'COMMISSION',
+                    description: desc,
+                    amount,
+                    note,
+                    payment_method: pm,
+                    profit_line: 'rpt_sales'
+                };
+
+            if (existing && existing.id) {
+                const { data, error } = await db.from('expenses').update(expenseObj).eq('id', existing.id).select();
+                if (error) throw error;
+                if (data && data[0] && window.syncExpenseToLedger) window.syncExpenseToLedger(data[0], 'update');
+                if (data && data[0] && window.mapExpenseToArray && Array.isArray(window.currentExpenses)) {
+                    const mapped = window.mapExpenseToArray(data[0]);
+                    const idx = window.currentExpenses.findIndex(row => row[5] === existing.id);
+                    if (idx !== -1) window.currentExpenses[idx] = mapped;
+                    else window.currentExpenses.unshift(mapped);
+                }
+            } else if (window.addExpense) {
+                const saved = await window.addExpense(expenseObj);
+                if (saved && saved[0] && window.syncExpenseToLedger) window.syncExpenseToLedger(saved[0], 'add');
+                if (saved && saved[0] && window.mapExpenseToArray && Array.isArray(window.currentExpenses)) {
+                    window.currentExpenses.unshift(window.mapExpenseToArray(saved[0]));
+                }
+            }
+        }
+
+        function applyOrderServicesReview(services) {
+            if (!services) return;
+            const setChk = (id, on) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.checked = !!on;
+                el.dispatchEvent(new Event('change'));
+            };
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (!el || val === undefined || val === null || val === '') return;
+                el.value = val;
+            };
+
+            setChk('in-flag1', services.yard.on);
+            const yardList = document.getElementById('yard-services-list');
+            if (yardList) yardList.innerHTML = '';
+            if (services.yard.on) {
+                const items = Array.isArray(services.yard.items) ? services.yard.items : [];
+                if (window.addYardServiceRow) {
+                    if (items.length) items.forEach((it) => window.addYardServiceRow(it.desc || '', it.price || ''));
+                    else window.addYardServiceRow();
+                }
+                if (window.calculateYardTotal) window.calculateYardTotal();
+            }
+
+            setChk('in-flag2', services.transport.on);
+            if (services.transport.on) setVal('in-rate', services.transport.amount);
+
+            if (services.rent.on) {
+                setChk('in-flag3', false);
+                setChk('in-move-to-rentals', true);
+                setVal('in-rent-price', services.rent.amount);
+                if (services.rent.period) {
+                    const per = document.getElementById('in-time-rent');
+                    if (per) per.value = services.rent.period;
+                }
+            } else {
+                setChk('in-move-to-rentals', false);
+                setChk('in-flag3', services.sales.on);
+                if (services.sales.on) setVal('in-sales', services.sales.amount);
+            }
+
+            setChk('in-move-to-yard', services.storage.on);
+            if (services.storage.on) {
+                const dest = document.getElementById('in-to-yard-dest');
+                if (dest) {
+                    dest.value = services.storage.dest || 'RPTULIPAN';
+                    dest.style.display = 'inline-block';
+                }
+                setVal('in-priceperday', services.storage.perDay);
+                setVal('in-liftcost', services.storage.lift);
+            }
+        }
+
+        function orderReviewFieldEmpty(id) {
+            const t = (document.getElementById(id)?.value || '').trim();
+            return !t || t === '---';
+        }
+
+        function orderReviewHybridEmpty(selId, manId) {
+            const man = document.getElementById(manId);
+            const sel = document.getElementById(selId);
+            const v = (man && man.style.display !== 'none') ? man.value : (sel ? sel.value : '');
+            const t = (v || '').trim();
+            return !t || t === '---';
+        }
+
+        function orderReviewMoneyEmpty(raw) {
+            const t = (raw ?? '').toString().trim();
+            if (!t) return true;
+            const n = parseFloat(t);
+            return isNaN(n) || n <= 0;
+        }
+
+        function showOrderServicesReviewModal() {
+            return new Promise(async (resolve) => {
+                const existing = document.getElementById('order-services-review-modal');
+                if (existing) existing.remove();
+
+                const num = (id) => {
+                    const raw = (document.getElementById(id)?.value || '').trim();
+                    return raw;
+                };
+                const on = (id) => !!document.getElementById(id)?.checked;
+                const yardOn = on('in-flag1');
+                const transOn = on('in-flag2');
+                const salesOn = on('in-flag3');
+                const storageOn = on('in-move-to-yard');
+                const rentOn = on('in-move-to-rentals');
+                const rentPeriod = document.getElementById('in-time-rent')?.value || 'monthly';
+                const storageDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
+                const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                const existingYardItems = Array.from(document.querySelectorAll('#yard-services-list .yard-service-row')).map((r) => ({
+                    desc: r.querySelector('.ys-desc')?.value || '',
+                    price: r.querySelector('.ys-price')?.value || ''
+                }));
+                if (!existingYardItems.length && yardOn) existingYardItems.push({ desc: '', price: num('in-yardrate') });
+
+                let priorCommission = null;
+                if (editingTripDbId) priorCommission = await findOrderCommissionExpense(editingTripDbId);
+
+                const wrap = document.createElement('div');
+                wrap.id = 'order-services-review-modal';
+                wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.78);display:flex;align-items:center;justify-content:center;z-index:100000;font-family:Outfit,sans-serif;padding:16px;';
+
+                const yardRowsHtml = (existingYardItems.length ? existingYardItems : [{ desc: '', price: '' }]).map((it, i) => `
+                    <div class="osr-yard-item" style="display:flex;gap:6px;align-items:center;">
+                        <input type="text" class="osr-yard-desc" list="yard-services-datalist" placeholder="Service (e.g. Paint)" value="${esc(it.desc)}" style="flex:2;padding:6px 8px;border:1px solid #fdba74;border-radius:8px;font-weight:700;font-size:0.8rem;">
+                        <input type="number" class="osr-yard-price" placeholder="$0.00" value="${esc(it.price)}" step="0.01" style="width:100px;padding:6px 8px;border:1px solid #fdba74;border-radius:8px;font-weight:700;">
+                        <button type="button" class="osr-yard-del" style="background:transparent;color:#ef4444;border:none;cursor:pointer;padding:4px;" title="Remove"><i class="fas fa-trash"></i></button>
+                    </div>`).join('');
+
+                const row = (opts) => `
+                    <div class="osr-row" data-key="${opts.key}" style="display:flex;flex-direction:column;gap:10px;padding:12px;border:1.5px solid ${opts.color}33;border-radius:12px;background:${opts.on ? opts.bg : '#fff'};">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <input type="checkbox" class="osr-chk" data-key="${opts.key}" ${opts.on ? 'checked' : ''} style="width:18px;height:18px;accent-color:${opts.color};">
+                            <span style="font-family:Arial,Helvetica,sans-serif;font-weight:700;color:${opts.color};font-size:0.95rem;white-space:nowrap;letter-spacing:0.02em;">${opts.label}</span>
+                            ${opts.right || ''}
+                        </div>
+                        <div class="osr-amounts" data-key="${opts.key}" style="display:${opts.on ? 'flex' : 'none'};gap:6px;align-items:center;flex-wrap:wrap;">
+                            ${opts.extra || ''}
+                        </div>
+                        <div class="osr-hint" data-key="${opts.key}" style="display:none;font-size:0.72rem;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:6px 8px;line-height:1.35;"></div>
+                    </div>`;
+
+                wrap.innerHTML = `
+                    <div role="dialog" aria-modal="true" style="background:#fff;border-radius:18px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 25px 50px -12px rgba(0,0,0,0.45);">
+                        <div style="padding:20px 22px 8px;border-bottom:1px solid #e2e8f0;">
+                            <h2 style="margin:0 0 6px;font-size:1.2rem;color:#0f172a;font-weight:800;">Review services on this order</h2>
+                            <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.45;">Confirm what is checked. Missing fields are flagged below, but you can still save.</p>
+                            <div id="osr-common-hint" style="display:none;margin-top:10px;font-size:0.75rem;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;"></div>
+                        </div>
+                        <div style="padding:16px 22px;display:flex;flex-direction:column;gap:10px;">
+                            ${row({ key: 'yard', label: 'Yard Services', color: '#f97316', bg: '#fff7ed', on: yardOn, extra: `<div style="width:100%;display:flex;flex-direction:column;gap:6px;"><div id="osr-yard-list" style="display:flex;flex-direction:column;gap:6px;">${yardRowsHtml}</div><button type="button" id="osr-yard-add" style="padding:6px;background:#10b981;color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:800;cursor:pointer;"><i class="fas fa-plus"></i> Add Service</button><div id="osr-yard-total" style="font-size:0.75rem;font-weight:800;color:#9a3412;text-align:right;">Yard Total $0.00</div></div>` })}
+                            ${row({ key: 'transport', label: 'Transport', color: '#1e40af', bg: '#eff6ff', on: transOn, extra: `<span style="font-size:0.7rem;font-weight:700;color:#1e3a8a;">$</span><input type="number" class="osr-amt" data-field="transport" value="${num('in-rate')}" placeholder="0.00" step="0.01" style="width:110px;padding:6px 8px;border:1px solid #93c5fd;border-radius:8px;font-weight:700;">` })}
+                            ${row({ key: 'sales', label: 'Sales', color: '#059669', bg: '#ecfdf5', on: salesOn, extra: `<span style="font-size:0.7rem;font-weight:700;color:#065f46;">$</span><input type="number" class="osr-amt" data-field="sales" value="${num('in-sales')}" placeholder="0.00" step="0.01" style="width:110px;padding:6px 8px;border:1px solid #6ee7b7;border-radius:8px;font-weight:700;">` })}
+                            ${row({ key: 'storage', label: 'Storage', color: '#e11d48', bg: '#fff1f2', on: storageOn, extra: `<div style="width:100%;display:flex;flex-direction:column;gap:8px;"><label style="font-size:0.72rem;font-weight:800;color:#9f1239;">Which yard?<select class="osr-amt" data-field="storageDest" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid #fda4af;border-radius:8px;font-weight:800;color:#e11d48;"><option value="RPTULIPAN"${storageDest === 'RPTULIPAN' ? ' selected' : ''}>RPTulipan Yard</option><option value="STORAGE"${storageDest === 'STORAGE' ? ' selected' : ''}>Storage Yard</option></select></label><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><span style="font-size:0.65rem;font-weight:800;color:#9f1239;">/day</span><input type="number" class="osr-amt" data-field="storageDay" value="${num('in-priceperday')}" placeholder="0.00" step="0.01" style="width:88px;padding:6px 8px;border:1px solid #fda4af;border-radius:8px;font-weight:700;"><span style="font-size:0.65rem;font-weight:800;color:#9f1239;">Lift</span><input type="number" class="osr-amt" data-field="storageLift" value="${num('in-liftcost')}" placeholder="0.00" step="0.01" style="width:88px;padding:6px 8px;border:1px solid #fda4af;border-radius:8px;font-weight:700;"></div></div>` })}
+                            ${row({ key: 'rent', label: 'Rent', color: '#7c3aed', bg: '#f5f3ff', on: rentOn, extra: `<span style="font-size:0.7rem;font-weight:700;color:#5b21b6;">$</span><input type="number" class="osr-amt" data-field="rent" value="${num('in-rent-price')}" placeholder="0.00" step="0.01" style="width:100px;padding:6px 8px;border:1px solid #c4b5fd;border-radius:8px;font-weight:700;"><select class="osr-amt" data-field="rentPeriod" style="padding:6px 8px;border:1px solid #c4b5fd;border-radius:8px;font-weight:700;font-size:0.75rem;"><option value="monthly"${rentPeriod === 'monthly' ? ' selected' : ''}>Monthly</option><option value="weekly"${rentPeriod === 'weekly' ? ' selected' : ''}>Weekly</option><option value="daily"${rentPeriod === 'daily' ? ' selected' : ''}>Daily</option></select>` })}
+
+                            <div id="osr-commission" style="display:${salesOn && !rentOn ? 'block' : 'none'};margin-top:6px;padding:16px;border-radius:14px;background:#450a0a;border:2px solid #ef4444;color:#fff;">
+                                <div style="font-size:1.05rem;font-weight:900;letter-spacing:0.02em;color:#fecaca;text-align:center;">DOES THIS SALE HAVE A COMMISSION?</div>
+                                <p style="margin:8px 0 14px;font-size:0.82rem;color:#fecaca;text-align:center;font-weight:700;line-height:1.4;">Required. You must choose Yes or No to save. Bank CSV will show it for review, not to import.</p>
+                                <div style="display:flex;gap:10px;justify-content:center;">
+                                    <button type="button" id="osr-comm-yes" style="flex:1;padding:12px;border-radius:10px;border:2px solid #fca5a5;background:transparent;color:#fff;font-weight:900;cursor:pointer;">YES, IT DOES</button>
+                                    <button type="button" id="osr-comm-no" style="flex:1;padding:12px;border-radius:10px;border:2px solid #fca5a5;background:transparent;color:#fff;font-weight:900;cursor:pointer;">NO COMMISSION</button>
+                                </div>
+                                <div id="osr-comm-fields" style="display:none;margin-top:14px;flex-direction:column;gap:8px;">
+                                    <label style="font-size:0.75rem;font-weight:800;color:#fecaca;">Commission amount (not subtracted from Sales)
+                                        <input type="number" id="osr-comm-amount" placeholder="0.00" step="0.01" value="${priorCommission ? (parseFloat(priorCommission.amount) || '') : ''}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #fca5a5;font-weight:800;color:#7f1d1d;">
+                                    </label>
+                                    <label style="font-size:0.75rem;font-weight:800;color:#fecaca;">Pay to (optional)
+                                        <input type="text" id="osr-comm-payee" placeholder="Name" value="${priorCommission && priorCommission.description ? (priorCommission.description.split('—').slice(2).join('—').trim() || '') : ''}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #fca5a5;font-weight:700;color:#7f1d1d;">
+                                    </label>
+                                    <div style="display:flex;gap:8px;">
+                                        <label style="flex:1;font-size:0.75rem;font-weight:800;color:#fecaca;display:flex;align-items:center;gap:6px;"><input type="radio" name="osr-comm-pm" value="cash" ${!priorCommission || priorCommission.payment_method !== 'bank' ? 'checked' : ''}> CASH</label>
+                                        <label style="flex:1;font-size:0.75rem;font-weight:800;color:#fecaca;display:flex;align-items:center;gap:6px;"><input type="radio" name="osr-comm-pm" value="bank" ${priorCommission && priorCommission.payment_method === 'bank' ? 'checked' : ''}> BANK</label>
+                                    </div>
+                                </div>
+                                <p id="osr-comm-error" style="display:none;margin:10px 0 0;color:#fecaca;font-weight:800;font-size:0.8rem;text-align:center;"></p>
+                            </div>
+                        </div>
+                        <div style="padding:16px 22px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e2e8f0;">
+                            <button type="button" id="osr-cancel" style="padding:10px 16px;background:#f1f5f9;color:#334155;border:none;border-radius:8px;font-weight:800;cursor:pointer;">Back</button>
+                            <button type="button" id="osr-confirm" style="padding:10px 16px;background:#059669;color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;">Confirm and save</button>
+                        </div>
+                    </div>`;
+
+                document.body.appendChild(wrap);
+
+                let commChoice = priorCommission ? 'yes' : '';
+                const commBox = wrap.querySelector('#osr-commission');
+                const commFields = wrap.querySelector('#osr-comm-fields');
+                const yesBtn = wrap.querySelector('#osr-comm-yes');
+                const noBtn = wrap.querySelector('#osr-comm-no');
+                const errEl = wrap.querySelector('#osr-comm-error');
+
+                const paintCommBtns = () => {
+                    yesBtn.style.background = commChoice === 'yes' ? '#dc2626' : 'transparent';
+                    yesBtn.style.borderColor = commChoice === 'yes' ? '#dc2626' : '#fca5a5';
+                    noBtn.style.background = commChoice === 'no' ? '#047857' : 'transparent';
+                    noBtn.style.borderColor = commChoice === 'no' ? '#047857' : '#fca5a5';
+                    commFields.style.display = commChoice === 'yes' ? 'flex' : 'none';
+                    commFields.style.flexDirection = 'column';
+                };
+                if (commChoice === 'yes') paintCommBtns();
+
+                const salesChk = () => wrap.querySelector('.osr-chk[data-key="sales"]');
+                const rentChk = () => wrap.querySelector('.osr-chk[data-key="rent"]');
+                const updateCommissionVisibility = () => {
+                    const show = !!(salesChk()?.checked) && !(rentChk()?.checked);
+                    commBox.style.display = show ? 'block' : 'none';
+                    if (!show) {
+                        commChoice = '';
+                        paintCommBtns();
+                    }
+                };
+
+                const addModalYardRow = (desc = '', price = '') => {
+                    const list = wrap.querySelector('#osr-yard-list');
+                    if (!list) return;
+                    const item = document.createElement('div');
+                    item.className = 'osr-yard-item';
+                    item.style.cssText = 'display:flex;gap:6px;align-items:center;';
+                    item.innerHTML = `
+                        <input type="text" class="osr-yard-desc" list="yard-services-datalist" placeholder="Service (e.g. Paint)" value="${esc(desc)}" style="flex:2;padding:6px 8px;border:1px solid #fdba74;border-radius:8px;font-weight:700;font-size:0.8rem;">
+                        <input type="number" class="osr-yard-price" placeholder="$0.00" value="${esc(price)}" step="0.01" style="width:100px;padding:6px 8px;border:1px solid #fdba74;border-radius:8px;font-weight:700;">
+                        <button type="button" class="osr-yard-del" style="background:transparent;color:#ef4444;border:none;cursor:pointer;padding:4px;" title="Remove"><i class="fas fa-trash"></i></button>`;
+                    list.appendChild(item);
+                    updateYardModalTotal();
+                };
+                const updateYardModalTotal = () => {
+                    const totalEl = wrap.querySelector('#osr-yard-total');
+                    if (!totalEl) return;
+                    let total = 0;
+                    wrap.querySelectorAll('.osr-yard-price').forEach((inp) => { total += parseFloat(inp.value) || 0; });
+                    totalEl.textContent = `Yard Total $${total.toFixed(2)}`;
+                };
+                wrap.addEventListener('input', (e) => {
+                    if (e.target.classList.contains('osr-yard-price')) updateYardModalTotal();
+                });
+                wrap.addEventListener('click', (e) => {
+                    const del = e.target.closest('.osr-yard-del');
+                    if (del) {
+                        const rowItem = del.closest('.osr-yard-item');
+                        if (rowItem) rowItem.remove();
+                        updateYardModalTotal();
+                        if (typeof refreshMissingHints === 'function') refreshMissingHints();
+                    }
+                });
+                wrap.querySelector('#osr-yard-add')?.addEventListener('click', () => { addModalYardRow(); refreshMissingHints(); });
+                updateYardModalTotal();
+
+                const confirmBtn = wrap.querySelector('#osr-confirm');
+                const commonHint = wrap.querySelector('#osr-common-hint');
+                const modalVal = (field) => wrap.querySelector(`.osr-amt[data-field="${field}"]`)?.value || '';
+                const isChecked = (key) => !!wrap.querySelector(`.osr-chk[data-key="${key}"]`)?.checked;
+
+                const refreshMissingHints = () => {
+                    const missing = { yard: [], transport: [], sales: [], storage: [], rent: [], common: [] };
+                    if (orderReviewFieldEmpty('in-date')) missing.common.push('Date');
+                    if (orderReviewHybridEmpty('in-size-sel', 'in-size')) missing.common.push('Size');
+
+                    if (isChecked('yard')) {
+                        const items = Array.from(wrap.querySelectorAll('.osr-yard-item')).map((item) => ({
+                            desc: (item.querySelector('.osr-yard-desc')?.value || '').trim(),
+                            price: parseFloat(item.querySelector('.osr-yard-price')?.value || '0') || 0
+                        })).filter((it) => it.desc || it.price > 0);
+                        if (!items.length) missing.yard.push('service and price');
+                        else if (items.some((it) => !it.desc)) missing.yard.push('service name');
+                        else if (items.some((it) => it.price <= 0)) missing.yard.push('price');
+                        if (orderReviewFieldEmpty('in-ncont')) missing.yard.push('N. Cont');
+                    }
+                    if (isChecked('transport')) {
+                        if (orderReviewHybridEmpty('in-pickup-sel', 'in-pickup')) missing.transport.push('Pickup');
+                        if (orderReviewHybridEmpty('in-delivery-sel', 'in-delivery')) missing.transport.push('Delivery');
+                        if (orderReviewFieldEmpty('in-city')) missing.transport.push('City');
+                        if (orderReviewFieldEmpty('in-company')) missing.transport.push('Company');
+                        if (orderReviewFieldEmpty('in-driver')) missing.transport.push('Driver');
+                        if (orderReviewMoneyEmpty(modalVal('transport'))) missing.transport.push('Trans. Price');
+                        if (orderReviewFieldEmpty('in-ncont')) missing.transport.push('N. Cont');
+                    }
+                    if (isChecked('sales') && !isChecked('rent')) {
+                        if (orderReviewMoneyEmpty(modalVal('sales'))) missing.sales.push('Sales Price');
+                        if (orderReviewHybridEmpty('in-customer-sel', 'in-customer')) missing.sales.push('Customer');
+                        if (orderReviewFieldEmpty('in-ncont')) missing.sales.push('N. Cont');
+                    }
+                    if (isChecked('storage')) {
+                        if (orderReviewMoneyEmpty(modalVal('storageDay'))) missing.storage.push('Price / day');
+                        if (orderReviewMoneyEmpty(modalVal('storageLift'))) missing.storage.push('Lift');
+                        if (orderReviewFieldEmpty('in-ncont')) missing.storage.push('N. Cont');
+                    }
+                    if (isChecked('rent')) {
+                        if (orderReviewMoneyEmpty(modalVal('rent'))) missing.rent.push('Rent Price');
+                        if (orderReviewHybridEmpty('in-customer-sel', 'in-customer')) missing.rent.push('Customer');
+                        if (orderReviewFieldEmpty('in-ncont')) missing.rent.push('N. Cont');
+                    }
+                    if (!isChecked('yard') && !isChecked('transport') && !isChecked('sales') && !isChecked('storage') && !isChecked('rent')) {
+                        missing.common.push('no service selected');
+                    }
+
+                    let total = missing.common.length;
+                    ['yard', 'transport', 'sales', 'storage', 'rent'].forEach((key) => {
+                        const el = wrap.querySelector(`.osr-hint[data-key="${key}"]`);
+                        const list = missing[key];
+                        total += list.length;
+                        if (el) {
+                            if (list.length && isChecked(key)) {
+                                el.style.display = 'block';
+                                el.textContent = 'Missing: ' + list.join(', ');
+                            } else {
+                                el.style.display = 'none';
+                                el.textContent = '';
+                            }
+                        }
+                    });
+                    if (commonHint) {
+                        if (missing.common.length) {
+                            commonHint.style.display = 'block';
+                            commonHint.textContent = 'Missing: ' + missing.common.join(', ') + '. You can still save.';
+                        } else {
+                            commonHint.style.display = 'none';
+                            commonHint.textContent = '';
+                        }
+                    }
+                    if (confirmBtn) {
+                        confirmBtn.textContent = total > 0
+                            ? `Save anyway (${total} missing)`
+                            : 'Confirm and save';
+                    }
+                };
+
+                wrap.addEventListener('input', () => refreshMissingHints());
+                wrap.addEventListener('change', () => refreshMissingHints());
+                refreshMissingHints();
+
+                wrap.querySelectorAll('.osr-chk').forEach((chk) => {
+                    chk.addEventListener('change', () => {
+                        const key = chk.dataset.key;
+                        const amounts = wrap.querySelector(`.osr-amounts[data-key="${key}"]`);
+                        const rowEl = wrap.querySelector(`.osr-row[data-key="${key}"]`);
+                        if (amounts) amounts.style.display = chk.checked ? 'flex' : 'none';
+                        if (rowEl) rowEl.style.background = chk.checked ? (rowEl.style.background || '') : '#fff';
+                        if (key === 'yard' && chk.checked && !wrap.querySelector('.osr-yard-item')) addModalYardRow();
+                        if (key === 'rent' && chk.checked && salesChk()) {
+                            salesChk().checked = false;
+                            salesChk().dispatchEvent(new Event('change'));
+                        }
+                        if (key === 'sales' && chk.checked && rentChk()) {
+                            rentChk().checked = false;
+                            const rentAmounts = wrap.querySelector('.osr-amounts[data-key="rent"]');
+                            if (rentAmounts) rentAmounts.style.display = 'none';
+                        }
+                        updateCommissionVisibility();
+                        refreshMissingHints();
+                    });
+                });
+
+                yesBtn.addEventListener('click', () => { commChoice = 'yes'; errEl.style.display = 'none'; paintCommBtns(); });
+                noBtn.addEventListener('click', () => { commChoice = 'no'; errEl.style.display = 'none'; paintCommBtns(); });
+
+                const close = (result) => {
+                    wrap.remove();
+                    resolve(result);
+                };
+
+                wrap.querySelector('#osr-cancel').addEventListener('click', () => close(null));
+                wrap.addEventListener('click', (e) => { if (e.target === wrap) close(null); });
+
+                wrap.querySelector('#osr-confirm').addEventListener('click', () => {
+                    const val = (field) => wrap.querySelector(`.osr-amt[data-field="${field}"]`)?.value || '';
+                    const checked = (key) => !!wrap.querySelector(`.osr-chk[data-key="${key}"]`)?.checked;
+                    const salesSelected = checked('sales') && !checked('rent');
+                    if (salesSelected && commChoice !== 'yes' && commChoice !== 'no') {
+                        errEl.textContent = 'Choose YES or NO for commission. You cannot save without answering.';
+                        errEl.style.display = 'block';
+                        commBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                    }
+                    if (salesSelected && commChoice === 'yes') {
+                        const amt = parseFloat(wrap.querySelector('#osr-comm-amount')?.value || '0') || 0;
+                        if (amt <= 0) {
+                            errEl.textContent = 'Enter the commission amount.';
+                            errEl.style.display = 'block';
+                            return;
+                        }
+                    }
+                    const yardItems = Array.from(wrap.querySelectorAll('.osr-yard-item')).map((item) => ({
+                        desc: item.querySelector('.osr-yard-desc')?.value || '',
+                        price: item.querySelector('.osr-yard-price')?.value || ''
+                    })).filter((it) => it.desc.trim() || (parseFloat(it.price) || 0) > 0);
+                    close({
+                        confirmed: true,
+                        services: {
+                            yard: { on: checked('yard'), items: yardItems },
+                            transport: { on: checked('transport'), amount: val('transport') },
+                            sales: { on: salesSelected, amount: val('sales') },
+                            storage: { on: checked('storage'), dest: val('storageDest') || 'RPTULIPAN', perDay: val('storageDay'), lift: val('storageLift') },
+                            rent: { on: checked('rent'), amount: val('rent'), period: val('rentPeriod') || 'monthly' }
+                        },
+                        commission: (salesSelected && commChoice === 'yes')
+                            ? {
+                                has: true,
+                                amount: wrap.querySelector('#osr-comm-amount')?.value,
+                                payee: wrap.querySelector('#osr-comm-payee')?.value || '',
+                                paymentMethod: wrap.querySelector('input[name="osr-comm-pm"]:checked')?.value || 'cash'
+                            }
+                            : { has: false }
+                    });
+                });
+            });
+        }
+
         let isSaving = false;
         async function addRow() {
             const role = (window.currentUserRole || '').toLowerCase().trim();
@@ -311,6 +793,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             isSaving = true;
 
             try {
+                const review = await showOrderServicesReviewModal();
+                if (!review || !review.confirmed) {
+                    isSaving = false;
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
+                applyOrderServicesReview(review.services);
+                window._pendingOrderCommission = review.commission || { has: false };
+
                 const isTransport = document.getElementById('in-flag2').checked;
                 const compVal = document.getElementById('in-company').value;
                 const driverVal = document.getElementById('in-driver').value;
@@ -1030,6 +1521,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         releaseRow[14] = newStock;
                     }
                 }
+
+                try {
+                    await syncOrderCommissionExpense({
+                        tripId: finalTripId,
+                        orderNo: document.getElementById('in-order')?.value || '---',
+                        date: document.getElementById('in-date')?.value || new Date().toISOString().split('T')[0],
+                        commission: isFollowOnSave ? { has: false } : window._pendingOrderCommission
+                    });
+                } catch (commErr) {
+                    console.error('Commission expense failed:', commErr);
+                    alert('Order saved, but the commission expense could not be created. Check it in Expenses.');
+                }
+                window._pendingOrderCommission = null;
 
                 // Check if email send was requested before form is reset
                 const shouldSendEmail = document.getElementById('in-sendemail')?.checked;

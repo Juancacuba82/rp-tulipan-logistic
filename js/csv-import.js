@@ -553,7 +553,7 @@ function applyHistoricalMemory() {
         if (lowerDesc.includes('commission')) {
             row.suggestedCategory = 'COMMISSION';
             row.shouldSelect = false;
-            row.statusMessage = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> Ignorar (Autogenerado en Módulos)</span>`;
+            row.statusMessage = `<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> Ignore — review only (commission is created from the order)</span>`;
             return;
         }
 

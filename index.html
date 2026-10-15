@@ -30,7 +30,7 @@
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1713" defer></script>
-    <script src="./js/delivery-calendar.js?v=1726" defer></script>
+    <script src="./js/delivery-calendar.js?v=1732" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1733" defer></script>
@@ -49,7 +49,7 @@
     <script src="./js/receivables.js?v=33" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
-    <script src="./js/csv-import.js?v=13" defer></script>
+    <script src="./js/csv-import.js?v=15" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="./js/recycle-bin.js?v=3" defer></script>
@@ -1848,8 +1848,7 @@
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <input type="checkbox" id="in-flag1" onchange="toggleYardRate()"
                                         style="width: 18px; height: 18px; accent-color: #f97316;">
-                                    <span style="font-size: 0.65rem; font-weight: 700; color: #f97316;">Yard
-                                        Services</span>
+                                    <span style="font-size: 0.65rem; font-weight: 700; color: #f97316; white-space: nowrap;">Yard Services</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <input type="checkbox" id="in-flag2" onchange="toggleTransport()"
