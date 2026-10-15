@@ -30,7 +30,7 @@
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1714" defer></script>
-    <script src="./js/delivery-calendar.js?v=1732" defer></script>
+    <script src="./js/delivery-calendar.js?v=1735" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1735" defer></script>
@@ -2748,7 +2748,7 @@
                                         <button type="button" onclick="openDriversNearToday()" id="btn-drivers-near-today"
                                             class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #0f766e, #14b8a6); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(20,184,166,0.3); transition: all 0.2s;">
-                                            <i class="fas fa-user-check"></i> DRIVERS NEARBY (TODAY)
+                                            <i class="fas fa-user-check"></i> DRIVERS NEARBY
                                         </button>
                                         <button onclick="resetAdvancedFilters()" class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 25px; height: 45px;">
@@ -9105,10 +9105,10 @@
                 <div>
                     <h3
                         style="margin:0; color:white; font-size:1.2rem; font-weight:800; display:flex; align-items:center; gap:10px;">
-                        <i class="fas fa-user-check" style="color:#5eead4;"></i> Drivers Nearby (Today)
+                        <i class="fas fa-user-check" style="color:#5eead4;"></i> Drivers Nearby
                     </h3>
                     <p id="drivers-near-today-subtitle" style="margin:4px 0 0; color:#99f6e4; font-size:0.8rem;">
-                        Today's routes vs this order's pickup. Click a driver to see their path.
+                        Pending orders vs this order's pickup. Click a driver to see their path.
                     </p>
                 </div>
                 <button onclick="closeDriversNearToday()"

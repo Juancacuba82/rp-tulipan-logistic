@@ -4247,7 +4247,21 @@ function usableTripAddress(value) {
     return addr;
 }
 
-function collectTodayDriverDrops(dayKey) {
+function isPendingNearbyTrip(trip) {
+    const st = (trip && trip[41] ? trip[41] : '').toString().toUpperCase();
+    return st !== 'COMPLETE' && st !== 'PAID' && st !== 'DELIVERED';
+}
+
+function formatNearbyOrderDate(iso) {
+    const raw = (iso || '').toString().split('T')[0];
+    if (!raw) return '';
+    if (typeof window.formatDateMMDDYYYY === 'function') return window.formatDateMMDDYYYY(raw);
+    const parts = raw.split('-');
+    if (parts.length === 3) return parts[1] + '/' + parts[2] + '/' + parts[0];
+    return raw;
+}
+
+function collectTodayDriverDrops() {
     const pools = [window.allTripsUnfiltered, window.currentTrips];
     const byId = new Map();
     pools.forEach(pool => {
@@ -4257,51 +4271,35 @@ function collectTodayDriverDrops(dayKey) {
         });
     });
 
-    const byDriver = {};
+    const items = [];
     byId.forEach(trip => {
-        const dateKey = (trip[1] || '').toString().split('T')[0];
-        if (dateKey !== dayKey) return;
+        if (!isPendingNearbyTrip(trip)) return;
         const driver = (trip[17] || '').toString().trim();
+        const pickup = usableTripAddress(trip[7]);
         const delivery = usableTripAddress(trip[8]);
         if (!driver || driver === '---') return;
-        if (!delivery) return;
-        const key = driver.toUpperCase();
-        if (!byDriver[key]) byDriver[key] = [];
-        byDriver[key].push(trip);
-    });
-
-    return Object.keys(byDriver).map(key => {
-        const list = byDriver[key].slice().sort((a, b) => {
-            const da = (a[1] || '').toString();
-            const db = (b[1] || '').toString();
-            return da.localeCompare(db);
-        });
-        const pending = list.filter(t => {
-            const st = (t[41] || '').toString().toUpperCase();
-            return st !== 'COMPLETE' && st !== 'PAID' && st !== 'DELIVERED';
-        });
-        const pickFrom = pending.length ? pending : list;
-        const chosen = pickFrom[pickFrom.length - 1];
-        const legs = list.map(t => ({
-            pickup: usableTripAddress(t[7]),
-            delivery: usableTripAddress(t[8]),
-            orderNo: (t[5] || t[4] || '').toString().trim(),
-            city: (t[6] || '').toString().trim()
-        })).filter(leg => leg.delivery);
-        return {
-            driver: (chosen[17] || '').toString().trim(),
-            delivery: usableTripAddress(chosen[8]),
-            pickup: usableTripAddress(chosen[7]),
-            orderNo: (chosen[5] || chosen[4] || '').toString().trim(),
-            city: (chosen[6] || '').toString().trim(),
-            status: (chosen[41] || 'PENDING_PAYMENT').toString(),
-            date: (chosen[1] || '').toString().split('T')[0],
-            pending: pending.length > 0,
-            tripCount: legs.length,
-            legs: legs,
+        if (!pickup || !delivery) return;
+        const orderNo = (trip[5] || trip[4] || '').toString().trim();
+        const city = (trip[6] || '').toString().trim();
+        const date = (trip[1] || '').toString().split('T')[0];
+        const tripId = String(trip[0]);
+        items.push({
+            tripId: tripId,
+            itemKey: tripId,
+            driver: driver,
+            delivery: delivery,
+            pickup: pickup,
+            orderNo: orderNo,
+            city: city,
+            status: (trip[41] || 'PENDING_PAYMENT').toString(),
+            date: date,
+            pending: true,
+            tripCount: 1,
+            legs: [{ pickup: pickup, delivery: delivery, orderNo: orderNo, city: city, date: date }],
             color: '#0f766e'
-        };
+        });
     });
+    return items;
 }
 
 const DRIVERS_NEAR_ROUTE_COLORS = ['#0f766e', '#2563eb', '#c2410c', '#7c3aed', '#be123c', '#0369a1', '#a16207', '#15803d', '#4338ca', '#0e7490'];
@@ -4424,10 +4422,10 @@ window.closeDriversNearToday = function () {
     clearDriversNearMap();
 };
 
-window.highlightDriversNearRoute = function (driverName, opts) {
+window.highlightDriversNearRoute = function (itemKey, opts) {
     const state = window._driversNearMapState;
     if (!state) return;
-    const key = (driverName || '').toString().trim().toUpperCase();
+    const key = (itemKey || '').toString().trim();
     const doFit = !(opts && opts.fit === false);
     Object.keys(state.byDriver || {}).forEach(name => {
         const layer = state.byDriver[name];
@@ -4455,8 +4453,8 @@ window.highlightDriversNearRoute = function (driverName, opts) {
             marker.setZIndex(active ? 90 : 20);
         });
     });
-    document.querySelectorAll('#drivers-near-today-list [data-driver-key]').forEach(card => {
-        const active = (card.getAttribute('data-driver-key') || '') === key;
+    document.querySelectorAll('#drivers-near-today-list [data-item-key]').forEach(card => {
+        const active = (card.getAttribute('data-item-key') || '') === key;
         card.style.background = active ? '#ecfdf5' : '#ffffff';
         card.style.borderColor = active ? '#0f766e' : '#e2e8f0';
         card.style.boxShadow = active ? '0 0 0 2px rgba(15,118,110,0.18)' : 'none';
@@ -4583,9 +4581,10 @@ async function drawDriversNearRoutes(apiKey, origin, ranked, statusText) {
         const item = ranked[i];
         const color = DRIVERS_NEAR_ROUTE_COLORS[i % DRIVERS_NEAR_ROUTE_COLORS.length];
         item.color = color;
-        const driverKey = item.driver.toUpperCase();
+        const itemKey = item.itemKey || String(item.tripId || i);
+        item.itemKey = itemKey;
         const layer = { polylines: [], loadedLines: [], deadheadLines: [], markers: [], bounds: new google.maps.LatLngBounds(), color: color };
-        state.byDriver[driverKey] = layer;
+        state.byDriver[itemKey] = layer;
         if (state.originLoc) layer.bounds.extend(state.originLoc);
         if (statusText) {
             statusText.textContent = 'Drawing routes... (' + (i + 1) + ' / ' + ranked.length + ') ' + item.driver;
@@ -4604,7 +4603,7 @@ async function drawDriversNearRoutes(apiKey, origin, ranked, statusText) {
                 drawn += 1;
                 path.forEach(pt => extendAll(pt, layer));
                 const line = addLoadedRouteLine(map, path, color);
-                line.addListener('click', function () { window.highlightDriversNearRoute(item.driver); });
+                line.addListener('click', function () { window.highlightDriversNearRoute(item.itemKey); });
                 layer.loadedLines.push(line);
                 layer.polylines.push(line);
                 state.polylines.push(line);
@@ -4629,7 +4628,7 @@ async function drawDriversNearRoutes(apiKey, origin, ranked, statusText) {
                         strokeWeight: 3
                     }
                 });
-                pMarker.addListener('click', function () { window.highlightDriversNearRoute(item.driver); });
+                pMarker.addListener('click', function () { window.highlightDriversNearRoute(item.itemKey); });
                 layer.markers.push(pMarker);
                 state.markers.push(pMarker);
                 extendAll(pickLoc, layer);
@@ -4651,7 +4650,7 @@ async function drawDriversNearRoutes(apiKey, origin, ranked, statusText) {
                     zIndex: 50
                 });
                 marker.addListener('click', function () {
-                    window.highlightDriversNearRoute(item.driver);
+                    window.highlightDriversNearRoute(item.itemKey);
                     info.setContent(
                         '<div style="font-weight:800;color:' + color + ';margin-bottom:4px;">' + (i + 1) + '. ' + item.driver + '</div>' +
                         '<div style="font-size:12px;color:#334155;max-width:260px;"><b>Loaded:</b> ' + (startAddr || '—') + ' → ' + leg.delivery + '</div>' +
@@ -4675,7 +4674,7 @@ async function drawDriversNearRoutes(apiKey, origin, ranked, statusText) {
                 drawn += 1;
                 deadPath.forEach(pt => extendAll(pt, layer));
                 const dline = addDeadheadLine(map, deadPath, color);
-                dline.addListener('click', function () { window.highlightDriversNearRoute(item.driver); });
+                dline.addListener('click', function () { window.highlightDriversNearRoute(item.itemKey); });
                 layer.deadheadLines.push(dline);
                 layer.polylines.push(dline);
                 state.polylines.push(dline);
@@ -4729,8 +4728,7 @@ window.openDriversNearToday = async function () {
         return;
     }
 
-    const dayKey = getDriversNearHintDay();
-    const drivers = collectTodayDriverDrops(dayKey);
+    const drivers = collectTodayDriverDrops();
     const modal = document.getElementById('drivers-near-today-modal');
     const listEl = document.getElementById('drivers-near-today-list');
     const statusEl = document.getElementById('drivers-near-today-status');
@@ -4739,15 +4737,15 @@ window.openDriversNearToday = async function () {
     if (!modal || !listEl) return;
 
     if (subtitle) {
-        subtitle.textContent = 'Pickup: ' + origin + '  ·  Day: ' + dayKey + '  ·  Click a driver to see the route. Use driver does not save the order.';
+        subtitle.textContent = 'Pickup: ' + origin + '  ·  All pending orders with pickup and delivery. Closest drop-off first. Use driver does not save the order.';
     }
 
     modal.style.display = 'flex';
     listEl.innerHTML = '';
     if (!drivers.length) {
         listEl.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#64748b;">' +
-            '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No drivers with a delivery that day</p>' +
-            '<p style="font-size:0.85rem; margin:0;">They need a trip on ' + dayKey + ' with a driver and delivery place.</p></div>';
+            '<p style="font-weight:700; color:#134e4a; margin:0 0 6px;">No pending orders with pickup and delivery</p>' +
+            '<p style="font-size:0.85rem; margin:0;">A pending order needs a driver, pick up address, and delivery place to show here.</p></div>';
         if (statusEl) statusEl.style.display = 'none';
         clearDriversNearMap();
         return;
@@ -4776,7 +4774,7 @@ window.openDriversNearToday = async function () {
             }
         }
 
-        const uniqueDeliveries = [...new Set(drivers.map(d => d.delivery))];
+        const uniqueDeliveries = [...new Set(drivers.map(d => d.delivery).filter(Boolean))];
         const distByDelivery = {};
         const service = new google.maps.DistanceMatrixService();
         const BATCH_SIZE = 25;
@@ -4827,9 +4825,9 @@ window.openDriversNearToday = async function () {
         listEl.innerHTML = '';
         ranked.forEach((item, idx) => {
             const card = document.createElement('div');
-            card.setAttribute('data-driver-key', item.driver.toUpperCase());
+            card.setAttribute('data-item-key', item.itemKey || String(item.tripId || idx));
             card.style.cssText = 'border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; padding:12px 14px; cursor:pointer; background:#ffffff; display:flex; justify-content:space-between; align-items:flex-start; gap:12px;';
-            card.onclick = function () { window.highlightDriversNearRoute(item.driver); };
+            card.onclick = function () { window.highlightDriversNearRoute(item.itemKey); };
 
             let badgeColor = '#10b981';
             if (!isFinite(item.miles)) badgeColor = '#94a3b8';
@@ -4837,19 +4835,23 @@ window.openDriversNearToday = async function () {
             else if (item.miles > 25) badgeColor = '#f59e0b';
 
             const rank = idx + 1;
-            const stLabel = item.pending ? 'Pending' : 'Completed';
-            const routeHint = item.tripCount > 1 ? (item.tripCount + ' trips') : (item.pickup ? (item.pickup + ' →') : 'Delivery');
+            const dateLabel = formatNearbyOrderDate(item.date);
+            const fromTo = (item.pickup || 'Pickup') + ' → ' + (item.city || item.delivery || '');
+            const legsHtml = '<div style="margin-top:6px;">' +
+                '<div style="font-size:0.72rem; font-weight:800; color:#0f766e;">' +
+                '<i class="far fa-calendar-alt" style="margin-right:4px;"></i>' + (dateLabel || '—') + '</div>' +
+                '<div style="font-size:0.75rem; color:#475569; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                fromTo + '</div>' +
+                '<div style="font-size:0.72rem; color:#94a3b8; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                (item.orderNo ? ('Orden ' + item.orderNo) : '') + (item.orderNo && item.city ? ' · ' : '') + (item.city || '') +
+                ' · Pending</div>' +
+                '</div>';
             card.innerHTML =
                 '<div style="min-width:0; flex:1;">' +
                 '<div style="font-weight:800; color:#134e4a; font-size:0.95rem; display:flex; align-items:center; gap:8px;">' +
                 '<span style="background:' + (item.color || '#0f766e') + '; color:white; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem;">' + rank + '</span>' +
                 '<i class="fas fa-truck"></i> ' + item.driver + '</div>' +
-                '<div style="font-size:0.75rem; color:#64748b; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                routeHint + '</div>' +
-                '<div style="font-size:0.8rem; color:#475569; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                '<i class="fas fa-map-pin" style="color:' + (item.color || '#0f766e') + '; margin-right:4px;"></i>' + item.delivery + '</div>' +
-                '<div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">' +
-                (item.orderNo ? ('Orden ' + item.orderNo + ' · ') : '') + (item.city || '') + ' · ' + stLabel + '</div>' +
+                legsHtml +
                 '</div>' +
                 '<div style="text-align:right; flex-shrink:0;">' +
                 '<div style="background:' + badgeColor + '; color:white; padding:4px 10px; border-radius:16px; font-size:0.78rem; font-weight:800; white-space:nowrap;">' +
@@ -4867,7 +4869,7 @@ window.openDriversNearToday = async function () {
             listEl.appendChild(card);
         });
         if (statusEl) statusEl.style.display = 'none';
-        if (ranked[0]) window.highlightDriversNearRoute(ranked[0].driver, { fit: false });
+        if (ranked[0]) window.highlightDriversNearRoute(ranked[0].itemKey, { fit: false });
     } catch (err) {
         if (statusEl) statusEl.style.display = 'none';
         listEl.innerHTML =
