@@ -352,6 +352,22 @@ async function deleteExpense(expenseId) {
     if (window.logActivity) window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó Gasto ID: ${expenseId}`);
 }
 
+async function deleteExpenses(expenseIds) {
+    if (!isAdmin()) { alert("Acceso denegado: Solo los administradores pueden eliminar registros."); return; }
+    const ids = [...new Set((expenseIds || []).filter(Boolean).map(id => String(id)))];
+    if (!ids.length) return;
+    const stamp = new Date().toISOString();
+    const by = window.userEmail;
+    for (let i = 0; i < ids.length; i += 100) {
+        const chunk = ids.slice(i, i + 100);
+        const { error } = await db.from('expenses').update({ is_deleted: true, deleted_at: stamp, deleted_by: by }).in('id', chunk);
+        if (error) { console.error('Error deleting expenses:', error); throw error; }
+    }
+    if (window.logActivity) {
+        window.logActivity("DELETED_RECORD", `[${new Date().toLocaleString()}] Eliminó ${ids.length} gasto(s)`);
+    }
+}
+
 // Helper for Fleet
 async function getFleet() {
     const { data, error } = await db.from('fleet').select('*').or('is_deleted.eq.false,is_deleted.is.null');
@@ -622,6 +638,7 @@ window.getExpenses = getExpenses;
 window.addExpense = addExpense;
 window.updateExpenseProfitLines = updateExpenseProfitLines;
 window.deleteExpense = deleteExpense;
+window.deleteExpenses = deleteExpenses;
 window.getFleet = getFleet;
 window.saveFleet = saveFleet;
 window.migrateDataToSupabase = migrateDataToSupabase;

@@ -1737,19 +1737,44 @@
             const expFilt = document.getElementById('exp-filter-category');
             if (expFilt) {
                 const currentVal = expFilt.value;
+                const filterLine = (document.getElementById('exp-filter-profit-line')?.value || '').trim();
+                const scopedLine = filterLine && filterLine !== '__unassigned__' ? filterLine : '';
+                const officialForFilter = scopedLine
+                    ? window.getExpenseCategoriesForProfitLine(scopedLine)
+                    : official;
+                const legacyForFilter = new Set();
+                (window.currentExpenses || []).forEach(row => {
+                    const cat = (row[1] || '').toString().trim();
+                    if (!cat || cat === '---' || window.isOfficialExpenseCategory(cat)) return;
+                    const rowLineRaw = (row[7] || '').toString().trim();
+                    const rowLine = window.normalizeExpenseProfitLine
+                        ? window.normalizeExpenseProfitLine(rowLineRaw)
+                        : rowLineRaw;
+                    if (scopedLine && rowLine !== scopedLine) return;
+                    if (filterLine === '__unassigned__' && rowLineRaw) return;
+                    legacyForFilter.add(cat);
+                });
                 let html = '<option value="">All Categories</option>';
-                html += '<optgroup label="Official">';
-                official.forEach(name => { html += `<option value="${name}">${name}</option>`; });
-                html += '</optgroup>';
-                if (legacy.size > 0) {
+                if (scopedLine) {
+                    officialForFilter.forEach(name => { html += `<option value="${name}">${name}</option>`; });
+                } else {
+                    html += '<optgroup label="Official">';
+                    officialForFilter.forEach(name => { html += `<option value="${name}">${name}</option>`; });
+                    html += '</optgroup>';
+                }
+                if (legacyForFilter.size > 0) {
                     html += '<optgroup label="Legacy (normalize these)">';
-                    [...legacy].sort((a, b) => a.localeCompare(b)).forEach(name => {
+                    [...legacyForFilter].sort((a, b) => a.localeCompare(b)).forEach(name => {
                         html += `<option value="${name}">${name}</option>`;
                     });
                     html += '</optgroup>';
                 }
                 expFilt.innerHTML = html;
-                if (currentVal) expFilt.value = currentVal;
+                if (currentVal && Array.from(expFilt.options).some(o => o.value === currentVal)) {
+                    expFilt.value = currentVal;
+                } else {
+                    expFilt.value = '';
+                }
             }
 
             // CSV import selects if open

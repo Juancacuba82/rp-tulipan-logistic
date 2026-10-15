@@ -22,18 +22,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
-    <script src="./supabase-client.js?v=17"></script>
+    <script src="./supabase-client.js?v=18"></script>
     <script src="./js/force-uppercase.js?v=1"></script>
     <script src="./js/data-mapping.js?v=22"></script>
     <script src="./js/order-pdf.js?v=6"></script>
     <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1713" defer></script>
+    <script src="./js/data-managers.js?v=1714" defer></script>
     <script src="./js/delivery-calendar.js?v=1732" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1733" defer></script>
+    <script src="./js/profit-expenses.js?v=1735" defer></script>
     <script src="./js/company-money.js?v=26" defer></script>
 
     <script src="./js/docs-receipts.js?v=1717" defer></script>
@@ -49,7 +49,7 @@
     <script src="./js/receivables.js?v=33" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
-    <script src="./js/csv-import.js?v=15" defer></script>
+    <script src="./js/csv-import.js?v=16" defer></script>
 
     <!-- PDF & Email Service Libraries -->
     <script src="./js/recycle-bin.js?v=3" defer></script>
@@ -4281,7 +4281,7 @@
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-filter"></i>
                                         <select id="exp-filter-profit-line" class="form-select"
-                                            onchange="renderExpensesHistory()" style="width: 180px;">
+                                            onchange="onExpenseFilterProfitLineChanged()" style="width: 180px;">
                                             <option value="">All Profit Lines</option>
                                             <option value="__unassigned__">Unassigned only</option>
                                         </select>
@@ -4323,6 +4323,9 @@
                                     </div>
                                 </div>
 
+                                <button type="button" id="btn-delete-selected-expenses" onclick="deleteSelectedExpenses()" class="btn-reset-modern" style="margin-top: 0; background: #dc2626; color: white; display: none;">
+                                    <i class="fas fa-trash-alt"></i> Eliminar seleccionadas (<span id="exp-selected-count">0</span>)
+                                </button>
                                 <button type="button" id="btn-refresh-expenses" class="btn-module-refresh" onclick="window.refreshExpensesModule()" title="Refresh Expenses from database">
                                     <i class="fas fa-sync-alt"></i> Refresh
                                 </button>
@@ -4336,6 +4339,9 @@
                         <table class="drivers-report-table">
                             <thead>
                                 <tr class="header-row">
+                                    <th id="exp-select-all-th" style="width: 42px; text-align: center;">
+                                        <input type="checkbox" id="exp-select-all" title="Seleccionar todas las visibles" onclick="toggleAllExpenseSelection(event)">
+                                    </th>
                                     <th>DATE</th>
                                     <th>PROFIT LINE</th>
                                     <th>CATEGORY</th>
@@ -7284,7 +7290,7 @@
             });
 
             if (!isAdmin) {
-                ['btn-delete-selected', 'fleet-delete-btn', 'btn-top-delete', 'btn-delete-rental-global'].forEach(id => {
+                ['btn-delete-selected', 'fleet-delete-btn', 'btn-top-delete', 'btn-delete-rental-global', 'btn-delete-selected-expenses'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = 'none';
                 });
@@ -10082,6 +10088,7 @@
                     <h3 style="margin: 0; color: #334155; font-weight: 700;">2. Review & Approve Expenses</h3>
                     <div>
                         <span style="font-weight: 700; color: #64748b; margin-right: 15px;">Selected Total: <span id="csv-selected-total" style="color: #ef4444;">$0.00</span></span>
+                        <button type="button" onclick="uncheckAllCsvSelection()" class="btn-add-sidebar" style="background: #64748b; color: white; display: inline-flex; margin: 0 8px 0 0;"><i class="fas fa-square"></i> Desmarcar todo</button>
                         <button onclick="saveSelectedCsvExpenses()" id="btn-save-csv-import" class="btn-add-sidebar" style="background: #3b82f6; display: inline-flex; margin: 0;"><i class="fas fa-save"></i> Save Selected</button>
                     </div>
                 </div>

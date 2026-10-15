@@ -293,10 +293,16 @@
 
             body.innerHTML = '';
             const fragment = document.createDocumentFragment();
+            const canDelete = window.currentUserRole === 'admin';
+            const selected = window.selectedExpenseIds || (window.selectedExpenseIds = new Set());
+            const selectAllTh = document.getElementById('exp-select-all-th');
+            const selectAll = document.getElementById('exp-select-all');
+            if (selectAllTh) selectAllTh.style.display = canDelete ? '' : 'none';
             filtered.forEach((rowData) => {
                 const tr = document.createElement('tr');
                 tr.style.cursor = 'pointer';
                 const expenseId = rowData[5];
+                const expenseIdKey = String(expenseId || '');
                 
                 // Create the same key for the current row
                 const rowKey = rowData.slice(0, 5).map(val => (val || '').toString().trim().toUpperCase()).join('|');
@@ -330,6 +336,21 @@
                 }
 
                 tr.onclick = () => window.editExpenseRow(rowData);
+
+                if (canDelete) {
+                    const tdSelect = document.createElement('td');
+                    tdSelect.style.textAlign = 'center';
+                    tdSelect.onclick = (e) => e.stopPropagation();
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'exp-row-checkbox';
+                    cb.dataset.id = expenseIdKey;
+                    cb.checked = selected.has(expenseIdKey);
+                    cb.onclick = (e) => e.stopPropagation();
+                    cb.onchange = () => window.toggleExpenseRowSelection(expenseIdKey, cb.checked);
+                    tdSelect.appendChild(cb);
+                    tr.appendChild(tdSelect);
+                }
 
                 // DATE
                 const tdDate = document.createElement('td');
@@ -403,6 +424,7 @@
                             await deleteExpense(expenseId);
                             // Update local state instead of full reload
                             window.currentExpenses = window.currentExpenses.filter(row => row[5] !== expenseId);
+                            if (window.selectedExpenseIds) window.selectedExpenseIds.delete(String(expenseId));
                             renderExpensesHistory();
 
                             // Sync al Cash Ledger local, sin query a Supabase
@@ -420,6 +442,13 @@
                 fragment.appendChild(tr);
             });
             body.appendChild(fragment);
+
+            if (selectAll) {
+                const visibleIds = filtered.map(r => String(r[5] || '')).filter(Boolean);
+                selectAll.checked = canDelete && visibleIds.length > 0 && visibleIds.every(id => selected.has(id));
+                selectAll.indeterminate = canDelete && visibleIds.some(id => selected.has(id)) && !selectAll.checked;
+            }
+            window.updateExpenseSelectionUi();
 
             calculateExpenseTotal(filtered);
 
@@ -451,6 +480,78 @@
                 const headerNav = document.getElementById('header-nav');
                 if (headerNav) headerNav.style.top = '0';
                 document.body.style.paddingTop = '';
+            }
+        };
+
+        window.updateExpenseSelectionUi = function () {
+            const selected = window.selectedExpenseIds || (window.selectedExpenseIds = new Set());
+            const count = selected.size;
+            const countEl = document.getElementById('exp-selected-count');
+            if (countEl) countEl.textContent = String(count);
+            const btn = document.getElementById('btn-delete-selected-expenses');
+            if (btn) {
+                const isAdmin = window.currentUserRole === 'admin';
+                btn.style.display = (isAdmin && count > 0) ? 'inline-flex' : 'none';
+            }
+        };
+
+        window.toggleExpenseRowSelection = function (expenseId, checked) {
+            const selected = window.selectedExpenseIds || (window.selectedExpenseIds = new Set());
+            const key = String(expenseId || '');
+            if (!key) return;
+            if (checked) selected.add(key);
+            else selected.delete(key);
+            const boxes = document.querySelectorAll('.exp-row-checkbox');
+            const selectAll = document.getElementById('exp-select-all');
+            if (selectAll && boxes.length) {
+                const allOn = [...boxes].every(cb => cb.checked);
+                selectAll.checked = allOn;
+                selectAll.indeterminate = !allOn && [...boxes].some(cb => cb.checked);
+            }
+            window.updateExpenseSelectionUi();
+        };
+
+        window.toggleAllExpenseSelection = function (event) {
+            if (event) event.stopPropagation();
+            const selectAll = document.getElementById('exp-select-all');
+            const checked = !!(selectAll && selectAll.checked);
+            const selected = window.selectedExpenseIds || (window.selectedExpenseIds = new Set());
+            document.querySelectorAll('.exp-row-checkbox').forEach(cb => {
+                cb.checked = checked;
+                const id = cb.dataset.id;
+                if (!id) return;
+                if (checked) selected.add(id);
+                else selected.delete(id);
+            });
+            if (selectAll) selectAll.indeterminate = false;
+            window.updateExpenseSelectionUi();
+        };
+
+        window.deleteSelectedExpenses = async function () {
+            const selected = window.selectedExpenseIds || new Set();
+            const ids = [...selected].filter(Boolean);
+            if (!ids.length) return;
+            if (!confirm('¿Eliminar ' + ids.length + ' gasto(s) seleccionado(s)?')) return;
+            const btn = document.getElementById('btn-delete-selected-expenses');
+            if (btn) btn.disabled = true;
+            try {
+                if (typeof window.deleteExpenses === 'function') {
+                    await window.deleteExpenses(ids);
+                } else {
+                    for (const id of ids) await deleteExpense(id);
+                }
+                const idSet = new Set(ids.map(String));
+                window.currentExpenses = (window.currentExpenses || []).filter(row => !idSet.has(String(row[5])));
+                ids.forEach(id => {
+                    if (window.syncExpenseToLedger) window.syncExpenseToLedger({ id: id }, 'delete');
+                    selected.delete(String(id));
+                });
+                renderExpensesHistory();
+            } catch (e) {
+                console.error('Error deleting selected expenses:', e);
+                alert('No se pudieron eliminar los gastos seleccionados.');
+            } finally {
+                if (btn) btn.disabled = false;
             }
         };
 
@@ -525,13 +626,23 @@
             document.querySelector('.expenses-view aside')?.scrollTo(0, 0);
         };
 
+        window.onExpenseFilterProfitLineChanged = function () {
+            if (typeof window.refreshExpenseCategorySelects === 'function') {
+                window.refreshExpenseCategorySelects();
+            }
+            renderExpensesHistory();
+        };
+
         window.resetExpenseFilters = function () {
             if (document.getElementById('exp-filter-from')) document.getElementById('exp-filter-from').value = '';
             if (document.getElementById('exp-filter-to')) document.getElementById('exp-filter-to').value = '';
-            if (document.getElementById('exp-filter-category')) document.getElementById('exp-filter-category').value = '';
             if (document.getElementById('exp-filter-profit-line')) document.getElementById('exp-filter-profit-line').value = '';
+            if (document.getElementById('exp-filter-category')) document.getElementById('exp-filter-category').value = '';
             if (document.getElementById('exp-filter-driver')) document.getElementById('exp-filter-driver').value = '';
             if (document.getElementById('exp-filter-search')) document.getElementById('exp-filter-search').value = '';
+            if (typeof window.refreshExpenseCategorySelects === 'function') {
+                window.refreshExpenseCategorySelects();
+            }
             renderExpensesHistory();
         };
 

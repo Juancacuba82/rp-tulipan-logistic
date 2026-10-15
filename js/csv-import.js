@@ -811,6 +811,15 @@ window.toggleAllCsvSelection = function() {
     updateCsvTotal();
 };
 
+window.uncheckAllCsvSelection = function() {
+    document.querySelectorAll('.csv-row-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+    const selectAll = document.getElementById('csv-select-all');
+    if (selectAll) selectAll.checked = false;
+    updateCsvTotal();
+};
+
 window.updateCsvTotal = function() {
     let total = 0;
     const boxes = document.querySelectorAll('.csv-row-checkbox');
