@@ -2556,6 +2556,18 @@
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
+                                    <label><i class="fas fa-star"></i> NEW / USED</label>
+                                    <div class="attendance-field-with-icon">
+                                        <i class="fas fa-box-open"></i>
+                                        <select id="f-condition" class="form-select"
+                                            onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
+                                            <option value="">All</option>
+                                            <option value="NEW">NEW</option>
+                                            <option value="USED">USED</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="attendance-input-group">
                                     <label><i class="fas fa-user-tie"></i> CUSTOMER</label>
                                     <div class="attendance-field-with-icon">
                                         <i class="fas fa-address-book"></i>
@@ -8170,8 +8182,23 @@
                 seller: document.getElementById('f-seller-cal')?.value || '',
                 zeller: document.getElementById('f-zeller')?.value || '',
                 pickup: document.getElementById('f-pickup-cal')?.value || '',
-                delivery: document.getElementById('f-delivery-cal')?.value || ''
+                delivery: document.getElementById('f-delivery-cal')?.value || '',
+                condition: document.getElementById('f-condition')?.value || ''
             };
+        }
+
+        function calendarTripCondition(rowData) {
+            const cond = (rowData[45] || '').toString().trim().toUpperCase();
+            if (cond === 'NEW' || cond === 'USED') return cond;
+            const typ = (rowData[44] || '').toString().trim().toUpperCase();
+            if (typ === 'NEW' || typ === 'USED') return typ;
+            const tripRel = rowData[4];
+            if (tripRel && tripRel !== '---' && window.currentReleases) {
+                const relObj = window.currentReleases.find(r => String(r[0]) === String(tripRel));
+                const relCond = relObj ? (relObj[3] || '').toString().trim().toUpperCase() : '';
+                if (relCond === 'NEW' || relCond === 'USED') return relCond;
+            }
+            return '';
         }
 
         function getCalendarRowFilterFlags(rowData, tr, filters) {
@@ -8282,7 +8309,8 @@
                 serviceType: matchServiceType,
                 transferred: !filters.transferredOnly || tr.dataset.fromCall === 'YES',
                 pastDue: !filters.pastDueOnly || isPastDue,
-                invoiceSent: matchInvoiceSent
+                invoiceSent: matchInvoiceSent,
+                condition: !filters.condition || calendarTripCondition(rowData) === String(filters.condition).toUpperCase()
             };
         }
 
