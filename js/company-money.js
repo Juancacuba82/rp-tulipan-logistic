@@ -509,7 +509,7 @@
             contractors: [{ label: 'Contractors', amount: incomes.contractor || 0 }]
         };
         const order = (window.EXPENSE_PROFIT_LINES || []).map(l => l.id).concat(['unassigned']);
-        const ids = order.filter(id => (byLine[id] && Object.keys(byLine[id]).length) || (inMap[id] && inMap[id].some(r => r.amount > 0)) || (id === 'rpt_sales' && haul > 0));
+        const ids = order.filter(id => (byLine[id] && Object.keys(byLine[id]).length) || (inMap[id] && inMap[id].some(r => r.amount > 0)) || (id === 'rpt_sales' && (haul > 0 || (invested || 0) > 0)));
         Object.keys(byLine).forEach(id => { if (!ids.includes(id)) ids.push(id); });
         const pctOf = (n, base) => (base > 0 ? ((n / base) * 100).toFixed(1) : '0');
         const row = (label, valueHtml, extraClass) =>
@@ -529,16 +529,23 @@
             const spent = cats.reduce((s, c) => s + c.amount, 0);
             const inRows = inMap[id] || [];
             const entered = inRows.reduce((s, r) => s + r.amount, 0);
-            const profit = entered - spent;
+            const containerCost = (id === 'rpt_sales') ? (invested || 0) : 0;
+            const afterContainers = entered - containerCost;
+            const profit = afterContainers - spent;
             let body = '';
             const pctBase = entered > 0 ? entered : spent;
             if (inRows.length) {
                 let inHtml = '<div style="font-size:0.78rem; font-weight:900; letter-spacing:0.04em; margin-bottom:6px; color:#ecfdf5;">ENTRÓ</div>';
-                inRows.forEach(r => {
-                    inHtml += row(r.label, money(r.amount) + (entered > 0 ? '<span class="cm-kv-pct">' + pctOf(r.amount, entered) + '%</span>' : ''));
-                });
+                if (id !== 'rpt_sales' && id !== 'rpt_yard' && id !== 'contractors') {
+                    inRows.forEach(r => {
+                        inHtml += row(r.label, money(r.amount) + (entered > 0 ? '<span class="cm-kv-pct">' + pctOf(r.amount, entered) + '%</span>' : ''));
+                    });
+                }
                 if (entered > 0) inHtml += row('Total que entró', money(entered) + '<span class="cm-kv-pct">100%</span>', 'cm-kv-total');
                 body += box('#166534', '#ecfdf5', inHtml);
+            }
+            if (containerCost > 0) {
+                body += box('#c2410c', '#fff7ed', row('Inversión en contenedores', money(containerCost)));
             }
             const spentPct = pctBase > 0 ? pctOf(spent, pctBase) + '%' : '';
             let spentHtml = row('SE GASTÓ', money(spent) + (spentPct ? '<span class="cm-kv-pct">' + spentPct + '</span>' : ''), 'cm-kv-total');
@@ -562,15 +569,14 @@
 
         const lineSpent = (id) => Object.keys(byLine[id] || {}).reduce((s, k) => s + (byLine[id][k] || 0), 0);
         const profitTransport = (incomes.tulipan || 0) + (incomes.jr || 0) - lineSpent('rpt_transportation');
-        const profitSales = (incomes.sales || 0) - lineSpent('rpt_sales') - (haul || 0);
+        const profitSales = (incomes.sales || 0) - (invested || 0) - lineSpent('rpt_sales') - (haul || 0);
         const profitYard = (incomes.yard || 0) - lineSpent('rpt_yard');
         const profitContractors = (incomes.contractor || 0) - lineSpent('contractors');
         const profitsSum = profitTransport + profitSales + profitYard + profitContractors;
         const extraIn = (leftover || []).reduce((s, it) => s + (it.amount || 0), 0);
         const operating = lineSpent('rpt_operating');
-        const containers = invested || 0;
         const afterExtras = profitsSum + extraIn;
-        const finalNet = afterExtras - operating - containers;
+        const finalNet = afterExtras - operating;
         const finalOk = finalNet >= 0;
         const band = (label, amt, kind) => {
             const styles = {
@@ -586,7 +592,7 @@
         };
         html += '<div style="margin-top:16px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">' +
             '<div style="font-size:0.95rem; font-weight:900; color:#0f172a; margin-bottom:8px;">Lo que queda después de Operating</div>' +
-            '<p style="margin:0 0 10px; font-size:0.8rem; color:#64748b; line-height:1.4;">Se suman las ganancias de Transport, Sales, Yard y Contractors, más Rentals y Storage. A ese total se le resta Operating y contenedores. Los viajes internos ya van dentro de Sales.</p>' +
+            '<p style="margin:0 0 10px; font-size:0.8rem; color:#64748b; line-height:1.4;">Se suman las ganancias de Transport, Sales, Yard y Contractors, más Rentals y Storage. A ese total se le resta Operating. La inversión en contenedores ya se restó dentro de Sales. Los viajes internos ya van dentro de Sales.</p>' +
             band('Ganancia Transport', profitTransport) +
             band('Ganancia Sales', profitSales) +
             band('Ganancia Yard', profitYard) +
@@ -594,10 +600,9 @@
             (leftover || []).map(it => band('+ ' + it.label, it.amount)).join('') +
             band('Suma', afterExtras, 'sum') +
             band('− Operating expenses', operating, 'minus') +
-            band('− Contenedores (inversión)', containers, 'orange') +
             '<div style="margin-top:4px; background:' + (finalOk ? '#86efac' : '#fca5a5') + '; color:' + (finalOk ? '#14532d' : '#7f1d1d') + '; border-radius:10px; padding:14px 16px; display:flex; justify-content:space-between; gap:12px; font-size:1.15rem; font-weight:900;">' +
             '<span>QUEDA</span><span>' + money(finalNet) + '</span></div>' +
-            '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' de ganancias + ' + money(extraIn) + ' de Rentals/Storage − ' + money(operating) + ' de Operating − ' + money(containers) + ' de contenedores = ' + money(finalNet) + '.</p>' +
+            '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' de ganancias + ' + money(extraIn) + ' de Rentals/Storage − ' + money(operating) + ' de Operating = ' + money(finalNet) + '.</p>' +
             '</div>';
 
         html += '<div style="display:flex; justify-content:space-between; margin-top:12px; font-size:0.9rem; font-weight:900; color:#0f172a;">' +
