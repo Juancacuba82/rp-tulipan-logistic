@@ -894,22 +894,26 @@
                     }
                 }
             });
-            // 1.5 Rental income from cycle invoices (exclude write-offs / complimentary)
+            // 1.5 Accrued rental: one base_price per cycle that starts in the selected range
             if (typeof window.loadRentalInvoiceTrips === 'function') {
                 await window.loadRentalInvoiceTrips(false);
             }
-            const rentalInvoices = (window.rentalInvoiceTrips && window.rentalInvoiceTrips.length)
-                ? window.rentalInvoiceTrips
-                : (logisticsData || []).filter(row => (row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE');
-            rentalInvoices.forEach(row => {
-                const note = (row[25] || '').toString();
-                if (/WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note)) return;
-                const periodStart = (row[28] && row[28] !== '---') ? row[28] : row[1];
-                const periodEnd = (row[29] && row[29] !== '---') ? row[29] : periodStart;
-                if (dateFrom && periodEnd && periodEnd < dateFrom) return;
-                if (dateTo && periodStart && periodStart > dateTo) return;
-                totals.rentals += parseFloat(row[27]) || 0;
-            });
+            if (typeof window.sumRentalIncomeForRange === 'function') {
+                totals.rentals += window.sumRentalIncomeForRange(dateFrom, dateTo);
+            } else {
+                const rentalInvoices = (window.rentalInvoiceTrips && window.rentalInvoiceTrips.length)
+                    ? window.rentalInvoiceTrips
+                    : (logisticsData || []).filter(row => (row[26] || '').toString().toUpperCase() === 'RENTAL INVOICE');
+                rentalInvoices.forEach(row => {
+                    const note = (row[25] || '').toString();
+                    if (/WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note)) return;
+                    const periodStart = (row[28] && row[28] !== '---') ? row[28] : row[1];
+                    const periodEnd = (row[29] && row[29] !== '---') ? row[29] : periodStart;
+                    if (dateFrom && periodEnd && periodEnd < dateFrom) return;
+                    if (dateTo && periodStart && periodStart > dateTo) return;
+                    totals.rentals += parseFloat(row[27]) || 0;
+                });
+            }
             // 2. Process Business Expenses (allocate by profit_line + category breakdown)
             const costsByLineCategory = {}; // { lineKey: { CategoryName: amount } }
             const bumpLineCat = (lineKey, category, amount) => {

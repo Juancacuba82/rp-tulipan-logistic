@@ -1,4 +1,4 @@
-// Cómo va la empresa. Reads the same sources as Profit Report without changing that screen.
+// Company Money. Reads the same sources as Profit Report without changing that screen.
 (function () {
     const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -61,13 +61,13 @@
     }
 
     function monthLabel(year, monthIndex) {
-        return new Date(year, monthIndex, 1).toLocaleDateString('es', { month: 'short', year: 'numeric' });
+        return new Date(year, monthIndex, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     }
 
     function shortDay(iso) {
         const d = parseISO(iso);
         if (!d) return iso;
-        return d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+        return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
     }
 
     function expenseAmount(row) {
@@ -182,6 +182,10 @@
     }
 
     function applyRentals(totals, invoices, from, to) {
+        if (typeof window.sumRentalIncomeForRange === 'function') {
+            totals.rentals += window.sumRentalIncomeForRange(from, to);
+            return;
+        }
         (invoices || []).forEach(row => {
             const note = (row[25] || '').toString();
             if (/WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note)) return;
@@ -267,9 +271,9 @@
                 { label: 'Rentals', amount: t.rentals },
                 { label: 'Storage Yard', amount: t.storageYard },
                 { label: 'Storage RP', amount: t.storageTulipan },
-                { label: 'Facturas custom', amount: t.customInvoices },
-                { label: 'Ingreso manual', amount: t.ledgerIncome }
-            ].filter(s => s.amount > 0)
+                { label: 'Manual income', amount: t.ledgerIncome }
+            ].filter(s => s.amount > 0),
+            customInvoices: t.customInvoices
         };
     }
 
@@ -291,9 +295,9 @@
         let end = parseISO(toVal) || new Date();
         if (end < start) { const tmp = start; start = end; end = tmp; }
         const days = Math.round((end - start) / 86400000) + 1;
+        const sameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
         let grain = 'day';
-        if (days > 90) grain = 'month';
-        else if (days > 16) grain = 'week';
+        if (!sameMonth && days > 16) grain = 'month';
         return {
             start: start,
             end: end,
@@ -352,17 +356,56 @@
         }));
     }
 
+    function sparkline(buckets) {
+        const w = 720;
+        const h = 176;
+        const padL = 6;
+        const padR = 6;
+        const padT = 10;
+        const padB = 26;
+        const innerW = w - padL - padR;
+        const innerH = h - padT - padB;
+        const n = buckets.length || 1;
+        const max = Math.max(1, ...buckets.map(b => Math.max(b.revenue || 0, b.spent || 0, b.invested || 0)));
+        const xAt = (i) => padL + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+        const yAt = (v) => padT + innerH - (Math.max(0, v) / max) * innerH;
+        const line = (key, color) => {
+            const pts = buckets.map((b, i) => xAt(i).toFixed(1) + ',' + yAt(b[key] || 0).toFixed(1)).join(' ');
+            return '<polyline fill="none" stroke="' + color + '" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" points="' + pts + '"></polyline>';
+        };
+        const last = n - 1;
+        const tickIdx = n <= 5
+            ? buckets.map((_, i) => i)
+            : [...new Set([0, Math.round(last * 0.25), Math.round(last * 0.5), Math.round(last * 0.75), last])];
+        const labels = tickIdx.map(i => {
+            const d = parseISO(buckets[i].from);
+            const txt = d ? String(d.getDate()) : buckets[i].label;
+            return '<text x="' + xAt(i).toFixed(1) + '" y="' + (h - 7) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b">' + txt + '</text>';
+        }).join('');
+        const slot = innerW / Math.max(n, 1);
+        const hits = buckets.map((b, i) => {
+            const title = (buckets[i].from || '') + ' · In ' + money(b.revenue) + ' · Spent ' + money(b.spent) + ' · Containers ' + money(b.invested) + ' · Left ' + money(b.net);
+            return '<rect x="' + (xAt(i) - slot / 2).toFixed(1) + '" y="' + padT + '" width="' + slot.toFixed(1) + '" height="' + innerH + '" fill="transparent"><title>' + title + '</title></rect>';
+        }).join('');
+        return '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="176" role="img" aria-label="Daily in, spent, and containers" style="display:block;">' +
+            line('revenue', '#16a34a') +
+            line('spent', '#dc2626') +
+            line('invested', '#d97706') +
+            labels + hits +
+            '</svg>';
+    }
+
     function barColumn(bucket, max) {
         const h = (n) => Math.max(2, Math.round((Math.abs(n) / max) * 160));
-        const flag = bucket.groupedCount > 0 ? '<div title="Hay un gasto agrupado en este tramo" style="color:#b45309;font-weight:900;font-size:0.85rem;">!</div>' : '';
+        const flag = bucket.groupedCount > 0 ? '<div title="There is a grouped expense in this period" style="color:#b45309;font-weight:900;font-size:0.85rem;">!</div>' : '';
         const netColor = bucket.net >= 0 ? '#166534' : '#b91c1c';
-        return '<div style="flex:1; min-width:72px; text-align:center;">' +
+        return '<div style="flex:1; min-width:90px; max-width:160px; text-align:center;">' +
             flag +
             '<div style="font-size:0.68rem; font-weight:800; color:' + netColor + '; margin-bottom:4px;">' + money(bucket.net) + '</div>' +
             '<div style="display:flex; align-items:flex-end; justify-content:center; gap:3px; height:170px;">' +
-            '<div title="Entró ' + money(bucket.revenue) + '" style="width:14px; height:' + h(bucket.revenue) + 'px; background:#16a34a; border-radius:3px 3px 0 0;"></div>' +
-            '<div title="Se gastó ' + money(bucket.spent) + '" style="width:14px; height:' + h(bucket.spent) + 'px; background:#dc2626; border-radius:3px 3px 0 0;"></div>' +
-            '<div title="Contenedores ' + money(bucket.invested) + '" style="width:14px; height:' + h(bucket.invested) + 'px; background:#d97706; border-radius:3px 3px 0 0;"></div>' +
+            '<div title="In ' + money(bucket.revenue) + '" style="width:14px; height:' + h(bucket.revenue) + 'px; background:#16a34a; border-radius:3px 3px 0 0;"></div>' +
+            '<div title="Spent ' + money(bucket.spent) + '" style="width:14px; height:' + h(bucket.spent) + 'px; background:#dc2626; border-radius:3px 3px 0 0;"></div>' +
+            '<div title="Containers ' + money(bucket.invested) + '" style="width:14px; height:' + h(bucket.invested) + 'px; background:#d97706; border-radius:3px 3px 0 0;"></div>' +
             '</div>' +
             '<div style="font-size:0.68rem; font-weight:700; color:#334155; margin-top:6px; line-height:1.2;">' + bucket.label + '</div>' +
             '</div>';
@@ -383,7 +426,7 @@
             ? '<p style="margin:8px 0 0; font-size:0.75rem; line-height:1.4; color:#475569;">' + note + '</p>'
             : '';
         if (!items.length) {
-            return '<p style="margin:0; color:#94a3b8; font-size:0.85rem;">Nada en este rango.</p>' + totalRow + noteRow;
+            return '<p style="margin:0; color:#94a3b8; font-size:0.85rem;">Nothing in this range.</p>' + totalRow + noteRow;
         }
         return rows + totalRow + noteRow;
     }
@@ -404,7 +447,7 @@
         const token = ++renderToken;
         const range = resolveRange();
         const label = document.getElementById('cm-range-label');
-        if (label) label.textContent = range.label + ' · cargando…';
+        if (label) label.textContent = range.label + ' · loading…';
 
         if (typeof window.loadExpensesData === 'function') await window.loadExpensesData();
         if (typeof window.loadReleasesData === 'function') await window.loadReleasesData();
@@ -446,23 +489,23 @@
         const buckets = buildBuckets(range).map(b => Object.assign(b, sliceTotals(ctx, b.from, b.to)));
         if (token !== renderToken) return;
 
-        if (label) label.textContent = range.label + ' · ' + shortDay(from) + ' al ' + shortDay(to);
+        if (label) label.textContent = range.label + ' · ' + shortDay(from) + ' to ' + shortDay(to);
 
         const kpis = document.getElementById('cm-kpis');
         if (kpis) {
             const marginPct = total.revenue > 0 ? ((total.net / total.revenue) * 100).toFixed(1) + '%' : '';
             kpis.innerHTML =
-                kpiCard('ENTRÓ', money(total.revenue), '', '#166534') +
-                kpiCard('SE GASTÓ', money(total.spent), '', '#b91c1c') +
-                kpiCard('CONTENEDORES', money(total.invested), '', '#b45309') +
-                kpiCard('QUEDÓ', money(total.net), '', total.net >= 0 ? '#166534' : '#b91c1c', marginPct);
+                kpiCard('IN', money(total.revenue), '', '#166534') +
+                kpiCard('SPENT', money(total.spent), '', '#b91c1c') +
+                kpiCard('CONTAINERS', money(total.invested), '', '#b45309') +
+                kpiCard('LEFT', money(total.net), '', total.net >= 0 ? '#166534' : '#b91c1c', marginPct);
         }
 
         const note = document.getElementById('cm-grouped-note');
         if (note) {
             if (total.groupedCount > 0) {
                 note.style.display = 'block';
-                note.textContent = total.groupedCount + ' gasto(s) agrupado(s) por ' + money(total.groupedAmount) + ' caen enteros en la fecha de su fila. Ese tramo lleva ! hasta que los partas por día.';
+                note.textContent = total.groupedCount + ' grouped expense(s) totaling ' + money(total.groupedAmount) + ' are posted on their row date. That period shows ! until you split them by day.';
             } else {
                 note.style.display = 'none';
             }
@@ -470,29 +513,39 @@
 
         const hint = document.getElementById('cm-chart-hint');
         if (hint) {
-            const grain = range.grain === 'month' ? 'Cada barra es un mes.' :
-                range.grain === 'week' ? 'Cada grupo es una semana.' :
-                    'Cada grupo es un día.';
-            hint.textContent = grain + ' El número de arriba es lo que quedó en ese tramo.';
+            hint.textContent = range.grain === 'month'
+                ? 'Each bar is a full month. The totals above are the whole range.'
+                : 'Daily activity. Axis shows a few dates. Hover a day for amounts. Totals above are the whole range.';
         }
 
         const chart = document.getElementById('cm-chart');
         if (chart) {
-            const max = Math.max(1, ...buckets.map(b => Math.max(b.revenue, b.spent, b.invested)));
-            chart.innerHTML = buckets.map(b => barColumn(b, max)).join('');
+            if (range.grain === 'day' && buckets.length > 10) {
+                chart.style.display = 'block';
+                chart.style.overflowX = 'hidden';
+                chart.innerHTML = sparkline(buckets);
+            } else {
+                chart.style.display = 'flex';
+                chart.style.overflowX = 'auto';
+                const max = Math.max(1, ...buckets.map(b => Math.max(b.revenue, b.spent, b.invested)));
+                chart.innerHTML = buckets.map(b => barColumn(b, max)).join('');
+            }
         }
 
         const haul = total.internalHaul || 0;
         const leftover = total.leftoverSources || [];
         const leftoverSum = leftover.reduce((s, it) => s + (it.amount || 0), 0);
+        const extraLines = leftover.concat(
+            (total.customInvoices > 0) ? [{ label: 'Custom invoices', amount: total.customInvoices }] : []
+        );
         const spendEl = document.getElementById('cm-spend-rank');
-        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, '', total.incomes, leftover, total.invested || 0);
+        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, '', total.incomes, extraLines, total.invested || 0);
         const incomeEl = document.getElementById('cm-income-rank');
         if (incomeEl) rankHost(incomeEl, leftover, leftoverSum, '#16a34a', '');
     };
 
     function lineLabel(id) {
-        if (id === 'unassigned') return 'Sin asignar';
+        if (id === 'unassigned') return 'Unassigned';
         if (window.formatExpenseProfitLineLabel) return window.formatExpenseProfitLineLabel(id);
         return id;
     }
@@ -504,8 +557,8 @@
                 { label: 'Transport RP', amount: incomes.tulipan || 0 },
                 { label: 'JR Super Crane', amount: incomes.jr || 0 }
             ],
-            rpt_sales: [{ label: 'Ventas', amount: incomes.sales || 0 }],
-            rpt_yard: [{ label: 'Yard del pedido', amount: incomes.yard || 0 }],
+            rpt_sales: [{ label: 'Sales', amount: incomes.sales || 0 }],
+            rpt_yard: [{ label: 'Order yard', amount: incomes.yard || 0 }],
             contractors: [{ label: 'Contractors', amount: incomes.contractor || 0 }]
         };
         const order = (window.EXPENSE_PROFIT_LINES || []).map(l => l.id).concat(['unassigned']);
@@ -524,7 +577,7 @@
         ids.forEach(id => {
             const cats = Object.keys(byLine[id] || {}).map(name => ({ label: name, amount: byLine[id][name] }))
                 .sort((a, b) => b.amount - a.amount);
-            if (id === 'rpt_sales' && haul > 0) cats.push({ label: 'Viajes internos', amount: haul });
+            if (id === 'rpt_sales' && haul > 0) cats.push({ label: 'Internal hauls', amount: haul });
             cats.sort((a, b) => b.amount - a.amount);
             const spent = cats.reduce((s, c) => s + c.amount, 0);
             const inRows = inMap[id] || [];
@@ -535,30 +588,30 @@
             let body = '';
             const pctBase = entered > 0 ? entered : spent;
             if (inRows.length) {
-                let inHtml = '<div style="font-size:0.78rem; font-weight:900; letter-spacing:0.04em; margin-bottom:6px; color:#ecfdf5;">ENTRÓ</div>';
+                let inHtml = '<div style="font-size:0.78rem; font-weight:900; letter-spacing:0.04em; margin-bottom:6px; color:#ecfdf5;">IN</div>';
                 if (id !== 'rpt_sales' && id !== 'rpt_yard' && id !== 'contractors') {
                     inRows.forEach(r => {
                         inHtml += row(r.label, money(r.amount) + (entered > 0 ? '<span class="cm-kv-pct">' + pctOf(r.amount, entered) + '%</span>' : ''));
                     });
                 }
-                if (entered > 0) inHtml += row('Total que entró', money(entered) + '<span class="cm-kv-pct">100%</span>', 'cm-kv-total');
+                if (entered > 0) inHtml += row('Total in', money(entered) + '<span class="cm-kv-pct">100%</span>', 'cm-kv-total');
                 body += box('#166534', '#ecfdf5', inHtml);
             }
             if (containerCost > 0) {
-                body += box('#c2410c', '#fff7ed', row('Inversión en contenedores', money(containerCost)));
+                body += box('#c2410c', '#fff7ed', row('Container investment', money(containerCost)));
             }
             const spentPct = pctBase > 0 ? pctOf(spent, pctBase) + '%' : '';
-            let spentHtml = row('SE GASTÓ', money(spent) + (spentPct ? '<span class="cm-kv-pct">' + spentPct + '</span>' : ''), 'cm-kv-total');
+            let spentHtml = row('SPENT', money(spent) + (spentPct ? '<span class="cm-kv-pct">' + spentPct + '</span>' : ''), 'cm-kv-total');
             spentHtml += cats.map(c => row(c.label, money(c.amount) + (pctBase > 0 ? '<span class="cm-kv-pct">' + pctOf(c.amount, pctBase) + '%</span>' : '')))
                 .join('');
-            if (!cats.length) spentHtml += '<p style="margin:0; color:#fecaca; font-size:0.75rem;">Sin gastos en esta línea.</p>';
+            if (!cats.length) spentHtml += '<p style="margin:0; color:#fecaca; font-size:0.75rem;">No expenses on this line.</p>';
             body += box('#b91c1c', '#fff', spentHtml);
             if (inRows.length) {
                 const ok = profit >= 0;
                 const pBg = ok ? '#bbf7d0' : '#fecaca';
                 const pFg = ok ? '#14532d' : '#7f1d1d';
                 const gPct = entered > 0 ? pctOf(profit, entered) + '%' : '';
-                let pHtml = row('GANANCIA', money(profit) + (gPct ? '<span class="cm-kv-pct">' + gPct + '</span>' : ''));
+                let pHtml = row('PROFIT', money(profit) + (gPct ? '<span class="cm-kv-pct">' + gPct + '</span>' : ''));
                 body += box(pBg, pFg, pHtml);
             }
             html += '<div class="cm-line-card" onclick="window.focusCompanyMoneyCard(this)" style="flex:1 1 200px; min-width:0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; overflow:hidden;">' +
@@ -591,25 +644,25 @@
                 '<span>' + label + '</span><span style="white-space:nowrap;">' + money(amt) + '</span></div>';
         };
         html += '<div style="margin-top:16px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">' +
-            '<div style="font-size:0.95rem; font-weight:900; color:#0f172a; margin-bottom:8px;">Lo que queda después de Operating</div>' +
-            '<p style="margin:0 0 10px; font-size:0.8rem; color:#64748b; line-height:1.4;">Se suman las ganancias de Transport, Sales, Yard y Contractors, más Rentals y Storage. A ese total se le resta Operating. La inversión en contenedores ya se restó dentro de Sales. Los viajes internos ya van dentro de Sales.</p>' +
-            band('Ganancia Transport', profitTransport) +
-            band('Ganancia Sales', profitSales) +
-            band('Ganancia Yard', profitYard) +
-            band('Ganancia Contractors', profitContractors) +
+            '<div style="font-size:0.95rem; font-weight:900; color:#0f172a; margin-bottom:8px;">What is left after Operating</div>' +
+            '<p style="margin:0 0 10px; font-size:0.8rem; color:#64748b; line-height:1.4;">Transport, Sales, Yard, and Contractors profits are added, plus Rentals and Storage. Operating is subtracted from that total. Container investment was already subtracted inside Sales. Internal hauls already sit inside Sales.</p>' +
+            band('Transport profit', profitTransport) +
+            band('Sales profit', profitSales) +
+            band('Yard profit', profitYard) +
+            band('Contractors profit', profitContractors) +
             (leftover || []).map(it => band('+ ' + it.label, it.amount)).join('') +
-            band('Suma', afterExtras, 'sum') +
+            band('Total', afterExtras, 'sum') +
             band('− Operating expenses', operating, 'minus') +
             '<div style="margin-top:4px; background:' + (finalOk ? '#86efac' : '#fca5a5') + '; color:' + (finalOk ? '#14532d' : '#7f1d1d') + '; border-radius:10px; padding:14px 16px; display:flex; justify-content:space-between; gap:12px; font-size:1.15rem; font-weight:900;">' +
-            '<span>QUEDA</span><span>' + money(finalNet) + '</span></div>' +
-            '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' de ganancias + ' + money(extraIn) + ' de Rentals/Storage − ' + money(operating) + ' de Operating = ' + money(finalNet) + '.</p>' +
+            '<span>LEFT</span><span>' + money(finalNet) + '</span></div>' +
+            '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' profit + ' + money(extraIn) + ' Rentals/Storage − ' + money(operating) + ' Operating = ' + money(finalNet) + '.</p>' +
             '</div>';
 
         html += '<div style="display:flex; justify-content:space-between; margin-top:12px; font-size:0.9rem; font-weight:900; color:#0f172a;">' +
-            '<span>Total gastado</span><span>' + money(grand) + '</span></div>';
+            '<span>Total spent</span><span>' + money(grand) + '</span></div>';
         if (note) html += '<p style="margin:8px 0 0; font-size:0.75rem; line-height:1.4; color:#475569;">' + note + '</p>';
         if (!ids.length && haul <= 0) {
-            return '<p style="margin:0; color:#94a3b8; font-size:0.85rem;">Nada en este rango.</p>' + html;
+            return '<p style="margin:0; color:#94a3b8; font-size:0.85rem;">Nothing in this range.</p>' + html;
         }
         return html;
     }
@@ -642,12 +695,12 @@
 
     function initDefaults() {
         const now = new Date();
-        const today = toISO(now);
-        const monthStart = today.slice(0, 8) + '01';
+        const monthStart = toISO(new Date(now.getFullYear(), now.getMonth(), 1));
+        const monthEnd = toISO(new Date(now.getFullYear(), now.getMonth() + 1, 0));
         const fromEl = document.getElementById('cm-from');
         const toEl = document.getElementById('cm-to');
         if (fromEl && !fromEl.value) fromEl.value = monthStart;
-        if (toEl && !toEl.value) toEl.value = today;
+        if (toEl && !toEl.value) toEl.value = monthEnd;
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initDefaults);

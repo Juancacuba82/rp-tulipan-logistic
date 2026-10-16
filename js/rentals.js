@@ -362,6 +362,49 @@
         });
     }
 
+    function cycleIsWrittenOff(row, cycle) {
+        return getRentalInvoicePool(row).some(t => {
+            const note = (t[25] || '').toString();
+            if (!/WRITE-?OFF|WAIVED|COMPLIMENTARY/i.test(note)) return false;
+            const { start, end } = getInvoicePeriod(t);
+            return datesOverlap(start, end, cycle.start, cycle.end);
+        });
+    }
+
+    // Accrued rental for a date window: one base_price per cycle whose start falls in range.
+    function rentalEarnedInRange(row, dateFrom, dateTo) {
+        const empty = { amount: 0, cycles: 0 };
+        if (!row || !row.start_date) return empty;
+        const priced = parseFloat(row.base_price) || 0;
+        if (priced <= 0) return empty;
+        const rangeStart = parseLocalDate(dateFrom) || new Date(2000, 0, 1);
+        const rangeEnd = parseLocalDate(dateTo) || new Date(2099, 11, 31);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const status = (row.status || '').trim().toUpperCase();
+        let through = today;
+        if (status === 'FINISHED' && row.final_date) {
+            const fd = parseLocalDate(row.final_date);
+            if (fd) {
+                fd.setHours(0, 0, 0, 0);
+                through = fd;
+            }
+        }
+        let cycles = 0;
+        buildPrepaidCycles(row.start_date, row.time_rent, through).forEach(c => {
+            if (c.start.getTime() < rangeStart.getTime() || c.start.getTime() > rangeEnd.getTime()) return;
+            if (cycleIsWrittenOff(row, c)) return;
+            cycles += 1;
+        });
+        return { amount: cycles * priced, cycles };
+    }
+
+    function sumRentalIncomeForRange(dateFrom, dateTo) {
+        return (window.currentRentals || []).reduce((sum, row) => sum + rentalEarnedInRange(row, dateFrom, dateTo).amount, 0);
+    }
+
     function fmtIsoMdY(iso) {
         const p = (iso || '').split('-');
         return p.length >= 3 ? `${p[1]}/${p[2]}/${p[0]}` : (iso || '');
@@ -1124,6 +1167,7 @@
         if (!body) return;
         body.innerHTML = '';
         let totalAccumulated = 0;
+        let periodVisible = 0;
 
         const showAll = document.getElementById('rental-show-all')?.checked;
         const startDateFilter = document.getElementById('rental-filter-start')?.value;
@@ -1147,15 +1191,12 @@
 
         window.currentRentals.forEach((row, idx) => {
             const statusStr = (row.status || '').trim().toUpperCase();
-            
-            // Default: Show only ACTIVE. If showAll is checked, show EVERYTHING.
+            const earned = rentalEarnedInRange(row, startDateFilter, endDateFilter);
+            const hasDateFilter = !!(startDateFilter || endDateFilter);
+
             if (!showAll && statusStr !== 'ACTIVE') return;
             
-            // INSTEAD of strict start_date filtering, we calculate the cost first!
-            const costInfo = calculateRentalCost(row.start_date, row.final_date, row.base_price, row.daily_rate, row.status, row.time_rent, startDateFilter, endDateFilter);
-            
-            // If filters are active, and this container didn't overlap the period AT ALL, hide it!
-            if ((startDateFilter || endDateFilter) && costInfo.overlapDays <= 0) {
+            if (hasDateFilter && earned.amount <= 0) {
                 return;
             }
             
@@ -1178,6 +1219,7 @@
 
             const prepaid = getPrepaidBalance(row, startDateFilter, endDateFilter);
             totalAccumulated += prepaid.amountDue;
+            periodVisible += earned.amount;
 
             row._calculatedCost = prepaid.amountDue;
             row._calculatedStart = prepaid.invoiceStart || startDateFilter || row.start_date;
@@ -1222,6 +1264,7 @@
                 <td style="color: #000000; font-weight: 700; text-align: center !important;">$${parseFloat(row.base_price).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td style="font-weight: 800; color: ${isExpired ? '#ef4444' : '#000000'};">${displayDays}</td>
                 <td style="font-weight: 900; color: ${balanceDue > 0 ? (isExpired ? '#ef4444' : '#000000') : '#10b981'}; font-size: 1rem;">$${balanceDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                <td style="font-weight: 900; color: #1d4ed8; font-size: 1rem;">$${earned.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}${earned.cycles ? `<div style="font-size:0.65rem; font-weight:800; color:#64748b;">${earned.cycles} ${cycleUnitLabels(rentCycleUnit(row.time_rent), earned.cycles)}</div>` : ''}</td>
                 <td>
                     <span class="status-badge" style="background: ${row.status === 'FINISHED' ? '#64748b' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">
                         ${row.status || 'ACTIVE'}
@@ -1247,6 +1290,10 @@
         if (delBtn) delBtn.style.display = (editingRentalId && canDelete) ? 'flex' : 'none';
         const totalEl = document.getElementById('rentals-total-income');
         if (totalEl) totalEl.textContent = `$${totalAccumulated.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        const periodEl = document.getElementById('rentals-period-income');
+        if (periodEl) {
+            periodEl.textContent = `$${periodVisible.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        }
     }
 
     async function saveRentalData() {
@@ -1607,6 +1654,8 @@
     window.populateRentalCustomerSelect = populateRentalCustomerSelect;
     window.populateAllRentalSelects = populateAllRentalSelects;
     window.calculateRentalCost = calculateRentalCost;
+    window.sumRentalIncomeForRange = sumRentalIncomeForRange;
+    window.buildPrepaidCycles = buildPrepaidCycles;
     window.removeSelectedRental = removeSelectedRental;
 
 })();
