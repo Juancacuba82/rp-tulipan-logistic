@@ -7,12 +7,14 @@ window.receivablesData = {
 window.initReceivables = async function () {
     console.log('[Receivables] initReceivables');
     await loadReceivables();
+    await ensureReceivableLastSentCache();
     renderReceivables();
 };
 
 window.refreshReceivablesModule = async function () {
     await window.withRefreshButton('btn-refresh-receivables', async () => {
         await loadReceivables();
+        await ensureReceivableLastSentCache(true);
         renderReceivables();
     }, 'accounts receivable');
 };
@@ -53,6 +55,183 @@ function findTripRowById(tid) {
     }
     return null;
 }
+
+function formatInvoiceLastSentText(lastSentDate, reminderCount) {
+    if (!lastSentDate) return '—';
+    const dateObj = lastSentDate instanceof Date ? lastSentDate : new Date(lastSentDate);
+    if (isNaN(dateObj.getTime())) return '—';
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const yyyy = dateObj.getFullYear();
+    let text = `${mm}/${dd}/${yyyy}`;
+    const count = parseInt(reminderCount, 10) || 0;
+    if (count > 1) text += ` (×${count})`;
+    return text;
+}
+
+function tripIdsFromInvoice(inv) {
+    if (!inv || !inv.trip_ids) return [];
+    return inv.trip_ids.split(',').map(id => id.trim()).filter(id =>
+        id && !id.startsWith('RENTAL_ID:') && !id.startsWith('VIRTUAL_RENTAL_')
+    );
+}
+
+function tripMetaFromId(id) {
+    const row = findTripRowById(id);
+    const cached = window._recvLastSentByTripId && window._recvLastSentByTripId[id];
+    const orderDate = (row && row[1] && row[1] !== '---')
+        ? row[1]
+        : (cached && cached.orderDate) || null;
+    const status = (row && row[41]) || (cached && cached.status) || '';
+    const lastSent = (row && row[63]) || (cached && cached.date) || null;
+    const count = lastSent
+        ? (row && row[63] ? (parseInt(row[64], 10) || 0) : (parseInt(cached && cached.count, 10) || 0))
+        : 0;
+    return { lastSent, count, orderDate, status };
+}
+
+function getReceivableLastSentText(inv) {
+    const ids = tripIdsFromInvoice(inv);
+    let bestDate = null;
+    let bestCount = 0;
+    ids.forEach(id => {
+        const hit = tripMetaFromId(id);
+        if (!hit || !hit.lastSent) return;
+        const d = new Date(hit.lastSent);
+        if (isNaN(d.getTime())) return;
+        if (!bestDate || d > bestDate) {
+            bestDate = d;
+            bestCount = parseInt(hit.count, 10) || 0;
+        }
+    });
+    return formatInvoiceLastSentText(bestDate, bestCount);
+}
+
+function parseLocalDate(ds) {
+    if (!ds || ds === '---' || ds === 'N/A') return null;
+    const s = String(ds).split('T')[0];
+    const parts = s.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        if (!y || m < 0 || !d) return null;
+        return new Date(y, m, d);
+    }
+    const dObj = new Date(ds);
+    if (isNaN(dObj.getTime())) return null;
+    return new Date(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+}
+
+function startOfToday() {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+
+function isYardStockReceivableInvoice(inv) {
+    const svc = invoiceServiceKey(inv);
+    if (svc === 'YARD' || svc === 'YARD STORAGE') return true;
+    const invNo = (inv.invoice_number || '').toString().toUpperCase();
+    if (invNo.startsWith('YRD-') || invNo.startsWith('YARD-')) return true;
+    return false;
+}
+
+function getReceivableNet15Start(inv) {
+    if (!inv) return null;
+    if (isRentalReceivableInvoice(inv) || isYardStockReceivableInvoice(inv)) {
+        return parseLocalDate(inv.date_generated);
+    }
+    const ids = tripIdsFromInvoice(inv);
+    let latest = null;
+    ids.forEach(id => {
+        const meta = tripMetaFromId(id);
+        const st = (meta.status || '').toString().toUpperCase();
+        if (st && !(st === 'COMPLETE' || st === 'DELIVERED' || st === 'PAID')) return;
+        const d = parseLocalDate(meta.orderDate);
+        if (!d) return;
+        if (!latest || d > latest) latest = d;
+    });
+    if (!latest) {
+        ids.forEach(id => {
+            const d = parseLocalDate(tripMetaFromId(id).orderDate);
+            if (d && (!latest || d > latest)) latest = d;
+        });
+    }
+    return latest || parseLocalDate(inv.date_generated);
+}
+
+function getReceivableOverdueInfo(inv, balance) {
+    if (!inv || !(parseFloat(balance) > 0.01)) return null;
+    const start = getReceivableNet15Start(inv);
+    if (!start) return null;
+    const due = new Date(start);
+    due.setDate(due.getDate() + 15);
+    const today = startOfToday();
+    if (today <= due) return null;
+    const days = Math.floor((today - due) / 86400000);
+    return { days: Math.max(1, days), due };
+}
+
+async function ensureReceivableLastSentCache(force = false) {
+    if (!window.db) return;
+    const invoices = (window.receivablesData && window.receivablesData.invoices) || [];
+    const needed = new Set();
+    invoices.forEach(inv => tripIdsFromInvoice(inv).forEach(id => needed.add(id)));
+    if (!needed.size) return;
+
+    if (!window._recvLastSentByTripId) window._recvLastSentByTripId = {};
+    const missing = [];
+    needed.forEach(id => {
+        if (!force && findTripRowById(id)) return;
+        const cached = window._recvLastSentByTripId[id];
+        if (!force && cached && ('orderDate' in cached)) return;
+        missing.push(id);
+    });
+    if (!missing.length) return;
+
+    const chunkSize = 100;
+    for (let i = 0; i < missing.length; i += chunkSize) {
+        const chunk = missing.slice(i, i + chunkSize);
+        try {
+            const { data, error } = await window.db.from('trips')
+                .select('trip_id, invoice_last_sent, invoice_reminder_count, date, status')
+                .in('trip_id', chunk);
+            if (error) throw error;
+            (data || []).forEach(t => {
+                if (!t || !t.trip_id) return;
+                window._recvLastSentByTripId[t.trip_id] = {
+                    date: t.invoice_last_sent || null,
+                    count: parseInt(t.invoice_reminder_count, 10) || 0,
+                    orderDate: t.date || null,
+                    status: t.status || ''
+                };
+            });
+            chunk.forEach(id => {
+                if (!window._recvLastSentByTripId[id]) {
+                    window._recvLastSentByTripId[id] = { date: null, count: 0, orderDate: null, status: '' };
+                }
+            });
+        } catch (err) {
+            console.warn('[Receivables] Could not load last-sent for trips:', err);
+        }
+    }
+}
+
+window.stampReceivableLastSent = function (tripId, date, count) {
+    if (!tripId) return;
+    if (!window._recvLastSentByTripId) window._recvLastSentByTripId = {};
+    const prev = window._recvLastSentByTripId[String(tripId)] || {};
+    window._recvLastSentByTripId[String(tripId)] = {
+        ...prev,
+        date: date || null,
+        count: parseInt(count, 10) || 0
+    };
+};
+
+window.refreshInvoiceLastSentViews = function () {
+    if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+    if (typeof window.renderReceivables === 'function') window.renderReceivables();
+};
 
 function getUniqueOrderNumbersFromTripIds(tripIdsStr) {
     if (!tripIdsStr) return [];
@@ -810,22 +989,39 @@ window.renderReceivables = function () {
             if (activeCustomerFilter && !customerMatchesFilter(custName, activeCustomerFilter)) continue;
             pendingCount++;
             let totalPending = invoices.reduce((sum, i) => sum + (parseFloat(i.total_amount || 0) - parseFloat(i.amount_paid || 0)), 0);
+            const overdueCount = invoices.filter(i => {
+                const bal = parseFloat(i.total_amount || 0) - parseFloat(i.amount_paid || 0);
+                return !!getReceivableOverdueInfo(i, bal);
+            }).length;
             html += `
             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow:hidden;">
                 <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
                     <h3 style="margin:0; font-size:1.1rem; color:#0f172a;"><i class="fas fa-building" style="color:#3b82f6; margin-right:8px;"></i> ${custName}</h3>
-                    <div style="font-weight:900; color:#ef4444; font-size:1.1rem;">Pending: $${totalPending.toFixed(2)}</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${overdueCount ? `<span style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:800;">${overdueCount} OVERDUE</span>` : ''}
+                        <div style="font-weight:900; color:#ef4444; font-size:1.1rem;">Pending: $${totalPending.toFixed(2)}</div>
+                    </div>
                 </div>
                 <div style="padding: 10px 20px;">
-                    <table style="width:100%; border-collapse: collapse;">
+                    <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+                        <colgroup>
+                            <col style="width:26%;">
+                            <col style="width:16%;">
+                            <col style="width:10%;">
+                            <col style="width:10%;">
+                            <col style="width:10%;">
+                            <col style="width:12%;">
+                            <col style="width:16%;">
+                        </colgroup>
                         <thead>
-                            <tr style="text-align:left; color:#64748b; font-size:0.8rem; border-bottom: 2px solid #e2e8f0;">
-                                <th style="padding:8px 0;">INVOICE #</th>
-                                <th style="padding:8px 0;">DATE</th>
-                                <th style="padding:8px 0;">TOTAL</th>
-                                <th style="padding:8px 0; color:#10b981;">PAID</th>
-                                <th style="padding:8px 0; color:#ef4444;">BALANCE</th>
-                                <th style="padding:8px 0; text-align:right;">ACTION</th>
+                            <tr style="text-align:left; color:#64748b; font-size:0.75rem; letter-spacing:0.04em; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding:8px 10px;">INVOICE #</th>
+                                <th style="padding:8px 10px;">DATE</th>
+                                <th style="padding:8px 10px; text-align:right;">TOTAL</th>
+                                <th style="padding:8px 10px; text-align:right; color:#10b981;">PAID</th>
+                                <th style="padding:8px 10px; text-align:right; color:#ef4444;">BALANCE</th>
+                                <th style="padding:8px 10px; text-align:center;">LAST SENT</th>
+                                <th style="padding:8px 10px; text-align:right;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -847,15 +1043,23 @@ window.renderReceivables = function () {
                 const createdBy = inv.created_by ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:2px; font-weight:600;"><i class="fas fa-user" style="margin-right:3px;"></i>${inv.created_by}</div>` : '';
                 const calHint = calendarHintForInvoice(inv);
                 const calHintHtml = calHint ? `<div style="font-size:0.7rem; color:#0369a1; margin-top:3px; font-weight:700;">${calHint}</div>` : '';
+                const lastSentText = getReceivableLastSentText(inv);
+                const overdue = getReceivableOverdueInfo(inv, balance);
+                const overdueBadge = overdue
+                    ? `<div style="display:inline-block; margin-top:6px; background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:2px 8px; border-radius:999px; font-size:0.65rem; font-weight:800; letter-spacing:0.04em;">OVERDUE · ${overdue.days}d</div>`
+                    : '';
+                const rowBg = overdue ? 'background:#fef2f2;' : '';
                 
                 html += `
-                            <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700;">${displayInvNo}${orderNoExtracted}${calHintHtml}</td>
-                                <td style="padding:10px 0; color:#64748b;">${d}${createdBy}</td>
-                                <td style="padding:10px 0; font-weight:700;">$${totalAmt.toFixed(2)}</td>
-                                <td style="padding:10px 0; font-weight:700; color:#10b981;">$${amtPaid.toFixed(2)}</td>
-                                <td style="padding:10px 0; font-weight:700; color:#ef4444;">$${balance.toFixed(2)}</td>
-                                <td style="padding:10px 0; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                            <tr style="border-bottom: 1px solid #f1f5f9; ${rowBg}">
+                                <td style="padding:12px 10px; font-weight:700; vertical-align:middle;">${displayInvNo}${orderNoExtracted}${calHintHtml}</td>
+                                <td style="padding:12px 10px; color:#64748b; vertical-align:middle;">${d}${overdueBadge}${createdBy}</td>
+                                <td style="padding:12px 10px; font-weight:700; text-align:right; vertical-align:middle; font-variant-numeric:tabular-nums; white-space:nowrap;">$${totalAmt.toFixed(2)}</td>
+                                <td style="padding:12px 10px; font-weight:700; text-align:right; vertical-align:middle; color:#10b981; font-variant-numeric:tabular-nums; white-space:nowrap;">$${amtPaid.toFixed(2)}</td>
+                                <td style="padding:12px 10px; font-weight:700; text-align:right; vertical-align:middle; color:#ef4444; font-variant-numeric:tabular-nums; white-space:nowrap;">$${balance.toFixed(2)}</td>
+                                <td style="padding:12px 10px; font-size:0.75rem; color:#475569; font-weight:700; text-align:center; vertical-align:middle; white-space:nowrap;">${lastSentText}</td>
+                                <td style="padding:12px 10px; text-align:right; vertical-align:middle;">
+                                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; white-space:nowrap;">
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -865,6 +1069,7 @@ window.renderReceivables = function () {
                                     ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
                                     </button>` : ''}
+                                    </div>
                                 </td>
                             </tr>
                 `;
@@ -898,14 +1103,21 @@ window.renderReceivables = function () {
                     <div style="font-weight:900; color:#10b981; font-size:1.1rem;">Total Paid: $${totalPaid.toFixed(2)}</div>
                 </div>
                 <div style="padding: 10px 20px;">
-                    <table style="width:100%; border-collapse: collapse;">
+                    <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+                        <colgroup>
+                            <col style="width:28%;">
+                            <col style="width:22%;">
+                            <col style="width:16%;">
+                            <col style="width:16%;">
+                            <col style="width:18%;">
+                        </colgroup>
                         <thead>
-                            <tr style="text-align:left; color:#64748b; font-size:0.8rem; border-bottom: 2px solid #e2e8f0;">
-                                <th style="padding:8px 0;">INVOICE #</th>
-                                <th style="padding:8px 0;">DATE PAID</th>
-                                <th style="padding:8px 0;">METHOD</th>
-                                <th style="padding:8px 0; text-align:right;">AMOUNT</th>
-                                <th style="padding:8px 0; text-align:right; width:140px;">ACTION</th>
+                            <tr style="text-align:left; color:#64748b; font-size:0.75rem; letter-spacing:0.04em; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding:8px 10px;">INVOICE #</th>
+                                <th style="padding:8px 10px;">DATE PAID</th>
+                                <th style="padding:8px 10px;">METHOD</th>
+                                <th style="padding:8px 10px; text-align:right;">AMOUNT</th>
+                                <th style="padding:8px 10px; text-align:right;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -932,13 +1144,14 @@ window.renderReceivables = function () {
 
                 html += `
                             <tr style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding:10px 0; font-weight:700; color:#94a3b8;"><del>${displayInvNo}</del>${orderNoExtracted}${calHintHtml}</td>
-                                <td style="padding:10px 0; color:#64748b;">${d}${createdBy}${paidBy}</td>
-                                <td style="padding:10px 0;">
+                                <td style="padding:12px 10px; font-weight:700; color:#94a3b8; vertical-align:middle;"><del>${displayInvNo}</del>${orderNoExtracted}${calHintHtml}</td>
+                                <td style="padding:12px 10px; color:#64748b; vertical-align:middle;">${d}${createdBy}${paidBy}</td>
+                                <td style="padding:12px 10px; vertical-align:middle;">
                                     <span style="background:${isWriteOff ? '#f3e8ff' : '#e0f2fe'}; color:${isWriteOff ? '#7c3aed' : '#0284c7'}; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${methodLabel}</span>
                                 </td>
-                                <td style="padding:10px 0; font-weight:700; text-align:right; color:${isWriteOff ? '#7c3aed' : '#10b981'};">${isWriteOff ? '$0.00 (forgiven)' : '$' + histAmt.toFixed(2)}</td>
-                                <td style="padding:10px 0; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                                <td style="padding:12px 10px; font-weight:700; text-align:right; vertical-align:middle; font-variant-numeric:tabular-nums; white-space:nowrap; color:${isWriteOff ? '#7c3aed' : '#10b981'};">${isWriteOff ? '$0.00 (forgiven)' : '$' + histAmt.toFixed(2)}</td>
+                                <td style="padding:12px 10px; text-align:right; vertical-align:middle;">
+                                    <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; white-space:nowrap;">
                                     <button class="glossy-blue-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="openReceivablePreview('${inv.id}')" title="View Invoice">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -948,6 +1161,7 @@ window.renderReceivables = function () {
                                     ${isAdmin ? `<button class="glossy-red-btn" style="height:30px; padding:0 15px; font-size:0.75rem;" onclick="deleteReceivable('${inv.id}')" title="Delete Invoice">
                                         <i class="fas fa-trash"></i>
                                     </button>` : ''}
+                                    </div>
                                 </td>
                             </tr>
                 `;

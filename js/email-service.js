@@ -567,6 +567,9 @@
                         local[63] = nowIso;
                         local[64] = newCount;
                     }
+                    if (typeof window.stampReceivableLastSent === 'function') {
+                        window.stampReceivableLastSent(id, nowIso, newCount);
+                    }
                     const unfiltered = (window.allTripsUnfiltered || []).find(t => t[0] === id);
                     if (unfiltered) {
                         unfiltered[57] = 'YES';
@@ -581,8 +584,8 @@
                 })
             );
 
-            // Refresh the billing table badge if it is visible
-            if (window.renderBillingTable) window.renderBillingTable();
+            if (typeof window.refreshInvoiceLastSentViews === 'function') window.refreshInvoiceLastSentViews();
+            else if (window.renderBillingTable) window.renderBillingTable();
 
             console.log('[3-PDF] invoice_sent marked for', tripIds.length, 'trip(s).');
         } catch (markErr) {

@@ -266,78 +266,55 @@
         await window.sendThreePDFEmail([row], numPDFs);
 
         if (!window.isMasterBillingReadOnly) {
-            // Update tracking fields
-            const now = new Date().toISOString();
-            const currentCount = parseInt(row[64]) || 0;
-        const newCount = currentCount + 1;
+            const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
+            const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
+            const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
+            const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
+            const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
 
-        const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
-        const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
-        const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
-        const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
-        const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
+            let invoiced = row[75] ? row[75].split(',') : [];
+            const shouldBill = window.shouldInvoiceRowService;
+            const unpaid = window.anyUnpaidBillingService;
+            const pack = [row];
+            const paidTrans = incTrans && unpaid && !unpaid(pack, 'TRANSPORT');
+            const paidYard = incYard && unpaid && !unpaid(pack, 'YARD');
+            const paidSales = incSales && unpaid && !unpaid(pack, 'SALES');
+            const paidRent = incRent && unpaid && !unpaid(pack, 'RENT');
+            const paidStorage = incStorage && unpaid && !unpaid(pack, 'STORAGE');
 
-        let invoiced = row[75] ? row[75].split(',') : [];
-        const shouldBill = window.shouldInvoiceRowService;
-        const unpaid = window.anyUnpaidBillingService;
-        const pack = [row];
-        const paidTrans = incTrans && unpaid && !unpaid(pack, 'TRANSPORT');
-        const paidYard = incYard && unpaid && !unpaid(pack, 'YARD');
-        const paidSales = incSales && unpaid && !unpaid(pack, 'SALES');
-        const paidRent = incRent && unpaid && !unpaid(pack, 'RENT');
-        const paidStorage = incStorage && unpaid && !unpaid(pack, 'STORAGE');
-
-        if (shouldBill) {
-            if (incTrans && shouldBill(row, 'TRANSPORT', paidTrans)) invoiced.push('TRANSPORT');
-            if (incYard && shouldBill(row, 'YARD', paidYard)) invoiced.push('YARD');
-            if (incSales && shouldBill(row, 'SALES', paidSales)) invoiced.push('SALES');
-            if (incRent && shouldBill(row, 'RENT', paidRent)) invoiced.push('RENT');
-            if (incStorage && shouldBill(row, 'STORAGE', paidStorage)) invoiced.push('STORAGE');
-        } else {
-            if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0 && row[32] !== 'PAID') invoiced.push('TRANSPORT');
-            if (incYard && (parseFloat(row[13]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('YARD');
-            if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0 && row[33] !== 'PAID') invoiced.push('SALES');
-            if (incRent && (parseFloat(row[27]) || 0) > 0 && row[31] !== 'PAID') invoiced.push('RENT');
-            if (incStorage && (parseFloat(row[14]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('STORAGE');
-        }
-        
-        invoiced = [...new Set(invoiced)].filter(Boolean);
-        const newInvoicedServices = invoiced.join(',');
-
-        const updateData = {
-            invoice_sent: 'YES',
-            invoice_last_sent: now,
-            invoice_reminder_count: newCount,
-            invoiced_services: newInvoicedServices
-        };
-
-        try {
-            await db.from('trips').update(updateData).eq('trip_id', tripId);
-
-            // Sync local cache
-            row[57] = 'YES';
-            row[63] = now;
-            row[64] = newCount;
-            row[75] = newInvoicedServices;
-
-            const ufRow = (window.allTripsUnfiltered || []).find(t => t[0] === tripId);
-            if (ufRow) {
-                ufRow[57] = 'YES';
-                ufRow[63] = now;
-                ufRow[64] = newCount;
-                ufRow[75] = newInvoicedServices;
+            if (shouldBill) {
+                if (incTrans && shouldBill(row, 'TRANSPORT', paidTrans)) invoiced.push('TRANSPORT');
+                if (incYard && shouldBill(row, 'YARD', paidYard)) invoiced.push('YARD');
+                if (incSales && shouldBill(row, 'SALES', paidSales)) invoiced.push('SALES');
+                if (incRent && shouldBill(row, 'RENT', paidRent)) invoiced.push('RENT');
+                if (incStorage && shouldBill(row, 'STORAGE', paidStorage)) invoiced.push('STORAGE');
+            } else {
+                if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0 && row[32] !== 'PAID') invoiced.push('TRANSPORT');
+                if (incYard && (parseFloat(row[13]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('YARD');
+                if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0 && row[33] !== 'PAID') invoiced.push('SALES');
+                if (incRent && (parseFloat(row[27]) || 0) > 0 && row[31] !== 'PAID') invoiced.push('RENT');
+                if (incStorage && (parseFloat(row[14]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('STORAGE');
             }
-        } catch (err) {
-            console.warn('[AutoInvoice] Could not update tracking fields:', err);
-        }
 
-        if (window.renderBillingTable) window.renderBillingTable();
+            invoiced = [...new Set(invoiced)].filter(Boolean);
+            const newInvoicedServices = invoiced.join(',');
 
-            // ── Push to Accounts Receivable ───────────────────────────
+            try {
+                await db.from('trips').update({ invoiced_services: newInvoicedServices }).eq('trip_id', tripId);
+                row[75] = newInvoicedServices;
+                const ufRow = (window.allTripsUnfiltered || []).find(t => t[0] === tripId);
+                if (ufRow) ufRow[75] = newInvoicedServices;
+            } catch (err) {
+                console.warn('[AutoInvoice] Could not update invoiced services:', err);
+            }
+
             if (window.addInvoiceToReceivables && invoiceNoToSave) {
                 window.addInvoiceToReceivables(row[11] || 'Customer', invoiceNoToSave, totalNumToSave, detailsHtmlToSave, [row[0]], svcFilterToSave);
             }
         }
+
+        if (typeof window.refreshInvoiceLastSentViews === 'function') window.refreshInvoiceLastSentViews();
+        else if (window.renderBillingTable) window.renderBillingTable();
     }
 
     /**
@@ -622,73 +599,79 @@
                 );
             }
 
-            // Update tracking for all rows
-            if (!window.isMasterBillingReadOnly) {
-                const nowIso = new Date().toISOString();
-                const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
+            // Always stamp last sent (including Accounts reprint). Skip invoiced_services on read-only reprints.
+            const nowIso = new Date().toISOString();
+            const writeServices = !window.isMasterBillingReadOnly;
+            const incTrans   = document.getElementById('mb-svc-transport')?.checked ?? true;
             const incRent    = document.getElementById('mb-svc-rent')?.checked ?? true;
             const incSales   = document.getElementById('mb-svc-sales')?.checked ?? true;
             const incStorage = document.getElementById('mb-svc-storage')?.checked ?? true;
             const incYard    = document.getElementById('mb-svc-yard')?.checked ?? true;
-            
+
             for (const row of rows) {
                 const tripId = row[0];
                 if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
                     const currentCount = parseInt(row[64]) || 0;
                     const newCount = currentCount + 1;
-                    
-                    let invoiced = row[75] ? row[75].split(',') : [];
-                    const shouldBill = window.shouldInvoiceRowService;
-                    const unpaidFn = window.anyUnpaidBillingService;
-                    const paidTrans = incTrans && unpaidFn && !unpaidFn(rows, 'TRANSPORT');
-                    const paidYard = incYard && unpaidFn && !unpaidFn(rows, 'YARD');
-                    const paidSales = incSales && unpaidFn && !unpaidFn(rows, 'SALES');
-                    const paidRent = incRent && unpaidFn && !unpaidFn(rows, 'RENT');
-                    const paidStorage = incStorage && unpaidFn && !unpaidFn(rows, 'STORAGE');
 
-                    if (shouldBill) {
-                        if (incTrans && shouldBill(row, 'TRANSPORT', paidTrans)) invoiced.push('TRANSPORT');
-                        if (incYard && shouldBill(row, 'YARD', paidYard)) invoiced.push('YARD');
-                        if (incSales && shouldBill(row, 'SALES', paidSales)) invoiced.push('SALES');
-                        if (incRent && shouldBill(row, 'RENT', paidRent)) invoiced.push('RENT');
-                        if (incStorage && shouldBill(row, 'STORAGE', paidStorage)) invoiced.push('STORAGE');
-                    } else {
-                        if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0 && row[32] !== 'PAID') invoiced.push('TRANSPORT');
-                        if (incYard && (parseFloat(row[13]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('YARD');
-                        if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0 && row[33] !== 'PAID') invoiced.push('SALES');
-                        if (incRent && (parseFloat(row[27]) || 0) > 0 && row[31] !== 'PAID') invoiced.push('RENT');
-                        if (incStorage && (parseFloat(row[14]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('STORAGE');
-                    }
-                    
-                    invoiced = [...new Set(invoiced)].filter(Boolean);
-                    const newInvoicedServices = invoiced.join(',');
-                    
-                    await window.db.from('trips').update({
+                    const payload = {
                         invoice_sent: 'YES',
                         invoice_last_sent: nowIso,
-                        invoice_reminder_count: newCount,
-                        invoiced_services: newInvoicedServices
-                    }).eq('trip_id', tripId);
-                    
+                        invoice_reminder_count: newCount
+                    };
+
+                    if (writeServices) {
+                        let invoiced = row[75] ? row[75].split(',') : [];
+                        const shouldBill = window.shouldInvoiceRowService;
+                        const unpaidFn = window.anyUnpaidBillingService;
+                        const paidTrans = incTrans && unpaidFn && !unpaidFn(rows, 'TRANSPORT');
+                        const paidYard = incYard && unpaidFn && !unpaidFn(rows, 'YARD');
+                        const paidSales = incSales && unpaidFn && !unpaidFn(rows, 'SALES');
+                        const paidRent = incRent && unpaidFn && !unpaidFn(rows, 'RENT');
+                        const paidStorage = incStorage && unpaidFn && !unpaidFn(rows, 'STORAGE');
+
+                        if (shouldBill) {
+                            if (incTrans && shouldBill(row, 'TRANSPORT', paidTrans)) invoiced.push('TRANSPORT');
+                            if (incYard && shouldBill(row, 'YARD', paidYard)) invoiced.push('YARD');
+                            if (incSales && shouldBill(row, 'SALES', paidSales)) invoiced.push('SALES');
+                            if (incRent && shouldBill(row, 'RENT', paidRent)) invoiced.push('RENT');
+                            if (incStorage && shouldBill(row, 'STORAGE', paidStorage)) invoiced.push('STORAGE');
+                        } else {
+                            if (incTrans && row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0 && row[32] !== 'PAID') invoiced.push('TRANSPORT');
+                            if (incYard && (parseFloat(row[13]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('YARD');
+                            if (incSales && row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0 && row[33] !== 'PAID') invoiced.push('SALES');
+                            if (incRent && (parseFloat(row[27]) || 0) > 0 && row[31] !== 'PAID') invoiced.push('RENT');
+                            if (incStorage && (parseFloat(row[14]) || 0) > 0 && row[30] !== 'PAID') invoiced.push('STORAGE');
+                        }
+
+                        invoiced = [...new Set(invoiced)].filter(Boolean);
+                        payload.invoiced_services = invoiced.join(',');
+                    }
+
+                    await window.db.from('trips').update(payload).eq('trip_id', tripId);
+
                     row[57] = 'YES';
                     row[63] = nowIso;
                     row[64] = newCount;
-                    row[75] = newInvoicedServices;
-                    
-                    if (window.allTripsUnfiltered) {
-                        const ufRow = window.allTripsUnfiltered.find(t => t[0] === tripId);
-                        if (ufRow) {
-                            ufRow[57] = 'YES';
-                            ufRow[63] = nowIso;
-                            ufRow[64] = newCount;
-                            ufRow[75] = newInvoicedServices;
-                        }
+                    if (typeof window.stampReceivableLastSent === 'function') {
+                        window.stampReceivableLastSent(tripId, nowIso, newCount);
                     }
-                }
+                    if (payload.invoiced_services) row[75] = payload.invoiced_services;
+
+                    [window.allTripsUnfiltered, window.combinedBillingTrips, window.currentTrips, window.rentalInvoiceTrips].forEach(pool => {
+                        if (!pool) return;
+                        const cached = pool.find(t => t && t[0] === tripId);
+                        if (!cached) return;
+                        cached[57] = 'YES';
+                        cached[63] = nowIso;
+                        cached[64] = newCount;
+                        if (payload.invoiced_services) cached[75] = payload.invoiced_services;
+                    });
                 }
             }
 
-            if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+            if (typeof window.refreshInvoiceLastSentViews === 'function') window.refreshInvoiceLastSentViews();
+            else if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
             if (window.showToast) window.showToast('✅ Master Invoice sent & tracking updated!', 'success');
             else alert(`Master Invoice sent to ${customerEmail}!`);
 

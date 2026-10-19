@@ -2399,14 +2399,21 @@
                     await window.addInvoiceToReceivables(customer, invNo, totalNum, detailsHtml, tripIds, svcFilter, 0, '', arInvoiceDateOpts());
                 }
 
-                // Update locally
                 const nowIso = new Date().toISOString();
                 const tripId = singleRow[0];
                 if (tripId && !tripId.startsWith('VIRTUAL_RENTAL_')) {
+                    const currentCount = parseInt(singleRow[64]) || 0;
+                    const newCount = currentCount + 1;
                     singleRow[57] = 'YES';
                     singleRow[63] = nowIso;
-                    const currentCount = parseInt(singleRow[64]) || 0;
-                    singleRow[64] = currentCount + 1;
+                    singleRow[64] = newCount;
+                    if (window.db) {
+                        await window.db.from('trips').update({
+                            invoice_sent: 'YES',
+                            invoice_last_sent: nowIso,
+                            invoice_reminder_count: newCount
+                        }).eq('trip_id', tripId);
+                    }
                 }
 
                 // Wait 3 seconds before sending the next one (unless it's the last one)
@@ -2419,7 +2426,8 @@
             else alert(`Se enviaron ${rows.length} correos exitosamente.`);
             
             window.closeMasterBillingModal();
-            window.renderBillingTable();
+            if (typeof window.refreshInvoiceLastSentViews === 'function') window.refreshInvoiceLastSentViews();
+            else window.renderBillingTable();
         } catch (e) {
             console.error(e);
             alert("Ocurrió un error al enviar los correos individuales.");

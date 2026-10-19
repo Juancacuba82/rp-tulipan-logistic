@@ -404,7 +404,8 @@
                     }
                 }
 
-                if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
+                if (typeof window.refreshInvoiceLastSentViews === 'function') window.refreshInvoiceLastSentViews();
+                else if (typeof window.renderBillingTable === 'function') window.renderBillingTable();
                 alert("Master Invoice sent successfully!");
             }
         } catch (e) {
