@@ -2584,6 +2584,7 @@
                                         <select id="f-driver" class="form-select"
                                             onchange="applyAdvancedFiltersDebounced()" style="width: 100%;">
                                             <option value="">All Drivers</option>
+                                            <option value="__NO_DRIVER__">No driver yet (pending OK)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -8161,6 +8162,17 @@
             return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
         }
 
+        const CALENDAR_NO_DRIVER_VALUE = '__NO_DRIVER__';
+
+        function calendarDriverIsUnassigned(val) {
+            const parts = String(val || '').split('|').map(s => s.trim()).filter(Boolean);
+            if (!parts.length) return true;
+            return parts.every(part => {
+                const key = part.toLowerCase();
+                return key === '---' || key === 'unassigned' || key === 'no driver yet (pending ok)';
+            });
+        }
+
         function calendarContainsi(hay, needle) {
             const n = String(needle || '').trim().toLowerCase();
             if (!n) return true;
@@ -8301,7 +8313,11 @@
                 city: !filters.city || calendarEqi(valCity, filters.city),
                 size: !filters.size || calendarEqi(valSize, filters.size),
                 customer: !filters.customer || calendarEqi(valCustomer, filters.customer),
-                driver: !filters.driver || String(valDriver).split('|').some(d => calendarEqi(d, filters.driver)),
+                driver: !filters.driver
+                    ? true
+                    : (filters.driver === CALENDAR_NO_DRIVER_VALUE
+                        ? calendarDriverIsUnassigned(valDriver)
+                        : String(valDriver).split('|').some(d => calendarEqi(d, filters.driver))),
                 company: !filters.company || calendarEqi(valCompany, filters.company),
                 seller: !filters.seller || calendarEqi(valSeller, filters.seller),
                 zeller: !filters.zeller || calendarEqi(valZeller, filters.zeller),
@@ -8352,6 +8368,12 @@
 
             select.innerHTML = '';
             select.appendChild(firstOption);
+            if (select.id === 'f-driver') {
+                const noDriverOpt = document.createElement('option');
+                noDriverOpt.value = CALENDAR_NO_DRIVER_VALUE;
+                noDriverOpt.textContent = 'No driver yet (pending OK)';
+                select.appendChild(noDriverOpt);
+            }
             const fragment = document.createDocumentFragment();
             unique.forEach(val => {
                 const opt = document.createElement('option');
@@ -8363,6 +8385,10 @@
 
             if (!currentVal) {
                 select.value = '';
+                return;
+            }
+            if (select.id === 'f-driver' && currentVal === CALENDAR_NO_DRIVER_VALUE) {
+                select.value = CALENDAR_NO_DRIVER_VALUE;
                 return;
             }
             const match = unique.find(v => calendarEqi(v, currentVal));

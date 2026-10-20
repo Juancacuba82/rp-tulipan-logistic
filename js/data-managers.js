@@ -167,7 +167,11 @@
             const populate = (sel, isFilter = false) => {
                 if (!sel) return;
                 const currentVal = sel.value;
-                sel.innerHTML = isFilter ? '<option value="">All Drivers</option>' : '<option value="">No driver yet (pending OK)</option>';
+                sel.innerHTML = isFilter
+                    ? (sel.id === 'f-driver'
+                        ? '<option value="">All Drivers</option><option value="__NO_DRIVER__">No driver yet (pending OK)</option>'
+                        : '<option value="">All Drivers</option>')
+                    : '<option value="">No driver yet (pending OK)</option>';
                 currentDrivers.forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d.name;
