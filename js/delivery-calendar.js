@@ -5097,15 +5097,16 @@ window.openDriversNearToday = async function () {
 
             const rank = idx + 1;
             const dateLabel = formatNearbyOrderDate(item.date);
-            const fromTo = (item.pickup || 'Pickup') + ' → ' + (item.city || item.delivery || '');
+            const pickupAddr = item.pickup || '—';
+            const deliveryAddr = item.delivery || '—';
             const legsHtml = '<div style="margin-top:6px;">' +
-                '<div style="font-size:0.72rem; font-weight:800; color:#0f766e;">' +
-                '<i class="far fa-calendar-alt" style="margin-right:4px;"></i>' + (dateLabel || '—') + '</div>' +
-                '<div style="font-size:0.75rem; color:#475569; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                fromTo + '</div>' +
-                '<div style="font-size:0.72rem; color:#94a3b8; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                (item.orderNo ? ('Orden ' + item.orderNo) : '') + (item.orderNo && item.city ? ' · ' : '') + (item.city || '') +
-                ' · Pending</div>' +
+                (dateLabel ? '<div style="font-size:0.72rem; font-weight:800; color:#0f766e; margin-bottom:6px;"><i class="far fa-calendar-alt" style="margin-right:4px;"></i>' + dateLabel + '</div>' : '') +
+                '<div style="font-size:0.68rem; font-weight:800; color:#0f766e; letter-spacing:0.04em;">PICKUP</div>' +
+                '<div style="font-size:0.78rem; color:#334155; margin-top:2px; line-height:1.35; word-break:break-word;">' +
+                pickupAddr + '</div>' +
+                '<div style="font-size:0.68rem; font-weight:800; color:#0f766e; letter-spacing:0.04em; margin-top:8px;">DELIVERY</div>' +
+                '<div style="font-size:0.78rem; color:#334155; margin-top:2px; line-height:1.35; word-break:break-word;">' +
+                deliveryAddr + '</div>' +
                 '</div>';
             card.innerHTML =
                 '<div style="min-width:0; flex:1;">' +
