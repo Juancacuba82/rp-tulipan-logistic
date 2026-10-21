@@ -242,6 +242,32 @@
             });
         };
 
+        function getDriverCardLast4List(driverName) {
+            const wanted = String(driverName || '').trim().toUpperCase();
+            if (!wanted) return [];
+            const driver = (window.currentDrivers || []).find(d =>
+                String(d.name || '').trim().toUpperCase() === wanted);
+            return String(driver?.card_last4 || '')
+                .split(/[,;\/\s]+/)
+                .map(part => String(part).replace(/\D/g, '').slice(-4))
+                .filter(part => part.length === 4);
+        }
+
+        function expenseBelongsToDriver(driverName, desc, note) {
+            if (!driverName) return true;
+            const hay = `${desc || ''} ${note || ''}`;
+            const needle = String(driverName).trim();
+            if (!needle) return true;
+            const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (new RegExp(`\\b${escaped}\\b`, 'i').test(hay)) return true;
+            if (hay.toLowerCase().includes(needle.toLowerCase())) return true;
+            const last4s = getDriverCardLast4List(driverName);
+            return last4s.some((digits) => {
+                const re = new RegExp(`(?:\\*|CARD\\s*[*#X-]*\\s*|XXXX\\s*-?\\s*|#)\\s*${digits}\\b`, 'i');
+                return re.test(hay) || hay.toUpperCase().includes('*' + digits);
+            });
+        }
+
         window.renderExpensesHistory = function () {
             // Update description history whenever we render/refresh expenses
             window.updateExpenseDescriptionHistory();
@@ -271,8 +297,7 @@
                     : rowLine;
                 const matchLine = !profitLineFilter
                     || (profitLineFilter === '__unassigned__' ? !rowLine : canonLine === profitLineFilter);
-                const driverRegex = driverName ? new RegExp(`\\b${driverName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i') : null;
-                const matchDriver = !driverName || driverRegex.test(rowDesc) || driverRegex.test(rowNote);
+                const matchDriver = expenseBelongsToDriver(driverName, row[2], row[4]);
                 const matchSearch = !search || rowDesc.includes(search) || rowNote.includes(search);
 
                 return matchDate && matchCat && matchLine && matchDriver && matchSearch;

@@ -98,6 +98,29 @@
             return drivers;
         }
 
+        async function syncLocalDriverCardsToDb(drivers) {
+            if (!db || !drivers || !drivers.length) return;
+            const local = loadDriverCardLast4Local();
+            const nextLocal = { ...local };
+            for (const d of drivers) {
+                const fromDb = normalizeCardLast4(d.card_last4);
+                const fromLs = normalizeCardLast4(local[d.id]);
+                if (fromDb) {
+                    nextLocal[d.id] = fromDb;
+                    continue;
+                }
+                if (!fromLs) continue;
+                const { error } = await db.from('drivers').update({ card_last4: fromLs }).eq('id', d.id);
+                if (!error) {
+                    d.card_last4 = fromLs;
+                    nextLocal[d.id] = fromLs;
+                } else {
+                    console.warn('Could not sync card_last4 to database for', d.name, error.message);
+                }
+            }
+            saveDriverCardLast4Local(nextLocal);
+        }
+
         window.openDriverManager = async function () {
             document.getElementById('driver-manager-modal').style.display = 'flex';
             try { await loadDriversData(); } catch (e) { console.error(e); }
@@ -149,6 +172,7 @@
                     return loadDriversData();
                 }
 
+                await syncLocalDriverCardsToDb(data);
                 currentDrivers = mergeDriverCardLast4(data);
                 window.currentDrivers = currentDrivers;
                 refreshDriverSelects();
@@ -333,14 +357,19 @@
             saveDriverCardLast4Local(local);
             const input = document.querySelector(`.driver-card-last4[onchange*="${id}"]`);
             if (input) input.value = last4;
-            if (!db) return;
+            if (!db) {
+                alert('No se pudo guardar en la base. Los last 4 quedan solo en esta PC.');
+                return;
+            }
             try {
                 const { error } = await db.from('drivers').update({ card_last4: last4 || null }).eq('id', id);
                 if (error) {
-                    console.warn('card_last4 not saved to database (run supabase-driver-card-last4.sql). Using local copy.', error.message);
+                    console.warn('card_last4 not saved to database:', error.message);
+                    alert('No se pudo guardar los last 4 en la base. En otra PC no se van a ver.');
                 }
             } catch (err) {
                 console.warn('card_last4 save fallback:', err);
+                alert('No se pudo guardar los last 4 en la base. En otra PC no se van a ver.');
             }
         };
 
