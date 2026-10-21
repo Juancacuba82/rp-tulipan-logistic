@@ -1492,6 +1492,7 @@
         /** Category dropdown on Expenses form — scoped by profit line (more lines added later). */
         window.EXPENSE_CATEGORIES_BY_PROFIT_LINE = {
             rpt_transportation: [
+                'COMMISSION',
                 'DRIVER PAYMENT',
                 'FUEL',
                 'REPAIR / MAINTENANCE / PARTS & LABOR',
@@ -1507,6 +1508,7 @@
                 'OTHER EXPENSES'
             ],
             rpt_yard: [
+                'COMMISSION',
                 'PAINT PURCHASE',
                 'CONTAINERS SUPPLIES',
                 'OTHER EXPENSES'

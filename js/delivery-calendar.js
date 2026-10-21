@@ -292,54 +292,79 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             });
         }
 
-        function orderCommissionNote(tripId, orderNo) {
-            return `Auto-generated from order ${orderNo || '---'} (trip ${tripId})`;
+        const ORDER_SERVICE_COMMISSION = {
+            yard: { label: 'Yard', profitLine: 'rpt_yard' },
+            transport: { label: 'Transport', profitLine: 'rpt_transportation' },
+            sales: { label: 'Sales', profitLine: 'rpt_sales' },
+            storage: { label: 'Storage', profitLine: 'rpt_yard' },
+            rent: { label: 'Rent', profitLine: 'rpt_sales' }
+        };
+
+        function orderCommissionNote(tripId, orderNo, serviceKey) {
+            return `Auto-generated from order ${orderNo || '---'} (trip ${tripId} / service:${serviceKey})`;
         }
 
-        async function findOrderCommissionExpense(tripId) {
-            if (!tripId || typeof db === 'undefined') return null;
+        function serviceKeyFromCommissionNote(note) {
+            const m = String(note || '').match(/service:([a-z]+)/i);
+            if (m && ORDER_SERVICE_COMMISSION[m[1].toLowerCase()]) return m[1].toLowerCase();
+            return 'sales';
+        }
+
+        async function findOrderCommissionExpenses(tripId) {
+            if (!tripId || typeof db === 'undefined') return [];
             try {
                 const { data, error } = await db.from('expenses')
-                    .select('id, amount, description, note, payment_method, date')
+                    .select('id, amount, description, note, payment_method, date, profit_line')
                     .eq('category', 'COMMISSION')
                     .ilike('note', `%trip ${tripId}%`)
                     .or('is_deleted.eq.false,is_deleted.is.null')
-                    .limit(3);
+                    .limit(20);
                 if (error) throw error;
-                return (data && data[0]) || null;
+                return data || [];
             } catch (err) {
                 console.warn('Could not load existing commission expense:', err);
-                return null;
+                return [];
             }
         }
 
-        async function syncOrderCommissionExpense({ tripId, orderNo, date, commission }) {
-            if (!tripId) return;
-            const existing = await findOrderCommissionExpense(tripId);
+        function commissionsByService(rows) {
+            const map = {};
+            (rows || []).forEach((row) => {
+                const key = serviceKeyFromCommissionNote(row.note);
+                if (!map[key]) map[key] = row;
+            });
+            return map;
+        }
+
+        async function removeCommissionExpense(existing) {
+            if (!existing || !existing.id) return;
+            await db.from('expenses').update({
+                is_deleted: true,
+                deleted_at: new Date().toISOString(),
+                deleted_by: window.userEmail || null
+            }).eq('id', existing.id);
+            if (window.syncExpenseToLedger) window.syncExpenseToLedger({ id: existing.id }, 'delete');
+            if (Array.isArray(window.currentExpenses)) {
+                window.currentExpenses = window.currentExpenses.filter(row => row[5] !== existing.id);
+            }
+        }
+
+        async function upsertCommissionExpense({ tripId, orderNo, date, serviceKey, commission, existing }) {
+            const meta = ORDER_SERVICE_COMMISSION[serviceKey] || ORDER_SERVICE_COMMISSION.sales;
             const has = !!(commission && commission.has);
             const amount = has ? (parseFloat(commission.amount) || 0) : 0;
             const payee = (commission && commission.payee) ? String(commission.payee).trim() : '';
             const pm = (commission && commission.paymentMethod === 'bank') ? 'bank' : 'cash';
 
             if (!has || amount <= 0) {
-                if (existing && existing.id) {
-                    await db.from('expenses').update({
-                        is_deleted: true,
-                        deleted_at: new Date().toISOString(),
-                        deleted_by: window.userEmail || null
-                    }).eq('id', existing.id);
-                    if (window.syncExpenseToLedger) window.syncExpenseToLedger({ id: existing.id }, 'delete');
-                    if (Array.isArray(window.currentExpenses)) {
-                        window.currentExpenses = window.currentExpenses.filter(row => row[5] !== existing.id);
-                    }
-                }
+                await removeCommissionExpense(existing);
                 return;
             }
 
             const desc = payee
-                ? `Commission — ${orderNo || '---'} — ${payee}`
-                : `Commission — ${orderNo || '---'}`;
-            const note = orderCommissionNote(tripId, orderNo);
+                ? `Commission — ${orderNo || '---'} — ${meta.label} — ${payee}`
+                : `Commission — ${orderNo || '---'} — ${meta.label}`;
+            const note = orderCommissionNote(tripId, orderNo, serviceKey);
             const rowData = [
                 date || new Date().toISOString().split('T')[0],
                 'COMMISSION',
@@ -348,7 +373,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 note,
                 null,
                 pm,
-                'rpt_sales'
+                meta.profitLine
             ];
             const expenseObj = window.mapArrayToExpense
                 ? window.mapArrayToExpense(rowData)
@@ -359,7 +384,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     amount,
                     note,
                     payment_method: pm,
-                    profit_line: 'rpt_sales'
+                    profit_line: meta.profitLine
                 };
 
             if (existing && existing.id) {
@@ -378,6 +403,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (saved && saved[0] && window.mapExpenseToArray && Array.isArray(window.currentExpenses)) {
                     window.currentExpenses.unshift(window.mapExpenseToArray(saved[0]));
                 }
+            }
+        }
+
+        async function syncOrderServiceCommissions({ tripId, orderNo, date, commissions }) {
+            if (!tripId) return;
+            const existingMap = commissionsByService(await findOrderCommissionExpenses(tripId));
+            for (const serviceKey of Object.keys(ORDER_SERVICE_COMMISSION)) {
+                await upsertCommissionExpense({
+                    tripId,
+                    orderNo,
+                    date,
+                    serviceKey,
+                    commission: (commissions && commissions[serviceKey]) || { has: false },
+                    existing: existingMap[serviceKey] || null
+                });
             }
         }
 
@@ -480,8 +520,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }));
                 if (!existingYardItems.length && yardOn) existingYardItems.push({ desc: '', price: num('in-yardrate') });
 
-                let priorCommission = null;
-                if (editingTripDbId) priorCommission = await findOrderCommissionExpense(editingTripDbId);
+                let priorByService = {};
+                if (editingTripDbId) {
+                    priorByService = commissionsByService(await findOrderCommissionExpenses(editingTripDbId));
+                }
 
                 const wrap = document.createElement('div');
                 wrap.id = 'order-services-review-modal';
@@ -521,27 +563,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             ${row({ key: 'storage', label: 'Storage', color: '#e11d48', bg: '#fff1f2', on: storageOn, extra: `<div style="width:100%;display:flex;flex-direction:column;gap:8px;"><label style="font-size:0.72rem;font-weight:800;color:#9f1239;">Which yard?<select class="osr-amt" data-field="storageDest" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid #fda4af;border-radius:8px;font-weight:800;color:#e11d48;"><option value="RPTULIPAN"${storageDest === 'RPTULIPAN' ? ' selected' : ''}>RPTulipan Yard</option><option value="STORAGE"${storageDest === 'STORAGE' ? ' selected' : ''}>Storage Yard</option></select></label><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><span style="font-size:0.65rem;font-weight:800;color:#9f1239;">/day</span><input type="number" class="osr-amt" data-field="storageDay" value="${num('in-priceperday')}" placeholder="0.00" step="0.01" style="width:88px;padding:6px 8px;border:1px solid #fda4af;border-radius:8px;font-weight:700;"><span style="font-size:0.65rem;font-weight:800;color:#9f1239;">Lift</span><input type="number" class="osr-amt" data-field="storageLift" value="${num('in-liftcost')}" placeholder="0.00" step="0.01" style="width:88px;padding:6px 8px;border:1px solid #fda4af;border-radius:8px;font-weight:700;"></div></div>` })}
                             ${row({ key: 'rent', label: 'Rent', color: '#7c3aed', bg: '#f5f3ff', on: rentOn, extra: `<span style="font-size:0.7rem;font-weight:700;color:#5b21b6;">$</span><input type="number" class="osr-amt" data-field="rent" value="${num('in-rent-price')}" placeholder="0.00" step="0.01" style="width:100px;padding:6px 8px;border:1px solid #c4b5fd;border-radius:8px;font-weight:700;"><select class="osr-amt" data-field="rentPeriod" style="padding:6px 8px;border:1px solid #c4b5fd;border-radius:8px;font-weight:700;font-size:0.75rem;"><option value="monthly"${rentPeriod === 'monthly' ? ' selected' : ''}>Monthly</option><option value="weekly"${rentPeriod === 'weekly' ? ' selected' : ''}>Weekly</option><option value="daily"${rentPeriod === 'daily' ? ' selected' : ''}>Daily</option></select>` })}
 
-                            <div id="osr-commission" style="display:${salesOn && !rentOn ? 'block' : 'none'};margin-top:6px;padding:16px;border-radius:14px;background:#450a0a;border:2px solid #ef4444;color:#fff;">
-                                <div style="font-size:1.05rem;font-weight:900;letter-spacing:0.02em;color:#fecaca;text-align:center;">DOES THIS SALE HAVE A COMMISSION?</div>
-                                <p style="margin:8px 0 14px;font-size:0.82rem;color:#fecaca;text-align:center;font-weight:700;line-height:1.4;">Required. You must choose Yes or No to save. Bank CSV will show it for review, not to import.</p>
-                                <div style="display:flex;gap:10px;justify-content:center;">
-                                    <button type="button" id="osr-comm-yes" style="flex:1;padding:12px;border-radius:10px;border:2px solid #fca5a5;background:transparent;color:#fff;font-weight:900;cursor:pointer;">YES, IT DOES</button>
-                                    <button type="button" id="osr-comm-no" style="flex:1;padding:12px;border-radius:10px;border:2px solid #fca5a5;background:transparent;color:#fff;font-weight:900;cursor:pointer;">NO COMMISSION</button>
-                                </div>
-                                <div id="osr-comm-fields" style="display:none;margin-top:14px;flex-direction:column;gap:8px;">
-                                    <label style="font-size:0.75rem;font-weight:800;color:#fecaca;">Commission amount (not subtracted from Sales)
-                                        <input type="number" id="osr-comm-amount" placeholder="0.00" step="0.01" value="${priorCommission ? (parseFloat(priorCommission.amount) || '') : ''}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #fca5a5;font-weight:800;color:#7f1d1d;">
-                                    </label>
-                                    <label style="font-size:0.75rem;font-weight:800;color:#fecaca;">Pay to (optional)
-                                        <input type="text" id="osr-comm-payee" placeholder="Name" value="${priorCommission && priorCommission.description ? (priorCommission.description.split('—').slice(2).join('—').trim() || '') : ''}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #fca5a5;font-weight:700;color:#7f1d1d;">
-                                    </label>
-                                    <div style="display:flex;gap:8px;">
-                                        <label style="flex:1;font-size:0.75rem;font-weight:800;color:#fecaca;display:flex;align-items:center;gap:6px;"><input type="radio" name="osr-comm-pm" value="cash" ${!priorCommission || priorCommission.payment_method !== 'bank' ? 'checked' : ''}> CASH</label>
-                                        <label style="flex:1;font-size:0.75rem;font-weight:800;color:#fecaca;display:flex;align-items:center;gap:6px;"><input type="radio" name="osr-comm-pm" value="bank" ${priorCommission && priorCommission.payment_method === 'bank' ? 'checked' : ''}> BANK</label>
-                                    </div>
-                                </div>
-                                <p id="osr-comm-error" style="display:none;margin:10px 0 0;color:#fecaca;font-weight:800;font-size:0.8rem;text-align:center;"></p>
-                            </div>
+                            <p id="osr-comm-error" style="display:none;margin:0;color:#b91c1c;font-weight:800;font-size:0.8rem;text-align:center;"></p>
                         </div>
                         <div style="padding:16px 22px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #e2e8f0;">
                             <button type="button" id="osr-cancel" style="padding:10px 16px;background:#f1f5f9;color:#334155;border:none;border-radius:8px;font-weight:800;cursor:pointer;">Back</button>
@@ -551,33 +573,101 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 document.body.appendChild(wrap);
 
-                let commChoice = priorCommission ? 'yes' : '';
-                const commBox = wrap.querySelector('#osr-commission');
-                const commFields = wrap.querySelector('#osr-comm-fields');
-                const yesBtn = wrap.querySelector('#osr-comm-yes');
-                const noBtn = wrap.querySelector('#osr-comm-no');
                 const errEl = wrap.querySelector('#osr-comm-error');
-
-                const paintCommBtns = () => {
-                    yesBtn.style.background = commChoice === 'yes' ? '#dc2626' : 'transparent';
-                    yesBtn.style.borderColor = commChoice === 'yes' ? '#dc2626' : '#fca5a5';
-                    noBtn.style.background = commChoice === 'no' ? '#047857' : 'transparent';
-                    noBtn.style.borderColor = commChoice === 'no' ? '#047857' : '#fca5a5';
-                    commFields.style.display = commChoice === 'yes' ? 'flex' : 'none';
-                    commFields.style.flexDirection = 'column';
+                const commChoice = {};
+                const payeeFromDesc = (desc) => {
+                    const parts = String(desc || '').split('—').map(s => s.trim()).filter(Boolean);
+                    return parts.length >= 4 ? parts.slice(3).join(' — ') : '';
                 };
-                if (commChoice === 'yes') paintCommBtns();
+                Object.keys(ORDER_SERVICE_COMMISSION).forEach((key) => {
+                    commChoice[key] = priorByService[key] ? 'yes' : '';
+                });
+
+                const paintOneComm = (key) => {
+                    const box = wrap.querySelector(`.osr-comm-box[data-key="${key}"]`);
+                    if (!box) return;
+                    const yesBtn = box.querySelector('.osr-comm-yes');
+                    const noBtn = box.querySelector('.osr-comm-no');
+                    const fields = box.querySelector('.osr-comm-fields');
+                    const choice = commChoice[key];
+                    if (yesBtn) {
+                        yesBtn.style.background = choice === 'yes' ? '#dc2626' : 'transparent';
+                        yesBtn.style.borderColor = choice === 'yes' ? '#dc2626' : '#fca5a5';
+                    }
+                    if (noBtn) {
+                        noBtn.style.background = choice === 'no' ? '#047857' : 'transparent';
+                        noBtn.style.borderColor = choice === 'no' ? '#047857' : '#fca5a5';
+                    }
+                    if (fields) {
+                        fields.style.display = choice === 'yes' ? 'flex' : 'none';
+                        fields.style.flexDirection = 'column';
+                    }
+                };
+
+                const buildCommBox = (key) => {
+                    const meta = ORDER_SERVICE_COMMISSION[key];
+                    const prior = priorByService[key];
+                    const amt = prior ? (parseFloat(prior.amount) || '') : '';
+                    const payee = prior ? payeeFromDesc(prior.description) : '';
+                    const bank = prior && prior.payment_method === 'bank';
+                    const box = document.createElement('div');
+                    box.className = 'osr-comm-box';
+                    box.dataset.key = key;
+                    box.style.cssText = 'padding:16px;border-radius:14px;background:#450a0a;border:2px solid #ef4444;color:#fff;';
+                    box.innerHTML = `
+                        <div style="font-size:1.02rem;font-weight:900;letter-spacing:0.02em;color:#fecaca;text-align:center;">DOES THIS ${meta.label.toUpperCase()} HAVE A COMMISSION?</div>
+                        <p style="margin:8px 0 14px;font-size:0.8rem;color:#fecaca;text-align:center;font-weight:700;line-height:1.4;">Required. Choose Yes or No to save. This creates an expense on ${meta.profitLine === 'rpt_transportation' ? 'Transportation' : (meta.profitLine === 'rpt_yard' ? 'Yard' : 'Sales')}.</p>
+                        <div style="display:flex;gap:10px;justify-content:center;">
+                            <button type="button" class="osr-comm-yes" style="flex:1;padding:12px;border-radius:10px;border:2px solid #fca5a5;background:transparent;color:#fff;font-weight:900;cursor:pointer;">YES, IT DOES</button>
+                            <button type="button" class="osr-comm-no" style="flex:1;padding:12px;border-radius:10px;border:2px solid #fca5a5;background:transparent;color:#fff;font-weight:900;cursor:pointer;">NO COMMISSION</button>
+                        </div>
+                        <div class="osr-comm-fields" style="display:none;margin-top:14px;flex-direction:column;gap:8px;">
+                            <label style="font-size:0.75rem;font-weight:800;color:#fecaca;">Commission amount (not subtracted from ${meta.label})
+                                <input type="number" class="osr-comm-amount" placeholder="0.00" step="0.01" value="${esc(amt)}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #fca5a5;font-weight:800;color:#7f1d1d;">
+                            </label>
+                            <label style="font-size:0.75rem;font-weight:800;color:#fecaca;">Pay to (optional)
+                                <input type="text" class="osr-comm-payee" placeholder="Name" value="${esc(payee)}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #fca5a5;font-weight:700;color:#7f1d1d;">
+                            </label>
+                            <div style="display:flex;gap:8px;">
+                                <label style="flex:1;font-size:0.75rem;font-weight:800;color:#fecaca;display:flex;align-items:center;gap:6px;"><input type="radio" name="osr-comm-pm-${key}" value="cash" ${bank ? '' : 'checked'}> CASH</label>
+                                <label style="flex:1;font-size:0.75rem;font-weight:800;color:#fecaca;display:flex;align-items:center;gap:6px;"><input type="radio" name="osr-comm-pm-${key}" value="bank" ${bank ? 'checked' : ''}> BANK</label>
+                            </div>
+                        </div>`;
+                    box.querySelector('.osr-comm-yes')?.addEventListener('click', () => {
+                        commChoice[key] = 'yes';
+                        if (errEl) errEl.style.display = 'none';
+                        paintOneComm(key);
+                    });
+                    box.querySelector('.osr-comm-no')?.addEventListener('click', () => {
+                        commChoice[key] = 'no';
+                        if (errEl) errEl.style.display = 'none';
+                        paintOneComm(key);
+                    });
+                    return box;
+                };
 
                 const salesChk = () => wrap.querySelector('.osr-chk[data-key="sales"]');
                 const rentChk = () => wrap.querySelector('.osr-chk[data-key="rent"]');
                 const updateCommissionVisibility = () => {
-                    const show = !!(salesChk()?.checked) && !(rentChk()?.checked);
-                    commBox.style.display = show ? 'block' : 'none';
-                    if (!show) {
-                        commChoice = '';
-                        paintCommBtns();
-                    }
+                    Object.keys(ORDER_SERVICE_COMMISSION).forEach((key) => {
+                        const on = !!wrap.querySelector(`.osr-chk[data-key="${key}"]`)?.checked;
+                        const rowEl = wrap.querySelector(`.osr-row[data-key="${key}"]`);
+                        let box = wrap.querySelector(`.osr-comm-box[data-key="${key}"]`);
+                        if (on) {
+                            if (!box) {
+                                box = buildCommBox(key);
+                                if (rowEl && rowEl.parentNode) rowEl.parentNode.insertBefore(box, rowEl.nextSibling);
+                                paintOneComm(key);
+                            } else {
+                                box.style.display = 'block';
+                            }
+                        } else if (box) {
+                            box.style.display = 'none';
+                            if (!priorByService[key]) commChoice[key] = '';
+                        }
+                    });
                 };
+                updateCommissionVisibility();
 
                 const addModalYardRow = (desc = '', price = '') => {
                     const list = wrap.querySelector('#osr-yard-list');
@@ -721,9 +811,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     });
                 });
 
-                yesBtn.addEventListener('click', () => { commChoice = 'yes'; errEl.style.display = 'none'; paintCommBtns(); });
-                noBtn.addEventListener('click', () => { commChoice = 'no'; errEl.style.display = 'none'; paintCommBtns(); });
-
                 const close = (result) => {
                     wrap.remove();
                     resolve(result);
@@ -736,18 +823,40 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     const val = (field) => wrap.querySelector(`.osr-amt[data-field="${field}"]`)?.value || '';
                     const checked = (key) => !!wrap.querySelector(`.osr-chk[data-key="${key}"]`)?.checked;
                     const salesSelected = checked('sales') && !checked('rent');
-                    if (salesSelected && commChoice !== 'yes' && commChoice !== 'no') {
-                        errEl.textContent = 'Choose YES or NO for commission. You cannot save without answering.';
-                        errEl.style.display = 'block';
-                        commBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        return;
-                    }
-                    if (salesSelected && commChoice === 'yes') {
-                        const amt = parseFloat(wrap.querySelector('#osr-comm-amount')?.value || '0') || 0;
-                        if (amt <= 0) {
-                            errEl.textContent = 'Enter the commission amount.';
-                            errEl.style.display = 'block';
+                    const commissions = {};
+                    for (const key of Object.keys(ORDER_SERVICE_COMMISSION)) {
+                        if (!checked(key)) {
+                            commissions[key] = { has: false };
+                            continue;
+                        }
+                        const choice = commChoice[key];
+                        const box = wrap.querySelector(`.osr-comm-box[data-key="${key}"]`);
+                        if (choice !== 'yes' && choice !== 'no') {
+                            if (errEl) {
+                                errEl.textContent = `Choose YES or NO for ${ORDER_SERVICE_COMMISSION[key].label} commission.`;
+                                errEl.style.display = 'block';
+                            }
+                            box?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             return;
+                        }
+                        if (choice === 'yes') {
+                            const amt = parseFloat(box?.querySelector('.osr-comm-amount')?.value || '0') || 0;
+                            if (amt <= 0) {
+                                if (errEl) {
+                                    errEl.textContent = `Enter the ${ORDER_SERVICE_COMMISSION[key].label} commission amount.`;
+                                    errEl.style.display = 'block';
+                                }
+                                box?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                return;
+                            }
+                            commissions[key] = {
+                                has: true,
+                                amount: box.querySelector('.osr-comm-amount')?.value,
+                                payee: box.querySelector('.osr-comm-payee')?.value || '',
+                                paymentMethod: box.querySelector(`input[name="osr-comm-pm-${key}"]:checked`)?.value || 'cash'
+                            };
+                        } else {
+                            commissions[key] = { has: false };
                         }
                     }
                     const yardItems = Array.from(wrap.querySelectorAll('.osr-yard-item')).map((item) => ({
@@ -763,14 +872,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             storage: { on: checked('storage'), dest: val('storageDest') || 'RPTULIPAN', perDay: val('storageDay'), lift: val('storageLift') },
                             rent: { on: checked('rent'), amount: val('rent'), period: val('rentPeriod') || 'monthly' }
                         },
-                        commission: (salesSelected && commChoice === 'yes')
-                            ? {
-                                has: true,
-                                amount: wrap.querySelector('#osr-comm-amount')?.value,
-                                payee: wrap.querySelector('#osr-comm-payee')?.value || '',
-                                paymentMethod: wrap.querySelector('input[name="osr-comm-pm"]:checked')?.value || 'cash'
-                            }
-                            : { has: false }
+                        commissions
                     });
                 });
             });
@@ -802,7 +904,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     return;
                 }
                 applyOrderServicesReview(review.services);
-                window._pendingOrderCommission = review.commission || { has: false };
+                window._pendingOrderCommissions = review.commissions || {};
 
                 const isTransport = document.getElementById('in-flag2').checked;
                 const compVal = document.getElementById('in-company').value;
@@ -1527,17 +1629,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 try {
-                    await syncOrderCommissionExpense({
-                        tripId: finalTripId,
-                        orderNo: document.getElementById('in-order')?.value || '---',
-                        date: document.getElementById('in-date')?.value || new Date().toISOString().split('T')[0],
-                        commission: isFollowOnSave ? { has: false } : window._pendingOrderCommission
-                    });
+                    if (!isFollowOnSave) {
+                        await syncOrderServiceCommissions({
+                            tripId: finalTripId,
+                            orderNo: document.getElementById('in-order')?.value || '---',
+                            date: document.getElementById('in-date')?.value || new Date().toISOString().split('T')[0],
+                            commissions: window._pendingOrderCommissions
+                        });
+                    }
                 } catch (commErr) {
                     console.error('Commission expense failed:', commErr);
                     alert('Order saved, but the commission expense could not be created. Check it in Expenses.');
                 }
-                window._pendingOrderCommission = null;
+                window._pendingOrderCommissions = null;
 
                 // Check if email send was requested before form is reset
                 const shouldSendEmail = document.getElementById('in-sendemail')?.checked;
