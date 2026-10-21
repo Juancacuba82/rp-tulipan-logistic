@@ -818,8 +818,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     return;
                 }
 
-                if (completingNow && (!driverVal || driverVal === '---')) {
-                    alert("ERROR: Para guardar una orden Complete debes seleccionar un chofer.");
+                if (isTransport && completingNow && (!driverVal || driverVal === '---')) {
+                    alert("ERROR: Para guardar una orden Complete con transporte debes seleccionar un chofer.");
                     isSaving = false;
                     restoreTripArchiveButtonUI();
                     return;
