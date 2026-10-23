@@ -240,8 +240,19 @@
 
             if (hasTrans && row[32] !== 'PAID') {
                 const price = parseFloat(row[18]) || 0;
-                addServiceRow(body, "TRANSPORT SERVICE", qty, price);
-                subtotal += (qty * price);
+                if (price > 0) {
+                    addServiceRow(body, "TRANSPORT SERVICE", qty, price);
+                    subtotal += (qty * price);
+                }
+            }
+            const extras = window.parseTransExtras ? window.parseTransExtras(row[81]) : [];
+            if (extras.length && row[83] !== 'PAID') {
+                extras.forEach(s => {
+                    const price = parseFloat(s.price) || 0;
+                    if (price <= 0) return;
+                    addServiceRow(body, (s.desc || 'EXTRA SERVICE').toString().toUpperCase(), qty, price);
+                    subtotal += (qty * price);
+                });
             }
             if (hasSales && row[33] !== 'PAID') {
                 const price = parseFloat(row[20]) || 0;

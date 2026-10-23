@@ -303,7 +303,7 @@ function parseInvoiceServiceTokens(inv) {
 function paidPatchForServiceTokens(tokens) {
     const patch = {};
     const list = tokens || [];
-    const knownHit = list.some(t => /TRANSPORT|TRANS|RATE|YARD|SALES|RENT|STORAGE/.test(t));
+    const knownHit = list.some(t => /TRANSPORT|TRANS|RATE|YARD|SALES|RENT|STORAGE|EXTRA/.test(t));
     // An empty or explicitly "ALL" service type means the invoice covered everything.
     const addAll = !list.length || list.some(t => t === 'ALL' || t === 'ALL SERVICES');
     if (!addAll && !knownHit) {
@@ -312,7 +312,13 @@ function paidPatchForServiceTokens(tokens) {
         return patch;
     }
     const has = (name) => addAll || list.some(t => t === name || t.startsWith(name + ' '));
-    if (addAll || has('TRANSPORT') || has('TRANS') || list.includes('RATE')) patch.st_rate = 'PAID';
+    const haulCovered = addAll || has('TRANSPORT') || has('TRANS') || list.includes('RATE');
+    if (haulCovered) {
+        patch.st_rate = 'PAID';
+        patch.st_trans_extra = 'PAID';
+    } else if (has('EXTRA')) {
+        patch.st_trans_extra = 'PAID';
+    }
     if (addAll || has('YARD')) patch.st_yard = 'PAID';
     if (addAll || has('SALES')) patch.st_sales = 'PAID';
     if (addAll || has('RENT') || has('RENTAL')) patch.st_rent = 'PAID';
@@ -329,6 +335,7 @@ function tripFullySettledAfterPatch(tripRow, patch) {
     const qty = parseInt(tripRow.qty) || 1;
     const isPaidAfter = (col) => patch[col] === 'PAID' || tripRow[col] === 'PAID';
 
+    const extraAmt = window.transExtrasTotal ? window.transExtrasTotal(tripRow) : (parseFloat(tripRow.trans_extras_rate) || 0);
     const hasTrans = (tripRow.has_trans === 'YES' || tripRow.has_trans === true)
         && (parseFloat(tripRow.trans_pay) || 0) > 0;
     const hasSales = (tripRow.has_sales === 'YES' || tripRow.has_sales === true)
@@ -338,6 +345,7 @@ function tripFullySettledAfterPatch(tripRow, patch) {
         && (parseFloat(tripRow.monthly_rate) || 0) > 0;
 
     if (hasTrans && !isPaidAfter('st_rate')) return false;
+    if (extraAmt > 0.01 && !isPaidAfter('st_trans_extra')) return false;
     if (hasSales && !isPaidAfter('st_sales')) return false;
     if (hasYard && !isPaidAfter('st_yard')) return false;
     if (hasRent && !isPaidAfter('st_rent')) return false;
@@ -350,6 +358,7 @@ function applyPaidPatchToTripRow(local, patch) {
     if (patch.st_yard && local[30] !== 'PAID') { local[30] = 'PAID'; changed = true; }
     if (patch.st_rent && local[31] !== 'PAID') { local[31] = 'PAID'; changed = true; }
     if (patch.st_rate && local[32] !== 'PAID') { local[32] = 'PAID'; changed = true; }
+    if (patch.st_trans_extra && local[83] !== 'PAID') { local[83] = 'PAID'; changed = true; }
     if (patch.st_sales && local[33] !== 'PAID') { local[33] = 'PAID'; changed = true; }
     if (patch.st_amount && local[34] !== 'PAID') { local[34] = 'PAID'; changed = true; }
     if (patch.st_tax && local[52] !== 'PAID') { local[52] = 'PAID'; changed = true; }
@@ -359,7 +368,7 @@ function applyPaidPatchToTripRow(local, patch) {
 
 function applyUnpaidPatchToTripRow(local, patch) {
     if (!local || !patch) return false;
-    const idxMap = { st_yard: 30, st_rent: 31, st_rate: 32, st_sales: 33, st_amount: 34, st_tax: 52 };
+    const idxMap = { st_yard: 30, st_rent: 31, st_rate: 32, st_sales: 33, st_amount: 34, st_tax: 52, st_trans_extra: 83 };
     let changed = false;
     Object.keys(idxMap).forEach(col => {
         if (patch[col] && local[idxMap[col]] !== patch[col]) {
@@ -430,7 +439,10 @@ function arrayRowAsSettleTrip(row) {
         st_rate: row[32],
         st_sales: row[33],
         st_amount: row[34],
-        st_tax: row[52]
+        st_tax: row[52],
+        trans_extras: row[81],
+        trans_extras_rate: row[82],
+        st_trans_extra: row[83]
     };
 }
 
@@ -494,14 +506,14 @@ window.unsetLinkedTripsFromReceivable = async function (invoiceRecord, opts) {
             unsetCols.st_rent = 'PAID';
         }
         const patch = {};
-        ['st_yard', 'st_rent', 'st_rate', 'st_sales'].forEach(flag => {
+        ['st_yard', 'st_rent', 'st_rate', 'st_sales', 'st_trans_extra'].forEach(flag => {
             if (unsetCols[flag] === 'PAID' && !otherHistoryCoversFlag(tid, flag, invoiceRecord.id)) {
                 patch[flag] = 'PEND';
             }
         });
         try {
             const { data: tripRows } = await window.db.from('trips')
-                .select('qty, has_trans, trans_pay, has_sales, sales_price, yard_rate, monthly_rate, service_mode, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax')
+                .select('qty, has_trans, trans_pay, has_sales, sales_price, yard_rate, monthly_rate, service_mode, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax, trans_extras, trans_extras_rate, st_trans_extra')
                 .eq('trip_id', tid)
                 .limit(1);
             const tripRow = (tripRows && tripRows[0]) || null;
@@ -548,7 +560,7 @@ window.settleLinkedTripsFromReceivable = async function (invoiceRecord, writeOff
         const patch = { ...cols };
         try {
             const { data: tripRows } = await window.db.from('trips')
-                .select('note, service_mode, qty, has_trans, trans_pay, has_sales, sales_price, yard_rate, monthly_rate, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax')
+                .select('note, service_mode, qty, has_trans, trans_pay, has_sales, sales_price, yard_rate, monthly_rate, st_yard, st_rent, st_rate, st_sales, st_amount, st_tax, trans_extras, trans_extras_rate, st_trans_extra')
                 .eq('trip_id', tid)
                 .limit(1);
             const tripRow = (tripRows && tripRows[0]) || null;
@@ -633,6 +645,7 @@ window.reconcileTripsFromPaidReceivables = async function () {
             (patch.st_yard && local[30] !== 'PAID') ||
             (patch.st_rent && local[31] !== 'PAID') ||
             (patch.st_rate && local[32] !== 'PAID') ||
+            (patch.st_trans_extra && local[83] !== 'PAID') ||
             (patch.st_sales && local[33] !== 'PAID') ||
             (patch.st_amount && local[34] !== 'PAID') ||
             (patch.st_tax && local[52] !== 'PAID');

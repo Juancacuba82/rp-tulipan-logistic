@@ -154,6 +154,7 @@
         const orderNo = (row[5] || '---').toString().toUpperCase();
         const isYardStorage = orderNo.startsWith('YRD-');
 
+        const extraAmt = window.transExtrasTotal ? window.transExtrasTotal(row) : (parseFloat(row[82]) || 0);
         const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
         const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0;
         const yardRate = !isYardStorage ? (parseFloat(row[13]) || 0) : 0;
@@ -165,6 +166,7 @@
         const hasStorage = isYardStorage ? (parseFloat(row[13]) || 0) > 0.01 : false;
 
         if (hasTrans && row[32] !== 'PAID') return true;
+        if (extraAmt > 0.01 && row[83] !== 'PAID') return true;
         if (hasSales && row[33] !== 'PAID') return true;
         if (yardRate > 0.01 && row[30] !== 'PAID') return true;
         if (takeTax  && row[52] !== 'PAID') return true;
@@ -176,7 +178,13 @@
 
     function isRowServicePaid(row, service) {
         switch (service) {
-            case 'TRANSPORT': return row[32] === 'PAID';
+            case 'TRANSPORT': {
+                const extra = window.transExtrasTotal ? window.transExtrasTotal(row) : (parseFloat(row[82]) || 0);
+                const haul = parseFloat(row[18]) || 0;
+                if (haul > 0.01 && row[32] !== 'PAID') return false;
+                if (extra > 0.01 && row[83] !== 'PAID') return false;
+                return true;
+            }
             case 'SALES': return row[33] === 'PAID';
             // Storage shares the yard payment flag
             case 'YARD':
@@ -192,7 +200,7 @@
         const qty = parseInt(row[53]) || 1;
         switch (service) {
             case 'TRANSPORT':
-                return row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0;
+                return row[42] === 'YES' && ((parseFloat(row[18]) || 0) > 0 || (window.transExtrasTotal ? window.transExtrasTotal(row) : (parseFloat(row[82]) || 0)) > 0);
             case 'SALES':
                 return row[43] === 'YES' && ((parseFloat(row[20]) || 0) * qty) > 0;
             case 'YARD':
@@ -225,7 +233,7 @@
     function getBillingRowActiveServices(row) {
         const orderNoUpper = (row[5] || '---').toString().toUpperCase();
         const isYardStorage = orderNoUpper.startsWith('YRD-');
-        const hasTrans = row[42] === 'YES' && (parseFloat(row[18]) || 0) > 0.01;
+        const hasTrans = row[42] === 'YES' && ((parseFloat(row[18]) || 0) > 0.01 || (window.transExtrasTotal ? window.transExtrasTotal(row) : (parseFloat(row[82]) || 0)) > 0.01);
         const hasSales = row[43] === 'YES' && (parseFloat(row[20]) || 0) > 0.01;
         const hasYard = !isYardStorage && (parseFloat(row[13]) || 0) > 0.01;
         const hasStorage = isYardStorage && (parseFloat(row[13]) || 0) > 0.01;
@@ -544,7 +552,8 @@
             // Compute totals for this single row
             let totalYard = parseFloat(row[13]) || 0;
             const qty = parseInt(row[53]) || 1;
-            let totalTrans = (parseFloat(row[18]) || 0) * qty;
+            const extraTotal = (window.transExtrasTotal ? window.transExtrasTotal(row) : (parseFloat(row[82]) || 0)) * qty;
+            let totalTrans = ((parseFloat(row[18]) || 0) * qty) + extraTotal;
             let totalSales = (parseFloat(row[20]) || 0) * qty;
 
             // Storage calculation (Price per day * days, or Yard Stock flat fee)
@@ -591,7 +600,9 @@
             // Storage shares the yard flag (row[30]); only rent uses row[31].
             let rowSubtotalOwed = 0;
             if (totalYard > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalYard;
-            if (totalTrans > 0.01 && row[32] !== 'PAID') rowSubtotalOwed += totalTrans;
+            const haulOwed = ((parseFloat(row[18]) || 0) * qty);
+            if (haulOwed > 0.01 && row[32] !== 'PAID') rowSubtotalOwed += haulOwed;
+            if (extraTotal > 0.01 && row[83] !== 'PAID') rowSubtotalOwed += extraTotal;
             if (totalSales > 0.01 && row[33] !== 'PAID') rowSubtotalOwed += totalSales;
             if (totalStorage > 0.01 && row[30] !== 'PAID') rowSubtotalOwed += totalStorage;
             if (totalRent > 0.01 && row[31] !== 'PAID') rowSubtotalOwed += totalRent;
@@ -1749,9 +1760,22 @@
                 }
             }
 
-            if (incTrans && (fService === '' || fService === 'TRANSPORT') && shouldInvoiceRowService(r, 'TRANSPORT', includePaidTrans)) {
-                addGroup('TRANSPORT', grpSalesTrans, rTrans, rQty, rTrans * rQty, customKey);
-                rowBilledTotal += rTrans * rQty;
+            if (incTrans && (fService === '' || fService === 'TRANSPORT')) {
+                const extras = window.parseTransExtras ? window.parseTransExtras(r[81]) : [];
+                const haulUnpaid = rTrans > 0.01 && (includePaidTrans || r[32] !== 'PAID');
+                if (haulUnpaid) {
+                    addGroup('TRANSPORT', grpSalesTrans, rTrans, rQty, rTrans * rQty, customKey);
+                    rowBilledTotal += rTrans * rQty;
+                }
+                extras.forEach(s => {
+                    const price = parseFloat(s.price) || 0;
+                    if (price <= 0) return;
+                    if (!includePaidTrans && r[83] === 'PAID') return;
+                    const baseDesc = (s.desc && s.desc.trim() !== '') ? s.desc.trim() : 'EXTRA SERVICE';
+                    const xKey = customKey ? `${customKey}|${normStr(baseDesc)}` : null;
+                    addGroup('TRANSPORT', 'EXTRA: ' + baseDesc + locHtml, price, rQty, price * rQty, xKey);
+                    rowBilledTotal += price * rQty;
+                });
             }
             if (incYard && (fService === '' || fService === 'YARD') && shouldInvoiceRowService(r, 'YARD', includePaidYard)) {
                 let parsed = false;

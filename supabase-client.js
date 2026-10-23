@@ -167,12 +167,24 @@ async function getAllTripsForProfit(dateFrom, dateTo) {
     try {
         let query = db
             .from('trips')
-            .select('trip_id, order_no, service_mode, monthly_rate, date, status, sales_price, amount, yard_services, yard_rate, price_per_day, date_out, trans_pay, company, has_trans, has_sales, release_no, size, qty, take_tax, tax_percent, container_source, yard_item_id, n_cont, customer, phone_no')
+            .select('trip_id, order_no, service_mode, monthly_rate, date, status, sales_price, amount, yard_services, yard_rate, price_per_day, date_out, trans_pay, company, has_trans, has_sales, release_no, size, qty, take_tax, tax_percent, container_source, yard_item_id, n_cont, customer, phone_no, trans_extras, trans_extras_rate')
             .or('is_deleted.eq.false,is_deleted.is.null')
             .order('date', { ascending: false });
         if (dateFrom) query = query.gte('date', dateFrom);
         if (dateTo)   query = query.lte('date', dateTo);
-        const { data, error } = await query;
+        let { data, error } = await query;
+        if (error && /trans_extras/i.test(error.message || '')) {
+            query = db
+                .from('trips')
+                .select('trip_id, order_no, service_mode, monthly_rate, date, status, sales_price, amount, yard_services, yard_rate, price_per_day, date_out, trans_pay, company, has_trans, has_sales, release_no, size, qty, take_tax, tax_percent, container_source, yard_item_id, n_cont, customer, phone_no')
+                .or('is_deleted.eq.false,is_deleted.is.null')
+                .order('date', { ascending: false });
+            if (dateFrom) query = query.gte('date', dateFrom);
+            if (dateTo)   query = query.lte('date', dateTo);
+            const retry = await query;
+            data = retry.data;
+            error = retry.error;
+        }
         if (error) throw error;
         console.log("Datos financieros cargados para Profit Report:", data.length);
         return data || [];

@@ -57,7 +57,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 return;
             }
 
-            const paidFields = ['st_yard', 'st_rent', 'st_rate', 'st_sales', 'st_amount', 'st_tax'];
+            const paidFields = ['st_yard', 'st_rent', 'st_rate', 'st_sales', 'st_amount', 'st_tax', 'st_trans_extra'];
             if (paidFields.includes(fieldName) && typeof window.getTripArLockInfo === 'function') {
                 const lock = window.getTripArLockInfo(tripId);
                 if (lock.locked) {
@@ -83,7 +83,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const fieldMap = {
                     'st_yard': 30, 'st_rent': 31, 'st_rate': 32, 'st_sales': 33, 'st_amount': 34,
                     'take_tax': 49, 'st_tax': 52,
-                    'status': 41, 'paid': 34 // approximate
+                    'status': 41, 'paid': 34, // approximate
+                    'st_trans_extra': 83, 'xe_cash': 84
                 };
                 const idx = fieldMap[fieldName];
                 if (idx !== undefined) {
@@ -153,7 +154,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
         };
 
-        const CALENDAR_PAID_CHECK_IDS = ['in-yardpaid', 'in-rentpaid', 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-taxpaid', 'in-rate-cash-paid', 'in-rate-bank-paid'];
+        const CALENDAR_PAID_CHECK_IDS = ['in-yardpaid', 'in-rentpaid', 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-taxpaid', 'in-rate-cash-paid', 'in-rate-bank-paid', 'in-trans-extrapaid'];
 
         window.applyCalendarArLock = async function (tripId) {
             const banner = document.getElementById('cal-ar-invoice-banner');
@@ -180,7 +181,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const row = (window.currentTrips || []).find(t => t && String(t[0]) === String(tripId));
             const paidMap = {
                 'in-yardpaid': 30, 'in-rentpaid': 31, 'in-ratepaid': 32,
-                'in-salespaid': 33, 'in-amountpaid': 34, 'in-taxpaid': 52
+                'in-salespaid': 33, 'in-amountpaid': 34, 'in-taxpaid': 52,
+                'in-trans-extrapaid': 83
             };
             CALENDAR_PAID_CHECK_IDS.forEach(id => {
                 const el = document.getElementById(id);
@@ -1208,10 +1210,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 // --- DATA MAPPING ---
+                if (window.calculateTransExtrasTotal) window.calculateTransExtrasTotal();
                 const isYardPaid = document.getElementById('in-yardpaid').checked;
                 const isRatePaid = document.getElementById('in-ratepaid').checked;
                 const isSalesPaid = document.getElementById('in-salespaid').checked;
                 const isAmountPaid = document.getElementById('in-amountpaid')?.checked;
+                const isTransExtraPaid = document.getElementById('in-trans-extrapaid')?.checked;
 
                 let stYard = isYardPaid ? 'PAID' : 'PEND';
                 let stRent = document.getElementById('in-rentpaid')?.checked ? 'PAID' : 'PEND';
@@ -1219,6 +1223,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 let stSales = isSalesPaid ? 'PAID' : 'PEND';
                 let stAmount = isAmountPaid ? 'PAID' : 'PEND';
                 let stTaxVal = document.getElementById('in-taxpaid')?.checked ? 'PAID' : 'PEND';
+                let stTransExtra = isTransExtraPaid ? 'PAID' : 'PEND';
                 const arLockSave = (editingTripDbId && typeof window.getTripArLockInfo === 'function')
                     ? window.getTripArLockInfo(editingTripDbId) : { locked: false };
                 if (arLockSave.locked && editingIndex !== null && window.currentTrips[editingIndex]) {
@@ -1229,6 +1234,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     stSales = prevPaid[33] || 'PEND';
                     stAmount = prevPaid[34] || 'PEND';
                     stTaxVal = prevPaid[52] || 'PEND';
+                    stTransExtra = prevPaid[83] || 'PEND';
                 }
 
                 const baseValues = fields.map(id => document.getElementById(id)?.value || '---');
@@ -1255,6 +1261,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 }
                 if (stSales === 'PEND') pending += (parseFloat(document.getElementById('in-sales')?.value || '0') || 0) * qtyMultiplier;
+                if (stTransExtra === 'PEND') pending += (parseFloat(document.getElementById('in-trans-extras-rate')?.value || '0') || 0) * qtyMultiplier;
 
                 let existingSig = '', existingPhotos = [], existingSigDriver = '';
                 let existingPdfUrl = '', existingPdfName = '';
@@ -1300,6 +1307,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 rowData[78] = existingPdfUrl;
                 rowData[79] = existingPdfName;
                 rowData[80] = existingPdfSigs;
+                rowData[81] = document.getElementById('in-trans-extras')?.value || '[]';
+                rowData[82] = parseFloat(document.getElementById('in-trans-extras-rate')?.value) || 0;
+                rowData[83] = stTransExtra;
+                rowData[84] = document.getElementById('in-trans-extra-pay-method')?.value === 'cash';
+                const extraCashBox = document.getElementById('in-trans-extra-cash');
+                if (extraCashBox) extraCashBox.checked = !!rowData[84];
 
                 const dbObj = mapArrayToTrip(rowData);
                 const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
@@ -1405,13 +1418,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures/i.test(masterErr.message || '')) {
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash/i.test(masterErr.message || '')) {
                     console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
                     delete masterPayload.order_pdf_url;
                     delete masterPayload.order_pdf_name;
                     delete masterPayload.order_pdf_signatures;
+                    delete masterPayload.trans_extras;
+                    delete masterPayload.trans_extras_rate;
+                    delete masterPayload.st_trans_extra;
+                    delete masterPayload.xe_cash;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
@@ -1812,7 +1829,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 'in-flag1', 'in-flag2', 'in-flag3', 'in-yardpaid', 'in-rentpaid',
                 'in-ratepaid', 'in-salespaid', 'in-amountpaid', 'in-yard-cash',
                 'in-rate-cash', 'in-sales-cash', 'in-showtax', 'in-hideamounts', 'in-taxpaid',
-                'in-sendemail', 'in-move-to-yard', 'in-move-to-rentals'
+                'in-sendemail', 'in-move-to-yard', 'in-move-to-rentals',
+                'in-trans-extrapaid', 'in-trans-extra-cash'
             ];
             checks.forEach(id => {
                 const el = document.getElementById(id);
@@ -1896,6 +1914,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (window.refreshCashCollectorUi) window.refreshCashCollectorUi();
             if (typeof window.applyCalendarArLock === 'function') window.applyCalendarArLock(null);
             if (window.renderCalendarOrderPdf) window.renderCalendarOrderPdf();
+            const extraListReset = document.getElementById('trans-extras-list');
+            if (extraListReset) extraListReset.innerHTML = '';
+            const extraHiddenReset = document.getElementById('in-trans-extras');
+            if (extraHiddenReset) extraHiddenReset.value = '[]';
+            const extraRateReset = document.getElementById('in-trans-extras-rate');
+            if (extraRateReset) extraRateReset.value = '';
+            const extraMethodReset = document.getElementById('in-trans-extra-pay-method');
+            if (extraMethodReset) extraMethodReset.value = 'bank';
+            const yardListReset = document.getElementById('yard-services-list');
+            if (yardListReset) yardListReset.innerHTML = '';
         }
         window.startNewOrder = startNewOrder;
         window.resetForm = startNewOrder; // Alias for safety
@@ -2618,6 +2646,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             document.getElementById('in-yardpaid').checked = (rowData[30] === 'PAID');
             document.getElementById('in-rentpaid').checked = (rowData[31] === 'PAID');
             document.getElementById('in-ratepaid').checked = (rowData[32] === 'PAID');
+            const extraPaidEl = document.getElementById('in-trans-extrapaid');
+            if (extraPaidEl) extraPaidEl.checked = (rowData[83] === 'PAID');
+            const extraCashEl = document.getElementById('in-trans-extra-cash');
+            if (extraCashEl) extraCashEl.checked = !!rowData[84] && rowData[84] !== 'false';
+            const extraMethodEl = document.getElementById('in-trans-extra-pay-method');
+            if (extraMethodEl) extraMethodEl.value = extraCashEl && extraCashEl.checked ? 'cash' : 'bank';
             const payMeta = window.parsePayMeta ? window.parsePayMeta(rowData[25]) : {};
             const rateFully = rowData[32] === 'PAID';
             const cashPaidEl = document.getElementById('in-rate-cash-paid');
@@ -2775,6 +2809,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 } catch(e) {
                     console.error("Error parsing yard services", e);
                 }
+            }
+            const extraList = document.getElementById('trans-extras-list');
+            if (extraList) {
+                extraList.innerHTML = '';
+                const extras = window.parseTransExtras
+                    ? window.parseTransExtras(rowData[81])
+                    : [];
+                extras.forEach(s => {
+                    if (window.addTransExtraRow) window.addTransExtraRow(s.desc, s.price);
+                });
+                if (window.calculateTransExtrasTotal) window.calculateTransExtrasTotal();
             }
             window.loadTripToEdit = loadTripToEdit;
 
@@ -3076,6 +3121,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             clone[74] = false;
             clone[17] = '---';
             if (clone.length > 75) clone[75] = null;
+            clone[81] = '[]';
+            clone[82] = 0;
+            clone[83] = 'PEND';
+            clone[84] = false;
 
             try {
                 const dbObj = mapArrayToTrip(clone);
@@ -3083,6 +3132,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 dbObj.has_sales = 'NO';
                 dbObj.sales_price = 0;
                 dbObj.has_trans = 'YES';
+                dbObj.trans_extras = '[]';
+                dbObj.trans_extras_rate = 0;
+                dbObj.st_trans_extra = 'PEND';
+                dbObj.xe_cash = false;
                 dbObj.deduct_stock = false;
                 dbObj.note = clone[25];
                 delete dbObj.invoice_sent;
@@ -5186,6 +5239,23 @@ document.addEventListener('DOMContentLoaded', function() {
             opt.value = s;
             datalist.appendChild(opt);
         });
+
+        const extraList = document.getElementById('trans-extras-datalist');
+        if (extraList) {
+            const extraNames = new Set();
+            trips.forEach(row => {
+                const extras = window.parseTransExtras ? window.parseTransExtras(row[81]) : [];
+                extras.forEach(p => {
+                    if (p.desc) extraNames.add(p.desc.trim().toUpperCase());
+                });
+            });
+            extraList.innerHTML = '';
+            extraNames.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                extraList.appendChild(opt);
+            });
+        }
     };
 });
 

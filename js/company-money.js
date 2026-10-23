@@ -168,8 +168,9 @@
                 totals.yard += ((yardVal || 0) + (storageToAdd || 0)) * qty;
             }
 
-            if (hasTrans) {
-                const totalTrans = transVal * qty;
+            const extraVal = window.transExtrasTotal ? window.transExtrasTotal(row) : (parseFloat(row[82]) || 0);
+            if (hasTrans || extraVal > 0) {
+                const totalTrans = (transVal + extraVal) * qty;
                 const company = (row[16] || '').toString().toUpperCase();
                 if (company === 'RP TULIPAN') totals.tulipan += totalTrans;
                 else if (company === 'JR SUPER CRANE') totals.jr += totalTrans;

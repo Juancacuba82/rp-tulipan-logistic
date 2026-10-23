@@ -307,7 +307,7 @@
         try {
             if (!window.db) throw new Error('DB not available');
 
-            const tripCols = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, note, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt, cash_collector, driver_cash_held';
+            const tripCols = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, note, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt, cash_collector, driver_cash_held, trans_extras, trans_extras_rate, st_trans_extra, xe_cash';
             const tripColsNoHold = 'trip_id, date, amount, driver, order_no, release_no, status, paid, st_rate, st_sales, st_yard, st_amount, st_tax, has_sales, sales_price, s_cash, has_trans, trans_pay, r_cash, yard_services, yard_rate, y_cash, qty, customer, n_cont, note, trans_cash_amt, trans_bank_amt, yard_cash_amt, yard_bank_amt, sales_cash_amt, sales_bank_amt, amount_cash_amt, amount_bank_amt';
 
             const [resTrips, resExpenses, resReleases, resSettlements, resCashLedger, resInvoices] = await Promise.all([
@@ -321,7 +321,7 @@
 
             if (resTrips.error) {
                 console.error("Error trips:", resTrips.error);
-                if (/cash_collector|driver_cash_held/i.test(resTrips.error.message || '')) {
+                if (/cash_collector|driver_cash_held|trans_extras|st_trans_extra|xe_cash/i.test(resTrips.error.message || '')) {
                     const retry = await fetchAllPaged(() => window.db.from('trips').select(tripColsNoHold).or('is_deleted.eq.false,is_deleted.is.null'));
                     if (!retry.error) resTrips.data = retry.data;
                 }
@@ -400,7 +400,8 @@
                         const covered = new Set();
                         let recognised = false;
                         tokens.forEach(tok => {
-                            if (/TRANSPORT|TRANS|RATE/.test(tok)) { covered.add('TRANSPORT'); recognised = true; }
+                            if (/TRANSPORT|TRANS|RATE/.test(tok) && !/^EXTRA/.test(tok)) { covered.add('TRANSPORT'); recognised = true; }
+                            if (/EXTRA/.test(tok)) { covered.add('TRANS_EXTRA'); recognised = true; }
                             if (/SALES|SALE/.test(tok)) { covered.add('SALES'); recognised = true; }
                             if (/YARD|STORAGE|STOR/.test(tok)) { covered.add('YARD'); recognised = true; }
                             // Rent is not part of this income loop, but it is a valid
@@ -520,6 +521,17 @@
                     cashFlag: t.y_cash, fallback: (parseFloat(t.yard_rate) || 0) * qty,
                     desc: 'Servicio de Yarda', chofer: '',
                     idCash: '-yc', idBank: '-yb', idFb: '-y', subCash: 'yard_c', subBank: 'yard_b', subFb: 'yard'
+                });
+                const extraRate = window.transExtrasTotal
+                    ? window.transExtrasTotal(t)
+                    : (parseFloat(t.trans_extras_rate) || 0);
+                pushService({
+                    covered: cov.has('TRANSPORT') || cov.has('TRANS_EXTRA'),
+                    enabled: extraRate > 0.009,
+                    cashAmt: 0, bankAmt: 0, st: t.st_trans_extra,
+                    cashFlag: t.xe_cash, fallback: extraRate * qty,
+                    desc: 'Servicio extra de transporte', chofer: t.driver || '',
+                    idCash: '-xc', idBank: '-xb', idFb: '-x', subCash: 'textra_c', subBank: 'textra_b', subFb: 'textra'
                 });
             });
 

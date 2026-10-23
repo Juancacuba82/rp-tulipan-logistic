@@ -904,10 +904,11 @@
                     }
 
                     // C. Transport Component — assign to company bucket
-                    if (hasTrans) {
+                    const extraVal = window.transExtrasTotal ? window.transExtrasTotal(row) : (parseFloat(row[82]) || 0);
+                    if (hasTrans || extraVal > 0) {
                         const transVal   = parseFloat(row[18]) || 0; // index 18: trans_pay
                         const company    = (row[16] || '').toString().toUpperCase(); // index 16: company
-                        const totalTrans = transVal * qty; // Multiply by qty
+                        const totalTrans = (transVal + extraVal) * qty; // Multiply by qty
 
                         if (company === 'RP TULIPAN')       totals.tulipan    += totalTrans;
                         else if (company === 'JR SUPER CRANE') totals.jr      += totalTrans;

@@ -4,6 +4,42 @@
             return { amount };
         };
 
+        window.parseTransExtras = function (raw) {
+            if (!raw || raw === '---' || raw === 'NO' || raw === 'YES') return [];
+            if (Array.isArray(raw)) {
+                return raw.map((s) => ({
+                    desc: (s && s.desc) ? String(s.desc).trim() : 'Extra service',
+                    price: parseFloat(s && s.price) || 0
+                })).filter((s) => s.desc || s.price > 0);
+            }
+            if (typeof raw === 'string' && raw.trim().startsWith('[')) {
+                try {
+                    return window.parseTransExtras(JSON.parse(raw));
+                } catch (e) {
+                    return [];
+                }
+            }
+            return [];
+        };
+
+        window.transExtrasTotal = function (rowOrRaw) {
+            if (rowOrRaw && typeof rowOrRaw === 'object' && !Array.isArray(rowOrRaw) && rowOrRaw.trans_extras_rate != null) {
+                const direct = parseFloat(rowOrRaw.trans_extras_rate) || 0;
+                if (direct > 0) return direct;
+                return window.parseTransExtras(rowOrRaw.trans_extras).reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
+            }
+            if (Array.isArray(rowOrRaw) || rowOrRaw == null || typeof rowOrRaw === 'string') {
+                const row = Array.isArray(rowOrRaw) ? rowOrRaw : null;
+                if (row) {
+                    const direct = parseFloat(row[82]) || 0;
+                    if (direct > 0) return direct;
+                    return window.parseTransExtras(row[81]).reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
+                }
+                return window.parseTransExtras(rowOrRaw).reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
+            }
+            return 0;
+        };
+
         window.getServiceSplitProgress = function (opts) {
             const total = parseFloat(opts && opts.total) || 0;
             const cash = parseFloat(opts && opts.cash) || 0;
@@ -180,7 +216,11 @@
                 parseFloat(t.driver_cash_held) || 0, // 77 — open cash still with driver
                 t.order_pdf_url || '',          // 78 — attached order PDF url
                 t.order_pdf_name || '',         // 79 — original PDF file name
-                safeParse(t.order_pdf_signatures, []) // 80 — overlay signatures on original PDF
+                safeParse(t.order_pdf_signatures, []), // 80 — overlay signatures on original PDF
+                t.trans_extras || '[]',         // 81 — extra transport services JSON
+                parseFloat(t.trans_extras_rate) || 0, // 82
+                normPaid(t.st_trans_extra),     // 83
+                t.xe_cash || false              // 84
             ];
         }
 
@@ -264,7 +304,11 @@
                 driver_cash_held: parseFloat(row[77]) || 0,
                 order_pdf_url: row[78] || null,
                 order_pdf_name: row[79] || null,
-                order_pdf_signatures: Array.isArray(row[80]) ? row[80] : []
+                order_pdf_signatures: Array.isArray(row[80]) ? row[80] : [],
+                trans_extras: row[81] || '[]',
+                trans_extras_rate: parseFloat(row[82]) || 0,
+                st_trans_extra: row[83] || 'PEND',
+                xe_cash: row[84] === true || row[84] === 'true'
             };
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB

@@ -24,17 +24,17 @@
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=18"></script>
     <script src="./js/force-uppercase.js?v=1"></script>
-    <script src="./js/data-mapping.js?v=22"></script>
+    <script src="./js/data-mapping.js?v=23"></script>
     <script src="./js/order-pdf.js?v=6"></script>
     <script src="./js/driver-cash-wallet.js?v=6"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1715" defer></script>
-    <script src="./js/delivery-calendar.js?v=1737" defer></script>
+    <script src="./js/delivery-calendar.js?v=1739" defer></script>
     <script src="./js/driver-settlements.js?v=1704" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1736" defer></script>
-    <script src="./js/company-money.js?v=32" defer></script>
+    <script src="./js/profit-expenses.js?v=1737" defer></script>
+    <script src="./js/company-money.js?v=33" defer></script>
 
     <script src="./js/docs-receipts.js?v=1717" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
@@ -42,11 +42,11 @@
     <script src="./js/email-service.js?v=11" defer></script>
     <script src="./js/fleet.js?v=1701" defer></script>
     <script src="./js/tasks.js?v=11" defer></script>
-    <script src="./js/billing-manager.js?v=29" defer></script>
+    <script src="./js/billing-manager.js?v=30" defer></script>
     <script src="./js/invoice-automation.js?v=21" defer></script>
     <script src="./js/attendance.js?v=5" defer></script>
-    <script src="./js/accounting.js?v=108" defer></script>
-    <script src="./js/receivables.js?v=33" defer></script>
+    <script src="./js/accounting.js?v=110" defer></script>
+    <script src="./js/receivables.js?v=35" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
     <script src="./js/csv-import.js?v=16" defer></script>
@@ -2193,6 +2193,45 @@
                                         </label>
                                     </div>
                                     <small style="font-size:0.62rem; color:#475569; font-weight:700;">Mark PAID on each amount when you actually receive it. Nothing posts to caja until you mark it.</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group" id="trans-extras-group"
+                            style="display:none; flex-direction: column; gap: 0;">
+                            <div style="display: flex; flex-direction: column; width: 100%;">
+                                <datalist id="trans-extras-datalist"></datalist>
+                                <div id="trans-extras-list"
+                                    style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px;"></div>
+                                <button type="button" onclick="window.addTransExtraRow()"
+                                    style="margin-bottom: 12px; padding: 6px; background: #1e40af; color: white; border: none; border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                                    <i class="fas fa-plus"></i> Add extra service
+                                </button>
+                                <input type="hidden" id="in-trans-extras" value="[]">
+                                <div style="display: flex; gap: 5px; width: 100%;">
+                                    <label class="sidebar-label-btn sidebar-label-btn-blue"
+                                        style="width: 110px; flex-shrink: 0;">Extras Total</label>
+                                    <div style="flex: 1; display: flex; flex-direction: column;">
+                                        <div class="input-paid-wrap">
+                                            <input type="number" id="in-trans-extras-rate" placeholder="0.00" readonly
+                                                style="background: #f1f5f9; cursor: not-allowed;"
+                                                title="Calculated automatically">
+                                            <div class="input-paid-badges-group">
+                                                <label class="input-paid-badge" title="Mark as paid">
+                                                    <input type="checkbox" id="in-trans-extrapaid"
+                                                        onchange="syncImmediate('st_trans_extra', this.checked ? 'PAID' : 'PEND'); if(window.refreshCashCollectorUi) refreshCashCollectorUi();">
+                                                    <span>PAID</span>
+                                                </label>
+                                                <select id="in-trans-extra-pay-method" class="input-paid-badge"
+                                                    style="padding: 0 4px; border-color: #cbd5e1; color: #475569; background: #f1f5f9; outline: none; appearance: none; -webkit-appearance: none; text-align: center;"
+                                                    onchange="document.getElementById('in-trans-extra-cash').checked = (this.value === 'cash'); syncImmediate('xe_cash', this.value === 'cash');">
+                                                    <option value="bank">BANK</option>
+                                                    <option value="cash">CASH</option>
+                                                </select>
+                                                <input type="checkbox" id="in-trans-extra-cash" style="display:none;"
+                                                    onchange="syncImmediate('xe_cash', this.checked)">
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -8000,6 +8039,42 @@
         }
         window.addYardServiceRow = addYardServiceRow;
 
+        function calculateTransExtrasTotal() {
+            const listContainer = document.getElementById('trans-extras-list');
+            if (!listContainer) return;
+            const rows = listContainer.querySelectorAll('.trans-extra-row');
+            let total = 0;
+            const extrasData = [];
+            rows.forEach(row => {
+                const desc = row.querySelector('.tx-desc').value.trim();
+                const price = parseFloat(row.querySelector('.tx-price').value) || 0;
+                total += price;
+                if (desc || price > 0) {
+                    extrasData.push({ desc: desc || 'Extra service', price: price });
+                }
+            });
+            const rateEl = document.getElementById('in-trans-extras-rate');
+            if (rateEl) rateEl.value = total > 0 ? total.toFixed(2) : '';
+            const hidden = document.getElementById('in-trans-extras');
+            if (hidden) hidden.value = JSON.stringify(extrasData);
+        }
+        window.calculateTransExtrasTotal = calculateTransExtrasTotal;
+
+        function addTransExtraRow(desc = '', price = '') {
+            const listContainer = document.getElementById('trans-extras-list');
+            if (!listContainer) return;
+            const row = document.createElement('div');
+            row.className = 'trans-extra-row';
+            row.style.cssText = 'display: flex; gap: 5px; align-items: center;';
+            row.innerHTML = `
+                <input type="text" class="tx-desc" list="trans-extras-datalist" placeholder="Extra (e.g. Wait time)" value="${desc}" oninput="window.calculateTransExtrasTotal()" style="flex: 2; font-size: 0.75rem; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                <input type="number" class="tx-price" placeholder="$0.00" value="${price}" oninput="window.calculateTransExtrasTotal()" style="flex: 1; font-size: 0.75rem; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                <button type="button" onclick="this.parentElement.remove(); window.calculateTransExtrasTotal()" style="background: transparent; color: #ef4444; border: none; cursor: pointer; padding: 4px;" title="Remove"><i class="fas fa-trash"></i></button>
+            `;
+            listContainer.appendChild(row);
+        }
+        window.addTransExtraRow = addTransExtraRow;
+
         function toggleYardRate() {
             const chkYard = document.getElementById('in-flag1');
             const yardHidden = document.getElementById('in-yard');
@@ -8051,6 +8126,7 @@
                 'transport-driver-group',
                 // Removed obsolete transport-hastrans-group
                 'trans-pay-group',
+                'trans-extras-group',
                 'transport-paiddriver-group'
             ];
 
@@ -8072,6 +8148,14 @@
                 if (rate) rate.value = 0;
                 const paidDriver = document.getElementById('in-paiddriver');
                 if (paidDriver) paidDriver.value = 0;
+                const extraList = document.getElementById('trans-extras-list');
+                if (extraList) extraList.innerHTML = '';
+                const extraHidden = document.getElementById('in-trans-extras');
+                if (extraHidden) extraHidden.value = '[]';
+                const extraRate = document.getElementById('in-trans-extras-rate');
+                if (extraRate) extraRate.value = '';
+                const extraPaid = document.getElementById('in-trans-extrapaid');
+                if (extraPaid) extraPaid.checked = false;
             }
             autoToggleDeductStock();
         }
