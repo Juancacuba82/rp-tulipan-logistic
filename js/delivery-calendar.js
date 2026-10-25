@@ -929,6 +929,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     return;
                 }
 
+                // Did someone else save this order while we had it open? Ask BEFORE writing anything.
+                if (editingTripDbId && typeof window.checkTripEditConflict === 'function') {
+                    const okToSave = await window.checkTripEditConflict(editingTripDbId);
+                    if (!okToSave) {
+                        isSaving = false;
+                        restoreTripArchiveButtonUI();
+                        return;
+                    }
+                }
+
                 const isMoveToStorage = !!document.getElementById('in-move-to-yard')?.checked;
                 if (isMoveToStorage) {
                     const ppdRaw = (document.getElementById('in-priceperday')?.value || '').trim();
@@ -1691,6 +1701,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         });
                     }
                 }
+
+                // Our own save changed the DB version: forget the old one (the cached row is rebuilt below)
+                if (window._tripVersions) window._tripVersions.delete(finalTripId);
+                window._editingLoaded = null;
 
                 if (savedIndex !== null) {
                     // OPTIMIZED UPDATE: Update the local array and the specific row UI
@@ -2481,7 +2495,36 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (editingTripDbId && typeof window.getTripDetails === 'function') {
                 console.log("Fetching full details for trip:", editingTripDbId);
                 const details = await window.getTripDetails(editingTripDbId);
+                window._editingLoaded = null;
                 if (details) {
+                    // --- FRESHNESS: opening an order always reads its current DB version ---
+                    // Remember the version we are editing (used to warn before overwriting
+                    // someone else's changes). Needs trips.updated_at; without it nothing changes.
+                    const dbVersion = details.updated_at || null;
+                    window._editingLoaded = { id: editingTripDbId, version: dbVersion };
+                    const cachedVersion = window._tripVersions ? window._tripVersions.get(editingTripDbId) : null;
+                    if (dbVersion && cachedVersion && new Date(dbVersion).getTime() !== new Date(cachedVersion).getTime()) {
+                        // The list on screen is older than the database: load the current values
+                        try {
+                            const fresh = mapTripToArray(details);
+                            if (Array.isArray(fresh)) {
+                                const pools = [window.currentTrips, window.allTripsUnfiltered, window.docsTripsCache];
+                                pools.forEach(pool => {
+                                    const target = (pool || []).find(t => t && t[0] === editingTripDbId);
+                                    if (target) for (let i = 0; i < fresh.length; i++) target[i] = fresh[i];
+                                });
+                                for (let i = 0; i < fresh.length; i++) rowData[i] = fresh[i];
+                            }
+                        } catch (freshErr) {
+                            console.warn('Could not refresh row from DB:', freshErr);
+                        }
+                        if (!window._tripVersions) window._tripVersions = new Map();
+                        window._tripVersions.set(editingTripDbId, dbVersion);
+                        if (typeof window.showCalendarNotice === 'function') {
+                            window.showCalendarNotice('Esta orden fue modificada por otra persona. Se cargó la versión actual.');
+                        }
+                    }
+
                     rowData[54] = details.signature || '';
                     rowData[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : []);
                     rowData[56] = details.signature_driver || '';
@@ -3190,15 +3233,39 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (!orderNos.length) return mappedTrips;
             const byId = new Map(mappedTrips.map(t => [t[0], t]));
             try {
-                const { data, error } = await window.db.from('trips')
-                    .select('*')
-                    .in('order_no', orderNos)
-                    .or('is_deleted.eq.false,is_deleted.is.null');
-                if (error) throw error;
-                (data || []).forEach(raw => {
-                    const arr = mapTripToArray(raw);
-                    if (arr[0] && !byId.has(arr[0])) byId.set(arr[0], arr);
+                // Step 1 (light): which trips share these order numbers? Only ids come back,
+                // so rows we already downloaded are NOT downloaded a second time.
+                // Order numbers go in chunks to keep the request URL short.
+                const CHUNK = 120;
+                const chunks = [];
+                for (let i = 0; i < orderNos.length; i += CHUNK) chunks.push(orderNos.slice(i, i + CHUNK));
+                const lightResults = await Promise.all(chunks.map(part =>
+                    window.db.from('trips')
+                        .select('trip_id')
+                        .in('order_no', part)
+                        .or('is_deleted.eq.false,is_deleted.is.null')
+                ));
+                const missingIds = new Set();
+                lightResults.forEach(res => {
+                    if (res.error) throw res.error;
+                    (res.data || []).forEach(r => {
+                        if (r.trip_id && !byId.has(r.trip_id)) missingIds.add(r.trip_id);
+                    });
                 });
+
+                // Step 2: download full rows only for the linked moves we are missing.
+                const missing = Array.from(missingIds);
+                for (let i = 0; i < missing.length; i += CHUNK) {
+                    const { data, error } = await window.db.from('trips')
+                        .select('*')
+                        .in('trip_id', missing.slice(i, i + CHUNK));
+                    if (error) throw error;
+                    (data || []).forEach(raw => {
+                        const arr = mapTripToArray(raw);
+                        if (arr[0] && !byId.has(arr[0])) byId.set(arr[0], arr);
+                        if (raw.updated_at && window._tripVersions) window._tripVersions.set(raw.trip_id, raw.updated_at);
+                    });
+                }
             } catch (e) {
                 console.warn('ensureLinkedMovesLoaded', e);
             }
@@ -3208,17 +3275,169 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         let lastDateFrom = null;
         let lastDateTo = null;
         let isLoadingTable = false;
+        // A reload asked for while another one is running is remembered (not dropped) and
+        // runs when the current one ends, so the LAST date the user picked always wins.
+        let queuedReload = false;
+        let queuedReloadForce = false;
+        let queuedReloadPreloaded = null;
+        let calendarFetchAbort = null;
+        let calendarIdleWaiters = [];
+        window._tripVersions = window._tripVersions || new Map(); // trip_id -> updated_at (when the column exists)
+
+        function isAbortErr(err) {
+            if (!err) return false;
+            const msg = String(err.message || err);
+            return err.name === 'AbortError' || /abort(ed)?/i.test(msg);
+        }
+        function abortCalendarFetch() {
+            if (!calendarFetchAbort) return;
+            try { calendarFetchAbort.abort(); } catch (e) { /* ignore */ }
+            calendarFetchAbort = null;
+        }
+        function resolveCalendarIdle() {
+            if (isLoadingTable || queuedReload) return;
+            const waiters = calendarIdleWaiters.splice(0);
+            waiters.forEach(fn => fn());
+        }
+        window.whenCalendarLoadIdle = function () {
+            if (!isLoadingTable && !queuedReload) return Promise.resolve();
+            return new Promise(resolve => calendarIdleWaiters.push(resolve));
+        };
+
+        // --- Loading / error feedback for the Calendar table ---
+        function setCalendarLoading(on, text) {
+            const container = document.getElementById('calendar-table-container');
+            if (container) container.classList.toggle('calendar-loading', !!on);
+            const banner = document.getElementById('calendar-status-banner');
+            if (!banner) return;
+            if (on) {
+                banner.className = 'calendar-status-banner loading';
+                banner.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (text || 'Cargando órdenes…');
+                banner.style.display = 'flex';
+                const countEl = document.getElementById('order-count-display');
+                if (countEl) countEl.textContent = '…';
+            } else if (banner.classList.contains('loading')) {
+                banner.style.display = 'none';
+            }
+        }
+        function showCalendarLoadError(message) {
+            const banner = document.getElementById('calendar-status-banner');
+            if (!banner) return;
+            banner.className = 'calendar-status-banner error';
+            banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span></span> ' +
+                '<button type="button" onclick="window.refreshCalendarModule && window.refreshCalendarModule()">Reintentar</button>';
+            banner.querySelector('span').textContent = message;
+            banner.style.display = 'flex';
+        }
+        function hideCalendarStatusBanner() {
+            const banner = document.getElementById('calendar-status-banner');
+            if (banner) banner.style.display = 'none';
+        }
+        // Non-blocking info message (auto-hides). Used when another person changed something.
+        let _calendarNoticeTimer = null;
+        window.showCalendarNotice = function (message, ms) {
+            const banner = document.getElementById('calendar-status-banner');
+            if (!banner || banner.classList.contains('loading') || banner.classList.contains('error')) return;
+            banner.className = 'calendar-status-banner notice';
+            banner.innerHTML = '<i class="fas fa-sync-alt"></i> <span></span>';
+            banner.querySelector('span').textContent = message;
+            banner.style.display = 'flex';
+            clearTimeout(_calendarNoticeTimer);
+            _calendarNoticeTimer = setTimeout(() => {
+                if (banner.classList.contains('notice')) banner.style.display = 'none';
+            }, ms || 9000);
+        };
+        // Before saving an EXISTING order: has someone else saved it since we opened it?
+        // Returns true to continue saving, false to cancel. Never blocks when it cannot tell
+        // (no updated_at column yet, offline, etc.), so it can't make saving worse than before.
+        window.checkTripEditConflict = async function (tripId) {
+            try {
+                const loaded = window._editingLoaded;
+                if (!tripId || !loaded || loaded.id !== tripId || !loaded.version || !window.db) return true;
+                const { data, error } = await window.db.from('trips')
+                    .select('updated_at, is_deleted')
+                    .eq('trip_id', tripId)
+                    .maybeSingle();
+                if (error || !data) return true;
+                if (data.is_deleted === true) {
+                    return confirm('Esta orden fue ELIMINADA por otra persona mientras la editabas.\n\n¿Guardar de todas formas?');
+                }
+                if (!data.updated_at) return true;
+                if (new Date(data.updated_at).getTime() === new Date(loaded.version).getTime()) return true;
+
+                const overwrite = confirm(
+                    'Otra persona modificó esta orden después de que la abriste.\n\n' +
+                    'Aceptar = guardar TUS cambios y sobrescribir los suyos.\n' +
+                    'Cancelar = no guardar y recargar la orden con la versión actual.'
+                );
+                if (overwrite) return true;
+
+                // Reload the order with the current database values so nothing is lost silently
+                const idx = (window.currentTrips || []).findIndex(t => t && t[0] === tripId);
+                // Mark our cached copy as outdated so loadTripToEdit pulls the current row
+                if (window._tripVersions) window._tripVersions.set(tripId, new Date(0).toISOString());
+                if (idx >= 0 && typeof window.loadTripToEdit === 'function') await window.loadTripToEdit(idx);
+                return false;
+            } catch (e) {
+                console.warn('checkTripEditConflict failed (continuing to save):', e);
+                return true;
+            }
+        };
+        window.markCalendarSynced = function () {
+            window._calendarSyncedAt = Date.now();
+            if (typeof window.updateCalendarSyncLabel === 'function') window.updateCalendarSyncLabel();
+        };
+
+        // "Actualizado hace X min" next to the Refresh button
+        window.updateCalendarSyncLabel = function () {
+            const el = document.getElementById('calendar-sync-label');
+            if (!el) return;
+            const t = window._calendarSyncedAt;
+            if (!t) { el.textContent = ''; return; }
+            const secs = Math.max(0, Math.round((Date.now() - t) / 1000));
+            const ago = secs < 60 ? 'a few seconds ago' : (Math.round(secs / 60) + ' min ago');
+            el.textContent = 'Updated ' + ago + (window._tripsDeltaActive ? ' · auto' : '');
+            el.classList.toggle('stale', secs > 180 && !window._tripsDeltaActive);
+        };
+        if (!window._calendarSyncLabelTimer) {
+            window._calendarSyncLabelTimer = setInterval(() => window.updateCalendarSyncLabel(), 20000);
+        }
+
+        const readCalendarDateInputs = () => ({
+            from: document.getElementById('f-from-date')?.value || null,
+            to: document.getElementById('f-to-date')?.value || null
+        });
+
         async function loadTableData(preloadedData = null, force = false) {
             window.loadTableData = loadTableData;
-            if (isLoadingTable) return;
+            if (isLoadingTable) {
+                // Newest request wins: cancel the download in progress (month query, etc.)
+                // so Clear All / a new date range / Refresh are not stuck behind it.
+                abortCalendarFetch();
+                queuedReload = true;
+                queuedReloadForce = queuedReloadForce || !!force;
+                if (preloadedData && !queuedReloadForce) queuedReloadPreloaded = preloadedData;
+                else if (queuedReloadForce) queuedReloadPreloaded = null;
+                return window.whenCalendarLoadIdle();
+            }
 
             const dateFrom = document.getElementById('f-from-date')?.value || null;
             const dateTo   = document.getElementById('f-to-date')?.value || null;
+
+            // Clear All (empty dates): reuse the last unfiltered list. Do not download
+            // "latest 300" again — Refresh is the button that asks the database.
+            if (!force && !preloadedData && !dateFrom && !dateTo
+                && window.allTripsUnfiltered && window.allTripsUnfiltered.length) {
+                preloadedData = window.allTripsUnfiltered;
+            }
 
             // Cache check: if exact date range was already queried and cache exists, but table has no rows, we reuse the cache instead of querying Supabase.
             const hasRows = document.getElementById('table-body')?.children.length > 0;
             if (!force && !preloadedData && window.currentTrips && window.currentTrips.length > 0 && lastDateFrom === dateFrom && lastDateTo === dateTo) {
                 if (hasRows) {
+                    // Table already shows this range. Never leave the "loading" overlay on
+                    // (a queued reload used to hit this return and freeze the rows faded).
+                    setCalendarLoading(false);
                     return;
                 } else {
                     preloadedData = window.currentTrips;
@@ -3226,12 +3445,23 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
 
             isLoadingTable = true;
-            if (typeof window.loadReceivables === 'function' && !window._recvLoadedOnce) {
-                await window.loadReceivables();
+            window._calendarLoading = true;
+            const goesToNetwork = !preloadedData;
+            if (goesToNetwork) {
+                setCalendarLoading(true, (dateFrom || dateTo) ? 'Cargando órdenes del rango seleccionado…' : 'Cargando órdenes…');
             }
+            // Accounts Receivable loads IN PARALLEL with the trips query (it used to run first,
+            // one after the other). We only wait for it right before painting the table.
+            let receivablesPromise = null;
+            if (typeof window.loadReceivables === 'function' && !window._recvLoadedOnce) {
+                receivablesPromise = window.loadReceivables();
+            }
+            // Sync marker for the "who changed what" polling (see realtime-sync.js)
+            const deltaPrepare = (goesToNetwork && typeof window.tripsDeltaPrepare === 'function')
+                ? window.tripsDeltaPrepare() : null;
 
             const logisticsBody = document.getElementById('table-body');
-            if (!logisticsBody) { isLoadingTable = false; return; }
+            if (!logisticsBody) { isLoadingTable = false; window._calendarLoading = false; setCalendarLoading(false); return; }
             
             // Re-bind sidebar lookups if needed (failsafe for early script execution)
             if (typeof setupReleaseValidation === 'function') setupReleaseValidation();
@@ -3258,8 +3488,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             if (selfIn) keepIds.add(trip[0]);
                         });
                         if (typeof window.getMoveFamily === 'function') {
+                            const poolFamIndex = (typeof window.buildMoveFamilyIndex === 'function')
+                                ? window.buildMoveFamilyIndex(pool) : null;
                             pool.forEach(trip => {
-                                const fam = window.getMoveFamily(trip[0], pool);
+                                const fam = window.getMoveFamily(trip[0], pool, poolFamIndex);
                                 const anyIn = (fam.moves || []).some(m => {
                                     const d = (m[1] || '').toString().split('T')[0];
                                     return d && (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
@@ -3271,15 +3503,39 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         isAlreadyMapped = true;
                     }
                 } else {
+                    // strict: a failed query throws (we keep the rows already on screen and show
+                    // an error) instead of silently returning [] and blanking the table.
                     if (dateFrom || dateTo) {
-                        data = await getAllTrips(dateFrom, dateTo);
+                        abortCalendarFetch();
+                        calendarFetchAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                        data = await getAllTrips(dateFrom, dateTo, {
+                            strict: true,
+                            signal: calendarFetchAbort ? calendarFetchAbort.signal : undefined
+                        });
                     } else {
-                        data = await getTrips();
+                        data = await getTrips({ strict: true, fresh: !!force });
                     }
+
+                    // If the user changed the dates while this request was running, this
+                    // answer is for an outdated range: drop it and load the new range.
+                    const nowInputs = readCalendarDateInputs();
+                    if (nowInputs.from !== dateFrom || nowInputs.to !== dateTo) {
+                        queuedReload = true;
+                        return; // finally{} below releases the lock and re-runs
+                    }
+
                     // Update queried filters on successful fetch
                     lastDateFrom = dateFrom;
                     lastDateTo = dateTo;
+
+                    // Remember each row's version (needs trips.updated_at; harmless if absent)
+                    (data || []).forEach(t => {
+                        if (t && t.trip_id && t.updated_at) window._tripVersions.set(t.trip_id, t.updated_at);
+                    });
                 }
+
+                // Receivables must be ready before rows are painted (AR lock icons, etc.)
+                if (receivablesPromise) { await receivablesPromise; receivablesPromise = null; }
 
                 // Activity logs (not fetched for performance - kept empty)
                 let activityLogs = [];
@@ -3296,9 +3552,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     return dateB.localeCompare(dateA);
                 });
 
-                // Clear and rebuild table
-                logisticsBody.innerHTML = '';
-                
                 let renderedTrips = isAlreadyMapped ? data : data.map(mapTripToArray);
                 renderedTrips = renderedTrips.filter(t => {
                     const smode = (t[26] || '').toString().toUpperCase();
@@ -3307,7 +3560,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if ((dateFrom || dateTo) && typeof window.ensureLinkedMovesLoaded === 'function') {
                     renderedTrips = await window.ensureLinkedMovesLoaded(renderedTrips);
+
+                    // Dates changed while linked moves were loading? Skip painting this outdated range.
+                    const afterLinked = readCalendarDateInputs();
+                    if (afterLinked.from !== dateFrom || afterLinked.to !== dateTo) {
+                        queuedReload = true;
+                        return;
+                    }
                 }
+
+                // Clear and rebuild table. The previous rows stay on screen until the new ones are ready.
+                logisticsBody.innerHTML = '';
 
                 // Update currentTrips unconditionally so applyAdvancedFilters can read the rows
                 window.currentTrips = renderedTrips;
@@ -3344,13 +3607,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const tableFragment = document.createDocumentFragment();
                 // Pre-compute current time once outside the loop (avoids 200+ Date object allocations)
                 const now = new Date();
+                // Family lookup built once (was a full scan of the list for every row)
+                const renderFamIndex = (typeof window.buildMoveFamilyIndex === 'function')
+                    ? window.buildMoveFamilyIndex(renderedTrips) : null;
 
                 renderedTrips.forEach((rowData, idx) => {
                     try {
                         if (window.isFollowOnTrip && window.isFollowOnTrip(rowData)) return;
 
                         const moveFam = (typeof window.getMoveFamily === 'function')
-                            ? window.getMoveFamily(rowData[0], renderedTrips)
+                            ? window.getMoveFamily(rowData[0], renderedTrips, renderFamIndex)
                             : { parentId: rowData[0], moves: [rowData] };
                         const familyMoves = (moveFam.moves && moveFam.moves.length) ? moveFam.moves : [rowData];
                         const pendingMoves = familyMoves.filter(m => {
@@ -3771,12 +4037,50 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // Apply existing filters if any (for real-time persistence)
                 applyAdvancedFilters();
                 if (window.loadDocTrips) window.loadDocTrips();
+
+                // Painted OK: clear banners, mark "synced", start/refresh the change polling
+                hideCalendarStatusBanner();
+                if (goesToNetwork) {
+                    window.markCalendarSynced();
+                    if (typeof window.tripsDeltaStart === 'function') window.tripsDeltaStart(deltaPrepare);
+                }
             } catch (err) {
+                if (isAbortErr(err)) {
+                    queuedReload = true;
+                    return;
+                }
                 console.error("Error loading table:", err);
+                // Keep whatever is on screen and tell the user (before, the table just stayed empty)
+                if (goesToNetwork) {
+                    lastDateFrom = null; // so the next attempt really queries again
+                    lastDateTo = null;
+                    showCalendarLoadError('No se pudieron cargar las órdenes (' + ((err && err.message) || 'error de conexión') + ').');
+                    try { applyAdvancedFilters(); } catch (e) { /* restores the order counter from rows still on screen */ }
+                }
             } finally {
                 isLoadingTable = false;
+                window._calendarLoading = false;
+                calendarFetchAbort = null;
+                setCalendarLoading(false);
+                if (queuedReload) {
+                    const rerunForce = queuedReloadForce;
+                    const rerunPre = queuedReloadPreloaded;
+                    queuedReload = false;
+                    queuedReloadForce = false;
+                    queuedReloadPreloaded = null;
+                    setTimeout(() => loadTableData(rerunForce ? null : rerunPre, rerunForce), 0);
+                } else {
+                    resolveCalendarIdle();
+                }
             }
         }
+
+        // Date inputs: wait a moment after the last change so "FROM then TO" is ONE request.
+        let _dateReloadTimer = null;
+        window.loadTableDataDebounced = function () {
+            clearTimeout(_dateReloadTimer);
+            _dateReloadTimer = setTimeout(() => { loadTableData(); }, 450);
+        };
 
         let reportShowUnpaidOnly = false;
         function togglePendingFilter() {
@@ -5998,6 +6302,9 @@ window.refreshCalendarModule = async function () {
     await window.withRefreshButton('btn-refresh-calendar', async () => {
         if (typeof window.loadTableData === 'function') {
             await window.loadTableData(null, true);
+        }
+        if (typeof window.whenCalendarLoadIdle === 'function') {
+            await window.whenCalendarLoadIdle();
         }
     }, 'calendar');
 };

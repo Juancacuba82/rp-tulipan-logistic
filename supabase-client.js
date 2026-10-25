@@ -90,44 +90,72 @@ async function getProfile(userId) {
     return data;
 }
 
-async function getTrips() {
-    try {
-        let query = db
-            .from('trips')
-            .select('*')
-            .or('is_deleted.eq.false,is_deleted.is.null')
-            .order('date', { ascending: false })
-            .limit(300); // LÍMITE AÑADIDO PARA EVITAR ERROR 500 (TIMEOUT)
+// Raw "latest 300 trips" request. Throws on error (callers decide what to do).
+async function fetchLatestTripsRaw() {
+    let query = db
+        .from('trips')
+        .select('*')
+        .or('is_deleted.eq.false,is_deleted.is.null')
+        .order('date', { ascending: false })
+        .limit(300); // LÍMITE AÑADIDO PARA EVITAR ERROR 500 (TIMEOUT)
 
-        // PERFORMANCE: Apply driver-specific filtering at the DB level.
-        // This prevents the driver's phone from downloading the full trips table.
-        // Robert Cortez is excluded from filtering as he needs to see all trips.
-        if (window.currentUserRole === 'driver') {
-            const drvRef = (window.currentDriverNameRef || '').toUpperCase().trim();
-            const userEmail = (window.userEmail || '').toLowerCase();
-            const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === 'ROBERT CORTEZ' || drvRef === 'ROBER CORTES');
+    // PERFORMANCE: Apply driver-specific filtering at the DB level.
+    // This prevents the driver's phone from downloading the full trips table.
+    // Robert Cortez is excluded from filtering as he needs to see all trips.
+    if (window.currentUserRole === 'driver') {
+        const drvRef = (window.currentDriverNameRef || '').toUpperCase().trim();
+        const userEmail = (window.userEmail || '').toLowerCase();
+        const isRobert = (userEmail === 'cortes410@aol.com' || drvRef === 'ROBERT CORTEZ' || drvRef === 'ROBER CORTES');
 
-            if (!isRobert && drvRef) {
-                // Filter server-side: only fetch trips where driver name contains drvRef
-                query = query.ilike('driver', `%${drvRef}%`);
-                console.log(`[DRIVER FILTER] Fetching only trips for: ${drvRef}`);
-            }
+        if (!isRobert && drvRef) {
+            // Filter server-side: only fetch trips where driver name contains drvRef
+            query = query.ilike('driver', `%${drvRef}%`);
+            console.log(`[DRIVER FILTER] Fetching only trips for: ${drvRef}`);
         }
+    }
 
-        const { data, error } = await query;
+    const { data, error } = await query;
+    if (error) throw error;
+    console.log("Viajes obtenidos de Supabase:", (data || []).length);
+    return data || [];
+}
 
-        if (error) throw error;
-        console.log("Viajes obtenidos de Supabase:", data.length);
-        return data || [];
+// Several modules ask for the same "latest 300 trips" at startup (Calendar, Docs,
+// Driver Settlements). While one request is in flight, everyone shares it instead of
+// downloading the same rows again. Nothing is cached after it finishes, so data is
+// never older than the request itself.
+let _latestTripsInflight = null;
+
+// opts.strict: throw on error instead of returning [] (so callers can show an error
+//              instead of an empty table).
+// opts.fresh:  never join a request that started earlier (use right after a save).
+async function getTrips(opts = {}) {
+    const strict = !!(opts && opts.strict);
+    const fresh = !!(opts && opts.fresh);
+    try {
+        let shared = _latestTripsInflight;
+        if (!shared || fresh) {
+            const own = fetchLatestTripsRaw().finally(() => {
+                if (_latestTripsInflight === own) _latestTripsInflight = null;
+            });
+            _latestTripsInflight = own;
+            shared = own;
+        }
+        const data = await shared;
+        // Each caller gets its own array (callers sort/filter in place).
+        return data.slice();
     } catch (err) {
         console.error('Error fetching trips:', err);
+        if (strict) throw err;
         return [];
     }
 }
 
 // Loads ALL trips with ALL fields — for full history browsing
 // If dateFrom/dateTo are provided, restricts to that range
-async function getAllTrips(dateFrom = null, dateTo = null) {
+// opts.strict: throw on error instead of returning [].
+async function getAllTrips(dateFrom = null, dateTo = null, opts = {}) {
+    const strict = !!(opts && opts.strict);
     try {
         let query = db
             .from('trips')
@@ -136,6 +164,7 @@ async function getAllTrips(dateFrom = null, dateTo = null) {
             .order('date', { ascending: false });
         if (dateFrom) query = query.gte('date', dateFrom);
         if (dateTo)   query = query.lte('date', dateTo);
+        if (opts.signal) query = query.abortSignal(opts.signal);
 
         // PERFORMANCE: Apply driver-specific filtering at the DB level.
         // This prevents the driver's phone from downloading the full trips table.
@@ -157,7 +186,13 @@ async function getAllTrips(dateFrom = null, dateTo = null) {
         console.log('Historial cargado:', data.length, 'órdenes', dateFrom ? `(${dateFrom} → ${dateTo || 'hoy'})` : '(completo)');
         return data || [];
     } catch (err) {
+        const aborted = (opts.signal && opts.signal.aborted) || (err && (err.name === 'AbortError' || /abort/i.test(err.message || '')));
+        if (aborted) {
+            if (strict) throw err;
+            return [];
+        }
         console.error('Error fetching all trips:', err);
+        if (strict) throw err;
         return [];
     }
 }

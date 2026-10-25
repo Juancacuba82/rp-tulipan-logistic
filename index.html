@@ -2710,7 +2710,7 @@
                                             placeholder="mm/dd/yyyy" readonly tabindex="-1"
                                             style="width: 100%; cursor: pointer;">
                                         <input type="date" id="f-from-date" class="calendar-date-native" lang="en-US"
-                                            onchange="syncCalendarDateDisplay('f-from-date'); if(window.loadTableData) window.loadTableData()">
+                                            onchange="syncCalendarDateDisplay('f-from-date'); if(window.loadTableDataDebounced) window.loadTableDataDebounced(); else if(window.loadTableData) window.loadTableData()">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group calendar-date-filter"
@@ -2722,7 +2722,7 @@
                                             placeholder="mm/dd/yyyy" readonly tabindex="-1"
                                             style="width: 100%; cursor: pointer;">
                                         <input type="date" id="f-to-date" class="calendar-date-native" lang="en-US"
-                                            onchange="syncCalendarDateDisplay('f-to-date'); if(window.loadTableData) window.loadTableData()">
+                                            onchange="syncCalendarDateDisplay('f-to-date'); if(window.loadTableDataDebounced) window.loadTableDataDebounced(); else if(window.loadTableData) window.loadTableData()">
                                     </div>
                                 </div>
                                 <div class="attendance-input-group">
@@ -2775,6 +2775,7 @@
                                         <button type="button" id="btn-refresh-calendar" class="btn-module-refresh" style="height:45px;" onclick="window.refreshCalendarModule()" title="Refresh Calendar from database">
                                             <i class="fas fa-sync-alt"></i> Refresh
                                         </button>
+                                        <span id="calendar-sync-label" class="calendar-sync-label" title="Last time this screen synced with the database"></span>
                                         <button onclick="deleteSelectedOrders()" id="btn-delete-selected"
                                             class="btn-reset-modern"
                                             style="margin-top: 0; padding: 0 20px; height: 45px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.75rem; cursor: pointer; display: none; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(239,68,68,0.3); transition: all 0.2s;">
@@ -2808,8 +2809,17 @@
 
                         </div>
                     </div>
+                    <div id="calendar-status-banner" class="calendar-status-banner" role="status" style="display:none;"></div>
                     <div class="table-scroll-container" id="calendar-table-container">
                         <style>
+                            .calendar-sync-label { font-size: 0.7rem; font-weight: 700; color: #64748b; white-space: nowrap; }
+                            .calendar-sync-label.stale { color: #b45309; }
+                            .calendar-status-banner { align-items: center; gap: 10px; margin: 0 0 8px 0; padding: 10px 14px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; }
+                            .calendar-status-banner.loading { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+                            .calendar-status-banner.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+                            .calendar-status-banner.notice { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+                            .calendar-status-banner button { margin-left: auto; padding: 4px 12px; border-radius: 8px; border: 1px solid currentColor; background: #fff; color: inherit; font-weight: 800; cursor: pointer; }
+                            #calendar-table-container.calendar-loading #table-body { opacity: 0.55; transition: opacity 0.15s; }
                             #logistics-table th,
                             #logistics-table td {
                                 padding: 6px 4px !important;
@@ -7663,6 +7673,15 @@
 
         document.documentElement.style.removeProperty('zoom');
 
+        // "Is this module's data older than maxAgeMs since it was last opened?" (and mark it as opened now)
+        window._moduleOpenedAt = window._moduleOpenedAt || {};
+        window.isModuleStale = function (key, maxAgeMs) {
+            const last = window._moduleOpenedAt[key] || 0;
+            const stale = (Date.now() - last) > maxAgeMs;
+            if (stale) window._moduleOpenedAt[key] = Date.now();
+            return stale;
+        };
+
         function showView(viewId) {
             console.log("Navigating to:", viewId);
             if (String(viewId || '').replace(/-view$/, '') === 'tasks' && window.hideTaskBanner) {
@@ -7829,6 +7848,8 @@
                     } else if (finalView === 'calendar') {
                         // PERSIST FILTERS: filter inputs are not cleared on entry.
                         if (window.loadTableData) window.loadTableData();
+                        // Catch up with changes made by other PCs while this tab was on another module
+                        if (window.tripsDeltaPollNow) window.tripsDeltaPollNow();
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
                         if (window.loadReleasesData) window.loadReleasesData();
 
@@ -7858,7 +7879,9 @@
                             }
                         }
                     } else if (finalView === 'releases') {
-                        if (window.loadReleasesData) window.loadReleasesData();
+                        // Refresh from the DB when the module was last opened more than 2 min ago
+                        // (other PCs may have changed data; cached data is reused otherwise)
+                        if (window.loadReleasesData) window.loadReleasesData(window.isModuleStale('releases', 120000));
                     } else if (finalView === 'fleet') {
                         if (window.loadFleetData) window.loadFleetData();
                     } else if (finalView === 'attendance') {
@@ -7904,7 +7927,7 @@
                     } else if (finalView === 'company-money') {
                         if (window.renderCompanyMoney) window.renderCompanyMoney();
                     } else if (finalView === 'expenses') {
-                        if (window.loadExpensesData) window.loadExpensesData();
+                        if (window.loadExpensesData) window.loadExpensesData(window.isModuleStale('expenses', 120000));
                     } else if (finalView === 'inventory') {
                         (async () => {
                             // PERSIST FILTERS: Do not reset inventory filters
@@ -8619,9 +8642,13 @@
             const stSel = document.getElementById('f-status');
             if (stSel) stSel.value = 'PENDING_PAYMENT';
 
-            // Reload table data since dates are cleared
+            // Dates are empty: show the last unfiltered list (no extra download).
+            // Refresh is what talks to the database again.
             if (window.loadTableData) {
-                window.loadTableData();
+                const cached = window.allTripsUnfiltered;
+                if (cached && cached.length) window.loadTableData(cached);
+                else if (window.loadTableDataDebounced) window.loadTableDataDebounced();
+                else window.loadTableData();
                 if (window.applyAdvancedFiltersDebounced) {
                     window.applyAdvancedFiltersDebounced();
                 } else if (window.applyAdvancedFilters) {
@@ -8710,12 +8737,21 @@
                     loadDocTrips();
                 }
 
-                // Preload billing data silently in the background
-                setTimeout(() => {
+                // Preload billing data silently in the background (it also runs the invoice
+                // automation: banner / reminders). It downloads up to 2000 full orders, so it must
+                // NOT compete with the Calendar: wait until the Calendar finished loading and the
+                // user is not in the middle of a request, then run it.
+                const preloadBillingWhenIdle = (attempt) => {
+                    const calendarBusy = window._calendarLoading === true;
+                    if (calendarBusy && attempt < 20) {
+                        setTimeout(() => preloadBillingWhenIdle(attempt + 1), 3000);
+                        return;
+                    }
                     if (typeof window.initBillingCenter === 'function') {
                         window.initBillingCenter();
                     }
-                }, 2500);
+                };
+                setTimeout(() => preloadBillingWhenIdle(0), 10000);
             } else {
                 showView('auth');
             }

@@ -582,7 +582,40 @@ if (document.readyState === 'loading') {
         return !!window.parseMoveMeta(row[25]).parentId;
     };
 
-    window.getMoveFamily = function (tripId, trips) {
+    // Builds lookup tables once so getMoveFamily() doesn't rescan the whole list for every
+    // row (O(n) instead of O(n²) when rendering hundreds of orders).
+    window.buildMoveFamilyIndex = function (trips) {
+        const byId = new Map();
+        const groups = new Map(); // parentId -> [rows of that family]
+        (trips || []).forEach(t => {
+            if (!t || !t[0]) return;
+            if (!byId.has(t[0])) byId.set(t[0], t);
+            const m = window.parseMoveMeta(t[25]);
+            if (m.parentId) {
+                if (!groups.has(m.parentId)) groups.set(m.parentId, []);
+                groups.get(m.parentId).push(t);
+            }
+        });
+        return { byId, groups };
+    };
+
+    window.getMoveFamily = function (tripId, trips, index) {
+        if (index && index.byId) {
+            const selfRow = index.byId.get(tripId);
+            if (!selfRow) return { parentId: tripId, moves: [] };
+            const selfMeta = window.parseMoveMeta(selfRow[25]);
+            const parentId = selfMeta.parentId || tripId;
+            const parentRow = index.byId.get(parentId);
+            const followers = index.groups.get(parentId) || [];
+            const moves = (parentRow ? [parentRow] : []).concat(followers.filter(t => t[0] !== parentId));
+            // The parent move always goes first (0), followers are ordered by their sequence.
+            moves.sort((a, b) => {
+                const sa = (a[0] === parentId) ? 0 : (window.parseMoveMeta(a[25]).seq || 99);
+                const sb = (b[0] === parentId) ? 0 : (window.parseMoveMeta(b[25]).seq || 99);
+                return sa - sb;
+            });
+            return { parentId, moves };
+        }
         const list = trips || window.currentTrips || [];
         const self = list.find(t => t && t[0] === tripId);
         if (!self) return { parentId: tripId, moves: [] };
@@ -594,8 +627,8 @@ if (document.readyState === 'loading') {
             const m = window.parseMoveMeta(t[25]);
             return m.parentId === parentId;
         }).sort((a, b) => {
-            const sa = (a[0] === parentId) ? 1 : (window.parseMoveMeta(a[25]).seq || 99);
-            const sb = (b[0] === parentId) ? 1 : (window.parseMoveMeta(b[25]).seq || 99);
+            const sa = (a[0] === parentId) ? 0 : (window.parseMoveMeta(a[25]).seq || 99);
+            const sb = (b[0] === parentId) ? 0 : (window.parseMoveMeta(b[25]).seq || 99);
             return sa - sb;
         });
         return { parentId, moves };
