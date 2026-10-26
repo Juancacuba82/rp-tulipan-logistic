@@ -439,6 +439,15 @@ async function saveCallLog() {
         }
     }
 
+    let calendarDate = null;
+    if (payload.status === 'SOLD') {
+        const selected = editingCallId ? currentCalls.find(c => c.id === editingCallId) : null;
+        const suggested = payload.next_call_date || selected?.next_call_date || payload.date;
+        calendarDate = await askSoldOrderDate(suggested);
+        if (!calendarDate) return;
+        payload.calendarDate = calendarDate;
+    }
+
     btn.disabled = true;
     btn.textContent = "Saving...";
 
@@ -699,6 +708,79 @@ window.refreshCallsModule = async function () {
     }, 'calls');
 };
 
+function askSoldOrderDate(defaultDate) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById('sold-order-date-modal');
+        if (existing) existing.remove();
+
+        const wrap = document.createElement('div');
+        wrap.id = 'sold-order-date-modal';
+        wrap.style.cssText =
+            'position:fixed;inset:0;background:rgba(15,23,42,0.72);display:flex;align-items:center;justify-content:center;z-index:100000;font-family:Outfit,sans-serif;padding:16px;';
+
+        wrap.innerHTML = `
+            <div role="dialog" aria-modal="true"
+                 style="background:#fff;border-radius:16px;max-width:420px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);overflow:hidden;">
+                <div style="padding:22px 24px 8px;">
+                    <h2 style="margin:0 0 8px;font-size:1.15rem;color:#0f172a;font-weight:800;">Fecha de la orden</h2>
+                    <p style="margin:0 0 16px;font-size:0.9rem;color:#475569;">
+                        Elige el día en que se creará la orden en Calendar.
+                    </p>
+                    <label for="sold-order-date-input" style="display:block;font-size:0.75rem;font-weight:800;color:#64748b;margin-bottom:6px;">
+                        FECHA
+                    </label>
+                    <input type="date" id="sold-order-date-input" value="${defaultDate || ''}"
+                           style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;font-weight:700;">
+                </div>
+                <div style="padding:18px 24px 22px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button type="button" id="sold-order-date-cancel"
+                        style="padding:10px 16px;background:#f1f5f9;border:none;border-radius:8px;font-weight:800;cursor:pointer;color:#475569;">
+                        Cancelar
+                    </button>
+                    <button type="button" id="sold-order-date-ok"
+                        style="padding:10px 16px;background:#0f172a;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;">
+                        Crear orden
+                    </button>
+                </div>
+            </div>`;
+
+        document.body.appendChild(wrap);
+        const input = wrap.querySelector('#sold-order-date-input');
+        if (input) input.focus();
+
+        let settled = false;
+        const close = (value) => {
+            if (settled) return;
+            settled = true;
+            document.removeEventListener('keydown', onKey);
+            wrap.remove();
+            resolve(value);
+        };
+
+        const onKey = (e) => {
+            if (e.key === 'Escape') close(null);
+            if (e.key === 'Enter') {
+                if (!input.value) {
+                    input.style.borderColor = '#dc2626';
+                    return;
+                }
+                close(input.value);
+            }
+        };
+
+        wrap.querySelector('#sold-order-date-cancel').onclick = () => close(null);
+        wrap.querySelector('#sold-order-date-ok').onclick = () => {
+            if (!input.value) {
+                input.style.borderColor = '#dc2626';
+                return;
+            }
+            close(input.value);
+        };
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) close(null); });
+        document.addEventListener('keydown', onKey);
+    });
+}
+
 function toggleCallSizeMode() {
     const sel = document.getElementById('call-size-sel');
     const inp = document.getElementById('call-size');
@@ -729,7 +811,7 @@ async function transferSoldCallToCalendar(call) {
     // Build the trip object (trips table)
     const tripObj = {
         trip_id: crypto.randomUUID(),
-        date: call.next_call_date || call.date,  // Use "Next Call" date as the delivery date
+        date: call.calendarDate || call.next_call_date,
         size: call.measures,
         customer: call.customer,
         phone_no: call.phone,
