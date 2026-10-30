@@ -1084,12 +1084,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         : (window.currentTrips || []).find(t => t && t[0] === editingTripDbId);
                     const stopProbe = editingRow ? editingRow.slice() : [];
                     stopProbe[87] = stopPlanNow;
-                    const stopWait = (stopPlanNow === 'CASH' || stopPlanNow === 'ZELLE')
+                    const stopWait = typeof window.isStopPayCollectPlan === 'function'
+                        && window.isStopPayCollectPlan(stopPlanNow)
                         && typeof window.stopPayNeedsDriverMark === 'function'
                         && window.stopPayNeedsDriverMark(stopProbe);
                     if (stopWait) {
                         const keepGoing = confirm(
-                            'Stop payment is still WAITING (Cash or Zelle).\n\nComplete this order anyway?'
+                            'Stop payment is still WAITING (' + stopPlanNow + ').\n\nComplete this order anyway?'
                         );
                         if (!keepGoing) {
                             isSaving = false;
@@ -1349,16 +1350,29 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 rowData[86] = prevCashRow ? (prevCashRow[86] || '') : '';
                 const formPlan = (typeof window.readStopPayPlanFromForm === 'function')
                     ? window.readStopPayPlanFromForm()
-                    : '';
-                const stopPlan = formPlan || (prevCashRow ? (prevCashRow[87] || '') : '');
+                    : (prevCashRow ? (prevCashRow[87] || '') : '');
+                const stopPlan = formPlan;
                 rowData[87] = stopPlan;
                 let stopRes = prevCashRow ? (prevCashRow[88] || '') : '';
-                if ((stopPlan === 'CASH' || stopPlan === 'ZELLE') && !stopRes) stopRes = 'WAITING';
+                const keepPaidNoPlan = !stopPlan && /^PAID_/.test(stopRes); // e.g. paid from Accounts
+                if (!stopPlan && !keepPaidNoPlan) {
+                    stopRes = '';
+                    rowData[89] = '';
+                    rowData[90] = '';
+                } else {
+                    if (window.isStopPayCollectPlan && window.isStopPayCollectPlan(stopPlan) && !stopRes) stopRes = 'WAITING';
+                    rowData[89] = prevCashRow ? (prevCashRow[89] || '') : '';
+                    rowData[90] = prevCashRow ? (prevCashRow[90] || '') : '';
+                }
                 rowData[88] = stopRes;
-                rowData[89] = prevCashRow ? (prevCashRow[89] || '') : '';
-                rowData[90] = prevCashRow ? (prevCashRow[90] || '') : '';
 
                 const dbObj = mapArrayToTrip(rowData);
+                if (!stopPlan && !stopRes) {
+                    dbObj.stop_pay_plan = null;
+                    dbObj.stop_pay_result = null;
+                    dbObj.stop_pay_result_at = null;
+                    dbObj.stop_pay_result_by = null;
+                }
                 const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
                 const yardNotesPrefix = toYardDest === 'STORAGE' ? '[Storage Yard] ' : '';
                 const orderNote = (document.getElementById('in-note')?.value || '').trim();

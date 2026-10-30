@@ -1262,6 +1262,21 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
 
     const paySubtitle = inv ? getReceivableSubtitle(inv) : '';
 
+    // Optional: how the bank money arrived (saved on the order only; caja still records Bank/Cash).
+    const BANK_KINDS = ['ZELLE', 'WIRE', 'CHECK', 'CARD'];
+    let bankKind = '';
+    try {
+        const linkedIds = inv ? tripIdsFromInvoice(inv) : [];
+        for (const tid of linkedIds) {
+            const row = findTripRowById(tid);
+            const planned = row ? (row[87] || '').toString().toUpperCase() : '';
+            if (BANK_KINDS.includes(planned)) { bankKind = planned; break; }
+        }
+    } catch (e) { bankKind = ''; }
+    const bankKindChips = BANK_KINDS.map(k =>
+        `<button type="button" class="recv-bank-kind" data-kind="${k}" style="flex:1; padding:8px 4px; border-radius:8px; border:2px solid ${k === bankKind ? '#2563eb' : '#cbd5e1'}; background:${k === bankKind ? '#eff6ff' : '#fff'}; color:${k === bankKind ? '#1e40af' : '#64748b'}; font-weight:800; font-size:0.72rem; cursor:pointer;">${k}</button>`
+    ).join('');
+
     let html = `
         <h2 style="margin: 0 0 10px 0; color: #0f172a; font-size: 1.5rem;"><i class="fas fa-money-check-alt" style="color: #3b82f6;"></i> Process Payment</h2>
         <div style="background:#f8fafc; padding:15px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:20px;">
@@ -1293,6 +1308,10 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
         
         <div id="recv-step-2" style="display: none;">
             <p style="margin:0 0 15px 0; font-size: 0.95rem; color: #334155; font-weight:700; text-align:center;">Select Payment Method for <span id="display-pay-amt" style="color:#3b82f6; font-size:1.2rem;">$0.00</span></p>
+            <div style="margin:0 0 14px 0;">
+                <p style="margin:0 0 6px 0; font-size:0.78rem; color:#64748b; font-weight:700;">If Bank, how did they pay? <span style="font-weight:600;">(optional, saved on the order)</span></p>
+                <div id="recv-bank-kind-row" style="display:flex; gap:6px;">${bankKindChips}</div>
+            </div>
             <div id="recv-method-selection" style="display: flex; flex-direction: column; gap: 10px;">
                 <button type="button" id="btn-pay-bank" class="glossy-blue-btn" style="width: 100%; justify-content: center;">ALL BANK</button>
                 <button type="button" id="btn-pay-cash" class="glossy-green-btn" style="width: 100%; justify-content: center;">ALL CASH</button>
@@ -1398,6 +1417,19 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
         overlay.querySelector('#recv-step-2').style.display = 'block';
     };
 
+    overlay.querySelectorAll('.recv-bank-kind').forEach(btn => {
+        btn.onclick = () => {
+            const k = btn.getAttribute('data-kind');
+            bankKind = (bankKind === k) ? '' : k;
+            overlay.querySelectorAll('.recv-bank-kind').forEach(b => {
+                const on = b.getAttribute('data-kind') === bankKind;
+                b.style.borderColor = on ? '#2563eb' : '#cbd5e1';
+                b.style.background = on ? '#eff6ff' : '#fff';
+                b.style.color = on ? '#1e40af' : '#64748b';
+            });
+        };
+    });
+
     overlay.querySelector('#btn-back-step').onclick = () => {
         overlay.querySelector('#recv-step-2').style.display = 'none';
         overlay.querySelector('#recv-step-1').style.display = 'block';
@@ -1443,6 +1475,14 @@ window.markReceivablePaid = function (id, balance, invoiceNumber, custName, tota
             if (isFullyPaid) {
                 const invoiceRecord = window.receivablesData.invoices.find(i => String(i.id) === String(id)) || inv;
                 await markLinkedRentalTripsSettled(invoiceRecord, null);
+                // Record how they paid on the order (never blocks the payment itself).
+                try {
+                    if (typeof window.applyStopPayFromAccounts === 'function') {
+                        await window.applyStopPayFromAccounts(invoiceRecord, { cashAmount, bankAmount, bankKind });
+                    }
+                } catch (spErr) {
+                    console.warn('[Receivables] Could not update stop payment on order', spErr);
+                }
             }
 
             if (cashAmount > 0) {
@@ -1650,6 +1690,11 @@ window.revertReceivable = async function (id) {
             ledger = await window.removeCashLedgerForInvoice(invNo);
         }
         await window.unsetLinkedTripsFromReceivable(inv, { silent: true });
+        try {
+            if (typeof window.clearStopPayFromAccounts === 'function') await window.clearStopPayFromAccounts(inv);
+        } catch (spErr) {
+            console.warn('[Receivables] Could not clear stop payment on order', spErr);
+        }
         const { error } = await window.db.from('receivables_invoices').update({
             status: 'PENDING',
             amount_paid: 0,

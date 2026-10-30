@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=33">
+    <link rel="stylesheet" href="./style.css?v=34">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -26,13 +26,13 @@
     <script src="./js/force-uppercase.js?v=1"></script>
     <script src="./js/data-mapping.js?v=26"></script>
     <script src="./js/driver-trip-start.js?v=6"></script>
-    <script src="./js/stop-payment.js?v=5"></script>
+    <script src="./js/stop-payment.js?v=7"></script>
     <script src="./js/order-pdf.js?v=6"></script>
     <script src="./js/driver-cash-wallet.js?v=12"></script>
     <script src="./js/realtime-sync.js?v=6" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1715" defer></script>
-    <script src="./js/delivery-calendar.js?v=1742" defer></script>
+    <script src="./js/delivery-calendar.js?v=1744" defer></script>
     <script src="./js/driver-settlements.js?v=1717" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1737" defer></script>
@@ -48,7 +48,7 @@
     <script src="./js/invoice-automation.js?v=21" defer></script>
     <script src="./js/attendance.js?v=5" defer></script>
     <script src="./js/accounting.js?v=110" defer></script>
-    <script src="./js/receivables.js?v=35" defer></script>
+    <script src="./js/receivables.js?v=36" defer></script>
     <!-- CSV Import and PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>
     <script src="./js/csv-import.js?v=16" defer></script>
@@ -2360,17 +2360,32 @@
                             <div class="stop-pay-controls">
                                 <div class="stop-pay-plan-btns">
                                     <button type="button" id="btn-stop-plan-cash" class="stop-pay-plan-btn" aria-pressed="false"
+                                        title="Click again to clear (internal / no charge)"
                                         onclick="window.selectStopPayPlan && window.selectStopPayPlan('CASH')">CASH</button>
                                     <button type="button" id="btn-stop-plan-zelle" class="stop-pay-plan-btn" aria-pressed="false"
+                                        title="Click again to clear (internal / no charge)"
                                         onclick="window.selectStopPayPlan && window.selectStopPayPlan('ZELLE')">ZELLE</button>
+                                    <button type="button" id="btn-stop-plan-wire" class="stop-pay-plan-btn" aria-pressed="false"
+                                        title="Wire transfer. Click again to clear (internal / no charge)"
+                                        onclick="window.selectStopPayPlan && window.selectStopPayPlan('WIRE')">WIRE</button>
+                                    <button type="button" id="btn-stop-plan-check" class="stop-pay-plan-btn" aria-pressed="false"
+                                        title="Click again to clear (internal / no charge)"
+                                        onclick="window.selectStopPayPlan && window.selectStopPayPlan('CHECK')">CHECK</button>
+                                    <button type="button" id="btn-stop-plan-card" class="stop-pay-plan-btn" aria-pressed="false"
+                                        title="Click again to clear (internal / no charge)"
+                                        onclick="window.selectStopPayPlan && window.selectStopPayPlan('CARD')">CARD</button>
                                     <button type="button" id="btn-stop-plan-bill-later" class="stop-pay-plan-btn" aria-pressed="false"
+                                        title="Click again to clear (internal / no charge)"
                                         onclick="window.selectStopPayPlan && window.selectStopPayPlan('BILL_LATER')">BILL LATER</button>
                                 </div>
                                 <div id="calendar-stop-pay-result-box" class="stop-pay-result-box" style="display:none;">
                                     <div id="calendar-stop-pay-result" class="stop-pay-status-chip">WAITING</div>
                                     <div class="stop-pay-mark-row">
-                                        <button type="button" class="stop-pay-mark-btn" onclick="window.handleCalendarPaidCash && window.handleCalendarPaidCash()">PAID CASH</button>
-                                        <button type="button" class="stop-pay-mark-btn stop-pay-mark-zelle" onclick="window.handleCalendarPaidZelle && window.handleCalendarPaidZelle()">PAID ZELLE</button>
+                                        <button type="button" id="btn-cal-paid-cash" class="stop-pay-mark-btn" onclick="window.handleCalendarPaid && window.handleCalendarPaid('CASH')">PAID CASH</button>
+                                        <button type="button" id="btn-cal-paid-zelle" class="stop-pay-mark-btn stop-pay-mark-zelle" onclick="window.handleCalendarPaid && window.handleCalendarPaid('ZELLE')">PAID ZELLE</button>
+                                        <button type="button" id="btn-cal-paid-wire" class="stop-pay-mark-btn stop-pay-mark-wire" onclick="window.handleCalendarPaid && window.handleCalendarPaid('WIRE')">PAID WIRE</button>
+                                        <button type="button" id="btn-cal-paid-check" class="stop-pay-mark-btn stop-pay-mark-check" onclick="window.handleCalendarPaid && window.handleCalendarPaid('CHECK')">PAID CHECK</button>
+                                        <button type="button" id="btn-cal-paid-card" class="stop-pay-mark-btn stop-pay-mark-card" onclick="window.handleCalendarPaid && window.handleCalendarPaid('CARD')">PAID CARD</button>
                                     </div>
                                 </div>
                             </div>
@@ -3108,9 +3123,15 @@
                                 <p class="docs-stop-pay-hint">How did the customer pay? This is not printed on the receipt.</p>
                                 <div class="docs-stop-pay-btns">
                                     <button type="button" id="btn-docs-paid-cash" class="stop-pay-mark-btn"
-                                        onclick="window.handleDocsPaidCash && window.handleDocsPaidCash()">PAID CASH</button>
+                                        onclick="window.handleDocsPaid && window.handleDocsPaid('CASH')">PAID CASH</button>
                                     <button type="button" id="btn-docs-paid-zelle" class="stop-pay-mark-btn stop-pay-mark-zelle"
-                                        onclick="window.handleDocsPaidZelle && window.handleDocsPaidZelle()">PAID ZELLE</button>
+                                        onclick="window.handleDocsPaid && window.handleDocsPaid('ZELLE')">PAID ZELLE</button>
+                                    <button type="button" id="btn-docs-paid-wire" class="stop-pay-mark-btn stop-pay-mark-wire"
+                                        onclick="window.handleDocsPaid && window.handleDocsPaid('WIRE')">PAID WIRE</button>
+                                    <button type="button" id="btn-docs-paid-check" class="stop-pay-mark-btn stop-pay-mark-check"
+                                        onclick="window.handleDocsPaid && window.handleDocsPaid('CHECK')">PAID CHECK</button>
+                                    <button type="button" id="btn-docs-paid-card" class="stop-pay-mark-btn stop-pay-mark-card"
+                                        onclick="window.handleDocsPaid && window.handleDocsPaid('CARD')">PAID CARD</button>
                                 </div>
                             </div>
                         </div>

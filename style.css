@@ -2253,7 +2253,7 @@ main {
 
 .stop-pay-mark-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 4px;
     width: 100%;
 }
@@ -2268,6 +2268,24 @@ main {
     border-color: #2563eb;
     background: #eff6ff;
     color: #1e40af;
+}
+
+.stop-pay-plan-btn.is-on[id="btn-stop-plan-wire"] {
+    border-color: #475569;
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.stop-pay-plan-btn.is-on[id="btn-stop-plan-check"] {
+    border-color: #d97706;
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.stop-pay-plan-btn.is-on[id="btn-stop-plan-card"] {
+    border-color: #db2777;
+    background: #fdf2f8;
+    color: #9d174d;
 }
 
 .stop-pay-plan-btn.is-on[id="btn-stop-plan-bill-later"] {
@@ -2291,6 +2309,18 @@ main {
 
 .stop-pay-mark-btn.stop-pay-mark-zelle {
     background: #2563eb;
+}
+
+.stop-pay-mark-btn.stop-pay-mark-wire {
+    background: #475569;
+}
+
+.stop-pay-mark-btn.stop-pay-mark-check {
+    background: #d97706;
+}
+
+.stop-pay-mark-btn.stop-pay-mark-card {
+    background: #db2777;
 }
 
 .stop-pay-mark-btn.is-on {
@@ -2350,7 +2380,13 @@ main {
 
 .docs-stop-pay-btns {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
+}
+
+.docs-stop-pay-btns .stop-pay-mark-btn {
+    flex: 1 1 calc(33.333% - 10px);
+    min-width: 90px;
 }
 
 .docs-stop-pay-bar .stop-pay-mark-btn {
@@ -2658,6 +2694,7 @@ main {
 
     #docs-view .docs-stop-pay-btns {
         flex-direction: row;
+        flex-wrap: wrap;
     }
 
     #docs-view .docs-stop-pay-bar .stop-pay-mark-btn {

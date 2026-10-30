@@ -6,5 +6,5 @@ alter table trips
   add column if not exists stop_pay_result_at timestamptz,
   add column if not exists stop_pay_result_by text;
 
-comment on column trips.stop_pay_plan is 'CASH | ZELLE | BILL_LATER';
-comment on column trips.stop_pay_result is 'WAITING | PAID_CASH | PAID_ZELLE';
+comment on column trips.stop_pay_plan is 'CASH | ZELLE | WIRE | CHECK | CARD | BILL_LATER (empty = internal / no charge)';
+comment on column trips.stop_pay_result is 'WAITING | PAID_CASH | PAID_ZELLE | PAID_WIRE | PAID_CHECK | PAID_CARD | PAID_BANK | PAID_SPLIT';
