@@ -222,7 +222,11 @@
                 normPaid(t.st_trans_extra),     // 83
                 t.xe_cash || false,             // 84
                 t.driver_started_at || '',      // 85 — driver started this trip
-                t.driver_started_by || ''       // 86
+                t.driver_started_by || '',      // 86
+                t.stop_pay_plan || '',          // 87 — CASH | ZELLE | BILL_LATER
+                t.stop_pay_result || '',        // 88 — WAITING | PAID_CASH | PAID_ZELLE
+                t.stop_pay_result_at || '',     // 89
+                t.stop_pay_result_by || ''      // 90
             ];
         }
 
@@ -312,6 +316,10 @@
                 st_trans_extra: row[83] || 'PEND',
                 xe_cash: row[84] === true || row[84] === 'true'
             };
+            if (row[87]) obj.stop_pay_plan = row[87];
+            if (row[88]) obj.stop_pay_result = row[88];
+            if (row[89]) obj.stop_pay_result_at = row[89];
+            if (row[90]) obj.stop_pay_result_by = row[90];
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB
             if (row[56] && row[56] !== '') {

@@ -2148,6 +2148,234 @@ main {
     vertical-align: middle;
 }
 
+#calendar-view #calendar-driver-start-box {
+    align-items: flex-start;
+}
+
+.cal-driver-start-controls {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cal-driver-start-status {
+    width: 100%;
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #c2410c;
+    background: #ffedd5;
+    border-radius: 4px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+}
+
+.cal-driver-start-btn {
+    width: 100%;
+    height: 30px;
+    border: none;
+    border-radius: 4px;
+    background: #16a34a;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.68rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.cal-driver-clear-btn {
+    background: #64748b;
+}
+
+#calendar-view #stop-pay-plan-group {
+    align-items: flex-start;
+}
+
+#calendar-view #stop-pay-plan-group .sidebar-label-btn {
+    height: auto;
+    min-height: 30px;
+    margin-top: 0;
+}
+
+.stop-pay-controls {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stop-pay-plan-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    width: 100%;
+}
+
+.stop-pay-plan-btn {
+    width: 100%;
+    min-width: 0;
+    height: 30px;
+    padding: 0 4px;
+    border-radius: 4px;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    color: #64748b;
+    font-weight: 800;
+    font-size: 0.62rem;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+}
+
+.stop-pay-result-box {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stop-pay-status-chip {
+    width: 100%;
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #9a3412;
+    background: #ffedd5;
+    border-radius: 4px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+}
+
+.stop-pay-mark-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    width: 100%;
+}
+
+.stop-pay-plan-btn.is-on[id="btn-stop-plan-cash"] {
+    border-color: #059669;
+    background: #ecfdf5;
+    color: #065f46;
+}
+
+.stop-pay-plan-btn.is-on[id="btn-stop-plan-zelle"] {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1e40af;
+}
+
+.stop-pay-plan-btn.is-on[id="btn-stop-plan-bill-later"] {
+    border-color: #7c3aed;
+    background: #f5f3ff;
+    color: #5b21b6;
+}
+
+.stop-pay-mark-btn {
+    width: 100%;
+    height: 30px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 4px;
+    background: #059669;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.62rem;
+    cursor: pointer;
+}
+
+.stop-pay-mark-btn.stop-pay-mark-zelle {
+    background: #2563eb;
+}
+
+.stop-pay-mark-btn.is-on {
+    box-shadow: 0 0 0 2px #0f172a;
+}
+
+.stop-pay-chip {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.stop-pay-chip.stop-pay-later {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+.stop-pay-chip.stop-pay-wait {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.stop-pay-chip.stop-pay-paid {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.docs-receipt-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 210mm;
+    max-width: 100%;
+    flex: 0 0 210mm;
+}
+
+.docs-stop-pay-bar {
+    margin-top: 16px;
+    padding: 16px;
+    background: #0f172a;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.docs-stop-pay-hint {
+    margin: 0 0 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.docs-stop-pay-btns {
+    display: flex;
+    gap: 10px;
+}
+
+.docs-stop-pay-bar .stop-pay-mark-btn {
+    height: 52px;
+    font-size: 0.95rem;
+}
+
+.docs-stop-pay-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.docs-stop-pay-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 999px;
+}
+
+.docs-stop-pay-label.stop-pay-later { background: #ede9fe; color: #5b21b6; }
+.docs-stop-pay-label.stop-pay-wait { background: #ffedd5; color: #9a3412; }
+.docs-stop-pay-label.stop-pay-paid { background: #dcfce7; color: #166534; }
+
 .trip-item h4 {
     font-size: 0.85rem;
     margin: 0;
@@ -2368,6 +2596,73 @@ main {
         border: 1px solid #e2e8f0;
         border-radius: 8px;
         margin-bottom: 20px;
+    }
+
+    #docs-view.view-section .receipt-preview-panel {
+        overflow: visible !important;
+        height: auto !important;
+        padding: 0 !important;
+        order: 2;
+    }
+
+    #docs-view .docs-preview-scroll {
+        display: flex !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        gap: 12px !important;
+        padding: 12px !important;
+        overflow: visible !important;
+        height: auto !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+    }
+
+    #docs-view .docs-receipt-stack {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+    }
+
+    #docs-view #receipt-a4.a4-paper {
+        width: 100% !important;
+        min-height: 0 !important;
+        margin-bottom: 0 !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+    }
+
+    #docs-view #receipt-a4 .receipt-content-wrapper {
+        padding: 8px !important;
+    }
+
+    #docs-view #trip-photos-gallery {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        order: 0;
+    }
+
+    #docs-view .docs-stop-pay-bar {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        margin-top: 0;
+        position: sticky;
+        bottom: 10px;
+        z-index: 30;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    #docs-view .docs-stop-pay-btns {
+        flex-direction: row;
+    }
+
+    #docs-view .docs-stop-pay-bar .stop-pay-mark-btn {
+        height: 56px;
+        font-size: 1rem;
     }
 
     /* Custom Receipt Tables Mobile Fix */

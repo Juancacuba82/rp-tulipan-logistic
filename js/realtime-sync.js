@@ -200,6 +200,7 @@ function renderAfterTripsChange() {
     } else if (activeView === 'docs-receipts' && typeof window.loadDocTrips === 'function') {
         window.loadDocTrips(false);
         if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
+        if (typeof window.syncStopPayDocsUI === 'function') window.syncStopPayDocsUI();
     } else if (activeView === 'driver-settlements' && typeof window.renderDriverLog === 'function') {
         window.renderDriverLog();
     } else if (activeView === 'inventory' && typeof window.renderInventorTable === 'function') {

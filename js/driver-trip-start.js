@@ -287,7 +287,7 @@
             box.style.display = 'none';
             return;
         }
-        box.style.display = 'block';
+        box.style.display = 'flex';
         if (trip[STARTED_AT]) {
             const when = trip[STARTED_AT] ? new Date(trip[STARTED_AT]).toLocaleString() : '';
             if (label) label.textContent = 'Driver is doing this trip now' + (when ? ' · ' + when : '');

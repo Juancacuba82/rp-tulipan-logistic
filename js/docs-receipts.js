@@ -288,6 +288,10 @@
                 const pdfChip = (trip[78])
                     ? `<p style="margin-top:6px; font-size:0.7rem; font-weight:800; color:#0f766e;"><i class="fas fa-file-pdf"></i> PDF attached</p>`
                     : '';
+                const payChip = (typeof window.stopPayChip === 'function') ? window.stopPayChip(trip) : { html: '' };
+                const payChipHtml = payChip.html
+                    ? `<p style="margin-top:6px;">${payChip.html}</p>`
+                    : '';
 
                 div.innerHTML = `
                         <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}${doingBadge}</h4>
@@ -295,6 +299,7 @@
                         <p>${displayCont} | ${displayCustomer}</p>
                         <p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>
                         ${collectChip}
+                        ${payChipHtml}
                         ${pdfChip}
                     `;
                 div.onclick = () => fillReceiptFromTrip(trip, div);
@@ -311,6 +316,7 @@
             }
         }
         if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
+        if (typeof window.syncStopPayDocsUI === 'function') window.syncStopPayDocsUI();
     }
 
     window.fillReceiptFromTrip = async function (trip, el) {
@@ -324,6 +330,10 @@
             const details = await window.getTripDetails(tripId);
             if (details && typeof mapTripToArray === 'function') {
                 const fresh = mapTripToArray(details);
+                fresh[87] = details.stop_pay_plan || fresh[87] || '';
+                fresh[88] = details.stop_pay_result || fresh[88] || '';
+                fresh[89] = details.stop_pay_result_at || fresh[89] || '';
+                fresh[90] = details.stop_pay_result_by || fresh[90] || '';
                 window.currentDocTrip = fresh;
                 trip = fresh;
                 if (window.docsTripsCache) {
@@ -339,18 +349,24 @@
                 trip[80] = Array.isArray(details.order_pdf_signatures)
                     ? details.order_pdf_signatures
                     : (trip[80] || []);
+                trip[87] = details.stop_pay_plan || trip[87] || '';
+                trip[88] = details.stop_pay_result || trip[88] || '';
+                trip[89] = details.stop_pay_result_at || trip[89] || '';
+                trip[90] = details.stop_pay_result_by || trip[90] || '';
             }
+            if (typeof window.hydrateStopPayOnTrip === 'function') window.hydrateStopPayOnTrip(window.currentDocTrip);
         }
 
         window.drawReceipt();
         window.renderTripPhotos();
         if (window.renderDocsOrderPdf) window.renderDocsOrderPdf();
         if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
+        if (typeof window.syncStopPayDocsUI === 'function') window.syncStopPayDocsUI();
 
         if (window.innerWidth <= 1024) {
-            const previewToolbar = document.querySelector('#docs-view .receipt-preview-toolbar');
-            if (previewToolbar) {
-                previewToolbar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const paper = document.getElementById('receipt-a4');
+            if (paper) {
+                paper.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
 

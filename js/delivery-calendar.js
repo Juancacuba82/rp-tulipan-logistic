@@ -1075,6 +1075,28 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         console.error("Error validando documentos:", checkErr);
                         // Proceder si hay error de red para no bloquear el sistema por completo
                     }
+
+                    const stopPlanNow = (typeof window.readStopPayPlanFromForm === 'function')
+                        ? window.readStopPayPlanFromForm()
+                        : '';
+                    const editingRow = window.currentTrips && editingIndex !== null
+                        ? window.currentTrips[editingIndex]
+                        : (window.currentTrips || []).find(t => t && t[0] === editingTripDbId);
+                    const stopProbe = editingRow ? editingRow.slice() : [];
+                    stopProbe[87] = stopPlanNow;
+                    const stopWait = (stopPlanNow === 'CASH' || stopPlanNow === 'ZELLE')
+                        && typeof window.stopPayNeedsDriverMark === 'function'
+                        && window.stopPayNeedsDriverMark(stopProbe);
+                    if (stopWait) {
+                        const keepGoing = confirm(
+                            'Stop payment is still WAITING (Cash or Zelle).\n\nComplete this order anyway?'
+                        );
+                        if (!keepGoing) {
+                            isSaving = false;
+                            restoreTripArchiveButtonUI();
+                            return;
+                        }
+                    }
                 }
                 // -----------------------------------------------------------
 
@@ -1323,6 +1345,18 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 rowData[84] = document.getElementById('in-trans-extra-pay-method')?.value === 'cash';
                 const extraCashBox = document.getElementById('in-trans-extra-cash');
                 if (extraCashBox) extraCashBox.checked = !!rowData[84];
+                rowData[85] = prevCashRow ? (prevCashRow[85] || '') : '';
+                rowData[86] = prevCashRow ? (prevCashRow[86] || '') : '';
+                const formPlan = (typeof window.readStopPayPlanFromForm === 'function')
+                    ? window.readStopPayPlanFromForm()
+                    : '';
+                const stopPlan = formPlan || (prevCashRow ? (prevCashRow[87] || '') : '');
+                rowData[87] = stopPlan;
+                let stopRes = prevCashRow ? (prevCashRow[88] || '') : '';
+                if ((stopPlan === 'CASH' || stopPlan === 'ZELLE') && !stopRes) stopRes = 'WAITING';
+                rowData[88] = stopRes;
+                rowData[89] = prevCashRow ? (prevCashRow[89] || '') : '';
+                rowData[90] = prevCashRow ? (prevCashRow[90] || '') : '';
 
                 const dbObj = mapArrayToTrip(rowData);
                 const toYardDest = document.getElementById('in-to-yard-dest')?.value || 'RPTULIPAN';
@@ -1428,7 +1462,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started/i.test(masterErr.message || '')) {
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started|stop_pay/i.test(masterErr.message || '')) {
                     console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
@@ -1441,6 +1475,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     delete masterPayload.xe_cash;
                     delete masterPayload.driver_started_at;
                     delete masterPayload.driver_started_by;
+                    delete masterPayload.stop_pay_plan;
+                    delete masterPayload.stop_pay_result;
+                    delete masterPayload.stop_pay_result_at;
+                    delete masterPayload.stop_pay_result_by;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
@@ -1811,6 +1849,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             editingTripDbId = null;
             window.editingTripDbId = null;
             if (typeof window.syncCalendarDriverStartUI === 'function') window.syncCalendarDriverStartUI();
+            if (typeof window.selectStopPayPlan === 'function') window.selectStopPayPlan('');
+            if (typeof window.syncStopPayForm === 'function') window.syncStopPayForm(null);
             window.pendingOrderPdfFile = null;
             const parentHid = document.getElementById('in-parent-trip-id');
             if (parentHid) parentHid.value = '';
@@ -2106,8 +2146,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         if (cellIdx < displayData.length) {
                             cells[cellIdx].style.backgroundColor = '';
                             cells[cellIdx].style.color = '';
-                            if (cellIdx === 5 && typeof window.calendarArOrderCellHtml === 'function' && rowData[0]) {
-                                cells[cellIdx].innerHTML = window.calendarArOrderCellHtml(val, rowData[0]);
+                            if (cellIdx === 5) {
+                                let orderHtml = '';
+                                if (typeof window.calendarArOrderCellHtml === 'function' && rowData[0]) {
+                                    orderHtml = window.calendarArOrderCellHtml(val, rowData[0]);
+                                } else {
+                                    orderHtml = val || '';
+                                }
+                                const payChip = (typeof window.stopPayChip === 'function') ? window.stopPayChip(rowData) : { html: '' };
+                                if (payChip.html) orderHtml += ' ' + payChip.html;
+                                cells[cellIdx].innerHTML = orderHtml;
                             } else {
                                 cells[cellIdx].textContent = val;
                             }
@@ -2704,6 +2752,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 updateStatusColor(sval);
             }
             if (typeof window.syncCalendarDriverStartUI === 'function') window.syncCalendarDriverStartUI();
+            if (typeof window.syncStopPayForm === 'function') window.syncStopPayForm(rowData);
 
             document.getElementById('in-yardpaid').checked = (rowData[30] === 'PAID');
             document.getElementById('in-rentpaid').checked = (rowData[31] === 'PAID');
@@ -3189,6 +3238,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             clone[84] = false;
             clone[85] = '';
             clone[86] = '';
+            clone[87] = '';
+            clone[88] = '';
+            clone[89] = '';
+            clone[90] = '';
 
             try {
                 const dbObj = mapArrayToTrip(clone);
@@ -3869,13 +3922,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 const startedForOrder = familyMoves.find(m => m && m[85] && (
                                     (m[5] || '') === (rowData[5] || '') || m[0] === rowData[0]
                                 )) || startedMove;
+                                const paySrc = startedForOrder || rowData;
+                                const payChip = (typeof window.stopPayChip === 'function')
+                                    ? window.stopPayChip(paySrc)
+                                    : { html: '' };
+                                let orderHtml = text ? `<span style="font-weight:800;">${text}</span>` : '';
                                 if (startedForOrder && text) {
                                     const badge = (typeof window.driverStartBadgeHtml === 'function')
                                         ? window.driverStartBadgeHtml(startedForOrder, false)
                                         : ' <span style="background:#ea580c;color:#fff;padding:2px 6px;border-radius:999px;font-size:0.65rem;font-weight:800;">DOING NOW</span>';
-                                    td.innerHTML = `<span style="font-weight:800;">${text}</span> ${badge}`;
+                                    orderHtml += ' ' + badge;
                                     td.title = 'Driver started this trip' + (startedForOrder[85] ? (' at ' + new Date(startedForOrder[85]).toLocaleString()) : '');
                                 }
+                                if (payChip.html) orderHtml += ' ' + payChip.html;
+                                if (orderHtml) td.innerHTML = orderHtml;
                             }
 
                             // --- DUPLICATE CONTAINER WARNING UI ---
@@ -5670,6 +5730,10 @@ window.duplicateTrip = async function (tripId) {
         if (clone.length > 75) clone[75] = null;
         clone[85] = '';
         clone[86] = '';
+        clone[87] = '';
+        clone[88] = '';
+        clone[89] = '';
+        clone[90] = '';
 
         const qty = parseInt(clone[53]) || 1;
         let pending = 0;
