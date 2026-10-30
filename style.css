@@ -3818,16 +3818,50 @@ main {
     opacity: 0.8;
 }
 
+.calc-receipt {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .calc-row-modern {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 12px 0;
     border-bottom: 1px solid #f1f5f9;
+    gap: 8px;
 }
 
 .calc-row-modern:last-of-type {
     border-bottom: none;
+}
+
+.calc-op {
+    width: 22px;
+    flex-shrink: 0;
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: #64748b;
+    text-align: center;
+}
+
+.calc-op-minus {
+    color: #dc2626;
+}
+
+.calc-row-subtotal {
+    background: #f8fafc;
+    margin: 6px -8px;
+    padding: 12px 8px;
+    border: none;
+    border-radius: 8px;
+}
+
+.calc-row-subtotal .calc-result-modern {
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #0f172a;
 }
 
 .calc-label-modern {
@@ -3903,13 +3937,184 @@ main {
     color: #1e40af;
 }
 
+.cash-who-line {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.final-result-box.owes-company {
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+}
+
+.final-result-box.owes-company .final-value {
+    color: #c2410c;
+}
+
+.final-result-box.owes-company .cash-who-line {
+    color: #9a3412;
+}
+
+.final-result-box.owes-driver {
+    background: #ecfdf5;
+    border: 1px solid #6ee7b7;
+}
+
+.final-result-box.owes-driver .final-value {
+    color: #047857;
+}
+
+.final-result-box.owes-driver .cash-who-line {
+    color: #065f46;
+}
+
 .card-green .final-value {
     color: #065f46;
+}
+
+.driver-week-summary {
+    margin: 0 0 16px;
+}
+
+.dws-hero {
+    border-radius: 16px;
+    padding: 20px 18px 18px;
+    text-align: center;
+    background: #f8fafc;
+    border: 2px solid #cbd5e1;
+}
+
+.dws-hero .dws-kicker {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.dws-hero-value {
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+}
+
+.dws-hero-sub {
+    margin-top: 8px;
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.dws-hero.owes-company {
+    background: #fff7ed;
+    border-color: #ea580c;
+    color: #9a3412;
+}
+
+.dws-hero.owes-company .dws-hero-value {
+    color: #c2410c;
+}
+
+.dws-hero.owes-driver {
+    background: #ecfdf5;
+    border-color: #059669;
+    color: #065f46;
+}
+
+.dws-hero.owes-driver .dws-hero-value {
+    color: #047857;
+}
+
+.dws-hero.even {
+    color: #334155;
+}
+
+.dws-range {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 12px 2px 8px;
+}
+
+.dws-steps {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.dws-step {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.dws-step strong {
+    font-size: 1.15rem;
+    font-weight: 900;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.dws-step.dws-pay-share {
+    background: #ecfdf5;
+    color: #065f46;
+}
+
+.dws-step.dws-pay-share strong {
+    color: #047857;
+}
+
+.dws-step.dws-total {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.dws-step.dws-total strong {
+    color: #c2410c;
+}
+
+.dws-step:last-child {
+    border-bottom: none;
+}
+
+.dws-help {
+    margin: 10px 4px 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    line-height: 1.45;
 }
 
 @media (max-width: 1024px) {
     .weekly-calculator-container {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .dws-hero-value {
+        font-size: 2.6rem;
+    }
+    .dws-step {
+        font-size: 0.9rem;
+        padding: 16px 14px;
+    }
+    .dws-step strong {
+        font-size: 1.2rem;
     }
 }
 

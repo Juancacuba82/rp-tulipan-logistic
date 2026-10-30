@@ -32,11 +32,12 @@
                     
                     // ROLE SECURITY: Driver ONLY sees their own name
                     if (window.currentUserRole === 'driver') {
-                        const drvRef = (window.currentDriverNameRef || '').toLowerCase();
-                        const rDrvClean = rDriver.toLowerCase().replace(/[^a-z0-9]/gi, '');
-                        const drvRefClean = drvRef.toLowerCase().replace(/[^a-z0-9]/gi, '');
-                        if (rDrvClean.length === 0 || drvRefClean.length === 0) return false;
-                        if (!rDrvClean.includes(drvRefClean) && !drvRefClean.includes(rDrvClean)) return false;
+                        const drvRef = window.currentDriverNameRef || '';
+                        if (window.driverNamesMatch) {
+                            if (!window.driverNamesMatch(drvRef, rDriver)) return false;
+                        } else {
+                            if (rDriver.toLowerCase().trim() !== drvRef.toLowerCase().trim()) return false;
+                        }
                     }
 
                     const rStAmount = r[34];
@@ -45,19 +46,28 @@
 
                     const rStatus = (r[41] || '').toUpperCase();
 
-                    const matchesSearch = !searchTerm || rDriver.toLowerCase().trim() === searchTerm.trim()
+                    const drvNameMatch = window.driverNamesMatch
+                        ? window.driverNamesMatch(searchTerm, rDriver)
+                        : rDriver.toLowerCase().trim() === searchTerm.trim();
+                    const matchesSearch = !searchTerm || drvNameMatch
                         || rCont.toLowerCase().includes(searchTerm)
                         || rOrder.toLowerCase().includes(searchTerm);
-                    const matchesDate = (!dateFrom || rDate >= dateFrom) && (!dateTo || rDate <= dateTo);
+                    const dateKey = String(rDate || '').slice(0, 10);
+                    const matchesDate = (!dateFrom || dateKey >= dateFrom) && (!dateTo || dateKey <= dateTo);
                     
-                    // Asegurarnos de que no filtre "PENDING"
-                    // BUG FIX: PENDING_PAYMENT es el estado guardado cuando la orden sigue en "Pending" en el UI.
+                    // Admin settlement list: completed trips only.
+                    // Driver week view: anything assigned except still-open PENDING.
                     const isComplete = (rStatus === 'PAID' || rStatus === 'COMPLETE');
+                    const driverCanSee = window.isPlainDriverView
+                        && window.isPlainDriverView()
+                        && rStatus !== 'PENDING'
+                        && rStatus !== 'CANCELLED'
+                        && rStatus !== 'CANCELED';
 
-                    return matchesSearch && matchesDate && isComplete;
+                    return matchesSearch && matchesDate && (isComplete || driverCanSee);
                 });
 
-                if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                if (window.resetWeeklyCalculator) window.resetWeeklyCalculator();
 
                 // --- DRIVER LOG LOGIC ---
                 let selectedIndices = new Set();
@@ -87,15 +97,13 @@
                     const grossInput = document.getElementById('calc-gross');
 
                     if (selectedIndices.size === 0) {
-                        if (!editingSettlementId) {
-                            if (grossInput) grossInput.value = "0";
-                            const drvSel = document.getElementById('filter-search');
-                            const drvName = drvSel?.options[drvSel.selectedIndex]?.text || drvSel?.value;
-                            if (window.syncCalculatorFromDriverWallet) window.syncCalculatorFromDriverWallet(drvName);
-                            else if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+                        if (!editingSettlementId && window.resetWeeklyCalculator) {
+                            window.resetWeeklyCalculator();
                         }
                         return;
                     }
+
+                    window.driverCalcReady = true;
 
                     let totalPaidDriverGross = 0;
                     let totalAdjustedCommission = 0;
@@ -128,8 +136,9 @@
                     // Cash Collected comes from the driver wallet, not from Amount PAID rows
                     const drvName = document.getElementById('filter-search')?.options[document.getElementById('filter-search')?.selectedIndex]?.text
                         || document.getElementById('filter-search')?.value;
-                    if (calcCashColl && window.getDriverWallet && !editingSettlementId) {
-                        calcCashColl.value = window.getDriverWallet(drvName).toFixed(2);
+                    if (calcCashColl && !editingSettlementId) {
+                        const wallet = window.getDriverWallet ? window.getDriverWallet(drvName) : 0;
+                        calcCashColl.value = Math.max(wallet, totalCash).toFixed(2);
                     }
 
                     // Trigger the math for Balance and Driver Salary results
@@ -165,19 +174,22 @@
                 currentFilteredRows = filtered;
                 window.currentFilteredRowsDriver = filtered;
                 const fragment = document.createDocumentFragment();
+                const lockDriverRows = window.isPlainDriverView && window.isPlainDriverView();
                 filtered.forEach((r, idx) => {
                     const tr = document.createElement('tr');
-                    tr.style.cursor = 'pointer';
-                    tr.onclick = (e) => {
-                        if (selectedIndices.has(idx)) {
-                            selectedIndices.delete(idx);
-                            tr.classList.remove('selected-row');
-                        } else {
-                            selectedIndices.add(idx);
-                            tr.classList.add('selected-row');
-                        }
-                        updateSelectionSummary();
-                    };
+                    tr.style.cursor = lockDriverRows ? 'default' : 'pointer';
+                    if (!lockDriverRows) {
+                        tr.onclick = () => {
+                            if (selectedIndices.has(idx)) {
+                                selectedIndices.delete(idx);
+                                tr.classList.remove('selected-row');
+                            } else {
+                                selectedIndices.add(idx);
+                                tr.classList.add('selected-row');
+                            }
+                            updateSelectionSummary();
+                        };
+                    }
 
                     // Columns Map: Date(1), Size(2), N.Cont(3), Order(5), City(6), PickUp(7), Delivery(8), Miles(10), Driver(17), PaidDriver(24), Cash(22)
                     const cellIndices = [1, 2, 3, 5, 6, 7, 8, 10, 17, 24, 22];
@@ -227,11 +239,13 @@
                     reportCountEl.style.color = searchTerm ? '#10b981' : '#1e293b';
                 }
 
-                // Initialize the Selection Summary (Resets calculator to 0 if nothing selected)
+                if (lockDriverRows && currentFilteredRows.length > 0) {
+                    currentFilteredRows.forEach((_, idx) => selectedIndices.add(idx));
+                    body.querySelectorAll('tr:not(.selection-summary-row)').forEach(r => r.classList.add('selected-row'));
+                }
                 updateSelectionSummary();
 
                 // Check if this driver/week was already confirmed and color rows
-                window.checkAndColorConfirmedTrips();
                 if (window.refreshDriverCashSurfaces) window.refreshDriverCashSurfaces();
             }
         }
@@ -267,6 +281,30 @@
                 return;
             }
 
+            const money = (n) => '$' + (parseFloat(n) || 0).toLocaleString('de-DE', { minimumFractionDigits: 2 });
+            const heldEl = document.getElementById('res-cash-held');
+            const idleCalc = !editingSettlementId && !window.driverCalcReady;
+            if (idleCalc) {
+                const linkedDisplay = document.getElementById('res-linked-salary');
+                const lastBalIdle = parseFloat(elLastBal.value) || 0;
+                resSalary.textContent = money(0);
+                resSalary.dataset.value = '0';
+                if (linkedDisplay) linkedDisplay.textContent = money(0);
+                if (heldEl) heldEl.textContent = money(lastBalIdle);
+                resCashBal.textContent = money(0);
+                resCashBal.dataset.value = '0';
+                const whoEl = document.getElementById('res-cash-who');
+                const boxEl = document.getElementById('res-cash-box');
+                const labelEl = document.getElementById('res-cash-label');
+                if (boxEl) boxEl.classList.remove('owes-company', 'owes-driver');
+                if (labelEl) labelEl.textContent = 'Select trips to calculate';
+                if (whoEl) whoEl.textContent = lastBalIdle > 0.009
+                    ? ('Last week leftover is ' + money(lastBalIdle) + ' — select trips to finish')
+                    : 'Cash this week + last week − salary';
+                if (window.updateDriverWeekSummary) window.updateDriverWeekSummary();
+                return;
+            }
+
             // 1. Right Side Calculation (Settlement)
             const displayGross = parseFloat(elGross.value) || 0;
             // Requirement: Math base is the adjusted commission (30% logic) if present, else fallback to displayed gross
@@ -291,13 +329,49 @@
             const cashColl = parseFloat(elCashColl.value) || 0;
             const lastBal = parseFloat(elLastBal.value) || 0;
 
-            // Formula: Cash Balance = (Cash Collected + Last Week Balance) - Driver Salary (Settlement result)
-            const cashTotal = (cashColl + lastBal) - settlementSalary;
+            const cashHeld = cashColl + lastBal;
+            const cashTotal = cashHeld - settlementSalary;
+            if (heldEl) heldEl.textContent = money(cashHeld);
 
-            const cashFormatted = cashTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 });
-            resCashBal.textContent = `$${cashFormatted}`;
+            const absFormatted = money(Math.abs(cashTotal));
+            resCashBal.textContent = absFormatted;
             resCashBal.dataset.value = cashTotal.toFixed(2);
+
+            const whoEl = document.getElementById('res-cash-who');
+            const boxEl = document.getElementById('res-cash-box');
+            const labelEl = document.getElementById('res-cash-label');
+            if (boxEl) boxEl.classList.remove('owes-company', 'owes-driver');
+            if (cashTotal > 0.009) {
+                if (labelEl) labelEl.textContent = 'Driver owes you';
+                if (whoEl) whoEl.textContent = money(cashHeld) + ' − ' + money(settlementSalary) + ' = ' + absFormatted;
+                if (boxEl) boxEl.classList.add('owes-company');
+            } else if (cashTotal < -0.009) {
+                if (labelEl) labelEl.textContent = 'You owe the driver';
+                if (whoEl) whoEl.textContent = money(settlementSalary) + ' salary − ' + money(cashHeld) + ' cash = ' + absFormatted;
+                if (boxEl) boxEl.classList.add('owes-driver');
+            } else {
+                if (labelEl) labelEl.textContent = 'Even — nothing owed';
+                if (whoEl) whoEl.textContent = money(cashHeld) + ' − ' + money(settlementSalary) + ' = ' + money(0);
+            }
+            if (window.updateDriverWeekSummary) window.updateDriverWeekSummary();
         }
+
+        window.driverCalcReady = false;
+        window.resetWeeklyCalculator = function () {
+            if (editingSettlementId) return;
+            window.driverCalcReady = false;
+            const gross = document.getElementById('calc-gross');
+            const cash = document.getElementById('calc-cash-coll');
+            if (gross) {
+                gross.value = '0';
+                delete gross.dataset.adjusted;
+            }
+            if (cash) cash.value = '0';
+            const drvSel = document.getElementById('filter-search');
+            const drvName = drvSel?.options[drvSel.selectedIndex]?.text || drvSel?.value;
+            if (window.fillLastWeekBalance) window.fillLastWeekBalance(drvName);
+            if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+        };
 
         // --- settlement ARCHIVING SYSTEM ---
         window.currentSettlements = [];
@@ -360,9 +434,11 @@
                 if (window.currentUserRole === 'driver') {
                     const drvRef = (window.currentDriverNameRef || '').toUpperCase();
                     if (drvRef !== "ROBERT CORTEZ") {
-                        const drvClean = sDrv.replace(/[^a-z0-9]/gi, '');
-                        const drvRefClean = drvRef.toLowerCase().replace(/[^a-z0-9]/gi, '');
-                        if (drvClean.length === 0 || drvRefClean.length === 0 || (!drvClean.includes(drvRefClean) && !drvRefClean.includes(drvClean))) return false;
+                        if (window.driverNamesMatch) {
+                            if (!window.driverNamesMatch(drvRef, s.driver_name)) return false;
+                        } else if (sDrv.trim() !== drvRef.toLowerCase().trim()) {
+                            return false;
+                        }
                     }
                 }
 
@@ -665,26 +741,8 @@
                 display.style.color = '#166534'; // Dark green
                 display.style.background = '#dcfce7'; // Light green
                 display.style.borderColor = '#22c55e';
-                
-                // --- AUTOMATION: Auto-load Last Week Balance from History ---
-                if (!editingSettlementId) {
-                    const driverName = val.toUpperCase();
-                    if (window.syncCalculatorFromDriverWallet) {
-                        window.syncCalculatorFromDriverWallet(driverName);
-                    } else {
-                    const lastSettlement = window.currentSettlements.find(s => (s.driver_name || '').toUpperCase() === driverName);
-                    const elLastBal = document.getElementById('calc-last-bal');
-                    
-                    if (elLastBal) {
-                        if (lastSettlement && lastSettlement.cash_balance > 0) {
-                            elLastBal.value = lastSettlement.cash_balance.toFixed(2);
-                            console.log(`Auto-loaded balance for ${driverName}: $${lastSettlement.cash_balance}`);
-                        } else {
-                            elLastBal.value = 0;
-                        }
-                        if (window.updateWeeklyCalc) window.updateWeeklyCalc();
-                    }
-                    }
+                if (!editingSettlementId && window.fillLastWeekBalance) {
+                    window.fillLastWeekBalance(val);
                 }
             } else {
                 display.style.color = '#b91c1c'; // Dark red
@@ -693,6 +751,7 @@
             }
             display.textContent = val.toUpperCase();
         }
+        window.syncDriverNames = syncDriverNames;
 
         async function archiveSettlement() {
             const role = (window.currentUserRole || '').toLowerCase().trim();
@@ -977,104 +1036,162 @@
         }
         window.deleteSettlement = deleteSettlement;
 
-        window.confirmReportByDriver = async function() {
-            if (window.currentUserRole !== 'driver') return;
+        window.isPlainDriverView = function () {
+            const role = (window.currentUserRole || '').toString().toLowerCase().trim();
+            if (role !== 'driver') return false;
+            const drvRef = (window.currentDriverNameRef || '').toUpperCase();
+            return drvRef !== 'ROBERT CORTEZ';
+        };
 
-            const fromField = document.getElementById('filter-from');
-            const toField   = document.getElementById('filter-to');
-            const fromVal   = fromField?.value || '';
-            const toVal     = toField?.value   || '';
+        function isoFromDate(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
 
-            if (!fromVal || !toVal) {
-                alert('Please select your week dates (Initial and Final Date) before confirming.');
-                return;
+        function mondayOf(d) {
+            const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const day = x.getDay();
+            const diff = day === 0 ? -6 : 1 - day;
+            x.setDate(x.getDate() + diff);
+            return x;
+        }
+
+        window.getDriverAutoWeekRange = function (driverName) {
+            // Pay week is Monday–Saturday (paid on Saturday).
+            const today = new Date();
+            const thisMonday = mondayOf(today);
+            const thisMondayIso = isoFromDate(thisMonday);
+            const to = isoFromDate(today);
+            let from = thisMondayIso;
+
+            const rec = window.getLatestSettlementRecord
+                ? window.getLatestSettlementRecord(driverName)
+                : null;
+            const end = rec && rec.end_date ? String(rec.end_date).slice(0, 10) : '';
+            if (end && /^\d{4}-\d{2}-\d{2}$/.test(end)) {
+                const next = new Date(end + 'T12:00:00');
+                next.setDate(next.getDate() + 1);
+                const nextIso = isoFromDate(next);
+                // Unpaid prior week(s): include from day after last settlement.
+                // Already paid through this Monday: show current week only.
+                if (nextIso < thisMondayIso) from = nextIso;
+            } else {
+                const prevMonday = new Date(thisMonday);
+                prevMonday.setDate(prevMonday.getDate() - 7);
+                from = isoFromDate(prevMonday);
             }
+            return { from, to };
+        };
 
-            const driverName = (window.currentDriverNameRef || '').toUpperCase();
-            if (!driverName) {
-                alert('Could not identify your driver profile. Please log in again.');
-                return;
+        window.applyDriverSettlementChrome = function () {
+            const driverUi = window.isPlainDriverView && window.isPlainDriverView();
+            const fromGroup = document.getElementById('filter-from')?.closest('.attendance-input-group');
+            const toGroup = document.getElementById('filter-to')?.closest('.attendance-input-group');
+            const clearBtn = document.querySelector('#reports-view .btn-reset-modern');
+            const calc = document.querySelector('.weekly-calculator-container');
+            const summary = document.getElementById('driver-week-summary');
+            const selectAllWrap = document.querySelector('#reports-view button[onclick*="toggleSelectAllDrivers"]')?.parentElement;
+            const historyWrap = document.getElementById('settlement-history-wrap');
+            const archiveWrap = document.getElementById('btn-archive-settlement')?.parentElement;
+            if (fromGroup) fromGroup.style.display = driverUi ? 'none' : '';
+            if (toGroup) toGroup.style.display = driverUi ? 'none' : '';
+            if (clearBtn) clearBtn.style.display = driverUi ? 'none' : '';
+            if (calc) calc.style.display = driverUi ? 'none' : '';
+            if (summary) summary.style.display = driverUi ? 'block' : 'none';
+            if (selectAllWrap) selectAllWrap.style.display = driverUi ? 'none' : '';
+            if (historyWrap) historyWrap.style.display = driverUi ? 'none' : '';
+            if (archiveWrap) archiveWrap.style.display = driverUi ? 'none' : '';
+        };
+
+        window.updateDriverWeekSummary = function () {
+            const payEl = document.getElementById('dws-pay');
+            if (!payEl) return;
+            const money = (n) => '$' + Math.abs(parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const salary = parseFloat(document.getElementById('res-driver-salary')?.dataset?.value) || 0;
+            const cashColl = parseFloat(document.getElementById('calc-cash-coll')?.value) || 0;
+            const lastBal = parseFloat(document.getElementById('calc-last-bal')?.value) || 0;
+            const held = cashColl + lastBal;
+            const due = held - salary;
+            const from = document.getElementById('filter-from')?.value || '';
+            const to = document.getElementById('filter-to')?.value || '';
+            const rangeEl = document.getElementById('dws-range');
+            if (rangeEl) {
+                rangeEl.textContent = (from && to)
+                    ? `Mon–Sat pay week  (${from} → ${to})`
+                    : 'How we got this';
             }
-
-            const totalPaidDriver = (window.currentFilteredRowsDriver || []).reduce((sum, r) => {
-                return sum + ((parseFloat(r[24]) || 0) * (parseInt(r[53]) || 1));
-            }, 0);
-
-            if (!confirm(`Confirm that your trips from ${fromVal} to ${toVal} are correct?\n\nBy confirming, you are letting the admin know that you have reviewed your trips for this week.\n\nContinue?`)) return;
-
-            const btn = document.getElementById('btn-driver-confirm-report');
-            if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
-
-            try {
-                // Store confirmation in activity_logs — does NOT touch settlement_history
-                const { data: { session } } = await db.auth.getSession();
-                const { error } = await db.from('activity_logs').insert([{
-                    user_email:  session?.user?.email || driverName,
-                    action_type: 'DRIVER_CONFIRMED',
-                    details:     JSON.stringify({ driver_name: driverName, start_date: fromVal, end_date: toVal, total: totalPaidDriver }),
-                    view_date:   new Date().toISOString().split('T')[0]
-                }]);
-                if (error) throw error;
-
-                alert(`✅ Confirmed! Admin will see your trips marked as reviewed.`);
-                // Re-render so rows turn green immediately for the driver too
-                if (window.renderDriverLog) window.renderDriverLog();
-            } catch (err) {
-                console.error('Confirmation failed:', err);
-                alert('Error: ' + (err.message || 'Unknown error'));
-            } finally {
-                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-double"></i> MY TRIPS ARE CORRECT — NOTIFY ADMIN'; }
+            const lastEl = document.getElementById('dws-last');
+            const cashEl = document.getElementById('dws-cash');
+            const heldEl = document.getElementById('dws-held');
+            if (lastEl) lastEl.textContent = money(lastBal);
+            if (cashEl) cashEl.textContent = money(cashColl);
+            if (heldEl) heldEl.textContent = money(held);
+            payEl.textContent = money(salary);
+            const payAgain = document.getElementById('dws-pay-again');
+            if (payAgain) payAgain.textContent = money(salary);
+            const grossEl = document.getElementById('dws-gross');
+            const rateLabel = document.getElementById('dws-rate-label');
+            const grossInput = document.getElementById('calc-gross');
+            const generated = parseFloat(grossInput?.value) || 0;
+            const adjusted = parseFloat(grossInput?.dataset?.adjusted) || generated;
+            const isThirty = generated > 0.009 && Math.abs(adjusted - generated * 0.3) < 0.05;
+            if (grossEl) grossEl.textContent = money(generated);
+            if (rateLabel) rateLabel.textContent = isThirty ? 'Your 30%' : 'Your pay';
+            const resultEl = document.getElementById('dws-result');
+            const resultCard = document.getElementById('dws-result-card');
+            const resultLabel = document.getElementById('dws-result-label');
+            const resultNote = document.getElementById('dws-result-note');
+            const helpEl = document.getElementById('dws-pay-note');
+            if (resultCard) resultCard.classList.remove('owes-company', 'owes-driver', 'even');
+            if (due > 0.009) {
+                if (resultLabel) resultLabel.textContent = 'You owe the company';
+                if (resultEl) resultEl.textContent = money(due);
+                if (resultNote) resultNote.textContent = '';
+                if (helpEl) helpEl.textContent = '';
+                if (resultCard) resultCard.classList.add('owes-company');
+            } else if (due < -0.009) {
+                if (resultLabel) resultLabel.textContent = 'The company owes you';
+                if (resultEl) resultEl.textContent = money(due);
+                if (resultNote) resultNote.textContent = '';
+                if (helpEl) helpEl.textContent = '';
+                if (resultCard) resultCard.classList.add('owes-driver');
+            } else {
+                if (resultLabel) resultLabel.textContent = 'Even — nothing owed';
+                if (resultEl) resultEl.textContent = money(0);
+                if (resultNote) resultNote.textContent = '';
+                if (helpEl) helpEl.textContent = '';
+                if (resultCard) resultCard.classList.add('even');
             }
         };
 
-        // Checks activity_logs for a DRIVER_CONFIRMED record matching current filter.
-        // If found, paints all trip rows green so admin can see the driver reviewed them.
-        window.checkAndColorConfirmedTrips = async function() {
-            const body = document.getElementById('dl-body');
-            if (!body) return;
-
-            const filterFrom   = document.getElementById('filter-from')?.value || '';
-            const filterTo     = document.getElementById('filter-to')?.value   || '';
-            const driverFilter = (document.getElementById('filter-search')?.value || '').toUpperCase();
-
-            // Need both dates AND a specific driver selected to check
-            if (!filterFrom || !filterTo || !driverFilter) return;
-
-            try {
-                const { data, error } = await db.from('activity_logs')
-                    .select('details')
-                    .eq('action_type', 'DRIVER_CONFIRMED');
-
-                if (error || !data || data.length === 0) return;
-
-                const isConfirmed = data.some(log => {
-                    try {
-                        const d = JSON.parse(log.details || '{}');
-                        return d.driver_name === driverFilter &&
-                               d.start_date  === filterFrom   &&
-                               d.end_date    === filterTo;
-                    } catch { return false; }
-                });
-
-                const rows = body.querySelectorAll('tr');
-                const indicator = document.getElementById('driver-confirmed-indicator');
-
-                if (isConfirmed) {
-                    rows.forEach(tr => {
-                        tr.style.backgroundColor = '#dcfce7';
-                        tr.style.borderLeft = '4px solid #16a34a';
-                    });
-                    if (indicator) indicator.style.display = 'flex';
-                } else {
-                    rows.forEach(tr => {
-                        tr.style.backgroundColor = '';
-                        tr.style.borderLeft = '';
-                    });
-                    if (indicator) indicator.style.display = 'none';
+        window.prepareDriverWeekView = async function () {
+            window.applyDriverSettlementChrome();
+            if (!window.isPlainDriverView || !window.isPlainDriverView()) return;
+            const name = window.currentDriverNameRef || '';
+            const sel = document.getElementById('filter-search');
+            if (sel && name) {
+                let matched = false;
+                for (let i = 0; i < sel.options.length; i++) {
+                    if ((sel.options[i].text || '').toUpperCase() === name.toUpperCase()
+                        || (sel.options[i].value || '').toUpperCase() === name.toUpperCase()) {
+                        sel.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
                 }
-            } catch (err) {
-                console.error('Error checking confirmations:', err);
+                if (!matched) sel.value = name;
             }
+            if (window.syncDriverNames) window.syncDriverNames();
+            const range = window.getDriverAutoWeekRange(name);
+            const fromEl = document.getElementById('filter-from');
+            const toEl = document.getElementById('filter-to');
+            if (fromEl) fromEl.value = range.from;
+            if (toEl) toEl.value = range.to;
+            if (window.fetchTripsForDriverReport) await window.fetchTripsForDriverReport();
+            if (window.renderDriverLog) window.renderDriverLog();
+            if (window.updateDriverWeekSummary) window.updateDriverWeekSummary();
         };
 
         // UI Utility for role-based visibility
@@ -1120,6 +1237,7 @@
             document.querySelectorAll('button[onclick*="toggleSelectAllDrivers"]').forEach(b => {
                 b.style.display = isDriver ? 'none' : '';
             });
+            if (window.applyDriverSettlementChrome) window.applyDriverSettlementChrome();
         };
 
         window.updateAvailableDriversForReport = function() {
@@ -1216,16 +1334,24 @@
                         body.innerHTML = '<tr><td colspan="15" style="text-align:center; padding:20px; font-weight:bold; color:#1e40af;"><i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> Downloading trips for selected dates...</td></tr>';
                     }
 
-                    const { data, error } = await window.db.from('trips')
+                    let query = window.db.from('trips')
                         .select('*')
                         .gte('date', dateFrom)
                         .lte('date', dateTo)
                         .or('is_deleted.eq.false,is_deleted.is.null');
+                    if (window.isPlainDriverView && window.isPlainDriverView() && window.currentDriverNameRef) {
+                        query = query.ilike('driver', `${window.currentDriverNameRef}%`);
+                    }
+                    const { data, error } = await query;
                         
                     if (error) throw error;
                     
                     if (data && window.mapTripToArray) {
-                        window.driverReportTrips = data.map(window.mapTripToArray);
+                        let rows = data.map(window.mapTripToArray);
+                        if (window.isPlainDriverView && window.isPlainDriverView() && window.driverNamesMatch) {
+                            rows = rows.filter(r => window.driverNamesMatch(window.currentDriverNameRef, r[17]));
+                        }
+                        window.driverReportTrips = rows;
                     } else {
                         window.driverReportTrips = [];
                     }

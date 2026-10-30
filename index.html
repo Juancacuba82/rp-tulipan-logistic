@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=20">
+    <link rel="stylesheet" href="./style.css?v=25">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -26,12 +26,12 @@
     <script src="./js/force-uppercase.js?v=1"></script>
     <script src="./js/data-mapping.js?v=23"></script>
     <script src="./js/order-pdf.js?v=6"></script>
-    <script src="./js/driver-cash-wallet.js?v=6"></script>
+    <script src="./js/driver-cash-wallet.js?v=12"></script>
     <script src="./js/realtime-sync.js?v=4" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1715" defer></script>
     <script src="./js/delivery-calendar.js?v=1739" defer></script>
-    <script src="./js/driver-settlements.js?v=1704" defer></script>
+    <script src="./js/driver-settlements.js?v=1715" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1737" defer></script>
     <script src="./js/company-money.js?v=33" defer></script>
@@ -3938,20 +3938,6 @@
                                 UNASSIGNED</div>
                         </div>
 
-                        <div class="driver-only" style="flex: 1; min-width: 300px;">
-                            <div
-                                style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 20px; display: flex; align-items: center; gap: 15px;">
-                                <p
-                                    style="margin: 0; font-size: 0.8rem; color: #1e40af; font-weight: 700; line-height: 1.2;">
-                                    <i class="fas fa-info-circle"></i> Review trips and confirm accuracy.
-                                </p>
-                                <button id="btn-driver-confirm-report" onclick="confirmReportByDriver()"
-                                    class="btn-add-sidebar"
-                                    style="background: #2563eb; font-size: 0.75rem; height: 38px; border-radius: 8px; flex-shrink: 0;">
-                                    <i class="fas fa-check-double"></i> CONFIRM MY TRIPS
-                                </button>
-                            </div>
-                        </div>
                         <div style="display: flex; gap: 10px;">
                             <button onclick="toggleSelectAllDrivers()" class="btn-add-sidebar"
                                 style="background: #1e293b; font-size: 0.75rem; height: 38px; border-radius: 8px;">
@@ -3960,16 +3946,44 @@
                         </div>
                     </div>
 
-                    <div id="driver-cash-wallet-banner"
-                        style="display:none; align-items:center; gap:12px; background:#fffbeb; border:2px solid #d97706; border-radius:10px; padding:12px 16px; margin-bottom:12px; color:#92400e;">
+                    <div id="driver-week-summary" class="driver-week-summary" style="display:none;">
+                        <div class="dws-hero" id="dws-result-card">
+                            <div class="dws-kicker" id="dws-result-label">Your balance</div>
+                            <div class="dws-hero-value" id="dws-result">$0.00</div>
+                            <div class="dws-hero-sub" id="dws-result-note"></div>
+                        </div>
+                        <div class="dws-range" id="dws-range">This week</div>
+                        <div class="dws-steps">
+                            <div class="dws-step" id="dws-gross-row">
+                                <span>Total</span>
+                                <strong id="dws-gross">$0.00</strong>
+                            </div>
+                            <div class="dws-step dws-pay-share" id="dws-rate-row">
+                                <span id="dws-rate-label">Your 30%</span>
+                                <strong id="dws-pay">$0.00</strong>
+                            </div>
+                            <div class="dws-step">
+                                <span>Last week leftover</span>
+                                <strong id="dws-last">$0.00</strong>
+                            </div>
+                            <div class="dws-step">
+                                <span>+ Cash from this week’s trips</span>
+                                <strong id="dws-cash">$0.00</strong>
+                            </div>
+                            <div class="dws-step dws-total">
+                                <span>= Company cash you are holding</span>
+                                <strong id="dws-held">$0.00</strong>
+                            </div>
+                            <div class="dws-step">
+                                <span>− Your pay this week</span>
+                                <strong id="dws-pay-again">$0.00</strong>
+                            </div>
+                        </div>
+                        <p class="dws-help" id="dws-pay-note"></p>
                     </div>
 
-                    <!-- Driver confirmed indicator - shown automatically by JS when driver confirmed this week -->
-                    <div id="driver-confirmed-indicator"
-                        style="display:none; align-items:center; gap:10px; background:#dcfce7; border:2px solid #16a34a; border-radius:8px; padding:10px 16px; margin-bottom:12px;">
-                        <i class="fas fa-check-circle" style="color:#16a34a; font-size:1.2rem;"></i>
-                        <span style="font-weight:800; color:#15803d; font-size:0.85rem;">DRIVER CONFIRMED — This driver
-                            reviewed and agreed with their trips for the selected week.</span>
+                    <div id="driver-cash-wallet-banner"
+                        style="display:none; align-items:center; gap:12px; background:#fffbeb; border:2px solid #d97706; border-radius:10px; padding:14px 16px; margin-bottom:12px; color:#92400e;">
                     </div>
 
                     <div class="table-scroll-container">
@@ -4009,31 +4023,40 @@
                 <!-- Card 1: Balance Summary -->
                 <div class="modern-calc-card card-blue">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-balance-scale"></i> Balance Summary</h3>
+                        <h3 class="card-title"><i class="fas fa-balance-scale"></i> Who owes whom</h3>
                     </div>
 
-                    <div class="calc-row-modern">
-                        <span class="calc-label-modern"><i class="fas fa-hand-holding-usd"></i> Cash Collected</span>
-                        <input type="number" id="calc-cash-coll" class="calc-input-modern" value="0" step="0.01"
-                            oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                            onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                    <div class="calc-receipt">
+                        <div class="calc-row-modern">
+                            <span class="calc-op" aria-hidden="true"></span>
+                            <span class="calc-label-modern">Cash this week</span>
+                            <input type="number" id="calc-cash-coll" class="calc-input-modern" value="0" step="0.01"
+                                oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                        </div>
+                        <div class="calc-row-modern">
+                            <span class="calc-op">+</span>
+                            <span class="calc-label-modern">Last week leftover</span>
+                            <input type="number" id="calc-last-bal" class="calc-input-modern" value="0" step="0.01"
+                                oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
+                                onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
+                        </div>
+                        <div class="calc-row-modern calc-row-subtotal">
+                            <span class="calc-op">=</span>
+                            <span class="calc-label-modern">Cash he is holding</span>
+                            <span id="res-cash-held" class="calc-result-modern">$0.00</span>
+                        </div>
+                        <div class="calc-row-modern">
+                            <span class="calc-op calc-op-minus">−</span>
+                            <span class="calc-label-modern">Driver salary</span>
+                            <span id="res-linked-salary" class="calc-result-modern">$0.00</span>
+                        </div>
                     </div>
 
-                    <div class="calc-row-modern">
-                        <span class="calc-label-modern"><i class="fas fa-history"></i> Last Week Balance</span>
-                        <input type="number" id="calc-last-bal" class="calc-input-modern" value="0" step="0.01"
-                            oninput="updateWeeklyCalc()" onfocus="if(this.value=='0')this.value='';"
-                            onblur="if(this.value=='')this.value='0';updateWeeklyCalc()">
-                    </div>
-
-                    <div class="calc-row-modern">
-                        <span class="calc-label-modern"><i class="fas fa-wallet"></i> Driver Salary (Deducted)</span>
-                        <span id="res-linked-salary" class="calc-result-modern">$0.00</span>
-                    </div>
-
-                    <div class="final-result-box">
-                        <span class="final-label">Final Cash Balance</span>
+                    <div class="final-result-box" id="res-cash-box">
+                        <span class="final-label" id="res-cash-label">Select trips to calculate</span>
                         <div id="res-cash-bal" class="final-value">$0.00</div>
+                        <div id="res-cash-who" class="cash-who-line">Cash holding minus salary</div>
                     </div>
                 </div>
 
@@ -4157,7 +4180,7 @@
                 </button>
             </div>
 
-            <div class="table-area"
+            <div id="settlement-history-wrap" class="table-area"
                 style="margin-top: 40px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                 <div class="table-header-modern">
                     <h3 class="table-title-modern">Settlement History</h3>
@@ -7842,8 +7865,12 @@
 
                         (async () => {
                             if (window.loadTableData) await window.loadTableData();
-                            if (window.renderDriverLog) window.renderDriverLog();
-                            if (window.fetchHistory) window.fetchHistory();
+                            if (window.fetchHistory) await window.fetchHistory();
+                            if (window.isPlainDriverView && window.isPlainDriverView() && window.prepareDriverWeekView) {
+                                await window.prepareDriverWeekView();
+                            } else if (window.renderDriverLog) {
+                                window.renderDriverLog();
+                            }
                         })();
                     } else if (finalView === 'calendar') {
                         // PERSIST FILTERS: filter inputs are not cleared on entry.

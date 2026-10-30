@@ -16,8 +16,17 @@
     }
 
     function normalizeDriver(name) {
-        return (name || '').toString().trim().toUpperCase();
+        return (name || '').toString().trim().toUpperCase().replace(/\s+/g, ' ');
     }
+
+    // JAVIER ↔ JAVIER DAVILA. Not JOHN ↔ JOHNDOE or SMITH ↔ JOHN SMITH.
+    window.driverNamesMatch = function (a, b) {
+        const na = normalizeDriver(a);
+        const nb = normalizeDriver(b);
+        if (!na || !nb) return false;
+        if (na === nb) return true;
+        return nb.startsWith(na + ' ') || na.startsWith(nb + ' ');
+    };
 
     function serviceCash(row, paidIdx, cashFlagIdx, totalIdx, cashAmtIdx, useQty) {
         if (!paid(row[paidIdx])) return 0;
@@ -72,7 +81,12 @@
     window.getDriverWallet = function (driverName) {
         const key = normalizeDriver(driverName);
         if (!key) return 0;
-        return window.getDriverWalletMap()[key] || 0;
+        const map = window.getDriverWalletMap();
+        if (map[key]) return map[key];
+        const matches = Object.keys(map).filter(k => window.driverNamesMatch(key, k));
+        if (!matches.length) return 0;
+        matches.sort((a, b) => b.length - a.length);
+        return map[matches[0]] || 0;
     };
 
     window.applyDriverCashOnSave = function (rowData, prevRow) {
@@ -395,7 +409,9 @@
     window.getLatestSettlementRecord = function (driverName) {
         const key = normalizeDriver(driverName);
         if (!key || !window.currentSettlements) return null;
-        return window.currentSettlements.find(s => normalizeDriver(s.driver_name) === key) || null;
+        const exact = window.currentSettlements.find(s => normalizeDriver(s.driver_name) === key);
+        if (exact) return exact;
+        return window.currentSettlements.find(s => window.driverNamesMatch(key, s.driver_name)) || null;
     };
 
     window.getLatestSettlementLeftover = function (driverName) {
@@ -417,6 +433,11 @@
     window.renderDriverWalletBanner = function (driverName, elId) {
         const el = document.getElementById(elId);
         if (!el) return;
+        if (window.isPlainDriverView && window.isPlainDriverView()) {
+            el.style.display = 'none';
+            el.innerHTML = '';
+            return;
+        }
         const name = normalizeDriver(driverName);
         const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
         if (!name || name === 'UNASSIGNED' || name === 'ALL DRIVERS' || total < 0.01) {
@@ -425,20 +446,28 @@
             return;
         }
         el.style.display = 'flex';
+        el.style.flexWrap = 'wrap';
+        el.style.rowGap = '10px';
         const isDriverRole = (window.currentUserRole === 'driver');
-        const parts = [];
-        if (orders > 0.009) parts.push(`órdenes ${fmt(orders)}`);
-        if (lastWeek > 0.009) parts.push(`semana pasada ${fmt(lastWeek)}`);
+        const box = (label, amount, emphasize) => `
+            <div style="background:${emphasize ? '#fff7ed' : 'rgba(255,255,255,0.7)'}; border:1px solid ${emphasize ? '#c2410c' : 'rgba(146,64,14,0.28)'}; border-radius:10px; padding:8px 14px; min-width:148px;">
+                <div style="font-size:0.68rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; opacity:0.9;">${label}</div>
+                <div style="font-weight:900; font-size:1.55rem; line-height:1.15; color:#7c2d12;">${fmt(amount)}</div>
+            </div>`;
         el.innerHTML = `
-            <i class="fas fa-money-bill-wave" style="font-size:1.2rem;"></i>
-            <div style="flex:1;">
-                <div style="font-weight:900; font-size:0.85rem;">${isDriverRole ? 'Llevas efectivo de la empresa' : name + ' tiene efectivo de la empresa'}</div>
-                <div style="font-size:0.75rem; font-weight:700; opacity:0.9;">${parts.join(' + ')} — se descuenta al liquidar o cuando lo entregue en oficina</div>
+            <i class="fas fa-money-bill-wave" style="font-size:1.4rem;"></i>
+            <div style="flex:1; min-width:200px;">
+                <div style="font-weight:900; font-size:1rem;">${isDriverRole ? 'You are holding company cash' : name + ' is holding company cash'}</div>
+                <div style="font-size:0.75rem; font-weight:600; opacity:0.85; margin-top:2px;">Deducted at settlement or when turned in at the office</div>
             </div>
-            <div style="font-weight:900; font-size:1.25rem;">${fmt(total)}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:stretch;">
+                ${orders > 0.009 ? box('This week', orders, false) : ''}
+                ${lastWeek > 0.009 ? box('Last week', lastWeek, true) : ''}
+                ${box('Total due', total, false)}
+            </div>
             ${!isDriverRole ? `<button type="button" onclick="window.turnInDriverCash('${name.replace(/'/g, "\\'")}')"
-                style="background:#fff; color:#92400e; border:none; border-radius:8px; padding:8px 12px; font-weight:800; cursor:pointer; font-size:0.75rem;">
-                <i class="fas fa-hand-holding-usd"></i> ENTREGÓ CASH
+                style="background:#fff; color:#92400e; border:none; border-radius:8px; padding:10px 14px; font-weight:800; cursor:pointer; font-size:0.8rem;">
+                <i class="fas fa-hand-holding-usd"></i> TURNED IN CASH
             </button>` : ''}
         `;
     };
@@ -451,28 +480,28 @@
         wrap.innerHTML = `
             <div style="background:#fff; width:100%; max-width:460px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); overflow:hidden;">
                 <div style="background:linear-gradient(135deg,#92400e,#d97706); color:#fff; padding:16px 18px;">
-                    <div style="font-weight:900; font-size:1.05rem;">Entrega de dinero del chofer</div>
+                    <div style="font-weight:900; font-size:1.05rem;">Driver cash turn-in</div>
                     <div id="dti-driver" style="font-size:0.8rem; opacity:0.9; margin-top:2px;"></div>
                 </div>
                 <div style="padding:18px 18px 8px;">
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
                         <div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:10px; padding:10px;">
-                            <div style="font-size:0.65rem; font-weight:800; color:#92400e; text-transform:uppercase;">En órdenes</div>
+                            <div style="font-size:0.65rem; font-weight:800; color:#92400e; text-transform:uppercase;">This week</div>
                             <div id="dti-orders" style="font-weight:900; color:#78350f; font-size:1.05rem;">$0.00</div>
                         </div>
                         <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:10px; padding:10px;">
-                            <div style="font-size:0.65rem; font-weight:800; color:#1d4ed8; text-transform:uppercase;">Semana pasada</div>
+                            <div style="font-size:0.65rem; font-weight:800; color:#1d4ed8; text-transform:uppercase;">Last week</div>
                             <div id="dti-last" style="font-weight:900; color:#1e3a8a; font-size:1.05rem;">$0.00</div>
                         </div>
                     </div>
                     <div style="margin-bottom:14px;">
-                        <label style="font-size:0.72rem; font-weight:800; color:#334155; display:block; margin-bottom:4px;">Monto que entregó</label>
+                        <label style="font-size:0.72rem; font-weight:800; color:#334155; display:block; margin-bottom:4px;">Amount turned in</label>
                         <input id="dti-amount" type="number" step="0.01" min="0"
                             style="width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:10px 12px; font-weight:800; font-size:1rem;">
                         <div id="dti-total-hint" style="font-size:0.7rem; color:#64748b; margin-top:4px;"></div>
                     </div>
                     <div style="margin-bottom:10px;">
-                        <label style="font-size:0.72rem; font-weight:800; color:#334155; display:block; margin-bottom:6px;">Cómo lo recibió la oficina</label>
+                        <label style="font-size:0.72rem; font-weight:800; color:#334155; display:block; margin-bottom:6px;">How the office received it</label>
                         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
                             <button type="button" data-dti-m="cash" class="dti-mbtn">CASH</button>
                             <button type="button" data-dti-m="bank" class="dti-mbtn">BANK</button>
@@ -498,8 +527,8 @@
                     <div id="dti-ok" style="display:none; background:#ecfdf5; color:#047857; border-radius:8px; padding:8px 10px; font-size:0.75rem; font-weight:700; margin-bottom:8px;"></div>
                 </div>
                 <div style="display:flex; gap:8px; padding:12px 18px 18px; justify-content:flex-end;">
-                    <button type="button" id="dti-cancel" style="background:#f1f5f9; border:none; border-radius:10px; padding:10px 14px; font-weight:800; cursor:pointer; color:#334155;">Cancelar</button>
-                    <button type="button" id="dti-save" style="background:#d97706; color:#fff; border:none; border-radius:10px; padding:10px 16px; font-weight:800; cursor:pointer;">Registrar entrega</button>
+                    <button type="button" id="dti-cancel" style="background:#f1f5f9; border:none; border-radius:10px; padding:10px 14px; font-weight:800; cursor:pointer; color:#334155;">Cancel</button>
+                    <button type="button" id="dti-save" style="background:#d97706; color:#fff; border:none; border-radius:10px; padding:10px 16px; font-weight:800; cursor:pointer;">Save turn-in</button>
                 </div>
             </div>`;
         wrap.querySelectorAll('.dti-mbtn').forEach(btn => {
@@ -568,7 +597,7 @@
         if (amount <= 0) return false;
         if (amount > max + 0.009) {
             err.style.display = 'block';
-            err.textContent = 'El monto no puede ser mayor a ' + fmt(max);
+            err.textContent = 'Amount cannot be more than ' + fmt(max);
             return false;
         }
         if (method === 'split') {
@@ -576,7 +605,7 @@
             const bank = parseFloat(document.getElementById('dti-bank').value) || 0;
             const sum = Math.round((cash + bank) * 100) / 100;
             const ok = Math.abs(sum - amount) < 0.02;
-            status.textContent = ok ? 'Cuadra perfecto' : `Suma ${fmt(sum)} vs ${fmt(amount)}`;
+            status.textContent = ok ? 'Amounts match' : `Sum ${fmt(sum)} vs ${fmt(amount)}`;
             status.style.color = ok ? '#047857' : '#b91c1c';
             return ok;
         }
@@ -604,7 +633,7 @@
         document.getElementById('dti-driver').textContent = normalizeDriver(driverName);
         document.getElementById('dti-orders').textContent = fmt(orders);
         document.getElementById('dti-last').textContent = fmt(lastWeek);
-        document.getElementById('dti-total-hint').textContent = 'Máximo disponible: ' + fmt(total);
+        document.getElementById('dti-total-hint').textContent = 'Maximum available: ' + fmt(total);
         document.getElementById('dti-amount').value = total.toFixed(2);
         document.getElementById('dti-error').style.display = 'none';
         document.getElementById('dti-ok').style.display = 'none';
@@ -666,7 +695,7 @@
                         tipo: 'ingreso',
                         metodo: 'cash',
                         monto: cashAmt,
-                        descripcion: `Entrega de chofer — ${normalizeDriver(driverName)} (Cash)`,
+                        descripcion: `Driver turn-in — ${normalizeDriver(driverName)} (Cash)`,
                         referencia: 'DRIVER_TURN_IN',
                         chofer: normalizeDriver(driverName)
                     });
@@ -676,7 +705,7 @@
                         tipo: 'ingreso',
                         metodo: 'bank',
                         monto: bankAmt,
-                        descripcion: `Entrega de chofer — ${normalizeDriver(driverName)} (Bank)`,
+                        descripcion: `Driver turn-in — ${normalizeDriver(driverName)} (Bank)`,
                         referencia: 'DRIVER_TURN_IN',
                         chofer: normalizeDriver(driverName)
                     });
@@ -689,12 +718,12 @@
             window.refreshDriverCashSurfaces();
             const left = window.getDriverOpenCashBreakdown(driverName);
             ok.style.display = 'block';
-            ok.textContent = `Registrado ${fmt(applied)}. Queda ${fmt(left.total)} con el chofer.`;
+            ok.textContent = `Recorded ${fmt(applied)}. Remaining with driver: ${fmt(left.total)}.`;
             setTimeout(() => window.closeTurnInModal(), 900);
         } catch (e) {
             saveBtn.disabled = false;
             err.style.display = 'block';
-            err.textContent = 'No se pudo registrar: ' + (e.message || e);
+            err.textContent = 'Could not save: ' + (e.message || e);
         }
     };
 
@@ -705,21 +734,28 @@
             reportName = reportDrv.options[reportDrv.selectedIndex]?.text || reportDrv.value;
         }
         window.renderDriverWalletBanner(reportName, 'driver-cash-wallet-banner');
+    };
 
-        if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+    window.fillLastWeekBalance = function (driverName) {
+        if (window.editingSettlementId) return;
+        const elLast = document.getElementById('calc-last-bal');
+        if (!elLast) return;
+        const leftover = window.getLatestSettlementLeftover
+            ? window.getLatestSettlementLeftover(driverName)
+            : 0;
+        elLast.value = leftover.toFixed(2);
     };
 
     window.syncCalculatorFromDriverWallet = function (driverName) {
         if (window.editingSettlementId) return;
+        window.fillLastWeekBalance(driverName);
+        if (!window.driverCalcReady) {
+            if (window.updateWeeklyCalc) window.updateWeeklyCalc();
+            return;
+        }
         const elCash = document.getElementById('calc-cash-coll');
-        const elLast = document.getElementById('calc-last-bal');
         if (!elCash) return;
-        const wallet = window.getDriverWallet(driverName);
-        elCash.value = wallet.toFixed(2);
-        const leftover = window.getLatestSettlementLeftover
-            ? window.getLatestSettlementLeftover(driverName)
-            : 0;
-        if (elLast) elLast.value = leftover.toFixed(2);
+        elCash.value = (window.getDriverWallet(driverName) || 0).toFixed(2);
         if (window.updateWeeklyCalc) window.updateWeeklyCalc();
     };
 })();
