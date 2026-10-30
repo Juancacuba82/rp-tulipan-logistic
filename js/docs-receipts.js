@@ -264,6 +264,11 @@
                 div.className = 'trip-item';
                 div.dataset.tripid = trip[0] || '';
                 if (window.currentDocTrip && window.currentDocTrip[0] === trip[0]) div.classList.add('active');
+                const isDoingNow = typeof window.tripIsStarted === 'function' && window.tripIsStarted(trip);
+                if (isDoingNow) div.classList.add('trip-doing-now');
+                const doingBadge = (typeof window.driverStartBadgeHtml === 'function')
+                    ? window.driverStartBadgeHtml(trip, true)
+                    : '';
 
                 const note = trip[25] || '';
                 const match = note.trim().match(/^(\d+)\./);
@@ -285,7 +290,7 @@
                     : '';
 
                 div.innerHTML = `
-                        <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}</h4>
+                        <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}${doingBadge}</h4>
                         <p style="font-weight:bold; color:#1e293b;">${displayDriver}</p>
                         <p>${displayCont} | ${displayCustomer}</p>
                         <p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>
@@ -305,6 +310,7 @@
                 window.fillReceiptFromTrip(fresh, el);
             }
         }
+        if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
     }
 
     window.fillReceiptFromTrip = async function (trip, el) {
@@ -339,6 +345,7 @@
         window.drawReceipt();
         window.renderTripPhotos();
         if (window.renderDocsOrderPdf) window.renderDocsOrderPdf();
+        if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
 
         if (window.innerWidth <= 1024) {
             const previewToolbar = document.querySelector('#docs-view .receipt-preview-toolbar');

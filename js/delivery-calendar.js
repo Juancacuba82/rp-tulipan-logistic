@@ -1428,7 +1428,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash/i.test(masterErr.message || '')) {
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started/i.test(masterErr.message || '')) {
                     console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
@@ -1439,10 +1439,27 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     delete masterPayload.trans_extras_rate;
                     delete masterPayload.st_trans_extra;
                     delete masterPayload.xe_cash;
+                    delete masterPayload.driver_started_at;
+                    delete masterPayload.driver_started_by;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
                 if (masterErr) throw masterErr;
+
+                if (isFinalized && finalTripId && db) {
+                    try {
+                        await db.from('trips').update({
+                            driver_started_at: null,
+                            driver_started_by: null
+                        }).eq('trip_id', finalTripId);
+                        if (rowData) {
+                            rowData[85] = '';
+                            rowData[86] = '';
+                        }
+                    } catch (startClearErr) {
+                        console.warn('Could not clear driver start after complete:', startClearErr);
+                    }
+                }
 
                 // --- MANUALLY SYNC YARD STOCK ---
                 if (isMoveToYard && isFinalized) {
@@ -1793,6 +1810,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             editingIndex = null;
             editingTripDbId = null;
             window.editingTripDbId = null;
+            if (typeof window.syncCalendarDriverStartUI === 'function') window.syncCalendarDriverStartUI();
             window.pendingOrderPdfFile = null;
             const parentHid = document.getElementById('in-parent-trip-id');
             if (parentHid) parentHid.value = '';
@@ -2685,6 +2703,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 document.getElementById('in-status-toggle').value = sval;
                 updateStatusColor(sval);
             }
+            if (typeof window.syncCalendarDriverStartUI === 'function') window.syncCalendarDriverStartUI();
 
             document.getElementById('in-yardpaid').checked = (rowData[30] === 'PAID');
             document.getElementById('in-rentpaid').checked = (rowData[31] === 'PAID');
@@ -3168,6 +3187,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             clone[82] = 0;
             clone[83] = 'PEND';
             clone[84] = false;
+            clone[85] = '';
+            clone[86] = '';
 
             try {
                 const dbObj = mapArrayToTrip(clone);
@@ -3730,6 +3751,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             tr.style.border = '2px solid #ef4444'; // Red Border
                         }
 
+                        const startedMove = familyMoves.find(m => m && m[85]);
+                        if (startedMove) {
+                            tr.style.backgroundColor = '#ffedd5';
+                            tr.style.border = '2px solid #ea580c';
+                            tr.dataset.driverStarted = 'YES';
+                        }
+
                         // Numerical values to handle $0.00 entries in filters
                         tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;
@@ -3835,6 +3863,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                             if (i === 5 && typeof window.calendarArOrderCellHtml === 'function' && rowData[0]) {
                                 td.innerHTML = window.calendarArOrderCellHtml(text, rowData[0]);
+                            }
+
+                            if (i === 5) {
+                                const startedForOrder = familyMoves.find(m => m && m[85] && (
+                                    (m[5] || '') === (rowData[5] || '') || m[0] === rowData[0]
+                                )) || startedMove;
+                                if (startedForOrder && text) {
+                                    const badge = (typeof window.driverStartBadgeHtml === 'function')
+                                        ? window.driverStartBadgeHtml(startedForOrder, false)
+                                        : ' <span style="background:#ea580c;color:#fff;padding:2px 6px;border-radius:999px;font-size:0.65rem;font-weight:800;">DOING NOW</span>';
+                                    td.innerHTML = `<span style="font-weight:800;">${text}</span> ${badge}`;
+                                    td.title = 'Driver started this trip' + (startedForOrder[85] ? (' at ' + new Date(startedForOrder[85]).toLocaleString()) : '');
+                                }
                             }
 
                             // --- DUPLICATE CONTAINER WARNING UI ---
@@ -5627,6 +5668,8 @@ window.duplicateTrip = async function (tripId) {
         clone[63] = null;
         clone[64] = 0;
         if (clone.length > 75) clone[75] = null;
+        clone[85] = '';
+        clone[86] = '';
 
         const qty = parseInt(clone[53]) || 1;
         let pending = 0;

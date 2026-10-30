@@ -197,8 +197,9 @@ function renderAfterTripsChange() {
         window.renderRentalsTable();
     } else if (activeView === 'releases' && typeof window.renderReleasesTable === 'function') {
         window.renderReleasesTable();
-    } else if (activeView === 'docs-receipts' && typeof window.renderTripPhotos === 'function') {
-        window.renderTripPhotos();
+    } else if (activeView === 'docs-receipts' && typeof window.loadDocTrips === 'function') {
+        window.loadDocTrips(false);
+        if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
     } else if (activeView === 'driver-settlements' && typeof window.renderDriverLog === 'function') {
         window.renderDriverLog();
     } else if (activeView === 'inventory' && typeof window.renderInventorTable === 'function') {

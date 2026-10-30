@@ -220,7 +220,9 @@
                 t.trans_extras || '[]',         // 81 — extra transport services JSON
                 parseFloat(t.trans_extras_rate) || 0, // 82
                 normPaid(t.st_trans_extra),     // 83
-                t.xe_cash || false              // 84
+                t.xe_cash || false,             // 84
+                t.driver_started_at || '',      // 85 — driver started this trip
+                t.driver_started_by || ''       // 86
             ];
         }
 

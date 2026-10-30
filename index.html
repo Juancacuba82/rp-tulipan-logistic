@@ -17,26 +17,27 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=25">
+    <link rel="stylesheet" href="./style.css?v=27">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=18"></script>
     <script src="./js/force-uppercase.js?v=1"></script>
-    <script src="./js/data-mapping.js?v=23"></script>
+    <script src="./js/data-mapping.js?v=24"></script>
+    <script src="./js/driver-trip-start.js?v=2"></script>
     <script src="./js/order-pdf.js?v=6"></script>
     <script src="./js/driver-cash-wallet.js?v=12"></script>
-    <script src="./js/realtime-sync.js?v=4" defer></script>
+    <script src="./js/realtime-sync.js?v=5" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1715" defer></script>
-    <script src="./js/delivery-calendar.js?v=1739" defer></script>
+    <script src="./js/delivery-calendar.js?v=1740" defer></script>
     <script src="./js/driver-settlements.js?v=1717" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1737" defer></script>
     <script src="./js/company-money.js?v=33" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1717" defer></script>
+    <script src="./js/docs-receipts.js?v=1718" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
     <script src="./js/custom-receipts.js?v=6" defer></script>
     <script src="./js/email-service.js?v=11" defer></script>
@@ -2448,6 +2449,19 @@
                                 <option value="COMPLETE" style="background-color: #dcfce7; color: #166534;">Complete
                                 </option>
                             </select>
+                            <div id="calendar-driver-start-box" style="display:none; margin-top:8px;">
+                                <div id="calendar-driver-start-label" style="font-size:0.75rem; font-weight:800; color:#c2410c; margin-bottom:6px;"></div>
+                                <button type="button" id="btn-cal-start-trip" class="btn-start-docs"
+                                    style="width:100%; justify-content:center; margin-bottom:6px;"
+                                    onclick="window.handleCalendarStartTrip && window.handleCalendarStartTrip()">
+                                    <i class="fas fa-play"></i> START THIS TRIP
+                                </button>
+                                <button type="button" id="btn-cal-clear-start" class="btn-clear-start-docs"
+                                    style="width:100%; justify-content:center;"
+                                    onclick="window.handleCalendarClearStart && window.handleCalendarClearStart()">
+                                    <i class="fas fa-undo"></i> CLEAR START
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Invoice Sent is owned by Billing. Do not expose or overwrite it from Calendar. -->
@@ -2949,6 +2963,16 @@
                         </h3>
 
                         <div class="toolbar-doc-actions">
+                            <button type="button" id="btn-docs-start-trip" class="btn-start-docs"
+                                onclick="window.handleDocsStartTrip && window.handleDocsStartTrip()"
+                                title="Tell the office you are doing this trip now">
+                                <i class="fas fa-play"></i> START THIS TRIP
+                            </button>
+                            <button type="button" id="btn-docs-clear-start" class="btn-clear-start-docs staff-only"
+                                onclick="window.handleDocsClearStart && window.handleDocsClearStart()"
+                                title="Clear a start made by mistake" style="display:none;">
+                                <i class="fas fa-undo"></i> CLEAR START
+                            </button>
                             <button id="btn-docs-photos" onclick="document.getElementById('trip-photo-input').click()"
                                 class="btn-photo-docs" title="Upload Delivery Photo">
                                 <i class="fas fa-camera"></i> PHOTOS
@@ -7429,6 +7453,8 @@
                 // Allow Photos button in Docs & Receipts for drivers
                 const docsPhotoBtn = document.getElementById('btn-docs-photos');
                 if (docsPhotoBtn) docsPhotoBtn.style.display = 'inline-flex';
+                const docsStartBtn = document.getElementById('btn-docs-start-trip');
+                if (docsStartBtn) docsStartBtn.style.display = 'inline-flex';
                 if (window.renderDocsOrderPdf) window.renderDocsOrderPdf();
 
                 // RESTRICTIONS inside Reports view for Drivers:
@@ -10346,7 +10372,18 @@
             </div>
         </div>
     </div>
-    
+
+    <div id="driver-start-confirm-modal" class="simple-modal" style="display:none; z-index:10020;" onclick="if(event.target===this) window.closeDriverStartConfirm(false)">
+        <div class="modal-content driver-start-confirm-card" onclick="event.stopPropagation()">
+            <h3 id="driver-start-confirm-title">Start this trip?</h3>
+            <p id="driver-start-confirm-order"></p>
+            <p id="driver-start-confirm-text">Are you sure?</p>
+            <div id="driver-start-confirm-actions" class="driver-start-confirm-actions">
+                <button type="button" id="driver-start-confirm-no" class="driver-start-btn-no">NO</button>
+                <button type="button" id="driver-start-confirm-yes" class="driver-start-btn-yes">YES</button>
+            </div>
+        </div>
+    </div>
 
 </body>
 
