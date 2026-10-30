@@ -55,16 +55,12 @@
                     const dateKey = String(rDate || '').slice(0, 10);
                     const matchesDate = (!dateFrom || dateKey >= dateFrom) && (!dateTo || dateKey <= dateTo);
                     
-                    // Admin settlement list: completed trips only.
-                    // Driver week view: anything assigned except still-open PENDING.
-                    const isComplete = (rStatus === 'PAID' || rStatus === 'COMPLETE');
-                    const driverCanSee = window.isPlainDriverView
-                        && window.isPlainDriverView()
-                        && rStatus !== 'PENDING'
-                        && rStatus !== 'CANCELLED'
-                        && rStatus !== 'CANCELED';
+                    const isDriverView = window.isPlainDriverView && window.isPlainDriverView();
+                    const statusOk = isDriverView
+                        ? (rStatus === 'COMPLETE')
+                        : (rStatus === 'PAID' || rStatus === 'COMPLETE');
 
-                    return matchesSearch && matchesDate && (isComplete || driverCanSee);
+                    return matchesSearch && matchesDate && statusOk;
                 });
 
                 if (window.resetWeeklyCalculator) window.resetWeeklyCalculator();
