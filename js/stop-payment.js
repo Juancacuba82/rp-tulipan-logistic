@@ -305,18 +305,10 @@
         const setBtns = function (show) {
             METHODS.forEach(function (m) { if (btns[m]) btns[m].style.display = show ? '' : 'none'; });
         };
-        if (!trip) {
+        // Docs: only show payment mark UI when Calendar planned a collect method
+        // (Cash / Zelle / Wire / Check / Card). Empty and Bill Later stay hidden.
+        if (!trip || !window.isStopPayCollectPlan(plan)) {
             wrap.style.display = 'none';
-            return;
-        }
-        if (plan === 'BILL_LATER') {
-            wrap.style.display = 'block';
-            if (label) {
-                const chip = window.stopPayChip(trip);
-                label.textContent = chip.label || 'BILL LATER';
-                label.className = 'docs-stop-pay-label stop-pay-' + (chip.kind || 'later');
-            }
-            if (hint) hint.style.display = 'none';
             setBtns(false);
             return;
         }
@@ -336,6 +328,7 @@
 
     window.handleDocsPaid = function (method) {
         if (!window.currentDocTrip) return;
+        if (!window.isStopPayCollectPlan(window.getStopPayPlan(window.currentDocTrip))) return;
         window.markStopPayResult(window.currentDocTrip, 'PAID_' + String(method || '').toUpperCase());
     };
 
