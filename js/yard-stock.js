@@ -1,4 +1,4 @@
-console.log('CRITICAL: Yard Stock JS v123 is active');
+console.log('CRITICAL: Yard Stock JS v124 is active');
 
 (function () {
     let currentYardStock = [];
@@ -293,9 +293,11 @@ console.log('CRITICAL: Yard Stock JS v123 is active');
         }
     }
 
-    async function sendSilentYardStatementEmail(customerName, html, total, dateFrom, dateTo, email) {
+    async function sendSilentYardStatementEmail(customerName, html, total, dateFrom, dateTo, email, orderNo) {
         const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
-        const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+        const templateId = localStorage.getItem('ejs_yard_template_id')
+            || localStorage.getItem('ejs_invoice_template_id')
+            || localStorage.getItem('ejs_template_id');
         const publicKey = localStorage.getItem('ejs_public_key');
         if (!serviceId || !templateId || !publicKey || typeof emailjs === 'undefined') {
             console.warn('[Yard] EmailJS not configured; invoice saved without sending.');
@@ -303,18 +305,47 @@ console.log('CRITICAL: Yard Stock JS v123 is active');
         }
         if (typeof window.generateYardInvoiceBase64 !== 'function') return false;
         emailjs.init(publicKey);
-        const b64Pdf = await window.generateYardInvoiceBase64(html, customerName, dateFrom, dateTo);
+        const b64Pdf = await window.generateYardInvoiceBase64(html, customerName, dateFrom, dateTo, { compact: true });
         const raw = (b64Pdf || '').includes(',') ? b64Pdf.split(',')[1] : b64Pdf;
-        await emailjs.send(serviceId, templateId, {
+        const approxKb = Math.round((raw.length * 0.75) / 1024);
+        const grandTotal = (parseFloat(total) || 0).toFixed(2);
+        const templateParams = {
             to_email: email,
             customer_name: customerName,
+            order_no: orderNo || '',
+            order_number: orderNo || '',
             invoice_html: '',
-            grand_total: (parseFloat(total) || 0).toFixed(2),
-            pdf_attachment: b64Pdf,
-            attachment_b64: raw
-        });
+            grand_total: grandTotal,
+            adjunto_invoice: raw,
+            adjunto_recibo: '',
+            adjunto_fotos: ''
+        };
+        if (approxKb > 380 && window.db) {
+            const binary = Uint8Array.from(atob(raw), c => c.charCodeAt(0));
+            const blob = new Blob([binary], { type: 'application/pdf' });
+            const filePath = `invoices/yard_${(orderNo || 'stmt').replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.pdf`;
+            const { error: upErr } = await window.db.storage.from('receipts').upload(filePath, blob, {
+                contentType: 'application/pdf',
+                upsert: true
+            });
+            if (!upErr) {
+                const { data: pub } = window.db.storage.from('receipts').getPublicUrl(filePath);
+                const url = pub && pub.publicUrl;
+                if (url) {
+                    delete templateParams.adjunto_invoice;
+                    templateParams.invoice_url = url;
+                    templateParams.pdf_url = url;
+                    templateParams.receipt_url = url;
+                    console.log(`[Yard] PDF ${approxKb}KB uploaded; sending link instead of attachment.`);
+                }
+            } else {
+                console.warn('[Yard] Could not upload yard PDF, sending compact attachment:', upErr);
+            }
+        }
+        await emailjs.send(serviceId, templateId, templateParams, publicKey);
         return true;
     }
+    window.sendYardStatementEmail = sendSilentYardStatementEmail;
 
     async function stampYardTripLastSent(tripId) {
         if (!tripId || !window.db) return;
@@ -528,7 +559,8 @@ console.log('CRITICAL: Yard Stock JS v123 is active');
                         finalGrandTotal,
                         dateFrom,
                         dateTo,
-                        email
+                        email,
+                        orderNo
                     );
                     if (sent) await stampYardTripLastSent(tripObj.trip_id);
                 } else {
@@ -1422,7 +1454,8 @@ console.log('CRITICAL: Yard Stock JS v123 is active');
         }
     };
 
-    window.generateYardInvoiceBase64 = async function (htmlContent, customerName, dateFrom, dateTo) {
+    window.generateYardInvoiceBase64 = async function (htmlContent, customerName, dateFrom, dateTo, opts) {
+        const compact = !!(opts && opts.compact);
         const { jsPDF } = window.jspdf;
         const container = document.createElement('div');
         container.style.cssText = 'position:fixed;left:0;top:0;width:1400px;max-width:1400px;background:#ffffff;padding:24px;box-sizing:border-box;z-index:-1;pointer-events:none;overflow:visible;';
@@ -1458,7 +1491,7 @@ console.log('CRITICAL: Yard Stock JS v123 is active');
 
         try {
             const canvas = await html2canvas(container, {
-                scale: 2,
+                scale: compact ? 1.15 : 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
@@ -1478,9 +1511,10 @@ console.log('CRITICAL: Yard Stock JS v123 is active');
             const usableH = ph - margin * 2;
             const imgW = usableW;
             const imgH = (canvas.height * usableW) / canvas.width;
+            const jpegQ = compact ? 0.62 : 0.92;
 
             if (imgH <= usableH) {
-                pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, imgH);
+                pdf.addImage(canvas.toDataURL('image/jpeg', jpegQ), 'JPEG', margin, margin, imgW, imgH);
             } else {
                 const pageCanvas = document.createElement('canvas');
                 const pageCtx = pageCanvas.getContext('2d');
@@ -1497,7 +1531,7 @@ console.log('CRITICAL: Yard Stock JS v123 is active');
                     if (!first) pdf.addPage();
                     first = false;
                     const sliceMm = (h * usableW) / canvas.width;
-                    pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, sliceMm);
+                    pdf.addImage(pageCanvas.toDataURL('image/jpeg', jpegQ), 'JPEG', margin, margin, imgW, sliceMm);
                     y += h;
                 }
             }

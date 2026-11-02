@@ -1325,17 +1325,27 @@
                         return;
                     }
 
-                    emailjs.init(publicKey);
-                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customer, snapshot.dateFrom, snapshot.dateTo);
-                    const templateParams = {
-                        to_email: targetEmail,
-                        customer_name: customer,
-                        invoice_html: "",
-                        grand_total: finalGrandTotal.toFixed(2),
-                        pdf_attachment: b64Pdf
-                    };
-
-                    await emailjs.send(serviceId, templateId, templateParams);
+                    if (typeof window.sendYardStatementEmail === 'function') {
+                        await window.sendYardStatementEmail(
+                            customer,
+                            finalHtml,
+                            finalGrandTotal,
+                            snapshot.dateFrom,
+                            snapshot.dateTo,
+                            targetEmail,
+                            row[5] || ''
+                        );
+                    } else {
+                        emailjs.init(publicKey);
+                        const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customer, snapshot.dateFrom, snapshot.dateTo, { compact: true });
+                        const raw = (b64Pdf || '').includes(',') ? b64Pdf.split(',')[1] : b64Pdf;
+                        await emailjs.send(serviceId, templateId, {
+                            to_email: targetEmail,
+                            customer_name: customer,
+                            grand_total: finalGrandTotal.toFixed(2),
+                            adjunto_invoice: raw
+                        }, publicKey);
+                    }
                     const tripId = row && row[0];
                     if (tripId && typeof window.stampYardTripLastSent === 'function') {
                         await window.stampYardTripLastSent(tripId);
