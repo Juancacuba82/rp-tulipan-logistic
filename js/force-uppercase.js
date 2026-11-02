@@ -32,8 +32,18 @@
         return false;
     }
 
+    // EmailJS keys/IDs are case-sensitive (service_xxx, template_xxx, public keys).
+    function looksLikeEmailJsConfigField(el) {
+        if (!el) return false;
+        const id = (el.id || '').toLowerCase();
+        const name = (el.name || '').toLowerCase();
+        return id.indexOf('ejs-') === 0 || id.indexOf('ejs_') === 0
+            || name.indexOf('ejs-') === 0 || name.indexOf('ejs_') === 0;
+    }
+
     function shouldForce(el) {
         if (!el || el.disabled || el.readOnly) return false;
+        if (looksLikeEmailJsConfigField(el)) return false;
         const tag = (el.tagName || '').toUpperCase();
         if (tag === 'TEXTAREA') return !looksLikeEmailField(el);
         if (tag === 'INPUT') {
