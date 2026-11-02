@@ -1,4 +1,4 @@
-console.log('CRITICAL: Yard Stock JS v122 is active');
+console.log('CRITICAL: Yard Stock JS v123 is active');
 
 (function () {
     let currentYardStock = [];
@@ -271,13 +271,22 @@ console.log('CRITICAL: Yard Stock JS v122 is active');
         const fromCache = yardCustomerEmailFromLists(customerName);
         if (fromCache) return fromCache;
         if (!window.db || !customerName) return '';
+        const name = customerName.toString().trim();
         try {
             const { data, error } = await window.db.from('customers')
                 .select('name, email')
-                .or('is_deleted.eq.false,is_deleted.is.null');
+                .eq('name', name)
+                .or('is_deleted.eq.false,is_deleted.is.null')
+                .limit(5);
             if (error) throw error;
-            window.yardCustomersList = data || window.yardCustomersList || [];
-            return yardCustomerEmailFromLists(customerName);
+            const exact = ((data && data[0] && data[0].email) || '').toString().trim();
+            if (exact.includes('@')) return exact;
+            const { data: allRows, error: allErr } = await window.db.from('customers')
+                .select('name, email')
+                .or('is_deleted.eq.false,is_deleted.is.null');
+            if (allErr) throw allErr;
+            window.yardCustomersList = allRows || window.yardCustomersList || [];
+            return yardCustomerEmailFromLists(name);
         } catch (err) {
             console.warn('[Yard] Could not load customer email:', err);
             return '';
@@ -310,7 +319,16 @@ console.log('CRITICAL: Yard Stock JS v122 is active');
     async function stampYardTripLastSent(tripId) {
         if (!tripId || !window.db) return;
         const nowIso = new Date().toISOString();
-        const newCount = 1;
+        let currentCount = 0;
+        [window.yardInvoiceTrips, window.currentTrips, window.combinedBillingTrips, window.allTripsUnfiltered].forEach(arr => {
+            if (!arr || currentCount) return;
+            const t = arr.find(x => x && x[0] === tripId);
+            if (t) currentCount = parseInt(t[64], 10) || 0;
+        });
+        if (!currentCount && window._recvLastSentByTripId && window._recvLastSentByTripId[String(tripId)]) {
+            currentCount = parseInt(window._recvLastSentByTripId[String(tripId)].count, 10) || 0;
+        }
+        const newCount = currentCount + 1;
         try {
             await window.db.from('trips').update({
                 invoice_sent: 'YES',
@@ -332,7 +350,13 @@ console.log('CRITICAL: Yard Stock JS v122 is active');
                 t[64] = newCount;
             }
         });
+        if (typeof window.refreshInvoiceLastSentViews === 'function') {
+            window.refreshInvoiceLastSentViews();
+        } else if (typeof window.renderReceivables === 'function') {
+            window.renderReceivables();
+        }
     }
+    window.stampYardTripLastSent = stampYardTripLastSent;
 
     async function persistYardInvoiceRecord(opts) {
         const {

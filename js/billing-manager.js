@@ -1336,6 +1336,10 @@
                     };
 
                     await emailjs.send(serviceId, templateId, templateParams);
+                    const tripId = row && row[0];
+                    if (tripId && typeof window.stampYardTripLastSent === 'function') {
+                        await window.stampYardTripLastSent(tripId);
+                    }
                     if (window.showToast) window.showToast('Factura de Yard reenviada exitosamente.', 'success');
                     else alert('Factura enviada.');
                     modal.style.display = 'none';
