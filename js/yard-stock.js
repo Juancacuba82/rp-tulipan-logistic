@@ -1,4 +1,4 @@
-console.log('CRITICAL: Yard Stock JS v125 is active');
+console.log('CRITICAL: Yard Stock JS v126 is active');
 
 (function () {
     let currentYardStock = [];
@@ -293,15 +293,28 @@ console.log('CRITICAL: Yard Stock JS v125 is active');
         }
     }
 
-    // Sends the yard statement using ONLY the variables of the "Yard Stock" EmailJS template:
-    // to_email, customer_name, invoice_html, grand_total + pdf_attachment (data URI).
-    // Any extra large variable (raw base64, etc.) makes EmailJS reject the request with 400.
+    function readEmailJsId(key) {
+        const raw = (localStorage.getItem(key) || '').trim();
+        if (!raw) return '';
+        if (/^(service_|template_)/i.test(raw)) return raw.toLowerCase();
+        return raw;
+    }
+
+    function getYardEmailJsConfig() {
+        const serviceId = readEmailJsId('ejs_yard_service_id') || readEmailJsId('ejs_service_id');
+        const templateId = readEmailJsId('ejs_yard_template_id')
+            || readEmailJsId('ejs_invoice_template_id')
+            || readEmailJsId('ejs_template_id');
+        const publicKey = (localStorage.getItem('ejs_public_key') || '').trim();
+        return { serviceId, templateId, publicKey };
+    }
+
+    // Same payload as the Account Re-send that already works:
+    // to_email, customer_name, invoice_html, grand_total, pdf_attachment (data URI).
     async function sendSilentYardStatementEmail(customerName, html, total, dateFrom, dateTo, email) {
-        const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
-        const templateId = localStorage.getItem('ejs_yard_template_id');
-        const publicKey = localStorage.getItem('ejs_public_key');
+        const { serviceId, templateId, publicKey } = getYardEmailJsConfig();
         if (!serviceId || !templateId || !publicKey || typeof emailjs === 'undefined') {
-            console.warn('[Yard] EmailJS Yard template not configured (Email Settings > YARD INVOICE TEMPLATE ID); invoice saved without sending.');
+            console.warn('[Yard] EmailJS not configured; invoice saved without sending.');
             return false;
         }
         if (typeof window.generateYardInvoiceBase64 !== 'function') return false;

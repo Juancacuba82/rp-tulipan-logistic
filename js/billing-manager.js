@@ -1316,24 +1316,22 @@
                         null
                     );
 
-                    const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
-                    const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
-                    const publicKey = localStorage.getItem('ejs_public_key');
-
-                    if (!serviceId || !templateId || !publicKey || typeof emailjs === 'undefined') {
+                    if (typeof window.sendYardStatementEmail !== 'function') {
                         alert('EmailJS is not configured. Please go to Email Settings to send the statement.');
                         return;
                     }
-
-                    const b64Pdf = await window.generateYardInvoiceBase64(finalHtml, customer, snapshot.dateFrom, snapshot.dateTo);
-                    emailjs.init(publicKey);
-                    await emailjs.send(serviceId, templateId, {
-                        to_email: targetEmail,
-                        customer_name: customer,
-                        invoice_html: "",
-                        grand_total: finalGrandTotal.toFixed(2),
-                        pdf_attachment: b64Pdf
-                    });
+                    const sent = await window.sendYardStatementEmail(
+                        customer,
+                        finalHtml,
+                        finalGrandTotal,
+                        snapshot.dateFrom,
+                        snapshot.dateTo,
+                        targetEmail
+                    );
+                    if (!sent) {
+                        alert('EmailJS is not configured. Please go to Email Settings to send the statement.');
+                        return;
+                    }
                     const tripId = row && row[0];
                     if (tripId && typeof window.stampYardTripLastSent === 'function') {
                         await window.stampYardTripLastSent(tripId);
