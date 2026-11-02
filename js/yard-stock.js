@@ -1,4 +1,4 @@
-console.log('CRITICAL: Yard Stock JS v124 is active');
+console.log('CRITICAL: Yard Stock JS v125 is active');
 
 (function () {
     let currentYardStock = [];
@@ -293,56 +293,27 @@ console.log('CRITICAL: Yard Stock JS v124 is active');
         }
     }
 
-    async function sendSilentYardStatementEmail(customerName, html, total, dateFrom, dateTo, email, orderNo) {
+    // Sends the yard statement using ONLY the variables of the "Yard Stock" EmailJS template:
+    // to_email, customer_name, invoice_html, grand_total + pdf_attachment (data URI).
+    // Any extra large variable (raw base64, etc.) makes EmailJS reject the request with 400.
+    async function sendSilentYardStatementEmail(customerName, html, total, dateFrom, dateTo, email) {
         const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
-        const templateId = localStorage.getItem('ejs_yard_template_id')
-            || localStorage.getItem('ejs_invoice_template_id')
-            || localStorage.getItem('ejs_template_id');
+        const templateId = localStorage.getItem('ejs_yard_template_id');
         const publicKey = localStorage.getItem('ejs_public_key');
         if (!serviceId || !templateId || !publicKey || typeof emailjs === 'undefined') {
-            console.warn('[Yard] EmailJS not configured; invoice saved without sending.');
+            console.warn('[Yard] EmailJS Yard template not configured (Email Settings > YARD INVOICE TEMPLATE ID); invoice saved without sending.');
             return false;
         }
         if (typeof window.generateYardInvoiceBase64 !== 'function') return false;
         emailjs.init(publicKey);
-        const b64Pdf = await window.generateYardInvoiceBase64(html, customerName, dateFrom, dateTo, { compact: true });
-        const raw = (b64Pdf || '').includes(',') ? b64Pdf.split(',')[1] : b64Pdf;
-        const approxKb = Math.round((raw.length * 0.75) / 1024);
-        const grandTotal = (parseFloat(total) || 0).toFixed(2);
-        const templateParams = {
+        const b64Pdf = await window.generateYardInvoiceBase64(html, customerName, dateFrom, dateTo);
+        await emailjs.send(serviceId, templateId, {
             to_email: email,
             customer_name: customerName,
-            order_no: orderNo || '',
-            order_number: orderNo || '',
             invoice_html: '',
-            grand_total: grandTotal,
-            adjunto_invoice: raw,
-            adjunto_recibo: '',
-            adjunto_fotos: ''
-        };
-        if (approxKb > 380 && window.db) {
-            const binary = Uint8Array.from(atob(raw), c => c.charCodeAt(0));
-            const blob = new Blob([binary], { type: 'application/pdf' });
-            const filePath = `invoices/yard_${(orderNo || 'stmt').replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.pdf`;
-            const { error: upErr } = await window.db.storage.from('receipts').upload(filePath, blob, {
-                contentType: 'application/pdf',
-                upsert: true
-            });
-            if (!upErr) {
-                const { data: pub } = window.db.storage.from('receipts').getPublicUrl(filePath);
-                const url = pub && pub.publicUrl;
-                if (url) {
-                    delete templateParams.adjunto_invoice;
-                    templateParams.invoice_url = url;
-                    templateParams.pdf_url = url;
-                    templateParams.receipt_url = url;
-                    console.log(`[Yard] PDF ${approxKb}KB uploaded; sending link instead of attachment.`);
-                }
-            } else {
-                console.warn('[Yard] Could not upload yard PDF, sending compact attachment:', upErr);
-            }
-        }
-        await emailjs.send(serviceId, templateId, templateParams, publicKey);
+            grand_total: (parseFloat(total) || 0).toFixed(2),
+            pdf_attachment: b64Pdf
+        });
         return true;
     }
     window.sendYardStatementEmail = sendSilentYardStatementEmail;
@@ -559,15 +530,16 @@ console.log('CRITICAL: Yard Stock JS v124 is active');
                         finalGrandTotal,
                         dateFrom,
                         dateTo,
-                        email,
-                        orderNo
+                        email
                     );
                     if (sent) await stampYardTripLastSent(tripObj.trip_id);
                 } else {
                     console.log(`[Yard] No email for ${customerFilter}; invoice ${orderNo} saved to Account only.`);
                 }
             } catch (err) {
-                console.warn(`[Yard] Auto email failed for ${customerFilter}; invoice kept in Account.`, err);
+                const reason = (err && (err.text || err.message)) || JSON.stringify(err);
+                console.warn(`[Yard] Auto email failed for ${customerFilter}; invoice kept in Account. Reason: ${reason}`, err);
+                if (window.showToast) window.showToast(`Yard invoice ${orderNo} saved, but email failed: ${reason}`, 'error');
             }
         }
 
