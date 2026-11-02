@@ -1,4 +1,4 @@
-console.log('CRITICAL: Yard Stock JS v120 is active');
+console.log('CRITICAL: Yard Stock JS v122 is active');
 
 (function () {
     let currentYardStock = [];
@@ -193,13 +193,15 @@ console.log('CRITICAL: Yard Stock JS v120 is active');
         return meta;
     }
 
+    // Yard invoices use [dateFrom, dateTo): 1st of month through 1st of next.
+    // The shared 1st is a close date, not a billed day, so it must not count as overlap.
     function monthsOverlapIso(aFrom, aTo, bFrom, bTo) {
         if (!aFrom && !aTo && !bFrom && !bTo) return false;
         const af = aFrom || '2000-01-01';
         const at = aTo || '2099-12-31';
         const bf = bFrom || '2000-01-01';
         const bt = bTo || '2099-12-31';
-        return af <= bt && at >= bf;
+        return af < bt && at > bf;
     }
 
     function existingYardInvoiceCovers(customer, dateFrom, dateTo, tableType) {
@@ -250,6 +252,86 @@ console.log('CRITICAL: Yard Stock JS v120 is active');
             console.warn('[Yard] Could not load yard invoice trips:', err);
             if (!window.yardInvoiceTrips) window.yardInvoiceTrips = [];
         }
+    }
+
+    function yardCustomerEmailFromLists(customerName) {
+        const want = (customerName || '').toString().trim().toUpperCase();
+        if (!want) return '';
+        const lists = [window.yardCustomersList, window.currentCustomers];
+        for (const list of lists) {
+            if (!Array.isArray(list)) continue;
+            const hit = list.find(c => (c.name || '').toString().trim().toUpperCase() === want);
+            const email = ((hit && hit.email) || '').toString().trim();
+            if (email.includes('@')) return email;
+        }
+        return '';
+    }
+
+    async function lookupYardCustomerEmail(customerName) {
+        const fromCache = yardCustomerEmailFromLists(customerName);
+        if (fromCache) return fromCache;
+        if (!window.db || !customerName) return '';
+        try {
+            const { data, error } = await window.db.from('customers')
+                .select('name, email')
+                .or('is_deleted.eq.false,is_deleted.is.null');
+            if (error) throw error;
+            window.yardCustomersList = data || window.yardCustomersList || [];
+            return yardCustomerEmailFromLists(customerName);
+        } catch (err) {
+            console.warn('[Yard] Could not load customer email:', err);
+            return '';
+        }
+    }
+
+    async function sendSilentYardStatementEmail(customerName, html, total, dateFrom, dateTo, email) {
+        const serviceId = localStorage.getItem('ejs_yard_service_id') || localStorage.getItem('ejs_service_id');
+        const templateId = localStorage.getItem('ejs_yard_template_id') || localStorage.getItem('ejs_template_id');
+        const publicKey = localStorage.getItem('ejs_public_key');
+        if (!serviceId || !templateId || !publicKey || typeof emailjs === 'undefined') {
+            console.warn('[Yard] EmailJS not configured; invoice saved without sending.');
+            return false;
+        }
+        if (typeof window.generateYardInvoiceBase64 !== 'function') return false;
+        emailjs.init(publicKey);
+        const b64Pdf = await window.generateYardInvoiceBase64(html, customerName, dateFrom, dateTo);
+        const raw = (b64Pdf || '').includes(',') ? b64Pdf.split(',')[1] : b64Pdf;
+        await emailjs.send(serviceId, templateId, {
+            to_email: email,
+            customer_name: customerName,
+            invoice_html: '',
+            grand_total: (parseFloat(total) || 0).toFixed(2),
+            pdf_attachment: b64Pdf,
+            attachment_b64: raw
+        });
+        return true;
+    }
+
+    async function stampYardTripLastSent(tripId) {
+        if (!tripId || !window.db) return;
+        const nowIso = new Date().toISOString();
+        const newCount = 1;
+        try {
+            await window.db.from('trips').update({
+                invoice_sent: 'YES',
+                invoice_last_sent: nowIso,
+                invoice_reminder_count: newCount
+            }).eq('trip_id', tripId);
+        } catch (err) {
+            console.warn('[Yard] Could not stamp invoice_last_sent:', err);
+        }
+        if (typeof window.stampReceivableLastSent === 'function') {
+            window.stampReceivableLastSent(tripId, nowIso, newCount);
+        }
+        [window.yardInvoiceTrips, window.currentTrips, window.combinedBillingTrips, window.allTripsUnfiltered].forEach(arr => {
+            if (!arr) return;
+            const t = arr.find(x => x && x[0] === tripId);
+            if (t) {
+                t[57] = 'YES';
+                t[63] = nowIso;
+                t[64] = newCount;
+            }
+        });
     }
 
     async function persistYardInvoiceRecord(opts) {
@@ -412,6 +494,27 @@ console.log('CRITICAL: Yard Stock JS v120 is active');
             }
         }
 
+        if (silent) {
+            try {
+                const email = await lookupYardCustomerEmail(customerFilter);
+                if (email) {
+                    const sent = await sendSilentYardStatementEmail(
+                        customerFilter,
+                        finalHtml || '',
+                        finalGrandTotal,
+                        dateFrom,
+                        dateTo,
+                        email
+                    );
+                    if (sent) await stampYardTripLastSent(tripObj.trip_id);
+                } else {
+                    console.log(`[Yard] No email for ${customerFilter}; invoice ${orderNo} saved to Account only.`);
+                }
+            } catch (err) {
+                console.warn(`[Yard] Auto email failed for ${customerFilter}; invoice kept in Account.`, err);
+            }
+        }
+
         if (!silent && window.currentTrips) {
             const newRow = new Array(74).fill('');
             newRow[0] = tripObj.trip_id;
@@ -503,6 +606,9 @@ console.log('CRITICAL: Yard Stock JS v120 is active');
                     if (recvView && !recvView.classList.contains('hidden') && typeof window.renderReceivables === 'function') {
                         window.renderReceivables();
                     }
+                }
+                if (typeof window.refreshInvoiceLastSentViews === 'function') {
+                    window.refreshInvoiceLastSentViews();
                 }
             }
         })();
