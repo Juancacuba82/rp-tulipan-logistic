@@ -1012,6 +1012,9 @@ window.renderReceivables = function () {
                     <h3 style="margin:0; font-size:1.1rem; color:#0f172a;"><i class="fas fa-building" style="color:#3b82f6; margin-right:8px;"></i> ${custName}</h3>
                     <div style="display:flex; align-items:center; gap:10px;">
                         ${overdueCount ? `<span style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:4px 10px; border-radius:999px; font-size:0.75rem; font-weight:800;">${overdueCount} OVERDUE</span>` : ''}
+                        ${activeCustomerFilter ? `<button type="button" class="glossy-blue-btn" style="height:32px;padding:0 12px;font-size:0.72rem;" data-stmt-cust="${custName.replace(/"/g, '&quot;')}" onclick="window.openCustomerArStatement(this.dataset.stmtCust)" title="Send a detailed statement of everything this customer still owes">
+                            <i class="fas fa-file-alt"></i> STATEMENT
+                        </button>` : ''}
                         <div style="font-weight:900; color:#ef4444; font-size:1.1rem;">Pending: $${totalPending.toFixed(2)}</div>
                     </div>
                 </div>
