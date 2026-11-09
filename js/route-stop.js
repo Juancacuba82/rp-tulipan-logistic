@@ -286,6 +286,7 @@
             window.syncCalendarRouteStopUI();
             window.renderRouteStopBanner();
             if (typeof window.loadDocTrips === 'function') window.loadDocTrips(false);
+            if (typeof window.loadTableData === 'function') window.loadTableData(window.currentTrips, true);
             return true;
         } catch (err) {
             console.error('setTripRouteStop', err);

@@ -4071,6 +4071,18 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 }
                             }
 
+                            if (i === 19) {
+                                const stopN = (typeof window.getTripRouteStop === 'function')
+                                    ? window.getTripRouteStop(viewMove)
+                                    : 0;
+                                if (stopN) {
+                                    const nameHtml = (td.innerHTML && td.innerHTML !== String(text))
+                                        ? td.innerHTML
+                                        : (text || '---');
+                                    td.innerHTML = '<span class="trip-route-stop-badge">' + stopN + '</span> ' + nameHtml;
+                                }
+                            }
+
                             // Highlight Employee (Seller) column specifically (now index 23)
                             if (i === 23) {
                                 td.style.fontWeight = 'bold';
