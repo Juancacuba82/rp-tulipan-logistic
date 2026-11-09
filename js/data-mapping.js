@@ -1,3 +1,33 @@
+        window.normalizeUsedGrade = function (cond, grade) {
+            if (String(cond || '').trim().toUpperCase() !== 'USED') return '';
+            const g = String(grade || '').trim().toUpperCase();
+            return (g === 'WWT' || g === 'CW') ? g : '';
+        };
+
+        window.syncUsedGradeUi = function () {
+            const cond = (document.getElementById('in-rel-condition')?.value || '').toUpperCase();
+            const wrap = document.getElementById('in-used-grade-cell');
+            const sel = document.getElementById('in-used-grade');
+            const used = cond === 'USED';
+            if (wrap) wrap.style.display = used ? '' : 'none';
+            if (sel) {
+                sel.required = used;
+                if (!used) sel.value = '';
+            }
+        };
+
+        window.syncReleaseUsedGradeUi = function () {
+            const checked = document.querySelector('input[name="rel-uni-cond"]:checked');
+            const used = (checked?.value || '').toUpperCase() === 'USED';
+            const wrap = document.getElementById('rel-used-grade-wrap');
+            if (wrap) wrap.style.display = used ? '' : 'none';
+            const radios = document.querySelectorAll('input[name="rel-uni-used-grade"]');
+            radios.forEach(r => { r.required = used; });
+            if (!used) {
+                radios.forEach(r => { r.checked = false; });
+            }
+        };
+
         window.getCollectAtStop = function (row) {
             const amount = parseFloat(row && row[22]) || 0;
             if (amount < 0.01) return null;
@@ -226,7 +256,8 @@
                 t.stop_pay_plan || '',          // 87 — CASH | ZELLE | BILL_LATER
                 t.stop_pay_result || '',        // 88 — WAITING | PAID_CASH | PAID_ZELLE
                 t.stop_pay_result_at || '',     // 89
-                t.stop_pay_result_by || ''      // 90
+                t.stop_pay_result_by || '',     // 90
+                window.normalizeUsedGrade(t.rel_condition, t.used_grade) // 91
             ];
         }
 
@@ -320,6 +351,7 @@
             if (row[88]) obj.stop_pay_result = row[88];
             if (row[89]) obj.stop_pay_result_at = row[89];
             if (row[90]) obj.stop_pay_result_by = row[90];
+            obj.used_grade = window.normalizeUsedGrade(row[45], row[91]) || null;
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB
             if (row[56] && row[56] !== '') {

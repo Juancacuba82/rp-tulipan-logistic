@@ -304,16 +304,38 @@ async function getReleases() {
     }
 }
 
+function isMissingUsedGradeColumn(error) {
+    const msg = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+    const code = (error?.code || '').toString();
+    return code === 'PGRST204' || (msg.includes('used_grade') && (msg.includes('column') || msg.includes('schema') || msg.includes('could not find')));
+}
+
 async function addRelease(releaseData) {
     if (!checkStudentPermission('releases', 'create')) return null;
-    const { data, error } = await db.from('releases').insert([releaseData]).select();
+    let { data, error } = await db.from('releases').insert([releaseData]).select();
+    if (error && releaseData && releaseData.used_grade !== undefined && isMissingUsedGradeColumn(error)) {
+        const fallback = { ...releaseData };
+        delete fallback.used_grade;
+        const retry = await db.from('releases').insert([fallback]).select();
+        data = retry.data;
+        error = retry.error;
+        if (!error) console.warn('[Releases] used_grade column missing — run: ALTER TABLE releases ADD COLUMN used_grade text;');
+    }
     if (error) { console.error('Error adding release:', error); throw error; }
     return data;
 }
 
 async function updateRelease(id, updateData) {
     if (!checkStudentPermission('releases', 'update')) return null;
-    const { data, error } = await db.from('releases').update(updateData).eq('id', id).select();
+    let { data, error } = await db.from('releases').update(updateData).eq('id', id).select();
+    if (error && updateData && updateData.used_grade !== undefined && isMissingUsedGradeColumn(error)) {
+        const fallback = { ...updateData };
+        delete fallback.used_grade;
+        const retry = await db.from('releases').update(fallback).eq('id', id).select();
+        data = retry.data;
+        error = retry.error;
+        if (!error) console.warn('[Releases] used_grade column missing — run: ALTER TABLE releases ADD COLUMN used_grade text;');
+    }
     if (error) { console.error('Error updating release:', error); throw error; }
     if (window.logActivity) window.logActivity("UPDATED_RECORD", `[${new Date().toLocaleString()}] Modificó Release ID: ${id}`);
     return data;

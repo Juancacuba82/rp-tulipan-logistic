@@ -639,13 +639,9 @@
                 const val = String(trip[45] || '').trim().toUpperCase();
                 return (val === 'NEW' || val === 'USED') ? val : '';
             })(),
-            cond: {
-                asis: (trip[25] || '').toUpperCase().includes('AS IS'),
-                wwt: (trip[25] || '').toUpperCase().includes('WWT'),
-                cw: (trip[25] || '').toUpperCase().includes('CW'),
-                holes: (trip[25] || '').toUpperCase().includes('NO HOLES'),
-                doors: (trip[25] || '').toUpperCase().includes('DOORS OK')
-            },
+            usedGrade: window.normalizeUsedGrade
+                ? window.normalizeUsedGrade(trip[45], trip[91])
+                : '',
             status: trip[41] || 'PENDING_PAYMENT',
             yardStatus: trip[30] === 'PAID' ? 'PAID' : 'PENDING',
             storageStatus: trip[31] === 'PAID' ? 'PAID' : 'PENDING',
@@ -695,15 +691,9 @@
 
         let inspectionContent = '';
         const checkIcon = '<span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px; font-weight:bold; font-size:10px; margin-right:5px;">X</span>';
-        if (data.relType === 'DRY') inspectionContent += `<div>${checkIcon} DRY</div>`;
-        if (data.relType === 'REEFER') inspectionContent += `<div>${checkIcon} REEFER</div>`;
-        if (data.relCond === 'NEW') inspectionContent += `<div>${checkIcon} NEW</div>`;
-        if (data.relCond === 'USED') inspectionContent += `<div>${checkIcon} USED</div>`;
-        if (data.cond.asis) inspectionContent += `<div>${checkIcon} AS IS</div>`;
-        if (data.cond.wwt) inspectionContent += `<div>${checkIcon} WWT</div>`;
-        if (data.cond.cw) inspectionContent += `<div>${checkIcon} CW</div>`;
-        if (data.cond.holes) inspectionContent += `<div>${checkIcon} NO HOLES</div>`;
-        if (data.cond.doors) inspectionContent += `<div>${checkIcon} DOORS OK</div>`;
+        if (data.relCond === 'USED' && data.usedGrade) {
+            inspectionContent += `<div>${checkIcon} ${data.usedGrade}</div>`;
+        }
 
         let inspectionSectionHtml = inspectionContent ? `<div class="receipt-section-title">Inspection & Condition</div><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; font-size: 0.8rem;">${inspectionContent}</div>` : '';
 

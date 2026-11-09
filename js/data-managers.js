@@ -1936,7 +1936,8 @@
                 r.paid || false, // Index 17
                 r.is_cash || false, // Index 18
                 r.created_by || '---', // Index 19
-                r.note || '---' // Index 20
+                r.note || '---', // Index 20
+                window.normalizeUsedGrade ? window.normalizeUsedGrade(r.condition, r.used_grade) : (r.used_grade || '') // 21
             ];
         }
 
@@ -1962,7 +1963,8 @@
                 paid: row[17] || false,
                 is_cash: row[18] || false,
                 created_by: row[19] || null,
-                note: row[20] || null
+                note: row[20] || null,
+                used_grade: (window.normalizeUsedGrade ? window.normalizeUsedGrade(row[3], row[21]) : '') || null
             };
         }
 

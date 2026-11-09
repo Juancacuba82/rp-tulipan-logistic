@@ -2053,6 +2053,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
         if (inSize) inSize.value = size;
         if (inType) inType.value = type;
         if (inCond) inCond.value = cond;
+        if (window.syncUsedGradeUi) window.syncUsedGradeUi();
 
         // Store the yard item ID for later deduction logic
         const inYardId = document.getElementById('in-yard-item-id');

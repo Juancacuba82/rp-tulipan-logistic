@@ -1498,6 +1498,10 @@ main {
     align-items: start;
 }
 
+#calendar-view .trip-release-grid:has(#in-used-grade-cell:not([style*="display: none"])) {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
 #calendar-view .trip-release-cell {
     display: flex;
     flex-direction: column;

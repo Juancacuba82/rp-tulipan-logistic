@@ -18,6 +18,7 @@
             const used = document.querySelector('input[name="rel-uni-cond"][value="NEW"]');
             if (dry) dry.checked = true;
             if (used) used.checked = true;
+            if (window.syncReleaseUsedGradeUi) window.syncReleaseUsedGradeUi();
             const paid = document.getElementById('rel-paid');
             if (paid) {
                 paid.checked = false;
@@ -81,6 +82,11 @@
             // Type & Cond
             const t = document.querySelector(`input[name="rel-uni-type"][value="${row[2]}"]`); if (t) t.checked = true;
             const c = document.querySelector(`input[name="rel-uni-cond"][value="${row[3]}"]`); if (c) c.checked = true;
+            const gradeVal = window.normalizeUsedGrade ? window.normalizeUsedGrade(row[3], row[21]) : '';
+            document.querySelectorAll('input[name="rel-uni-used-grade"]').forEach(r => {
+                r.checked = !!gradeVal && r.value === gradeVal;
+            });
+            if (window.syncReleaseUsedGradeUi) window.syncReleaseUsedGradeUi();
             const paid = document.getElementById('rel-paid');
             if (paid) {
                 paid.checked = !!row[17];
@@ -733,6 +739,12 @@
             const price = parseFloat(document.getElementById('rel-price-unified').value) || 0;
             const type = document.querySelector('input[name="rel-uni-type"]:checked').value;
             const condition = document.querySelector('input[name="rel-uni-cond"]:checked').value;
+            const usedGradeRaw = document.querySelector('input[name="rel-uni-used-grade"]:checked')?.value || '';
+            const usedGrade = window.normalizeUsedGrade ? window.normalizeUsedGrade(condition, usedGradeRaw) : '';
+            if (condition === 'USED' && !usedGrade) {
+                alert('USED containers require WWT or CW.');
+                return;
+            }
 
             // Release Number is now OPTIONAL (User can add it later)
             const finalRelNo = relNo || '---';
@@ -760,6 +772,7 @@
                 date: dte === '---' ? null : dte,
                 type: type,
                 condition: condition,
+                used_grade: usedGrade || null,
                 depot: dpt,
                 depot_address: adr,
                 city: cty,

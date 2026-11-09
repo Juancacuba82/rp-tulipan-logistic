@@ -2004,10 +2004,18 @@
                                 </div>
                                 <div class="trip-release-cell">
                                     <label class="trip-field-label" for="in-rel-condition">Condition</label>
-                                    <select id="in-rel-condition" class="trip-select" required>
+                                    <select id="in-rel-condition" class="trip-select" required onchange="window.syncUsedGradeUi && window.syncUsedGradeUi()">
                                         <option value="" disabled selected>Choose condition...</option>
                                         <option value="NEW">NEW (Sparkles ✨)</option>
                                         <option value="USED">USED (Tools 🔧)</option>
+                                    </select>
+                                </div>
+                                <div class="trip-release-cell" id="in-used-grade-cell" style="display:none;">
+                                    <label class="trip-field-label" for="in-used-grade">Used grade</label>
+                                    <select id="in-used-grade" class="trip-select">
+                                        <option value="" disabled selected>WWT or CW...</option>
+                                        <option value="WWT">WWT</option>
+                                        <option value="CW">CW</option>
                                     </select>
                                 </div>
                             </div>
@@ -3274,12 +3282,19 @@
                                             style="display:block; margin-bottom:6px; font-weight:900; color:#475569; text-transform:uppercase;">Condition</label>
                                         <div style="display: flex; gap: 10px;">
                                             <label style="cursor: pointer;"><input type="radio" name="rel-uni-cond"
-                                                    value="NEW" checked> NEW <i class="fas fa-star"
+                                                    value="NEW" checked onchange="window.syncReleaseUsedGradeUi && window.syncReleaseUsedGradeUi()"> NEW <i class="fas fa-star"
                                                     style="color: #f59e0b; margin-left: 5px;"></i></label>
                                             <label style="cursor: pointer;"><input type="radio" name="rel-uni-cond"
-                                                    value="USED"> USED <i class="fas fa-tools"
+                                                    value="USED" onchange="window.syncReleaseUsedGradeUi && window.syncReleaseUsedGradeUi()"> USED <i class="fas fa-tools"
                                                     style="color: #64748b; margin-left: 5px;"></i></label>
                                         </div>
+                                    </div>
+                                </div>
+                                <div id="rel-used-grade-wrap" style="display:none; font-size: 0.7rem; border: 1px solid #f1f5f9; padding: 8px; border-radius:6px; background: #f8fafc; margin-top: 10px;">
+                                    <label style="display:block; margin-bottom:6px; font-weight:900; color:#475569; text-transform:uppercase;">Used grade (WWT / CW)</label>
+                                    <div style="display: flex; gap: 16px;">
+                                        <label style="cursor: pointer;"><input type="radio" name="rel-uni-used-grade" value="WWT"> WWT</label>
+                                        <label style="cursor: pointer;"><input type="radio" name="rel-uni-used-grade" value="CW"> CW</label>
                                     </div>
                                 </div>
                                 <!-- SIMPLIFIED PAYMENT STATUS BADGE -->

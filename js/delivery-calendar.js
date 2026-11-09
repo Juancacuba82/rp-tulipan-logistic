@@ -1032,6 +1032,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 const selectedRelType = document.getElementById('in-rel-type')?.value || 'DRY';
                 const selectedRelCond = document.getElementById('in-rel-condition')?.value || 'USED';
+                const selectedUsedGrade = window.normalizeUsedGrade
+                    ? window.normalizeUsedGrade(selectedRelCond, document.getElementById('in-used-grade')?.value)
+                    : '';
+                if (selectedRelCond === 'USED' && !selectedUsedGrade) {
+                    alert('USED containers require WWT or CW.');
+                    isSaving = false;
+                    restoreTripArchiveButtonUI();
+                    return;
+                }
 
                 const finalizeVal = document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT';
                 const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');
@@ -1364,6 +1373,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     rowData[89] = prevCashRow ? (prevCashRow[89] || '') : '';
                     rowData[90] = prevCashRow ? (prevCashRow[90] || '') : '';
                 }
+                rowData[91] = selectedUsedGrade;
                 rowData[88] = stopRes;
 
                 const dbObj = mapArrayToTrip(rowData);
@@ -1476,7 +1486,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started|stop_pay/i.test(masterErr.message || '')) {
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started|stop_pay|used_grade/i.test(masterErr.message || '')) {
                     console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
@@ -1493,6 +1503,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     delete masterPayload.stop_pay_result;
                     delete masterPayload.stop_pay_result_at;
                     delete masterPayload.stop_pay_result_by;
+                    delete masterPayload.used_grade;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
@@ -1900,7 +1911,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
             // 2. Select Dropdowns
             const selectsToReset = [
-                'in-size-sel', 'in-rel-type', 'in-rel-condition', 'in-city', 
+                'in-size-sel', 'in-rel-type', 'in-rel-condition', 'in-used-grade', 'in-city', 
                 'in-pickup-sel', 'in-customer-sel', 'in-doors', 'in-company', 
                 'in-driver', 'in-paytype', 'in-release-sel', 'in-status-toggle',
                 'in-invoice-sent', 'in-receipt-company', 'in-time-rent'
@@ -1909,6 +1920,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const el = document.getElementById(id);
                 if (el) el.selectedIndex = 0;
             });
+            if (window.syncUsedGradeUi) window.syncUsedGradeUi();
 
             // 3. Checkboxes
             const checks = [
@@ -2212,18 +2224,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const city = (Array.isArray(r) ? r[6] : r.city || '---');
                 const type = (Array.isArray(r) ? r[2] : r.type || 'DRY');
                 const cond = (Array.isArray(r) ? r[3] : r.condition || 'USED');
+                const grade = window.normalizeUsedGrade
+                    ? window.normalizeUsedGrade(cond, Array.isArray(r) ? r[21] : r.used_grade)
+                    : '';
                 const pickup = (Array.isArray(r) ? r[5] : r.depot_address || '---'); // index 5 is depot_address
 
                 if (!relNo || relNo === '---') return;
 
                 // Unique key for matching dropdown entry
-                const key = `${relNo}|${size}|${city}|${type}|${cond}`;
+                const key = `${relNo}|${size}|${city}|${type}|${cond}|${grade}`;
                 
                 // CRITICAL: Only consider it if stock is truly positive
                 if (stock > 0) {
                     if (!consolidated[key]) {
                         consolidated[key] = {
-                            relNo, size, city, type, cond, pickup,
+                            relNo, size, city, type, cond, grade, pickup,
                             totalStock: stock,
                             rawData: r
                         };
@@ -2255,6 +2270,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     opt.dataset.city = item.city;
                     opt.dataset.type = item.type;
                     opt.dataset.cond = item.cond;
+                    opt.dataset.grade = item.grade || '';
                     opt.dataset.pickup = item.pickup;
                     fragment.appendChild(opt);
                 });
@@ -2384,7 +2400,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             size: opt.dataset.size,
                             pickup: opt.dataset.pickup,
                             type: opt.dataset.type,
-                            cond: opt.dataset.cond
+                            cond: opt.dataset.cond,
+                            grade: opt.dataset.grade || ''
                         };
                     }
                 }
@@ -2400,7 +2417,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             size: match[16],
                             pickup: match[5], // Use index 5 (depot_address) instead of index 4 (depot name)
                             type: match[2],
-                            cond: match[3]
+                            cond: match[3],
+                            grade: match[21] || ''
                         };
                     }
                 }
@@ -2465,13 +2483,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                     const inCond = document.getElementById('in-rel-condition');
                     if (inCond) inCond.value = rowData.cond || 'USED';
+                    const inGrade = document.getElementById('in-used-grade');
+                    if (inGrade) {
+                        inGrade.value = window.normalizeUsedGrade
+                            ? window.normalizeUsedGrade(rowData.cond, rowData.grade)
+                            : (rowData.grade || '');
+                    }
+                    if (window.syncUsedGradeUi) window.syncUsedGradeUi();
                 }
                 
                 if (window.validateStockUI) window.validateStockUI();
             };
             window.autoPopulateFromRelease = autoPopulateFromRelease;
 
-            const changeElements = [relSel, relMan, inSizeSelect, relType, relCond];
+            const relGrade = document.getElementById('in-used-grade');
+            const changeElements = [relSel, relMan, inSizeSelect, relType, relCond, relGrade];
             changeElements.forEach(el => {
                 if (el) {
                     el.addEventListener('change', (e) => {
@@ -2753,6 +2779,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const condVal = rowData[45] === '---' ? 'USED' : (rowData[45] || 'USED');
             if (document.getElementById('in-rel-type')) document.getElementById('in-rel-type').value = typeVal;
             if (document.getElementById('in-rel-condition')) document.getElementById('in-rel-condition').value = condVal;
+            const gradeEl = document.getElementById('in-used-grade');
+            if (gradeEl) {
+                gradeEl.value = window.normalizeUsedGrade
+                    ? window.normalizeUsedGrade(condVal, rowData[91])
+                    : (rowData[91] || '');
+            }
+            if (window.syncUsedGradeUi) window.syncUsedGradeUi();
 
             // (Flags moved to end)
 
