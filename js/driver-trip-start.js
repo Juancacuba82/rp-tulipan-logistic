@@ -143,6 +143,7 @@
             }
             if (!silent && window.showToast) window.showToast('Start cleared.', 'success');
             if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
+            if (typeof window.syncCalendarDriverStartUI === 'function') window.syncCalendarDriverStartUI();
             if (typeof window.loadDocTrips === 'function') window.loadDocTrips(false);
             return true;
         } catch (err) {
@@ -155,6 +156,16 @@
             }
             return false;
         }
+    };
+
+    window.maybeClearStartWhenReceiptComplete = async function (trip) {
+        if (!trip || !trip[0]) return false;
+        if (!window.tripIsStarted(trip) || !window.tripHasDeliveryProof(trip)) return false;
+        const ok = await window.clearDriverTripStart(trip[0], { silent: true });
+        if (ok && window.showToast) {
+            window.showToast('Receipt complete. This trip is no longer Doing now.', 'success');
+        }
+        return ok;
     };
 
     window.startDriverTrip = async function (trip, opts) {

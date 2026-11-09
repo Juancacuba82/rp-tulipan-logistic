@@ -519,6 +519,9 @@
             window.drawReceipt();
 
             if (window.showToast) window.showToast('Photos uploaded successfully!', 'success');
+            if (typeof window.maybeClearStartWhenReceiptComplete === 'function') {
+                await window.maybeClearStartWhenReceiptComplete(window.currentDocTrip);
+            }
 
         } catch (err) {
             console.error('Error uploading photo:', err);
@@ -1090,6 +1093,9 @@
                 window.showToast(_sigType === 'driver' ? 'Driver signature saved!' : 'Client signature saved!', 'success');
             } else {
                 alert(_sigType === 'driver' ? 'Driver signature saved!' : 'Client signature saved!');
+            }
+            if (typeof window.maybeClearStartWhenReceiptComplete === 'function') {
+                await window.maybeClearStartWhenReceiptComplete(window.currentDocTrip);
             }
         } catch (err) {
             console.error('Error saving signature:', err);
