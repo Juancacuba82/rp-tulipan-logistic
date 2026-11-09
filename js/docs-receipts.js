@@ -631,11 +631,18 @@
                 const cleaned = window.stripMoveTag ? window.stripMoveTag(raw) : raw;
                 return cleaned || '';
             })(),
+            relType: (() => {
+                const val = String(trip[44] || '').trim().toUpperCase();
+                return (val === 'DRY' || val === 'REEFER') ? val : '';
+            })(),
+            relCond: (() => {
+                const val = String(trip[45] || '').trim().toUpperCase();
+                return (val === 'NEW' || val === 'USED') ? val : '';
+            })(),
             cond: {
                 asis: (trip[25] || '').toUpperCase().includes('AS IS'),
                 wwt: (trip[25] || '').toUpperCase().includes('WWT'),
                 cw: (trip[25] || '').toUpperCase().includes('CW'),
-                new: (trip[25] || '').toUpperCase().includes('NEW'),
                 holes: (trip[25] || '').toUpperCase().includes('NO HOLES'),
                 doors: (trip[25] || '').toUpperCase().includes('DOORS OK')
             },
@@ -680,7 +687,7 @@
         };
 
         const logisticContent = f('RELEASE / BOOKING', data.rel) + f('BOOKING NUMBER', data.bookingNo) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver) + f('DISPATCHER', data.seller);
-        const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE & TYPE', data.size) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
+        const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE', data.size) + f('TYPE', data.relType) + f('CONDITION', data.relCond) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
         
         const isManager = (window.currentUserRole !== 'driver');
         const canSeeClient = (isManager || data.status === 'COMPLETE');
@@ -688,10 +695,13 @@
 
         let inspectionContent = '';
         const checkIcon = '<span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px; font-weight:bold; font-size:10px; margin-right:5px;">X</span>';
+        if (data.relType === 'DRY') inspectionContent += `<div>${checkIcon} DRY</div>`;
+        if (data.relType === 'REEFER') inspectionContent += `<div>${checkIcon} REEFER</div>`;
+        if (data.relCond === 'NEW') inspectionContent += `<div>${checkIcon} NEW</div>`;
+        if (data.relCond === 'USED') inspectionContent += `<div>${checkIcon} USED</div>`;
         if (data.cond.asis) inspectionContent += `<div>${checkIcon} AS IS</div>`;
         if (data.cond.wwt) inspectionContent += `<div>${checkIcon} WWT</div>`;
         if (data.cond.cw) inspectionContent += `<div>${checkIcon} CW</div>`;
-        if (data.cond.new) inspectionContent += `<div>${checkIcon} NEW</div>`;
         if (data.cond.holes) inspectionContent += `<div>${checkIcon} NO HOLES</div>`;
         if (data.cond.doors) inspectionContent += `<div>${checkIcon} DOORS OK</div>`;
 
