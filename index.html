@@ -17,28 +17,29 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=35">
+    <link rel="stylesheet" href="./style.css?v=38">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=18"></script>
     <script src="./js/force-uppercase.js?v=2"></script>
-    <script src="./js/data-mapping.js?v=26"></script>
-    <script src="./js/driver-trip-start.js?v=7"></script>
+    <script src="./js/data-mapping.js?v=29"></script>
+    <script src="./js/driver-trip-start.js?v=10"></script>
+    <script src="./js/route-stop.js?v=4"></script>
     <script src="./js/stop-payment.js?v=7"></script>
     <script src="./js/order-pdf.js?v=6"></script>
     <script src="./js/driver-cash-wallet.js?v=12"></script>
-    <script src="./js/realtime-sync.js?v=6" defer></script>
+    <script src="./js/realtime-sync.js?v=7" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1715" defer></script>
-    <script src="./js/delivery-calendar.js?v=1744" defer></script>
+    <script src="./js/delivery-calendar.js?v=1747" defer></script>
     <script src="./js/driver-settlements.js?v=1717" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
     <script src="./js/profit-expenses.js?v=1737" defer></script>
     <script src="./js/company-money.js?v=33" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1723" defer></script>
+    <script src="./js/docs-receipts.js?v=1726" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
     <script src="./js/custom-receipts.js?v=6" defer></script>
     <script src="./js/email-service.js?v=11" defer></script>
@@ -1889,7 +1890,7 @@
                             </div>
                         </div>
                         <div class="form-group"><label class="sidebar-label-btn">Date</label><input type="date"
-                                id="in-date"></div>
+                                id="in-date" onchange="if(window.syncCalendarRouteStopUI) window.syncCalendarRouteStopUI()"></div>
                         <div class="form-group">
                             <label class="sidebar-label-btn">Size</label>
                             <div class="hybrid-input-wrapper">
@@ -2157,7 +2158,7 @@
                                     style="margin-right: 0 !important;">Driver</label>
                                 <button onclick="openDriverManager()" class="btn-manage-inline">Manage</button>
                             </div>
-                            <select id="in-driver">
+                            <select id="in-driver" onchange="if(window.syncCalendarRouteStopUI) window.syncCalendarRouteStopUI()">
                                 <option value="">No driver yet (pending OK)</option>
                             </select>
                         </div>
@@ -2497,12 +2498,29 @@
                                 </option>
                             </select>
                         </div>
+                        <div class="form-group" id="calendar-proof-box">
+                            <label class="sidebar-label-btn">Proof</label>
+                            <label class="cal-proof-check">
+                                <input type="checkbox" id="in-needs-proof" checked
+                                    onchange="if(window.syncNeedsDeliveryProof) window.syncNeedsDeliveryProof(this.checked)">
+                                Photos &amp; signatures required
+                            </label>
+                        </div>
+                        <div class="form-group" id="calendar-route-stop-box" style="display:none;">
+                            <label class="sidebar-label-btn">Stop #</label>
+                            <div class="cal-route-stop-controls">
+                                <div id="calendar-route-stop-hint" class="cal-route-stop-hint"></div>
+                                <div id="calendar-route-stop-btns" class="cal-route-stop-btns"></div>
+                                <div id="calendar-route-stop-list" class="cal-route-stop-list"></div>
+                            </div>
+                        </div>
                         <div class="form-group" id="calendar-driver-start-box" style="display:none;">
                             <label class="sidebar-label-btn">Driver trip</label>
                             <div class="cal-driver-start-controls">
                                 <div id="calendar-driver-start-label" class="cal-driver-start-status"></div>
                                 <button type="button" id="btn-cal-start-trip" class="cal-driver-start-btn"
-                                    onclick="window.handleCalendarStartTrip && window.handleCalendarStartTrip()">
+                                    onclick="window.handleCalendarStartTrip && window.handleCalendarStartTrip()"
+                                    style="display:none;">
                                     <i class="fas fa-play"></i> START THIS TRIP
                                 </button>
                                 <button type="button" id="btn-cal-clear-start" class="cal-driver-start-btn cal-driver-clear-btn"
@@ -2872,6 +2890,7 @@
                         </div>
                     </div>
                     <div id="calendar-status-banner" class="calendar-status-banner" role="status" style="display:none;"></div>
+                    <div id="calendar-route-banner" class="calendar-route-banner" role="status" style="display:none;"></div>
                     <div class="table-scroll-container" id="calendar-table-container">
                         <style>
                             .calendar-sync-label { font-size: 0.7rem; font-weight: 700; color: #64748b; white-space: nowrap; }
@@ -3011,10 +3030,17 @@
                         </h3>
 
                         <div class="toolbar-doc-actions">
-                            <button type="button" id="btn-docs-start-trip" class="btn-start-docs"
-                                onclick="window.handleDocsStartTrip && window.handleDocsStartTrip()"
-                                title="Tell the office you are doing this trip now">
+                            <button type="button" id="btn-docs-start-trip" class="btn-start-docs" style="display:none;"
+                                onclick="window.handleDocsStartTrip && window.handleDocsStartTrip()">
                                 <i class="fas fa-play"></i> START THIS TRIP
+                            </button>
+                            <span id="docs-doing-now-chip" class="docs-doing-now-chip" style="display:none;">
+                                <i class="fas fa-truck"></i> DOING THIS NOW
+                            </span>
+                            <button type="button" id="btn-docs-finish-stop" class="btn-finish-stop-docs" style="display:none;"
+                                onclick="window.handleDocsFinishStop && window.handleDocsFinishStop()"
+                                title="This trip does not need photos. Mark the stop finished to open the next one.">
+                                <i class="fas fa-check"></i> FINISH THIS STOP
                             </button>
                             <button type="button" id="btn-docs-clear-start" class="btn-clear-start-docs staff-only"
                                 onclick="window.handleDocsClearStart && window.handleDocsClearStart()"
@@ -7527,7 +7553,8 @@
                 const docsPhotoBtn = document.getElementById('btn-docs-photos');
                 if (docsPhotoBtn) docsPhotoBtn.style.display = 'inline-flex';
                 const docsStartBtn = document.getElementById('btn-docs-start-trip');
-                if (docsStartBtn) docsStartBtn.style.display = 'inline-flex';
+                if (docsStartBtn) docsStartBtn.style.display = 'none';
+                if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
                 const docsStopPay = document.getElementById('docs-stop-pay-actions');
                 if (docsStopPay && typeof window.syncStopPayDocsUI === 'function') window.syncStopPayDocsUI();
                 if (window.renderDocsOrderPdf) window.renderDocsOrderPdf();

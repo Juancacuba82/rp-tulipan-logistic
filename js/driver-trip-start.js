@@ -29,10 +29,25 @@
         return !!(trip && trip[STARTED_AT]);
     };
 
+    const NEEDS_PROOF = 93;
+    const STOP_DONE = 94;
+
     window.tripHasDeliveryProof = function (trip) {
         if (!trip) return false;
         const photos = Array.isArray(trip[PHOTOS]) ? trip[PHOTOS] : [];
         return photos.length >= 4 && !!(trip[CLIENT_SIG]) && !!(trip[DRIVER_SIG]);
+    };
+
+    window.tripNeedsDeliveryProof = function (trip) {
+        if (!trip) return true;
+        const v = trip[NEEDS_PROOF];
+        return !(v === false || v === 'false' || v === 0 || v === '0');
+    };
+
+    window.tripStopIsComplete = function (trip) {
+        if (!trip) return false;
+        if (window.tripNeedsDeliveryProof(trip)) return window.tripHasDeliveryProof(trip);
+        return !!(trip[STOP_DONE]);
     };
 
     window.isStaffForDriverStart = function () {
@@ -68,6 +83,20 @@
         if (window.currentDocTrip && window.currentDocTrip[0] === tripId) {
             window.currentDocTrip[STARTED_AT] = startedAt || '';
             window.currentDocTrip[STARTED_BY] = startedBy || '';
+        }
+    }
+
+    function patchStopDone(tripId, doneAt) {
+        const apply = (arr) => {
+            if (!arr) return;
+            const row = arr.find(t => t && t[0] === tripId);
+            if (row) row[STOP_DONE] = doneAt || '';
+        };
+        apply(window.currentTrips);
+        apply(window.docsTripsCache);
+        apply(window.allTripsUnfiltered);
+        if (window.currentDocTrip && window.currentDocTrip[0] === tripId) {
+            window.currentDocTrip[STOP_DONE] = doneAt || '';
         }
     }
 
@@ -160,7 +189,7 @@
 
     window.maybeClearStartWhenReceiptComplete = async function (trip) {
         if (!trip || !trip[0]) return false;
-        if (!window.tripIsStarted(trip) || !window.tripHasDeliveryProof(trip)) return false;
+        if (!window.tripIsStarted(trip) || !window.tripStopIsComplete(trip)) return false;
         const ok = await window.clearDriverTripStart(trip[0], { silent: true });
         if (ok && window.showToast) {
             window.showToast('Receipt complete. This trip is no longer Doing now.', 'success');
@@ -175,22 +204,22 @@
         const orderLabel = (trip[ORDER_NO] && trip[ORDER_NO] !== '---') ? trip[ORDER_NO] : 'this trip';
         const driverName = trip[DRIVER] || window.currentDriverNameRef || '';
 
-        if (trip[STARTED_AT]) {
-            if (window.showToast) window.showToast('This trip is already started.', 'info');
-            return true;
-        }
+        if (trip[STARTED_AT]) return true;
 
         const others = window.findStartedTripsForDriver(driverName, trip[0]);
-        const blocked = others.filter(t => !window.tripHasDeliveryProof(t));
+        const blocked = others.filter(t => !window.tripStopIsComplete(t));
 
         if (blocked.length && !office) {
             const otherNo = (blocked[0][ORDER_NO] && blocked[0][ORDER_NO] !== '---')
                 ? blocked[0][ORDER_NO]
                 : 'the current trip';
+            const needProof = window.tripNeedsDeliveryProof(blocked[0]);
             await window.openDriverStartConfirm({
                 title: 'Finish this trip first',
                 order: otherNo,
-                text: 'Upload 4 photos and both signatures on the current trip first.\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.',
+                text: needProof
+                    ? 'Upload 4 photos and both signatures on the current trip first.\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.'
+                    : 'Tap Finish this stop on the current trip first.\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.',
                 mode: 'ok'
             });
             return false;
@@ -217,9 +246,9 @@
             if (window.logActivity) {
                 window.logActivity('DRIVER_TRIP_STARTED', 'Started trip ' + trip[0] + ' order ' + orderLabel, trip[1] || null);
             }
-            if (window.showToast) window.showToast('Started order ' + orderLabel, 'success');
+            if (!skipConfirm && window.showToast) window.showToast('Started order ' + orderLabel, 'success');
             if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
-            if (typeof window.loadDocTrips === 'function') window.loadDocTrips(false);
+            if (!skipConfirm && typeof window.loadDocTrips === 'function') window.loadDocTrips(false);
             return true;
         } catch (err) {
             console.error('startDriverTrip', err);
@@ -242,22 +271,51 @@
         if (clearBtn) {
             clearBtn.style.display = (staff && trip && trip[STARTED_AT]) ? '' : 'none';
         }
-        if (!startBtn) return;
-        if (!trip) {
-            startBtn.disabled = true;
-            startBtn.innerHTML = '<i class="fas fa-play"></i> START THIS TRIP';
-            startBtn.classList.remove('is-started');
+        if (startBtn) startBtn.style.display = 'none';
+        const chip = document.getElementById('docs-doing-now-chip');
+        const finishBtn = document.getElementById('btn-docs-finish-stop');
+        const photosBtn = document.getElementById('btn-docs-photos');
+        const doing = !!(trip && trip[STARTED_AT]);
+        if (chip) chip.style.display = doing ? 'inline-flex' : 'none';
+        const skipProof = trip && !window.tripNeedsDeliveryProof(trip);
+        if (finishBtn) {
+            const showFinish = !!(skipProof && trip && trip[0] && !window.tripStopIsComplete(trip));
+            finishBtn.style.display = showFinish ? 'inline-flex' : 'none';
+        }
+        if (window.currentUserRole === 'driver') {
+            if (photosBtn) photosBtn.style.display = skipProof ? 'none' : 'inline-flex';
+            document.querySelectorAll('.btn-signature-docs').forEach(btn => {
+                if (btn.classList.contains('staff-only')) return;
+                btn.style.display = skipProof ? 'none' : '';
+            });
+        }
+    };
+
+    window.handleDocsFinishStop = async function () {
+        const trip = window.currentDocTrip;
+        if (!trip || !trip[0] || !db) return;
+        if (window.tripNeedsDeliveryProof(trip)) {
+            alert('This trip still needs 4 photos and both signatures.');
             return;
         }
-        if (trip[STARTED_AT]) {
-            startBtn.disabled = true;
-            startBtn.classList.add('is-started');
-            startBtn.innerHTML = '<i class="fas fa-truck"></i> DOING THIS NOW';
-            return;
+        if (window.tripStopIsComplete(trip)) return;
+        try {
+            const now = new Date().toISOString();
+            const { error } = await db.from('trips').update({ driver_stop_done_at: now }).eq('trip_id', trip[0]);
+            if (error) throw error;
+            patchStopDone(trip[0], now);
+            await window.clearDriverTripStart(trip[0], { silent: true });
+            if (window.showToast) window.showToast('Stop finished. You can open the next trip.', 'success');
+            if (typeof window.loadDocTrips === 'function') window.loadDocTrips(false);
+        } catch (err) {
+            console.error('handleDocsFinishStop', err);
+            const msg = (err && err.message) || String(err);
+            if (/driver_stop_done|needs_delivery_proof/i.test(msg)) {
+                alert('Run supabase-delivery-proof.sql in Supabase, then try again.');
+            } else {
+                alert('Could not finish this stop: ' + msg);
+            }
         }
-        startBtn.disabled = false;
-        startBtn.classList.remove('is-started');
-        startBtn.innerHTML = '<i class="fas fa-play"></i> START THIS TRIP';
     };
 
     window.handleDocsStartTrip = async function () {
@@ -299,14 +357,13 @@
             return;
         }
         box.style.display = 'flex';
+        if (startBtn) startBtn.style.display = 'none';
         if (trip[STARTED_AT]) {
             const when = trip[STARTED_AT] ? new Date(trip[STARTED_AT]).toLocaleString() : '';
             if (label) label.textContent = 'Driver is doing this trip now' + (when ? ' · ' + when : '');
-            if (startBtn) startBtn.style.display = 'none';
             if (clearBtn) clearBtn.style.display = '';
         } else {
             if (label) label.textContent = 'Driver has not started this trip.';
-            if (startBtn) startBtn.style.display = '';
             if (clearBtn) clearBtn.style.display = 'none';
         }
     };

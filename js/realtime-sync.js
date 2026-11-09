@@ -122,6 +122,15 @@ function handleRealtimeTrips(payload, opts) {
                     }
                 } else {
                     if (idx !== -1) {
+                        const prev = cacheArray[idx];
+                        if (payload.new && !Object.prototype.hasOwnProperty.call(payload.new, 'needs_delivery_proof') && prev) {
+                            updatedArr[93] = prev[93];
+                        } else if (typeof window.parseNeedsDeliveryProof === 'function') {
+                            updatedArr[93] = window.parseNeedsDeliveryProof(
+                                payload.new && payload.new.needs_delivery_proof,
+                                prev ? prev[93] : true
+                            );
+                        }
                         cacheArray[idx] = updatedArr; // Update existing
                         modified = true;
                     } else {
@@ -162,6 +171,19 @@ function handleRealtimeTrips(payload, opts) {
     } else {
         const mod1 = applyToCache(window.currentTrips);
         const mod2 = applyToCache(window.allTripsUnfiltered);
+        applyToCache(window.docsTripsCache);
+        if (window.currentDocTrip && payload.new && window.currentDocTrip[0] === payload.new.trip_id) {
+            if (!Object.prototype.hasOwnProperty.call(payload.new, 'needs_delivery_proof')) {
+                /* keep currentDocTrip[93] */
+            } else if (typeof window.parseNeedsDeliveryProof === 'function') {
+                window.currentDocTrip[93] = window.parseNeedsDeliveryProof(
+                    payload.new.needs_delivery_proof,
+                    window.currentDocTrip[93]
+                );
+            }
+            if (payload.new.driver_started_at !== undefined) window.currentDocTrip[85] = payload.new.driver_started_at || '';
+            if (payload.new.driver_started_by !== undefined) window.currentDocTrip[86] = payload.new.driver_started_by || '';
+        }
         if (isRentalInvoice) {
             if (!window.rentalInvoiceTrips) window.rentalInvoiceTrips = [];
             applyToCache(window.rentalInvoiceTrips);

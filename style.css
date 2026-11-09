@@ -2141,6 +2141,143 @@ main {
     box-shadow: inset 4px 0 0 #fdba74;
 }
 
+.trip-item.trip-route-locked {
+    opacity: 0.72;
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.trip-item.trip-route-future {
+    opacity: 0.45;
+    filter: grayscale(0.7);
+    border-color: #94a3b8;
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.trip-route-lock-msg {
+    margin-top: 6px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #92400e;
+}
+
+.trip-route-stop-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #1d4ed8;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}
+
+.calendar-route-banner {
+    display: none;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 8px 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.4;
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+#calendar-view #calendar-route-stop-box {
+    align-items: flex-start;
+}
+
+.cal-route-stop-controls {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cal-route-stop-hint {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #9a3412;
+    background: #fff7ed;
+    border-radius: 4px;
+    padding: 6px 8px;
+    line-height: 1.35;
+}
+
+.cal-route-stop-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cal-route-stop-btn {
+    min-width: 36px;
+    height: 32px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    color: #0f172a;
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.cal-route-stop-btn.is-on {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.cal-route-stop-clear {
+    color: #64748b;
+}
+
+.cal-route-stop-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cal-route-sib {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+    text-align: left;
+}
+
+.cal-route-sib.is-current {
+    border-color: #1d4ed8;
+    background: #eff6ff;
+}
+
+.cal-route-sib-n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #1e293b;
+    color: #fff;
+    font-size: 0.7rem;
+}
+
 .trip-doing-now-badge {
     display: inline-block;
     margin-left: 6px;
@@ -2885,6 +3022,50 @@ main {
     display: flex;
     gap: 12px;
     flex-shrink: 0;
+}
+
+.docs-doing-now-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 6px;
+    background: #ea580c;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+}
+
+.btn-finish-stop-docs {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 6px;
+    background: #0f766e;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.cal-proof-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+}
+
+.cal-proof-check input {
+    width: 16px;
+    height: 16px;
 }
 
 .btn-signature-docs,

@@ -114,6 +114,43 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         }
         window.syncImmediate = syncImmediate;
 
+        function patchNeedsProofLocal(tripId, needed) {
+            [window.currentTrips, window.allTripsUnfiltered, window.docsTripsCache, window.combinedBillingTrips]
+                .forEach(pool => {
+                    if (!pool) return;
+                    const row = pool.find(t => t && t[0] === tripId);
+                    if (row) row[93] = needed;
+                });
+            if (window.currentDocTrip && window.currentDocTrip[0] === tripId) {
+                window.currentDocTrip[93] = needed;
+            }
+        }
+
+        window.syncNeedsDeliveryProof = async function (checked) {
+            const needed = !!checked;
+            const tripId = editingTripDbId;
+            if (!tripId || !db) return;
+            try {
+                const { error } = await db.from('trips').update({ needs_delivery_proof: needed }).eq('trip_id', tripId);
+                if (error) throw error;
+                patchNeedsProofLocal(tripId, needed);
+                if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
+                if (window.showToast) {
+                    window.showToast(needed ? 'Photos & signatures required' : 'No photos/signatures on this trip', 'success');
+                }
+            } catch (err) {
+                console.error('syncNeedsDeliveryProof', err);
+                const box = document.getElementById('in-needs-proof');
+                if (box) box.checked = !needed;
+                const msg = (err && err.message) || String(err);
+                if (/needs_delivery_proof/i.test(msg)) {
+                    alert('Run supabase-delivery-proof.sql in Supabase (and reload the API schema if asked), then try again.');
+                } else {
+                    alert('Could not save proof setting: ' + msg);
+                }
+            }
+        };
+
         window.syncRateSplitPaid = async function () {
             const tripId = editingTripDbId;
             const cashPaid = !!document.getElementById('in-rate-cash-paid')?.checked;
@@ -1375,6 +1412,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
                 rowData[91] = selectedUsedGrade;
                 rowData[88] = stopRes;
+                rowData[92] = prevCashRow ? (prevCashRow[92] || '') : '';
+                const proofEl = document.getElementById('in-needs-proof');
+                rowData[93] = proofEl ? !!proofEl.checked : (prevCashRow ? prevCashRow[93] !== false : true);
+                rowData[94] = prevCashRow ? (prevCashRow[94] || '') : '';
 
                 const dbObj = mapArrayToTrip(rowData);
                 if (!stopPlan && !stopRes) {
@@ -1486,7 +1527,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started|stop_pay|used_grade/i.test(masterErr.message || '')) {
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started|stop_pay|used_grade|route_stop|needs_delivery_proof|driver_stop_done/i.test(masterErr.message || '')) {
                     console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
@@ -1504,10 +1545,25 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     delete masterPayload.stop_pay_result_at;
                     delete masterPayload.stop_pay_result_by;
                     delete masterPayload.used_grade;
+                    delete masterPayload.route_stop;
+                    delete masterPayload.needs_delivery_proof;
+                    delete masterPayload.driver_stop_done_at;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
                 if (masterErr) throw masterErr;
+
+                const proofNeeded = !(rowData[93] === false || rowData[93] === 'false' || rowData[93] === 0 || rowData[93] === '0');
+                const proofSave = await db.from('trips').update({ needs_delivery_proof: proofNeeded }).eq('trip_id', finalTripId);
+                if (proofSave.error) {
+                    console.warn('[Trips] needs_delivery_proof save failed', proofSave.error);
+                    if (/needs_delivery_proof/i.test(proofSave.error.message || '')) {
+                        alert('Order saved, but Photos & signatures could not be stored. Run supabase-delivery-proof.sql in Supabase.');
+                    }
+                } else {
+                    rowData[93] = proofNeeded;
+                    dbObj.needs_delivery_proof = proofNeeded;
+                }
 
                 if (isFinalized && finalTripId && db) {
                     try {
@@ -1758,6 +1814,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 emailRowData[0] = finalTripId;
 
                 alert('¡ORDEN GUARDADA CORRECTAMENTE!');
+                if (typeof window.warnIfRouteNeedsStops === 'function') window.warnIfRouteNeedsStops(emailRowData);
                 resetForm();
 
                 // Trigger email sending in background after database save is complete
@@ -1874,6 +1931,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             editingTripDbId = null;
             window.editingTripDbId = null;
             if (typeof window.syncCalendarDriverStartUI === 'function') window.syncCalendarDriverStartUI();
+            if (typeof window.syncCalendarRouteStopUI === 'function') window.syncCalendarRouteStopUI();
             if (typeof window.selectStopPayPlan === 'function') window.selectStopPayPlan('');
             if (typeof window.syncStopPayForm === 'function') window.syncStopPayForm(null);
             window.pendingOrderPdfFile = null;
@@ -1938,6 +1996,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Reset deduct-stock to YES by default for new orders
             const deductChkReset = document.getElementById('in-deduct-stock');
             if (deductChkReset) deductChkReset.checked = true;
+            const proofChk = document.getElementById('in-needs-proof');
+            if (proofChk) proofChk.checked = true;
             if (window.updateDeductButtons) window.updateDeductButtons();
 
             if (typeof window.setContainerSource === 'function') {
@@ -2799,6 +2859,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 updateStatusColor(sval);
             }
             if (typeof window.syncCalendarDriverStartUI === 'function') window.syncCalendarDriverStartUI();
+            if (typeof window.syncCalendarRouteStopUI === 'function') window.syncCalendarRouteStopUI();
             if (typeof window.syncStopPayForm === 'function') window.syncStopPayForm(rowData);
 
             document.getElementById('in-yardpaid').checked = (rowData[30] === 'PAID');
@@ -2840,6 +2901,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (hideAmts) {
                 const hv = rowData[51];
                 hideAmts.checked = (hv === true || hv === 'true' || hv === 'YES' || hv === 'on' || hv === 1);
+            }
+            const needsProof = document.getElementById('in-needs-proof');
+            if (needsProof) {
+                const pv = rowData[93];
+                needsProof.checked = !(pv === false || pv === 'false' || pv === 0 || pv === '0');
             }
 
             // Set Tax Paid Checkbox (Index 52)
@@ -3289,6 +3355,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             clone[88] = '';
             clone[89] = '';
             clone[90] = '';
+            clone[92] = '';
+            clone[93] = true;
+            clone[94] = '';
 
             try {
                 const dbObj = mapArrayToTrip(clone);
@@ -3982,6 +4051,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.title = 'Driver started this trip' + (startedForOrder[85] ? (' at ' + new Date(startedForOrder[85]).toLocaleString()) : '');
                                 }
                                 if (payChip.html) orderHtml += ' ' + payChip.html;
+                                const stopN = (typeof window.getTripRouteStop === 'function')
+                                    ? window.getTripRouteStop(viewMove)
+                                    : 0;
+                                if (stopN) {
+                                    orderHtml += ' <span class="trip-route-stop-badge">STOP ' + stopN + '</span>';
+                                }
                                 if (orderHtml) td.innerHTML = orderHtml;
                             }
 
@@ -4184,6 +4259,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 logisticsBody.appendChild(tableFragment);
                 // Apply existing filters if any (for real-time persistence)
                 applyAdvancedFilters();
+                if (typeof window.renderRouteStopBanner === 'function') window.renderRouteStopBanner();
                 if (window.loadDocTrips) window.loadDocTrips();
 
                 // Painted OK: clear banners, mark "synced", start/refresh the change polling
@@ -5781,6 +5857,9 @@ window.duplicateTrip = async function (tripId) {
         clone[88] = '';
         clone[89] = '';
         clone[90] = '';
+        clone[92] = '';
+        clone[93] = true;
+        clone[94] = '';
 
         const qty = parseInt(clone[53]) || 1;
         let pending = 0;

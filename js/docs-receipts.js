@@ -199,12 +199,18 @@
 
         list.innerHTML = '';
 
-        // Custom sorting for drivers: based on numeric prefix in Notes (index 25)
         const sortedTrips = [...(sourceTrips || [])].sort((a, b) => {
+            const da = ((a && a[1]) || '').toString();
+            const db = ((b && b[1]) || '').toString();
+            if (da !== db) return da.localeCompare(db);
             const getOrder = (trip) => {
+                if (typeof window.getTripRouteStop === 'function') {
+                    const n = window.getTripRouteStop(trip);
+                    if (n) return n;
+                }
                 const note = trip[25] || '';
-                const match = note.trim().match(/^(\d+)\./);
-                return match ? parseInt(match[1]) : 999999;
+                const match = String(note).trim().match(/^(\d+)\./);
+                return match ? parseInt(match[1], 10) : 999999;
             };
             return getOrder(a) - getOrder(b);
         });
@@ -243,8 +249,7 @@
 
             const matchesDate = (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
 
-            // DRIVER RESTRICTION: Only show their own trips (EXCEPT Robert Cortez)
-            // Time restriction: Only show today's orders. Show tomorrow's orders ONLY after 8:00 PM.
+            // DRIVER: own trips, not complete, not past dates. Future stays in the list but locked.
             let roleDriverMatch = true;
             if (window.currentUserRole === 'driver') {
                 const drvRef = (window.currentDriverNameRef || '').toUpperCase();
@@ -255,8 +260,10 @@
                 const drvRefClean = drvRef.toLowerCase().replace(/[^a-z0-9]/gi, '');
                 const nameMatch = isRobert || (drvClean.length > 0 && drvRefClean.length > 0 && (drvClean.includes(drvRefClean) || drvRefClean.includes(drvClean)));
 
-                // All drivers (including Robert): only see trips that are NOT complete
                 roleDriverMatch = nameMatch && !isComplete;
+                if (roleDriverMatch && typeof window.driverDocsDateVisible === 'function') {
+                    roleDriverMatch = window.driverDocsDateVisible(date);
+                }
             }
 
             if (matchesDate && roleDriverMatch && dropdownDriverMatch && dropdownCustomerMatch && dropdownOrderMatch && dropdownStatusMatch && dropdownPaymentMatch) {
@@ -269,40 +276,61 @@
                 const doingBadge = (typeof window.driverStartBadgeHtml === 'function')
                     ? window.driverStartBadgeHtml(trip, true)
                     : '';
-
-                const note = trip[25] || '';
-                const match = note.trim().match(/^(\d+)\./);
-                const orderLabel = match ? `[${match[1]}] ` : '';
+                const openBlock = (window.currentUserRole === 'driver' && typeof window.docsTripOpenBlock === 'function')
+                    ? window.docsTripOpenBlock(trip)
+                    : { ok: true };
+                if (!openBlock.ok) {
+                    div.classList.add('trip-route-locked');
+                    if (openBlock.reason === 'future') div.classList.add('trip-route-future');
+                }
+                const orderLabel = (typeof window.docsRouteLabel === 'function')
+                    ? window.docsRouteLabel(trip)
+                    : '';
 
                 // --- Privacy Masking for Drivers ---
                 const isDriver = (window.currentUserRole === 'driver');
                 const displayCustomer = isDriver ? '********' : (trip[11] || 'No Cust');
                 const displayCont = isDriver ? '********' : (trip[3] || 'No Cont');
                 const displayDriver = (trip[17] || 'No Driver');
-                const collectInfo = window.getCollectAtStop ? window.getCollectAtStop(trip) : null;
+                const hideDetails = isDriver && openBlock.reason === 'future';
+                const collectInfo = (!hideDetails && window.getCollectAtStop) ? window.getCollectAtStop(trip) : null;
                 const collectChip = collectInfo
                     ? `<p style="margin-top:6px; font-size:0.7rem; font-weight:800; color:#92400e; background:#fffbeb; border:1px solid #f59e0b; border-radius:6px; padding:4px 6px;">
                             Collect at Stop: $${collectInfo.amount.toFixed(2)}
                        </p>`
                     : '';
-                const pdfChip = (trip[78])
+                const pdfChip = (!hideDetails && trip[78])
                     ? `<p style="margin-top:6px; font-size:0.7rem; font-weight:800; color:#0f766e;"><i class="fas fa-file-pdf"></i> PDF attached</p>`
                     : '';
-                const payChip = (typeof window.stopPayChip === 'function') ? window.stopPayChip(trip) : { html: '' };
+                const payChip = (!hideDetails && typeof window.stopPayChip === 'function') ? window.stopPayChip(trip) : { html: '' };
                 const payChipHtml = payChip.html
                     ? `<p style="margin-top:6px;">${payChip.html}</p>`
+                    : '';
+                const truckLine = hideDetails
+                    ? ''
+                    : `<p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>`;
+                const lockHint = !openBlock.ok
+                    ? `<p class="trip-route-lock-msg">${
+                        openBlock.reason === 'future' ? ('This trip is for ' + window.formatDateMMDDYYYY(trip[1]))
+                        : (openBlock.reason === 'unnumbered' ? 'Waiting for office: set Stop 1, 2, 3'
+                        : (openBlock.reason === 'order' ? 'Finish the previous stop first' : 'Not available yet'))
+                    }</p>`
                     : '';
 
                 div.innerHTML = `
                         <h4>${orderLabel}${trip[5] && trip[5] !== '---' ? 'Order ' + trip[5] : 'Trip'} · ${window.formatDateMMDDYYYY(trip[1])}${doingBadge}</h4>
                         <p style="font-weight:bold; color:#1e293b;">${displayDriver}</p>
-                        <p>${displayCont} | ${displayCustomer}</p>
-                        <p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>
+                        ${lockHint}
+                        ${hideDetails ? '' : `<p>${displayCont} | ${displayCustomer}</p>`}
+                        ${truckLine}
                         ${collectChip}
                         ${payChipHtml}
                         ${pdfChip}
                     `;
-                div.onclick = () => fillReceiptFromTrip(trip, div);
+                div.onclick = () => {
+                    if (typeof window.tryOpenDocsTrip === 'function') window.tryOpenDocsTrip(trip, div);
+                    else fillReceiptFromTrip(trip, div);
+                };
                 list.appendChild(div);
             }
         });
@@ -312,7 +340,10 @@
             const fresh = sourceTrips.find(t => t[0] === openId);
             const el = list.querySelector('.trip-item[data-tripid="' + openId + '"]');
             if (fresh) {
-                window.fillReceiptFromTrip(fresh, el);
+                const block = (window.currentUserRole === 'driver' && typeof window.docsTripOpenBlock === 'function')
+                    ? window.docsTripOpenBlock(fresh)
+                    : { ok: true };
+                if (block.ok) window.fillReceiptFromTrip(fresh, el);
             }
         }
         if (typeof window.syncDriverStartUI === 'function') window.syncDriverStartUI();
@@ -334,6 +365,11 @@
                 fresh[88] = details.stop_pay_result || fresh[88] || '';
                 fresh[89] = details.stop_pay_result_at || fresh[89] || '';
                 fresh[90] = details.stop_pay_result_by || fresh[90] || '';
+                if (!Object.prototype.hasOwnProperty.call(details, 'needs_delivery_proof')) {
+                    fresh[93] = trip[93];
+                } else if (typeof window.parseNeedsDeliveryProof === 'function') {
+                    fresh[93] = window.parseNeedsDeliveryProof(details.needs_delivery_proof, trip[93]);
+                }
                 window.currentDocTrip = fresh;
                 trip = fresh;
                 if (window.docsTripsCache) {
@@ -353,6 +389,7 @@
                 trip[88] = details.stop_pay_result || trip[88] || '';
                 trip[89] = details.stop_pay_result_at || trip[89] || '';
                 trip[90] = details.stop_pay_result_by || trip[90] || '';
+                if (details.route_stop != null) trip[92] = details.route_stop || '';
             }
             if (typeof window.hydrateStopPayOnTrip === 'function') window.hydrateStopPayOnTrip(window.currentDocTrip);
         }
@@ -430,6 +467,10 @@
         if (!input.files || input.files.length === 0) return;
         if (!window.currentDocTrip) {
             alert('Please select a trip first.');
+            input.value = '';
+            return;
+        }
+        if (typeof window.requireDocsTripStarted === 'function' && !window.requireDocsTripStarted('photos')) {
             input.value = '';
             return;
         }
@@ -970,6 +1011,9 @@
     window.openSignatureModal = function (type) {
         if (!window.currentDocTrip) {
             alert('Please select a trip first.');
+            return;
+        }
+        if (typeof window.requireDocsTripStarted === 'function' && !window.requireDocsTripStarted('signatures')) {
             return;
         }
 
