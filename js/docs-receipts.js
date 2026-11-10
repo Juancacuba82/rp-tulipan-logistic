@@ -281,7 +281,7 @@
                     : { ok: true };
                 if (!openBlock.ok) {
                     div.classList.add('trip-route-locked');
-                    if (openBlock.reason === 'future') div.classList.add('trip-route-future');
+                    if (openBlock.reason === 'future' || openBlock.reason === 'too_early') div.classList.add('trip-route-future');
                 }
                 const orderLabel = (typeof window.docsRouteLabel === 'function')
                     ? window.docsRouteLabel(trip)
@@ -292,7 +292,7 @@
                 const displayCustomer = isDriver ? '********' : (trip[11] || 'No Cust');
                 const displayCont = isDriver ? '********' : (trip[3] || 'No Cont');
                 const displayDriver = (trip[17] || 'No Driver');
-                const hideDetails = isDriver && openBlock.reason === 'future';
+                const hideDetails = isDriver && (openBlock.reason === 'future' || openBlock.reason === 'too_early');
                 const collectInfo = (!hideDetails && window.getCollectAtStop) ? window.getCollectAtStop(trip) : null;
                 const collectChip = collectInfo
                     ? `<p style="margin-top:6px; font-size:0.7rem; font-weight:800; color:#92400e; background:#fffbeb; border:1px solid #f59e0b; border-radius:6px; padding:4px 6px;">
@@ -311,9 +311,10 @@
                     : `<p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>`;
                 const lockHint = !openBlock.ok
                     ? `<p class="trip-route-lock-msg">${
-                        openBlock.reason === 'future' ? ('This trip is for ' + window.formatDateMMDDYYYY(trip[1]))
+                        openBlock.reason === 'too_early' ? 'Opens at 6:00 AM'
+                        : (openBlock.reason === 'future' ? ('This trip is for ' + window.formatDateMMDDYYYY(trip[1]))
                         : (openBlock.reason === 'unnumbered' ? 'Waiting for office: set Stop 1, 2, 3'
-                        : (openBlock.reason === 'order' ? 'Finish the previous stop first' : 'Not available yet'))
+                        : (openBlock.reason === 'order' ? 'Finish the previous stop first' : 'Not available yet')))
                     }</p>`
                     : '';
 

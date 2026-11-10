@@ -47,11 +47,21 @@
         return localYmd(d);
     }
 
-    // After 10pm local time, today's pending trips drop off the driver's Docs list.
+    // Drivers may open today's trips only between 6:00 AM and 10:00 PM local time.
+    const DRIVER_DAY_START_HOUR = 6;
     const DRIVER_DAY_END_HOUR = 22;
 
+    function driverHour() {
+        return new Date().getHours();
+    }
+
     function driverTodayStillOpen() {
-        return new Date().getHours() < DRIVER_DAY_END_HOUR;
+        return driverHour() < DRIVER_DAY_END_HOUR;
+    }
+
+    function driverTodayWorkHours() {
+        const h = driverHour();
+        return h >= DRIVER_DAY_START_HOUR && h < DRIVER_DAY_END_HOUR;
     }
 
     window.ROUTE_STOP_IDX = ROUTE_STOP;
@@ -155,7 +165,7 @@
     window.driverDocsDateOpenable = function (dateStr) {
         const date = (dateStr || '').toString().split('T')[0];
         if (!date) return false;
-        return date === localYmd() && driverTodayStillOpen();
+        return date === localYmd() && driverTodayWorkHours();
     };
 
     window.nextDriverRouteTrip = function (driverName, dateStr) {
@@ -179,6 +189,13 @@
             return { ok: false, reason: 'past', text: 'This trip date has already passed.' };
         }
         if (!window.driverDocsDateOpenable(date)) {
+            if (date === localYmd() && driverHour() < DRIVER_DAY_START_HOUR) {
+                return {
+                    ok: false,
+                    reason: 'too_early',
+                    text: 'This trip opens at 6:00 AM.'
+                };
+            }
             const nice = (typeof window.formatDateMMDDYYYY === 'function')
                 ? window.formatDateMMDDYYYY(date)
                 : date;
@@ -219,9 +236,11 @@
         const block = window.docsTripOpenBlock(trip);
         if (!block.ok) {
             if (window.openDriverStartConfirm) {
-                const title = block.reason === 'future'
-                    ? 'This trip is not for today'
-                    : (block.reason === 'unnumbered' ? 'Stops not set' : 'Not this trip yet');
+                const title = block.reason === 'too_early'
+                    ? 'Too early'
+                    : (block.reason === 'future'
+                        ? 'This trip is not for today'
+                        : (block.reason === 'unnumbered' ? 'Stops not set' : 'Not this trip yet'));
                 await window.openDriverStartConfirm({
                     title: title,
                     order: (trip[ORDER_NO] && trip[ORDER_NO] !== '---') ? ('Order: ' + trip[ORDER_NO]) : '',
