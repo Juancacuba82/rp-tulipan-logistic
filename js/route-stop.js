@@ -47,6 +47,12 @@
         return localYmd(d);
     }
 
+    const DRIVER_DAY_END_HOUR = 22;
+
+    function driverTodayStillOpen() {
+        return new Date().getHours() < DRIVER_DAY_END_HOUR;
+    }
+
     window.ROUTE_STOP_IDX = ROUTE_STOP;
 
     window.getTripRouteStop = function (trip) {
@@ -139,13 +145,16 @@
     window.driverDocsDateVisible = function (dateStr) {
         const date = (dateStr || '').toString().split('T')[0];
         if (!date) return false;
-        return date >= localYmd();
+        const today = localYmd();
+        if (date > today) return true;
+        if (date < today) return false;
+        return driverTodayStillOpen();
     };
 
     window.driverDocsDateOpenable = function (dateStr) {
         const date = (dateStr || '').toString().split('T')[0];
         if (!date) return false;
-        return date === localYmd();
+        return date === localYmd() && driverTodayStillOpen();
     };
 
     window.nextDriverRouteTrip = function (driverName, dateStr) {
