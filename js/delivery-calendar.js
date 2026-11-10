@@ -3837,6 +3837,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             displayRow[17] = viewMove[17];
                             displayRow[18] = viewMove[18];
                             displayRow[24] = viewMove[24];
+                            displayRow[92] = viewMove[92] || rowData[92];
                         }
 
                         const tr = document.createElement('tr');
@@ -4066,9 +4067,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             }
 
                             if (i === 19) {
-                                const stopN = (typeof window.getTripRouteStop === 'function')
-                                    ? window.getTripRouteStop(viewMove)
-                                    : 0;
+                                const stopOf = (t) => (typeof window.getTripRouteStop === 'function' && t)
+                                    ? window.getTripRouteStop(t) : 0;
+                                const stopN = stopOf(viewMove) || stopOf(displayRow) || stopOf(rowData);
                                 if (stopN) {
                                     const nameHtml = (td.innerHTML && td.innerHTML !== String(text))
                                         ? td.innerHTML
