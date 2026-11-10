@@ -4051,12 +4051,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                     td.title = 'Driver started this trip' + (startedForOrder[85] ? (' at ' + new Date(startedForOrder[85]).toLocaleString()) : '');
                                 }
                                 if (payChip.html) orderHtml += ' ' + payChip.html;
-                                const stopN = (typeof window.getTripRouteStop === 'function')
-                                    ? window.getTripRouteStop(viewMove)
-                                    : 0;
-                                if (stopN) {
-                                    orderHtml += ' <span class="trip-route-stop-badge">STOP ' + stopN + '</span>';
-                                }
                                 if (orderHtml) td.innerHTML = orderHtml;
                             }
 
