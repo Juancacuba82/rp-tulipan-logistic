@@ -47,6 +47,7 @@
         return localYmd(d);
     }
 
+    // After 10pm local time, today's pending trips drop off the driver's Docs list.
     const DRIVER_DAY_END_HOUR = 22;
 
     function driverTodayStillOpen() {
