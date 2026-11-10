@@ -3178,6 +3178,40 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        window.localCalendarToday = function () {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        };
+
+        window.pickCalendarFocusMove = function (moves, opts) {
+            const list = (moves || []).filter(Boolean);
+            if (!list.length) return null;
+            const today = (opts && opts.today) || window.localCalendarToday();
+            const dateFrom = opts && opts.dateFrom;
+            const dateTo = opts && opts.dateTo;
+            const isDone = (m) => {
+                const st = (m[41] || '').toUpperCase();
+                return st === 'COMPLETE' || st === 'PAID';
+            };
+            const day = (m) => (m[1] || '').toString().split('T')[0];
+            const pending = list.filter(m => !isDone(m));
+            const inRange = (m) => {
+                const d = day(m);
+                if (!d) return false;
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo && d > dateTo) return false;
+                return true;
+            };
+            const pendingToday = pending.filter(m => day(m) === today);
+            if (pendingToday.length) return pendingToday[0];
+            const pendingInRange = pending.filter(inRange);
+            if (pendingInRange.length) return pendingInRange[0];
+            if (pending.length) {
+                return pending.slice().sort((a, b) => String(day(a)).localeCompare(String(day(b))))[0];
+            }
+            return list[0];
+        };
+
         window.syncCalendarRowToSelectedMove = function (selectedId) {
             if (!selectedId || typeof window.getMoveFamily !== 'function') return;
             const fam = window.getMoveFamily(selectedId);
@@ -3196,11 +3230,17 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             setTxt(10, view[10]);
             setTxt(18, view[16]);
             if (cells[19]) {
-                const drv = (view[17] && view[17] !== '---') ? view[17] : '';
-                const holdAmt = window.getTripOpenHold ? window.getTripOpenHold(view) : 0;
-                cells[19].textContent = drv;
-                if (holdAmt > 0.01) {
-                    cells[19].innerHTML = drv + ` <i class="fas fa-money-bill-wave" style="color:#d97706; margin-left:4px;" title="Driver holds $${holdAmt.toFixed(2)}"></i>`;
+                const famMoves = (fam.moves && fam.moves.length > 1) ? fam.moves : [view];
+                if (famMoves.length > 1 && typeof window.calendarFamilyDriverHtml === 'function') {
+                    cells[19].innerHTML = window.calendarFamilyDriverHtml(famMoves, fam.parentId);
+                } else {
+                    const drv = (view[17] && view[17] !== '---') ? view[17] : '';
+                    const stopN = (typeof window.getTripRouteStop === 'function') ? window.getTripRouteStop(view) : 0;
+                    const holdAmt = window.getTripOpenHold ? window.getTripOpenHold(view) : 0;
+                    cells[19].innerHTML = (stopN ? '<span class="trip-route-stop-badge">' + stopN + '</span> ' : '') + drv;
+                    if (holdAmt > 0.01) {
+                        cells[19].innerHTML += ` <i class="fas fa-money-bill-wave" style="color:#d97706; margin-left:4px;" title="Driver holds $${holdAmt.toFixed(2)}"></i>`;
+                    }
                 }
             }
             if (cells[21]) {
@@ -3231,6 +3271,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const to = (m[8] && m[8] !== '---') ? m[8] : '—';
                 const active = m[0] === tripId;
                 const pay = parseFloat(String(m[39] || m[24] || 0).replace(/[$,]/g, '')) || 0;
+                const stopN = (typeof window.getTripRouteStop === 'function') ? window.getTripRouteStop(m) : 0;
+                const stopChip = stopN
+                    ? ` <span class="trip-route-stop-badge">${stopN}</span>`
+                    : (done ? '' : ' <span style="font-size:0.65rem;font-weight:800;color:#b45309;">no stop</span>');
                 const isExtra = m[0] !== fam.parentId;
                 const canDelete = typeof window.isAdmin === 'function' && window.isAdmin();
                 const delBtn = (isExtra && canDelete)
@@ -3238,7 +3282,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     : '';
                 return `<div onclick="window.switchOrderMove('${m[0]}')" style="display:flex;align-items:flex-start;gap:8px;text-align:left;padding:8px;border-radius:8px;border:2px solid ${active ? '#ea580c' : '#fed7aa'};background:${active ? '#fff' : '#fffbeb'};cursor:pointer;font-size:0.72rem;width:100%;box-sizing:border-box;">
                     <div style="flex:1;min-width:0;">
-                        <b>Move ${seq}</b> · <span style="font-weight:800;color:${done ? '#15803d' : '#b91c1c'};">${done ? 'Complete' : 'Pending'}</span>
+                        <b>Move ${seq}</b> · <span style="font-weight:800;color:${done ? '#15803d' : '#b91c1c'};">${done ? 'Complete' : 'Pending'}</span>${stopChip}
                         ${pay > 0 ? ` · driver $${pay.toFixed(2)}` : ''}
                         <br><span style="color:#9a3412;font-weight:700;">${drv}</span>
                         <br><span style="color:#64748b;">${from} → ${to}</span>
@@ -3731,7 +3775,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 let activityLogs = [];
 
                 // --- Priority Sorting: TODAY first, then recent dates ---
-                const todayStr = new Date().toISOString().split('T')[0];
+                const todayStr = (typeof window.localCalendarToday === 'function')
+                    ? window.localCalendarToday()
+                    : new Date().toISOString().split('T')[0];
                 data.sort((a, b) => {
                     const dateA = Array.isArray(a) ? a[1] : (a.date || '');
                     const dateB = Array.isArray(b) ? b[1] : (b.date || '');
@@ -3809,23 +3855,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             ? window.getMoveFamily(rowData[0], renderedTrips, renderFamIndex)
                             : { parentId: rowData[0], moves: [rowData] };
                         const familyMoves = (moveFam.moves && moveFam.moves.length) ? moveFam.moves : [rowData];
+                        const familyParentId = moveFam.parentId || rowData[0];
                         const pendingMoves = familyMoves.filter(m => {
                             const st = (m[41] || '').toUpperCase();
                             return st !== 'COMPLETE' && st !== 'PAID';
                         });
                         const selectedId = editingTripDbId || (window.selectedTripIds && window.selectedTripIds[0]);
-                        let viewMove = (familyMoves.find(m => m[0] === selectedId) || rowData);
-                        if (!selectedId && (dateFrom || dateTo) && familyMoves.length > 1) {
-                            const inRangeMoves = familyMoves.filter(m => {
-                                const d = (m[1] || '').toString().split('T')[0];
-                                return d && (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
-                            });
-                            const pendingInRange = inRangeMoves.filter(m => {
-                                const st = (m[41] || '').toUpperCase();
-                                return st !== 'COMPLETE' && st !== 'PAID';
-                            });
-                            viewMove = pendingInRange[0] || inRangeMoves[0] || viewMove;
-                        }
+                        const selectedMove = selectedId
+                            ? familyMoves.find(m => m[0] === selectedId)
+                            : null;
+                        let viewMove = selectedMove
+                            || ((familyMoves.length > 1 && typeof window.pickCalendarFocusMove === 'function')
+                                ? window.pickCalendarFocusMove(familyMoves, { today: todayStr, dateFrom, dateTo })
+                                : null)
+                            || rowData;
                         const displayRow = familyMoves.length > 1 ? Object.assign([], rowData) : rowData;
                         if (familyMoves.length > 1) {
                             displayRow[1] = viewMove[1];
@@ -4067,14 +4110,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             }
 
                             if (i === 19) {
-                                const stopOf = (t) => (typeof window.getTripRouteStop === 'function' && t)
-                                    ? window.getTripRouteStop(t) : 0;
-                                const stopN = stopOf(viewMove) || stopOf(displayRow) || stopOf(rowData);
-                                if (stopN) {
-                                    const nameHtml = (td.innerHTML && td.innerHTML !== String(text))
-                                        ? td.innerHTML
-                                        : (text || '---');
-                                    td.innerHTML = '<span class="trip-route-stop-badge">' + stopN + '</span> ' + nameHtml;
+                                if (familyMoves.length > 1 && typeof window.calendarFamilyDriverHtml === 'function') {
+                                    td.innerHTML = window.calendarFamilyDriverHtml(familyMoves, familyParentId);
+                                    td.style.whiteSpace = 'normal';
+                                    td.style.lineHeight = '1.45';
+                                } else {
+                                    const stopOf = (t) => (typeof window.getTripRouteStop === 'function' && t)
+                                        ? window.getTripRouteStop(t) : 0;
+                                    const stopN = stopOf(viewMove) || stopOf(displayRow) || stopOf(rowData);
+                                    if (stopN) {
+                                        const nameHtml = (td.innerHTML && td.innerHTML !== String(text))
+                                            ? td.innerHTML
+                                            : (text || '---');
+                                        td.innerHTML = '<span class="trip-route-stop-badge">' + stopN + '</span> ' + nameHtml;
+                                    }
                                 }
                             }
 
@@ -4205,7 +4254,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.style.cursor = 'pointer';
                         tr.onclick = (e) => {
                             const familyIds = familyMoves.map(m => m[0]);
-                            const openId = rowData[0];
+                            const focusMove = (familyMoves.length > 1 && typeof window.pickCalendarFocusMove === 'function')
+                                ? window.pickCalendarFocusMove(familyMoves, { today: todayStr, dateFrom, dateTo })
+                                : null;
+                            const openId = (focusMove && focusMove[0]) || rowData[0];
                             const isAlreadySelected = familyIds.some(id => window.selectedTripIds.includes(id));
                             
                             if (isAlreadySelected) {

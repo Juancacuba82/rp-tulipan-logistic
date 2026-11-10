@@ -441,6 +441,31 @@
         window.renderRouteStopBanner();
     };
 
+    window.calendarFamilyDriverHtml = function (moves, parentId) {
+        const list = (moves || []).filter(Boolean);
+        if (!list.length) return '';
+        const pid = parentId || (list[0] && list[0][0]);
+        const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        return list.map((m, i) => {
+            const st = (m[41] || '').toUpperCase();
+            const done = st === 'COMPLETE' || st === 'PAID';
+            const raw = (m[17] && m[17] !== '---') ? String(m[17]).trim() : 'No driver';
+            const short = raw.split(/\s+/)[0] || raw;
+            const stop = window.getTripRouteStop ? window.getTripRouteStop(m) : 0;
+            const seq = (typeof window.getMoveSeq === 'function')
+                ? window.getMoveSeq(m, pid)
+                : (i + 1);
+            const title = 'Move ' + seq + ' · ' + raw + (done ? ' · Complete' : (stop ? (' · Stop ' + stop) : ' · no stop'));
+            if (done) {
+                return '<span class="cal-move-drv is-done" title="' + esc(title) + '">M' + seq + ' ✓ ' + esc(short) + '</span>';
+            }
+            if (stop) {
+                return '<span class="cal-move-drv" title="' + esc(title) + '"><span class="trip-route-stop-badge">' + stop + '</span> ' + esc(short) + '</span>';
+            }
+            return '<span class="cal-move-drv is-missing" title="' + esc(title) + '">M' + seq + ' ' + esc(short) + '</span>';
+        }).join('');
+    };
+
     window.docsRouteLabel = function (trip) {
         const n = window.getTripRouteStop(trip);
         if (n) return '[' + n + '] ';

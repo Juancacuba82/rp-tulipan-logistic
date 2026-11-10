@@ -2175,6 +2175,34 @@ main {
     vertical-align: middle;
 }
 
+.cal-move-drv {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 2px 6px 2px 0;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-size: 0.7rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.cal-move-drv .trip-route-stop-badge {
+    margin-left: 0;
+}
+
+.cal-move-drv.is-done {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.cal-move-drv.is-missing {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
 .calendar-route-banner {
     display: none;
     align-items: flex-start;
