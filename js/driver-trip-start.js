@@ -233,10 +233,14 @@
             const otherNo = (blocked[0][ORDER_NO] && blocked[0][ORDER_NO] !== '---')
                 ? blocked[0][ORDER_NO]
                 : 'the current trip';
+            const needPhotos = window.tripNeedsDeliveryProof(blocked[0]);
             await window.openDriverStartConfirm({
                 title: 'Finish this trip first',
                 order: otherNo,
-                text: 'Tap FINISHED on the current trip first (4 photos required).\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.',
+                text: (needPhotos
+                    ? 'Tap FINISHED on the current trip first (4 photos required).'
+                    : 'Tap FINISHED on the current trip first.') +
+                    '\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.',
                 mode: 'ok'
             });
             return false;
@@ -298,10 +302,14 @@
             const showFinish = !!(trip && trip[0] && !window.tripStopIsComplete(trip));
             finishBtn.style.display = showFinish ? 'inline-flex' : 'none';
             if (showFinish) {
-                const n = window.tripPhotoCount(trip);
-                finishBtn.title = n >= 4
-                    ? 'Mark this stop finished'
-                    : 'Upload 4 photos, then tap FINISHED (' + n + '/4)';
+                if (window.tripNeedsDeliveryProof(trip)) {
+                    const n = window.tripPhotoCount(trip);
+                    finishBtn.title = n >= 4
+                        ? 'Mark this stop finished'
+                        : 'Upload 4 photos, then tap FINISHED (' + n + '/4)';
+                } else {
+                    finishBtn.title = 'Photos not required. Tap FINISHED to close this stop.';
+                }
             }
         }
         if (photosBtn) photosBtn.style.display = 'inline-flex';
@@ -317,10 +325,12 @@
         const trip = window.currentDocTrip;
         if (!trip || !trip[0] || !db) return;
         if (window.tripStopIsComplete(trip)) return;
-        const n = window.tripPhotoCount(trip);
-        if (n < 4) {
-            alert('Upload 4 photos before you can finish this trip. You have ' + n + ' of 4.');
-            return;
+        if (window.tripNeedsDeliveryProof(trip)) {
+            const n = window.tripPhotoCount(trip);
+            if (n < 4) {
+                alert('Upload 4 photos before you can finish this trip. You have ' + n + ' of 4.');
+                return;
+            }
         }
         try {
             const now = new Date().toISOString();

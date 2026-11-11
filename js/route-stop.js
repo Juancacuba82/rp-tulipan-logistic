@@ -223,7 +223,9 @@
                     ok: false,
                     reason: 'order',
                     text: 'Finish stop ' + (window.getTripRouteStop(next) || 1) +
-                    ' first (4 photos, then tap FINISHED).' +
+                    (window.tripNeedsDeliveryProof && window.tripNeedsDeliveryProof(next)
+                        ? ' first (4 photos, then tap FINISHED).'
+                        : ' first (tap FINISHED).') +
                     '\n\nCurrent: order ' + label
                 };
             }
