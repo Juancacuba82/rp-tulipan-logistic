@@ -186,16 +186,13 @@
     window.driverDocsDateVisible = function (dateStr) {
         const date = (dateStr || '').toString().split('T')[0];
         if (!date) return false;
-        const today = localYmd();
-        if (date > today) return true;
-        if (date < today) return false;
-        return driverTodayStillOpen();
+        return date >= localYmd();
     };
 
     window.driverDocsDateOpenable = function (dateStr) {
         const date = (dateStr || '').toString().split('T')[0];
         if (!date) return false;
-        return date === localYmd() && driverTodayWorkHours();
+        return date >= localYmd();
     };
 
     window.nextDriverRouteTrip = function (driverName, dateStr) {
@@ -216,49 +213,6 @@
         const date = tripDate(trip);
         if (!window.driverDocsDateVisible(date)) {
             return { ok: false, reason: 'past', text: 'This trip date has already passed.' };
-        }
-        if (!window.driverDocsDateOpenable(date)) {
-            if (date === localYmd() && driverHour() < DRIVER_DAY_START_HOUR) {
-                return {
-                    ok: false,
-                    reason: 'too_early',
-                    text: 'This trip opens at 2:00 AM.'
-                };
-            }
-            const nice = (typeof window.formatDateMMDDYYYY === 'function')
-                ? window.formatDateMMDDYYYY(date)
-                : date;
-            return {
-                ok: false,
-                reason: 'future',
-                text: 'This trip is for ' + nice + '.'
-            };
-        }
-        const driver = trip[DRIVER];
-        const siblings = window.driverDayTrips(driver, date);
-        if (siblings.length >= 1 && !window.routeStopsReady(driver, date)) {
-            return {
-                ok: false,
-                reason: 'unnumbered',
-                text: siblings.length === 1
-                    ? 'Office must set Stop 1 on this trip before you can start it.'
-                    : 'Office must set Stop 1, 2, 3 for these trips before you can open them.'
-            };
-        }
-        if (siblings.length >= 2) {
-            const next = window.nextDriverRouteTrip(driver, date);
-            if (next && next[0] !== trip[0]) {
-                const label = (next[ORDER_NO] && next[ORDER_NO] !== '---') ? next[ORDER_NO] : 'the current stop';
-                return {
-                    ok: false,
-                    reason: 'order',
-                    text: 'Finish stop ' + (window.getTripRouteStop(next) || 1) +
-                    (window.tripNeedsDeliveryProof && window.tripNeedsDeliveryProof(next)
-                        ? ' first (4 photos, then tap FINISHED).'
-                        : ' first (tap FINISHED).') +
-                    '\n\nCurrent: order ' + label
-                };
-            }
         }
         return { ok: true };
     };
@@ -283,11 +237,6 @@
             }
             return false;
         }
-        const role = (window.currentUserRole || '').toLowerCase().trim();
-        if (role === 'driver' && typeof window.tripIsStarted === 'function' && !window.tripIsStarted(trip)) {
-            const started = await window.startDriverTrip(trip, { office: false, skipConfirm: false });
-            if (!started) return false;
-        }
         window.currentDocTrip = trip;
         if (typeof window.fillReceiptFromTrip === 'function') {
             await window.fillReceiptFromTrip(window.currentDocTrip || trip, el);
@@ -302,15 +251,6 @@
         const trip = window.currentDocTrip;
         if (!trip) {
             alert('Open a trip first.');
-            return false;
-        }
-        const block = window.docsTripOpenBlock(trip);
-        if (!block.ok) {
-            alert(block.text);
-            return false;
-        }
-        if (typeof window.tripIsStarted === 'function' && !window.tripIsStarted(trip)) {
-            alert('Start this trip first' + (actionLabel ? (' before ' + actionLabel) : '') + '.');
             return false;
         }
         return true;
@@ -383,15 +323,11 @@
         const current = window.getTripRouteStop(trip);
         if (hint) {
             if (!trip[DRIVER] || trip[DRIVER] === '---') {
-                hint.textContent = 'Assign a driver first. Then set Stop 1 (required even for one trip).';
-            } else if (!needs) {
-                hint.textContent = 'Set Stop 1. Every trip must be numbered.';
+                hint.textContent = 'Assign a driver first. Stop 1, 2, 3 is a guide for the driver (optional).';
             } else if (window.routeStopsReady(trip[DRIVER], tripDate(trip))) {
                 hint.textContent = siblings.length + ' trip' + (siblings.length === 1 ? '' : 's') + ' this day. Stops are set.';
-            } else if (siblings.length === 1) {
-                hint.textContent = 'Set Stop 1. The driver cannot start until you number it.';
             } else {
-                hint.textContent = siblings.length + ' trips this day — set Stop 1, 2, 3 (driver cannot work until you do).';
+                hint.textContent = 'Stop 1, 2, 3 is optional. The driver can open the order without it.';
             }
         }
         if (btns) {
@@ -441,21 +377,8 @@
         }
     };
 
-    window.warnIfRouteNeedsStops = function (trip) {
-        if (!trip) return;
-        const day = tripDate(trip);
-        const existing = window.driverDayTrips(trip[DRIVER], day);
-        const ids = new Set(existing.map(t => t[0]));
-        const extra = (trip[0] && !ids.has(trip[0]) && isOpenTrip(trip)) ? 1 : 0;
-        const count = existing.length + extra;
-        if (count < 1) return;
-        if (extra === 0 && window.routeStopsReady(trip[DRIVER], day)) return;
-        if (window.showToast) {
-            window.showToast((trip[DRIVER] || 'Driver') + ' has ' + count +
-                ' trip' + (count === 1 ? '' : 's') + ' on ' + day + '. Set Stop ' +
-                (count === 1 ? '1' : '1, 2, 3') + '.', 'info');
-        }
-        window.renderRouteStopBanner();
+    window.warnIfRouteNeedsStops = function () {
+        return;
     };
 
     window.calendarFamilyDriverHtml = function (moves, parentId) {

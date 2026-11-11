@@ -140,7 +140,7 @@
         } else if (mode === 'finish') {
             noBtn.style.display = '';
             noBtn.textContent = 'CANCEL';
-            yesBtn.textContent = 'FINISHED';
+            yesBtn.textContent = 'FINISH THIS TRIP';
             yesBtn.className = 'driver-start-btn-yes';
             if (actions) actions.style.justifyContent = 'stretch';
         } else {
@@ -239,14 +239,10 @@
             const otherNo = (blocked[0][ORDER_NO] && blocked[0][ORDER_NO] !== '---')
                 ? blocked[0][ORDER_NO]
                 : 'the current trip';
-            const needPhotos = window.tripNeedsDeliveryProof(blocked[0]);
             await window.openDriverStartConfirm({
-                title: 'Finish this trip first',
+                title: 'Another trip is started',
                 order: otherNo,
-                text: (needPhotos
-                    ? 'Tap FINISHED on the current trip first (4 photos required).'
-                    : 'Tap FINISHED on the current trip first.') +
-                    '\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.',
+                text: 'FINISH THIS TRIP on the current one first, or ask the office to Clear Start.\n\nIf this was the wrong start, message the office on WhatsApp.',
                 mode: 'ok'
             });
             return false;
@@ -254,9 +250,9 @@
 
         if (!skipConfirm) {
             const ok = await window.openDriverStartConfirm({
-                title: 'Start this trip?',
+                title: 'Are you sure?',
                 order: 'Order: ' + orderLabel,
-                text: 'Tap START to begin. Calendar will show Doing now.',
+                text: 'Start this trip now?\n\nCANCEL = stay as is.\nSTART = Calendar will show Doing now.',
                 mode: 'start'
             });
             if (!ok) return false;
@@ -298,24 +294,32 @@
         if (clearBtn) {
             clearBtn.style.display = (staff && trip && trip[STARTED_AT]) ? '' : 'none';
         }
-        if (startBtn) startBtn.style.display = 'none';
         const chip = document.getElementById('docs-doing-now-chip');
         const finishBtn = document.getElementById('btn-docs-finish-stop');
         const photosBtn = document.getElementById('btn-docs-photos');
         const doing = !!(trip && trip[STARTED_AT]);
+        const canWork = !!(trip && trip[0] && !window.tripStopIsComplete(trip));
+        if (startBtn) startBtn.style.display = (canWork && !doing) ? 'inline-flex' : 'none';
         if (chip) chip.style.display = doing ? 'inline-flex' : 'none';
         if (finishBtn) {
-            const showFinish = !!(trip && trip[0] && !window.tripStopIsComplete(trip));
+            const showFinish = canWork;
             finishBtn.style.display = showFinish ? 'inline-flex' : 'none';
             if (showFinish) {
-                if (window.tripNeedsDeliveryProof(trip)) {
-                    const n = window.tripPhotoCount(trip);
-                    finishBtn.title = n >= 4
-                        ? 'Mark this stop finished'
-                        : 'Upload 4 photos, then tap FINISHED (' + n + '/4)';
-                } else {
-                    finishBtn.title = 'Photos not required. Tap FINISHED to close this stop.';
-                }
+                finishBtn.title = 'Finish this trip. You can cancel in the popup.';
+            }
+        }
+        const notice = document.getElementById('docs-photo-notice');
+        if (notice) {
+            if (trip && trip[0]) {
+                const needs = window.tripNeedsDeliveryProof(trip);
+                notice.style.display = 'block';
+                notice.className = 'docs-photo-notice ' + (needs ? 'is-required' : 'is-optional');
+                notice.textContent = needs
+                    ? 'This order requires photos.'
+                    : 'This order does not require photos.';
+            } else {
+                notice.style.display = 'none';
+                notice.textContent = '';
             }
         }
         if (photosBtn) photosBtn.style.display = 'inline-flex';
@@ -333,22 +337,10 @@
         if (window.tripStopIsComplete(trip)) return;
         const orderLabel = (trip[ORDER_NO] && trip[ORDER_NO] !== '---') ? trip[ORDER_NO] : 'this trip';
         const popup = window.openDriverStartConfirm || (async (opts) => window.confirm(opts.text));
-        if (window.tripNeedsDeliveryProof(trip)) {
-            const n = window.tripPhotoCount(trip);
-            if (n < 4) {
-                await popup({
-                    title: 'Photos needed',
-                    order: 'Order: ' + orderLabel,
-                    text: 'Take 4 photos first, then tap FINISHED.\n\nYou have ' + n + ' of 4.',
-                    mode: 'ok'
-                });
-                return;
-            }
-        }
         const sure = await popup({
             title: 'Are you sure?',
             order: 'Order: ' + orderLabel,
-            text: 'Finish this stop now?\n\nCANCEL = stay on this trip.\nFINISHED = this trip is done.',
+            text: 'Finish this trip now?\n\nCANCEL = stay on this trip.\nFINISH THIS TRIP = this trip is done.',
             mode: 'finish'
         });
         if (!sure) return;

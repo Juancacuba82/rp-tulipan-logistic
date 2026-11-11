@@ -3041,6 +3041,30 @@ main {
 }
 
 /* --- COMPACT DOCS TOOLBAR RESPONSIVE --- */
+.docs-photo-notice {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto 12px auto;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.docs-photo-notice.is-required {
+    background: #fff7ed;
+    border: 2px solid #ea580c;
+    color: #9a3412;
+}
+
+.docs-photo-notice.is-optional {
+    background: #ecfdf5;
+    border: 2px solid #059669;
+    color: #065f46;
+}
+
 .receipt-preview-toolbar {
     display: flex;
     flex-direction: column;
