@@ -17,7 +17,7 @@
         rel="stylesheet">
     <!-- Iconography: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="./style.css?v=39">
+    <link rel="stylesheet" href="./style.css?v=41">
     <!-- Supabase SDK -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -25,8 +25,8 @@
     <script src="./supabase-client.js?v=18"></script>
     <script src="./js/force-uppercase.js?v=2"></script>
     <script src="./js/data-mapping.js?v=29"></script>
-    <script src="./js/driver-trip-start.js?v=10"></script>
-    <script src="./js/route-stop.js?v=10"></script>
+    <script src="./js/driver-trip-start.js?v=12"></script>
+    <script src="./js/route-stop.js?v=13"></script>
     <script src="./js/stop-payment.js?v=7"></script>
     <script src="./js/order-pdf.js?v=6"></script>
     <script src="./js/driver-cash-wallet.js?v=12"></script>
@@ -39,7 +39,7 @@
     <script src="./js/profit-expenses.js?v=1737" defer></script>
     <script src="./js/company-money.js?v=33" defer></script>
 
-    <script src="./js/docs-receipts.js?v=1727" defer></script>
+    <script src="./js/docs-receipts.js?v=1729" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
     <script src="./js/custom-receipts.js?v=6" defer></script>
     <script src="./js/email-service.js?v=11" defer></script>
@@ -3039,8 +3039,8 @@
                             </span>
                             <button type="button" id="btn-docs-finish-stop" class="btn-finish-stop-docs" style="display:none;"
                                 onclick="window.handleDocsFinishStop && window.handleDocsFinishStop()"
-                                title="This trip does not need photos. Mark the stop finished to open the next one.">
-                                <i class="fas fa-check"></i> FINISH THIS STOP
+                                title="Upload 4 photos, then tap FINISHED. Signatures are optional.">
+                                <i class="fas fa-check"></i> FINISHED
                             </button>
                             <button type="button" id="btn-docs-clear-start" class="btn-clear-start-docs staff-only"
                                 onclick="window.handleDocsClearStart && window.handleDocsClearStart()"

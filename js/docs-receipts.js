@@ -313,9 +313,25 @@
                     ? `<p class="trip-route-lock-msg">${
                         openBlock.reason === 'too_early' ? 'Opens at 6:00 AM'
                         : (openBlock.reason === 'future' ? ('This trip is for ' + window.formatDateMMDDYYYY(trip[1]))
-                        : (openBlock.reason === 'unnumbered' ? 'Waiting for office: set Stop 1, 2, 3'
+                        : (openBlock.reason === 'unnumbered' ? 'Waiting for office: set Stop #'
                         : (openBlock.reason === 'order' ? 'Finish the previous stop first' : 'Not available yet')))
                     }</p>`
+                    : '';
+                const escHtml = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+                const rawPhone = (trip[23] && trip[23] !== '---') ? String(trip[23]).trim() : '';
+                const telHref = rawPhone.replace(/[^\d+]/g, '');
+                const phoneLine = rawPhone
+                    ? `<p class="trip-card-phone"><i class="fas fa-phone"></i> ${
+                        telHref.length >= 7
+                            ? `<a href="tel:${escHtml(telHref)}" onclick="event.stopPropagation()">${escHtml(rawPhone)}</a>`
+                            : escHtml(rawPhone)
+                    }</p>`
+                    : '';
+                const rawNote = (trip[25] && trip[25] !== '---')
+                    ? String(trip[25]).replace(/⟦MOVE\|p:[^|]+\|n:\d+⟧/g, '').trim()
+                    : '';
+                const noteLine = rawNote
+                    ? `<p class="trip-card-note" title="${escHtml(rawNote)}"><i class="fas fa-sticky-note"></i> ${escHtml(rawNote)}</p>`
                     : '';
 
                 div.innerHTML = `
@@ -324,6 +340,8 @@
                         ${lockHint}
                         ${hideDetails ? '' : `<p>${displayCont} | ${displayCustomer}</p>`}
                         ${truckLine}
+                        ${phoneLine}
+                        ${noteLine}
                         ${collectChip}
                         ${payChipHtml}
                         ${pdfChip}

@@ -2142,17 +2142,17 @@ main {
 }
 
 .trip-item.trip-route-locked {
-    opacity: 0.72;
+    opacity: 1;
     border-color: #f59e0b;
     background: #fffbeb;
 }
 
 .trip-item.trip-route-future {
-    opacity: 0.45;
-    filter: grayscale(0.7);
-    border-color: #94a3b8;
-    background: #f1f5f9;
-    color: #64748b;
+    opacity: 1;
+    filter: none;
+    border-color: #cbd5e1;
+    background: #fff;
+    color: #0f172a;
 }
 
 .trip-route-lock-msg {
@@ -2160,6 +2160,36 @@ main {
     font-size: 0.7rem;
     font-weight: 800;
     color: #92400e;
+}
+
+.trip-card-phone,
+.trip-card-note {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.trip-card-phone a {
+    color: #1d4ed8;
+    text-decoration: none;
+    font-weight: 800;
+}
+
+.trip-card-note {
+    color: #334155;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.trip-item.trip-route-future .trip-card-phone,
+.trip-item.trip-route-future .trip-card-note {
+    opacity: 1;
+    filter: none;
 }
 
 .trip-route-stop-badge {

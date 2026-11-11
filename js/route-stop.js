@@ -116,12 +116,12 @@
     };
 
     window.routeNeedsStops = function (driverName, dateStr) {
-        return window.driverDayTrips(driverName, dateStr).length >= 2;
+        return window.driverDayTrips(driverName, dateStr).length >= 1;
     };
 
     window.routeStopsReady = function (driverName, dateStr) {
         const trips = window.driverDayTrips(driverName, dateStr);
-        if (trips.length <= 1) return true;
+        if (!trips.length) return true;
         const used = new Set();
         for (const t of trips) {
             const n = window.getTripRouteStop(t);
@@ -146,7 +146,7 @@
         });
         const out = [];
         groups.forEach(g => {
-            if (g.trips.length < 2) return;
+            if (!g.trips.length) return;
             if (!window.routeStopsReady(g.driver, g.date)) out.push(g);
         });
         out.sort((a, b) => (a.date + a.driver).localeCompare(b.date + b.driver));
@@ -171,7 +171,6 @@
     window.nextDriverRouteTrip = function (driverName, dateStr) {
         const trips = window.driverDayTrips(driverName, dateStr);
         if (!trips.length) return null;
-        if (trips.length === 1) return trips[0];
         if (!window.routeStopsReady(driverName, dateStr)) return null;
         const ordered = trips.slice().sort((a, b) => window.getTripRouteStop(a) - window.getTripRouteStop(b));
         const isDone = (t) => (typeof window.tripStopIsComplete === 'function')
@@ -207,11 +206,13 @@
         }
         const driver = trip[DRIVER];
         const siblings = window.driverDayTrips(driver, date);
-        if (siblings.length >= 2 && !window.routeStopsReady(driver, date)) {
+        if (siblings.length >= 1 && !window.routeStopsReady(driver, date)) {
             return {
                 ok: false,
                 reason: 'unnumbered',
-                text: 'Office must set Stop 1, 2, 3 for these trips before you can open them.'
+                text: siblings.length === 1
+                    ? 'Office must set Stop 1 on this trip before you can start it.'
+                    : 'Office must set Stop 1, 2, 3 for these trips before you can open them.'
             };
         }
         if (siblings.length >= 2) {
@@ -221,10 +222,8 @@
                 return {
                     ok: false,
                     reason: 'order',
-                    text: 'Finish stop ' + (window.getTripRouteStop(next) || 1) + ' first' +
-                    ((typeof window.tripNeedsDeliveryProof === 'function' && !window.tripNeedsDeliveryProof(next))
-                        ? ' (tap Finish this stop).'
-                        : ' (4 photos and both signatures).') +
+                    text: 'Finish stop ' + (window.getTripRouteStop(next) || 1) +
+                    ' first (4 photos, then tap FINISHED).' +
                     '\n\nCurrent: order ' + label
                 };
             }
@@ -253,11 +252,11 @@
             return false;
         }
         const role = (window.currentUserRole || '').toLowerCase().trim();
-        window.currentDocTrip = trip;
         if (role === 'driver' && typeof window.tripIsStarted === 'function' && !window.tripIsStarted(trip)) {
-            const started = await window.startDriverTrip(trip, { office: false, skipConfirm: true });
+            const started = await window.startDriverTrip(trip, { office: false, skipConfirm: false });
             if (!started) return false;
         }
+        window.currentDocTrip = trip;
         if (typeof window.fillReceiptFromTrip === 'function') {
             await window.fillReceiptFromTrip(window.currentDocTrip || trip, el);
         }
@@ -344,7 +343,7 @@
             return;
         }
         const siblings = window.driverDayTrips(trip[DRIVER], tripDate(trip));
-        const needs = siblings.length >= 2;
+        const needs = siblings.length >= 1;
         box.style.display = '';
         const hint = document.getElementById('calendar-route-stop-hint');
         const btns = document.getElementById('calendar-route-stop-btns');
@@ -352,11 +351,13 @@
         const current = window.getTripRouteStop(trip);
         if (hint) {
             if (!trip[DRIVER] || trip[DRIVER] === '---') {
-                hint.textContent = 'Assign a driver first. Then set Stop 1, 2, 3 if they have more than one trip that day.';
+                hint.textContent = 'Assign a driver first. Then set Stop 1 (required even for one trip).';
             } else if (!needs) {
-                hint.textContent = 'Only one open trip this day for this driver. Numbering is optional.';
+                hint.textContent = 'Set Stop 1. Every trip must be numbered.';
             } else if (window.routeStopsReady(trip[DRIVER], tripDate(trip))) {
-                hint.textContent = siblings.length + ' trips this day. Stops are set.';
+                hint.textContent = siblings.length + ' trip' + (siblings.length === 1 ? '' : 's') + ' this day. Stops are set.';
+            } else if (siblings.length === 1) {
+                hint.textContent = 'Set Stop 1. The driver cannot start until you number it.';
             } else {
                 hint.textContent = siblings.length + ' trips this day — set Stop 1, 2, 3 (driver cannot work until you do).';
             }
@@ -378,7 +379,7 @@
             });
         }
         if (list) {
-            if (!needs) {
+            if (!siblings.length) {
                 list.innerHTML = '';
                 return;
             }
@@ -432,11 +433,12 @@
         const ids = new Set(existing.map(t => t[0]));
         const extra = (trip[0] && !ids.has(trip[0]) && isOpenTrip(trip)) ? 1 : 0;
         const count = existing.length + extra;
-        if (count < 2) return;
+        if (count < 1) return;
         if (extra === 0 && window.routeStopsReady(trip[DRIVER], day)) return;
         if (window.showToast) {
             window.showToast((trip[DRIVER] || 'Driver') + ' has ' + count +
-                ' trips on ' + day + '. Set Stop 1, 2, 3.', 'info');
+                ' trip' + (count === 1 ? '' : 's') + ' on ' + day + '. Set Stop ' +
+                (count === 1 ? '1' : '1, 2, 3') + '.', 'info');
         }
         window.renderRouteStopBanner();
     };

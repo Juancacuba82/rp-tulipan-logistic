@@ -32,10 +32,31 @@
     const NEEDS_PROOF = 93;
     const STOP_DONE = 94;
 
+    function tripPhotoList(trip) {
+        if (!trip) return [];
+        const raw = trip[PHOTOS];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string') {
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+        return [];
+    }
+
+    window.tripPhotoCount = function (trip) {
+        return tripPhotoList(trip).length;
+    };
+
+    window.tripHasFourPhotos = function (trip) {
+        return window.tripPhotoCount(trip) >= 4;
+    };
+
     window.tripHasDeliveryProof = function (trip) {
-        if (!trip) return false;
-        const photos = Array.isArray(trip[PHOTOS]) ? trip[PHOTOS] : [];
-        return photos.length >= 4 && !!(trip[CLIENT_SIG]) && !!(trip[DRIVER_SIG]);
+        return window.tripHasFourPhotos(trip);
     };
 
     window.tripNeedsDeliveryProof = function (trip) {
@@ -45,9 +66,7 @@
     };
 
     window.tripStopIsComplete = function (trip) {
-        if (!trip) return false;
-        if (window.tripNeedsDeliveryProof(trip)) return window.tripHasDeliveryProof(trip);
-        return !!(trip[STOP_DONE]);
+        return !!(trip && trip[STOP_DONE]);
     };
 
     window.isStaffForDriverStart = function () {
@@ -112,11 +131,18 @@
             yesBtn.textContent = 'OK';
             yesBtn.className = 'driver-start-btn-yes';
             if (actions) actions.style.justifyContent = 'stretch';
+        } else if (mode === 'start') {
+            noBtn.style.display = '';
+            noBtn.textContent = 'CANCEL';
+            yesBtn.textContent = 'START';
+            yesBtn.className = 'driver-start-btn-yes';
+            if (actions) actions.style.justifyContent = 'stretch';
         } else {
             noBtn.style.display = '';
             noBtn.textContent = 'NO';
             yesBtn.textContent = 'YES';
             yesBtn.className = 'driver-start-btn-yes';
+            if (actions) actions.style.justifyContent = 'stretch';
         }
     }
 
@@ -187,14 +213,8 @@
         }
     };
 
-    window.maybeClearStartWhenReceiptComplete = async function (trip) {
-        if (!trip || !trip[0]) return false;
-        if (!window.tripIsStarted(trip) || !window.tripStopIsComplete(trip)) return false;
-        const ok = await window.clearDriverTripStart(trip[0], { silent: true });
-        if (ok && window.showToast) {
-            window.showToast('Receipt complete. This trip is no longer Doing now.', 'success');
-        }
-        return ok;
+    window.maybeClearStartWhenReceiptComplete = async function () {
+        return false;
     };
 
     window.startDriverTrip = async function (trip, opts) {
@@ -213,13 +233,10 @@
             const otherNo = (blocked[0][ORDER_NO] && blocked[0][ORDER_NO] !== '---')
                 ? blocked[0][ORDER_NO]
                 : 'the current trip';
-            const needProof = window.tripNeedsDeliveryProof(blocked[0]);
             await window.openDriverStartConfirm({
                 title: 'Finish this trip first',
                 order: otherNo,
-                text: needProof
-                    ? 'Upload 4 photos and both signatures on the current trip first.\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.'
-                    : 'Tap Finish this stop on the current trip first.\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.',
+                text: 'Tap FINISHED on the current trip first (4 photos required).\n\nIf this was the wrong start, message the office on WhatsApp so they can clear it.',
                 mode: 'ok'
             });
             return false;
@@ -229,8 +246,8 @@
             const ok = await window.openDriverStartConfirm({
                 title: 'Start this trip?',
                 order: 'Order: ' + orderLabel,
-                text: 'Are you sure?',
-                mode: 'yesno'
+                text: 'Tap START to begin. Calendar will show Doing now.',
+                mode: 'start'
             });
             if (!ok) return false;
         }
@@ -277,16 +294,21 @@
         const photosBtn = document.getElementById('btn-docs-photos');
         const doing = !!(trip && trip[STARTED_AT]);
         if (chip) chip.style.display = doing ? 'inline-flex' : 'none';
-        const skipProof = trip && !window.tripNeedsDeliveryProof(trip);
         if (finishBtn) {
-            const showFinish = !!(skipProof && trip && trip[0] && !window.tripStopIsComplete(trip));
+            const showFinish = !!(trip && trip[0] && !window.tripStopIsComplete(trip));
             finishBtn.style.display = showFinish ? 'inline-flex' : 'none';
+            if (showFinish) {
+                const n = window.tripPhotoCount(trip);
+                finishBtn.title = n >= 4
+                    ? 'Mark this stop finished'
+                    : 'Upload 4 photos, then tap FINISHED (' + n + '/4)';
+            }
         }
+        if (photosBtn) photosBtn.style.display = 'inline-flex';
         if (window.currentUserRole === 'driver') {
-            if (photosBtn) photosBtn.style.display = skipProof ? 'none' : 'inline-flex';
             document.querySelectorAll('.btn-signature-docs').forEach(btn => {
                 if (btn.classList.contains('staff-only')) return;
-                btn.style.display = skipProof ? 'none' : '';
+                btn.style.display = '';
             });
         }
     };
@@ -294,11 +316,12 @@
     window.handleDocsFinishStop = async function () {
         const trip = window.currentDocTrip;
         if (!trip || !trip[0] || !db) return;
-        if (window.tripNeedsDeliveryProof(trip)) {
-            alert('This trip still needs 4 photos and both signatures.');
+        if (window.tripStopIsComplete(trip)) return;
+        const n = window.tripPhotoCount(trip);
+        if (n < 4) {
+            alert('Upload 4 photos before you can finish this trip. You have ' + n + ' of 4.');
             return;
         }
-        if (window.tripStopIsComplete(trip)) return;
         try {
             const now = new Date().toISOString();
             const { error } = await db.from('trips').update({ driver_stop_done_at: now }).eq('trip_id', trip[0]);
