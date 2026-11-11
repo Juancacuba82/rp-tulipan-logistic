@@ -137,6 +137,12 @@
             yesBtn.textContent = 'START';
             yesBtn.className = 'driver-start-btn-yes';
             if (actions) actions.style.justifyContent = 'stretch';
+        } else if (mode === 'finish') {
+            noBtn.style.display = '';
+            noBtn.textContent = 'CANCEL';
+            yesBtn.textContent = 'FINISHED';
+            yesBtn.className = 'driver-start-btn-yes';
+            if (actions) actions.style.justifyContent = 'stretch';
         } else {
             noBtn.style.display = '';
             noBtn.textContent = 'NO';
@@ -332,6 +338,14 @@
                 return;
             }
         }
+        const orderLabel = (trip[ORDER_NO] && trip[ORDER_NO] !== '---') ? trip[ORDER_NO] : 'this trip';
+        const sure = await window.openDriverStartConfirm({
+            title: 'Are you sure?',
+            order: 'Order: ' + orderLabel,
+            text: 'This will finish the stop. You cannot undo it. Tap CANCEL if you pressed by mistake.',
+            mode: 'finish'
+        });
+        if (!sure) return;
         try {
             const now = new Date().toISOString();
             const { error } = await db.from('trips').update({ driver_stop_done_at: now }).eq('trip_id', trip[0]);
