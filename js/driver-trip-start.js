@@ -331,18 +331,24 @@
         const trip = window.currentDocTrip;
         if (!trip || !trip[0] || !db) return;
         if (window.tripStopIsComplete(trip)) return;
+        const orderLabel = (trip[ORDER_NO] && trip[ORDER_NO] !== '---') ? trip[ORDER_NO] : 'this trip';
+        const popup = window.openDriverStartConfirm || (async (opts) => window.confirm(opts.text));
         if (window.tripNeedsDeliveryProof(trip)) {
             const n = window.tripPhotoCount(trip);
             if (n < 4) {
-                alert('Upload 4 photos before you can finish this trip. You have ' + n + ' of 4.');
+                await popup({
+                    title: 'Photos needed',
+                    order: 'Order: ' + orderLabel,
+                    text: 'Take 4 photos first, then tap FINISHED.\n\nYou have ' + n + ' of 4.',
+                    mode: 'ok'
+                });
                 return;
             }
         }
-        const orderLabel = (trip[ORDER_NO] && trip[ORDER_NO] !== '---') ? trip[ORDER_NO] : 'this trip';
-        const sure = await window.openDriverStartConfirm({
+        const sure = await popup({
             title: 'Are you sure?',
             order: 'Order: ' + orderLabel,
-            text: 'This will finish the stop. You cannot undo it. Tap CANCEL if you pressed by mistake.',
+            text: 'Finish this stop now?\n\nCANCEL = stay on this trip.\nFINISHED = this trip is done.',
             mode: 'finish'
         });
         if (!sure) return;
@@ -357,11 +363,14 @@
         } catch (err) {
             console.error('handleDocsFinishStop', err);
             const msg = (err && err.message) || String(err);
-            if (/driver_stop_done|needs_delivery_proof/i.test(msg)) {
-                alert('Run supabase-delivery-proof.sql in Supabase, then try again.');
-            } else {
-                alert('Could not finish this stop: ' + msg);
-            }
+            await popup({
+                title: 'Could not finish',
+                order: 'Order: ' + orderLabel,
+                text: /driver_stop_done|needs_delivery_proof/i.test(msg)
+                    ? 'Office needs to run the database update. Message the office on WhatsApp.'
+                    : ('Could not finish this stop. ' + msg),
+                mode: 'ok'
+            });
         }
     };
 
