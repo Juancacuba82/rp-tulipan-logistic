@@ -47,8 +47,8 @@
         return localYmd(d);
     }
 
-    // Drivers may open today's trips only between 6:00 AM and 10:00 PM local time.
-    const DRIVER_DAY_START_HOUR = 6;
+    // Drivers may open today's trips only between 2:00 AM and 10:00 PM local time.
+    const DRIVER_DAY_START_HOUR = 2;
     const DRIVER_DAY_END_HOUR = 22;
 
     function driverHour() {
@@ -222,7 +222,7 @@
                 return {
                     ok: false,
                     reason: 'too_early',
-                    text: 'This trip opens at 6:00 AM.'
+                    text: 'This trip opens at 2:00 AM.'
                 };
             }
             const nice = (typeof window.formatDateMMDDYYYY === 'function')

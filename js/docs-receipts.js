@@ -311,7 +311,7 @@
                     : `<p style="font-size:0.55rem; color:#64748b;">Truck: ${trip[37] || 'N/A'} | Trailer: ${trip[38] || 'N/A'}</p>`;
                 const lockHint = !openBlock.ok
                     ? `<p class="trip-route-lock-msg">${
-                        openBlock.reason === 'too_early' ? 'Opens at 6:00 AM'
+                        openBlock.reason === 'too_early' ? 'Opens at 2:00 AM'
                         : (openBlock.reason === 'future' ? ('This trip is for ' + window.formatDateMMDDYYYY(trip[1]))
                         : (openBlock.reason === 'unnumbered' ? 'Waiting for office: set Stop #'
                         : (openBlock.reason === 'order' ? 'Finish the previous stop first' : 'Not available yet')))
