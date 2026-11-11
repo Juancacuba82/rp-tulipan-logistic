@@ -405,27 +405,10 @@
 
     window.renderRouteStopBanner = function () {
         const el = document.getElementById('calendar-route-banner');
-        if (!el) return;
-        const staff = typeof window.isStaffForDriverStart === 'function' && window.isStaffForDriverStart();
-        if (!staff) {
-            el.style.display = 'none';
-            return;
-        }
-        const today = localYmd();
-        const tomorrow = addDaysYmd(today, 1);
-        const bad = window.unreadyDriverRoutes([today, tomorrow]);
-        if (!bad.length) {
+        if (el) {
             el.style.display = 'none';
             el.innerHTML = '';
-            return;
         }
-        const lines = bad.map(g => {
-            const when = g.date === today ? 'today' : (g.date === tomorrow ? 'tomorrow' : g.date);
-            return g.driver + ': ' + g.trips.length + ' trips ' + when;
-        });
-        el.style.display = 'flex';
-        el.innerHTML = '<div><strong>Stops not set</strong> — drivers cannot work these until you number them.<br>' +
-            lines.map(s => '<span>' + s + '</span>').join(' · ') + '</div>';
     };
 
     window.warnIfRouteNeedsStops = function (trip) {
