@@ -79,6 +79,36 @@
         return Array.from(byId.values());
     };
 
+    window.clearPastDueRouteStops = async function () {
+        if (window._clearingPastDueStops || typeof db === 'undefined' || !db) return;
+        const today = localYmd();
+        const stale = window.tripsPoolForRoute().filter(t => {
+            if (!t || !t[0] || !isOpenTrip(t)) return false;
+            const d = tripDate(t);
+            if (!d || d >= today) return false;
+            return window.getTripRouteStop(t) > 0;
+        });
+        if (!stale.length) return;
+        window._clearingPastDueStops = true;
+        try {
+            const ids = stale.map(t => t[0]);
+            for (let i = 0; i < ids.length; i += 40) {
+                const chunk = ids.slice(i, i + 40);
+                const { error } = await db.from('trips').update({ route_stop: null }).in('trip_id', chunk);
+                if (error) throw error;
+                chunk.forEach(id => window.patchTripRouteStop(id, ''));
+            }
+            if (typeof window.syncCalendarRouteStopUI === 'function') window.syncCalendarRouteStopUI();
+            if (typeof window.loadTableData === 'function' && window.currentTrips) {
+                window.loadTableData(window.currentTrips);
+            }
+        } catch (err) {
+            console.warn('clearPastDueRouteStops', err);
+        } finally {
+            window._clearingPastDueStops = false;
+        }
+    };
+
     window.patchTripRouteStop = function (tripId, stop) {
         const val = stop || '';
         const apply = (arr) => {

@@ -1416,6 +1416,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const proofEl = document.getElementById('in-needs-proof');
                 rowData[93] = proofEl ? !!proofEl.checked : (prevCashRow ? prevCashRow[93] !== false : true);
                 rowData[94] = prevCashRow ? (prevCashRow[94] || '') : '';
+                const oldTripDate = prevCashRow ? String(prevCashRow[1] || '').split('T')[0] : '';
+                const newTripDate = String(rowData[1] || '').split('T')[0];
+                if (oldTripDate && newTripDate && oldTripDate !== newTripDate) {
+                    rowData[92] = '';
+                    rowData[94] = '';
+                }
 
                 const dbObj = mapArrayToTrip(rowData);
                 if (!stopPlan && !stopRes) {
@@ -4319,6 +4325,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 // Apply existing filters if any (for real-time persistence)
                 applyAdvancedFilters();
                 if (typeof window.renderRouteStopBanner === 'function') window.renderRouteStopBanner();
+                if (typeof window.clearPastDueRouteStops === 'function') window.clearPastDueRouteStops();
                 if (window.loadDocTrips) window.loadDocTrips();
 
                 // Painted OK: clear banners, mark "synced", start/refresh the change polling
