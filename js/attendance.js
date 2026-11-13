@@ -7,6 +7,8 @@ const ATT_DEFAULT_HOURLY_RATES = {
     'garridoyariselis@gmail.com': 25.00,
     'rptulipantransport@gmail.com': 17.50
 };
+let attendanceRatesFromDb = null;
+let attendanceRatesFetchPromise = null;
 
 function attNormEmail(email) {
     return (email || '').toString().toLowerCase().trim();
@@ -29,19 +31,102 @@ function isAllowedAttendancePerson(name, email) {
     return ATT_VISIBLE_NAME_PARTS.some(part => n.includes(part));
 }
 
-function loadAttendanceHourlyRates() {
-    let stored = {};
+function readLocalAttendanceHourlyRates() {
     try {
-        stored = JSON.parse(localStorage.getItem(ATT_RATES_LS) || '{}');
+        return JSON.parse(localStorage.getItem(ATT_RATES_LS) || '{}');
     } catch (e) {
-        stored = {};
+        return {};
     }
-    return { ...ATT_DEFAULT_HOURLY_RATES, ...stored };
+}
+
+function writeLocalAttendanceHourlyRates(rates) {
+    try {
+        localStorage.setItem(ATT_RATES_LS, JSON.stringify(rates || {}));
+    } catch (e) {
+        console.warn(e);
+    }
+}
+
+function loadAttendanceHourlyRates() {
+    return {
+        ...ATT_DEFAULT_HOURLY_RATES,
+        ...readLocalAttendanceHourlyRates(),
+        ...(attendanceRatesFromDb || {})
+    };
 }
 
 function getAttendanceHourlyRate(email) {
     const rates = loadAttendanceHourlyRates();
     return parseFloat(rates[attNormEmail(email)]) || 0;
+}
+
+async function fetchAttendanceHourlyRatesFromDb() {
+    if (!window.db) return {};
+    const { data, error } = await window.db
+        .from('attendance_hourly_rates')
+        .select('email, hourly_rate');
+    if (error) {
+        console.warn('Could not load hourly rates from database:', error);
+        return null;
+    }
+    const map = {};
+    (data || []).forEach(row => {
+        const key = attNormEmail(row.email);
+        if (key) map[key] = parseFloat(row.hourly_rate) || 0;
+    });
+    return map;
+}
+
+async function migrateLocalAttendanceRatesToDb(fromDb) {
+    const role = (window.currentUserRole || '').toLowerCase().trim();
+    if (role !== 'admin' || !window.db) return fromDb;
+    const local = readLocalAttendanceHourlyRates();
+    const toPush = [];
+    Object.entries(local).forEach(([email, rate]) => {
+        const key = attNormEmail(email);
+        const value = Math.max(0, parseFloat(rate) || 0);
+        if (!key || value <= 0) return;
+        if (fromDb[key] === undefined) {
+            toPush.push({
+                email: key,
+                hourly_rate: value,
+                updated_at: new Date().toISOString(),
+                updated_by: window.userEmail || null
+            });
+        }
+    });
+    if (toPush.length === 0) return fromDb;
+    const { error } = await window.db
+        .from('attendance_hourly_rates')
+        .upsert(toPush, { onConflict: 'email' });
+    if (error) {
+        console.warn('Could not migrate local hourly rates:', error);
+        return fromDb;
+    }
+    const next = { ...fromDb };
+    toPush.forEach(row => { next[row.email] = row.hourly_rate; });
+    return next;
+}
+
+async function ensureAttendanceHourlyRatesLoaded(force = false) {
+    if (attendanceRatesFromDb && !force) return loadAttendanceHourlyRates();
+    if (attendanceRatesFetchPromise && !force) {
+        await attendanceRatesFetchPromise;
+        return loadAttendanceHourlyRates();
+    }
+    attendanceRatesFetchPromise = (async () => {
+        const fromDb = await fetchAttendanceHourlyRatesFromDb();
+        if (fromDb) {
+            attendanceRatesFromDb = await migrateLocalAttendanceRatesToDb(fromDb);
+            writeLocalAttendanceHourlyRates(loadAttendanceHourlyRates());
+        }
+    })();
+    try {
+        await attendanceRatesFetchPromise;
+    } finally {
+        attendanceRatesFetchPromise = null;
+    }
+    return loadAttendanceHourlyRates();
 }
 
 window.saveAttendanceHourlyRate = async function (email, rate) {
@@ -55,7 +140,23 @@ window.saveAttendanceHourlyRate = async function (email, rate) {
     const value = Math.max(0, parseFloat(rate) || 0);
     const rates = loadAttendanceHourlyRates();
     rates[key] = value;
-    localStorage.setItem(ATT_RATES_LS, JSON.stringify(rates));
+    writeLocalAttendanceHourlyRates(rates);
+    attendanceRatesFromDb = { ...(attendanceRatesFromDb || {}), [key]: value };
+
+    if (window.db) {
+        const { error } = await window.db.from('attendance_hourly_rates').upsert({
+            email: key,
+            hourly_rate: value,
+            updated_at: new Date().toISOString(),
+            updated_by: window.userEmail || null
+        }, { onConflict: 'email' });
+        if (error) {
+            console.error('Failed to save hourly rate to database:', error);
+            alert('The rate was saved only on this computer. Run supabase-attendance-hourly-rates.sql in Supabase so everyone can see it.\n\n' + (error.message || ''));
+            return;
+        }
+    }
+
     if (window.showToast) window.showToast(`Hourly rate saved: $${value.toFixed(2)}/hr`, 'success');
     await window.loadAttendanceData(true);
 };
@@ -636,6 +737,8 @@ window.loadAttendanceData = async function(force = false) {
 
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading...</td></tr>';
 
+        await ensureAttendanceHourlyRatesLoaded();
+
         const startDate = document.getElementById('att-start-date')?.value || '';
         const endDate = document.getElementById('att-end-date')?.value || '';
         const filterEmployee = document.getElementById('att-filter-employee')?.value || '';
@@ -1149,6 +1252,8 @@ window.populateAttendanceEmployeeFilter = async function() {
     if (!sel) return;
     
     try {
+        await ensureAttendanceHourlyRatesLoaded();
+
         const { data, error } = await window.db.from('profiles')
             .select('driver_name_ref, email')
             .in('role', ['admin', 'ADMIN', 'employee', 'EMPLOYEE', 'staff', 'STAFF', 'user', 'student', 'STUDENT']);
