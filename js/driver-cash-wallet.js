@@ -65,14 +65,264 @@
         return (!isNaN(stored) && stored > 0) ? stored : 0;
     };
 
+    // =====================================================================
+    // OPEN DRIVER CASH ("debt") — one source of truth, read from the database.
+    // Each order where the driver still holds company cash is one row here.
+    // Calendar, the Driver Report table, the banner and the Turned-in-cash
+    // modal all read this same list, so they can never disagree.
+    // =====================================================================
+    const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
+    const isoDay = (v) => String(v || '').slice(0, 10);
+    const cleanTxt = (v) => {
+        const s = (v === null || v === undefined) ? '' : String(v).trim();
+        return (s === '---') ? '' : s;
+    };
+    const esc = (v) => String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    function toIso(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function parseIso(iso) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+        return m ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)) : null;
+    }
+    function todayIso() {
+        return (typeof window.localCalendarToday === 'function') ? window.localCalendarToday() : toIso(new Date());
+    }
+    function mondayOfIso(iso) {
+        const d = parseIso(iso);
+        if (!d) return '';
+        d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
+        return toIso(d);
+    }
+    function addDaysIso(iso, n) {
+        const d = parseIso(iso);
+        if (!d) return '';
+        d.setDate(d.getDate() + n);
+        return toIso(d);
+    }
+    function mmdd(iso) {
+        const d = parseIso(iso);
+        return d ? String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') : '---';
+    }
+
+    const debtStore = window._driverDebt = {
+        loaded: false, rows: [], byTrip: {}, at: 0, inflight: null, settlementsTried: false
+    };
+
+    function debtRowFromDb(t) {
+        return {
+            tripId: t.trip_id,
+            date: isoDay(t.date),
+            driver: normalizeDriver(t.driver),
+            orderNo: cleanTxt(t.order_no),
+            releaseNo: cleanTxt(t.release_no),
+            nCont: cleanTxt(t.n_cont),
+            amount: round2(t.driver_cash_held)
+        };
+    }
+
+    function debtRowFromMemory(r) {
+        return {
+            tripId: r[0],
+            date: isoDay(r[1]),
+            driver: normalizeDriver(r[17]),
+            orderNo: cleanTxt(r[5]),
+            releaseNo: cleanTxt(r[4]),
+            nCont: cleanTxt(r[3]),
+            amount: round2(window.getTripOpenHold(r))
+        };
+    }
+
+    function rebuildDebtIndex() {
+        debtStore.byTrip = {};
+        debtStore.rows.forEach(r => { debtStore.byTrip[r.tripId] = r.amount; });
+    }
+
+    // Keep the in-memory list correct right after we write a change (before the next DB read).
+    function applyDebtLocal(tripId, held) {
+        if (!debtStore.loaded) return;
+        const idx = debtStore.rows.findIndex(r => r.tripId === tripId);
+        if (held > 0.009) {
+            if (idx !== -1) debtStore.rows[idx].amount = round2(held);
+        } else if (idx !== -1) {
+            debtStore.rows.splice(idx, 1);
+        }
+        rebuildDebtIndex();
+    }
+
+    async function fetchOpenHoldsFromDb() {
+        if (!window.db) return null;
+        try {
+            const { data, error } = await window.db.from('trips')
+                .select('trip_id, date, driver, order_no, release_no, n_cont, cash_collector, driver_cash_held')
+                .eq('cash_collector', 'driver')
+                .gt('driver_cash_held', 0)
+                .or('is_deleted.eq.false,is_deleted.is.null')
+                .limit(5000);
+            if (error) throw error;
+            return (data || []).map(debtRowFromDb).filter(r => r.amount > 0.009);
+        } catch (e) {
+            console.warn('[DriverCash] could not read open driver cash:', e.message || e);
+            return null;
+        }
+    }
+
+    async function ensureSettlementsLoaded() {
+        if (window.currentSettlements && window.currentSettlements.length) return;
+        if (debtStore.settlementsTried || typeof window.fetchHistory !== 'function') return;
+        debtStore.settlementsTried = true;
+        try { await window.fetchHistory(true); } catch (e) { console.warn('[DriverCash] settlements not loaded', e); }
+    }
+
+    function startDebtRefresh() {
+        if (debtStore.inflight) return debtStore.inflight;
+        debtStore.inflight = (async () => {
+            try {
+                await ensureSettlementsLoaded();
+                const rows = await fetchOpenHoldsFromDb();
+                if (rows) {
+                    debtStore.rows = rows;
+                    rebuildDebtIndex();
+                    debtStore.loaded = true;
+                    debtStore.at = Date.now();
+                }
+            } finally {
+                debtStore.inflight = null;
+            }
+            if (typeof window.paintDriverCashSurfaces === 'function') window.paintDriverCashSurfaces();
+            return debtStore.rows;
+        })();
+        return debtStore.inflight;
+    }
+
+    // force=true: always read the database again (after any write). Otherwise reuse a recent read.
+    window.refreshDriverDebt = function (force) {
+        if (debtStore.inflight) {
+            // A read that started before our write may be outdated: read once more after it ends.
+            return force ? debtStore.inflight.then(() => startDebtRefresh()) : debtStore.inflight;
+        }
+        if (!force && debtStore.loaded && (Date.now() - debtStore.at) < 15000) {
+            return Promise.resolve(debtStore.rows);
+        }
+        return startDebtRefresh();
+    };
+
+    // Called when trips change (Realtime): re-read once things settle down.
+    let debtTimer = null;
+    window.scheduleDriverDebtRefresh = function () {
+        if (!debtStore.loaded) return;
+        clearTimeout(debtTimer);
+        debtTimer = setTimeout(() => { window.refreshDriverDebt(true).catch(() => {}); }, 1200);
+    };
+
+    function debtRowsForDriver(driverName) {
+        const key = normalizeDriver(driverName);
+        if (!key) return [];
+        const rows = debtStore.loaded
+            ? debtStore.rows
+            : allTrips().filter(r => window.getTripOpenHold(r) > 0.009).map(debtRowFromMemory);
+        return rows.filter(r => r.driver && window.driverNamesMatch(key, r.driver));
+    }
+
+    // Cash still owed on ONE order (what the Driver Report "Cash" column shows).
+    window.getTripDebtAmount = function (row) {
+        if (!row) return 0;
+        if (debtStore.loaded) return debtStore.byTrip[row[0]] || 0;
+        return window.getTripOpenHold(row);
+    };
+
+    function lastSettlementEnd(driverName) {
+        const rec = window.getLatestSettlementRecord ? window.getLatestSettlementRecord(driverName) : null;
+        return rec && rec.end_date ? isoDay(rec.end_date) : '';
+    }
+
+    // Orders dated on/before the driver's last settlement: their cash is part of that settlement's leftover.
+    function holdIsOld(driverName, date) {
+        const end = lastSettlementEnd(driverName);
+        const d = isoDay(date);
+        return !!(end && d && d <= end);
+    }
+    window.isTripHoldOld = function (row) {
+        return row ? holdIsOld(row[17], row[1]) : false;
+    };
+
+    function weeksAgoLabel(mondayIso, thisMonday) {
+        const a = parseIso(mondayIso), b = parseIso(thisMonday);
+        if (!a || !b) return 'No date';
+        const n = Math.round((b - a) / (7 * 24 * 3600 * 1000));
+        if (n === 0) return 'This week';
+        if (n === 1) return 'Last week';
+        if (n === -1) return 'Next week';
+        if (n < 0) return 'Upcoming';
+        return n + ' weeks ago';
+    }
+
+    /**
+     * Everything the driver still owes, split into groups the office can pick from:
+     *  - one group per calendar week (Mon–Sun) of the ORDER date, with each order and amount
+     *  - "Earlier balance": leftover of the last settlement that has no order detail saved
+     */
+    window.getDriverDebt = function (driverName) {
+        const rows = debtRowsForDriver(driverName);
+        const rec = window.getLatestSettlementRecord ? window.getLatestSettlementRecord(driverName) : null;
+        const lastEnd = rec && rec.end_date ? isoDay(rec.end_date) : '';
+        const balance = rec ? Math.max(0, round2(rec.cash_balance)) : 0;
+        const thisMonday = mondayOfIso(todayIso());
+        const byWeek = {};
+        let current = 0, old = 0;
+
+        rows.forEach(r => {
+            const isOld = !!(lastEnd && r.date && r.date <= lastEnd);
+            const mon = r.date ? mondayOfIso(r.date) : '';
+            const key = 'w:' + (mon || 'none');
+            if (!byWeek[key]) {
+                byWeek[key] = {
+                    key, kind: 'week', monday: mon, amount: 0, orders: [],
+                    label: mon ? weeksAgoLabel(mon, thisMonday) : 'No date',
+                    range: mon ? (mmdd(mon) + ' – ' + mmdd(addDaysIso(mon, 6))) : ''
+                };
+            }
+            byWeek[key].amount = round2(byWeek[key].amount + r.amount);
+            byWeek[key].orders.push({
+                tripId: r.tripId, date: r.date, amount: r.amount, isOld,
+                label: r.orderNo || r.releaseNo || r.nCont || String(r.tripId || '').slice(0, 8),
+                nCont: r.nCont
+            });
+            if (isOld) old = round2(old + r.amount); else current = round2(current + r.amount);
+        });
+
+        const weeks = Object.keys(byWeek).map(k => byWeek[k]);
+        weeks.forEach(g => g.orders.sort((a, b) => String(a.date).localeCompare(String(b.date))
+            || String(a.label).localeCompare(String(b.label))));
+        weeks.sort((a, b) => String(b.monday || '0000').localeCompare(String(a.monday || '0000'))); // newest first
+
+        const legacy = round2(Math.max(0, balance - old));
+        const groups = weeks.slice();
+        if (legacy > 0.009) {
+            groups.push({
+                key: 'legacy', kind: 'legacy', monday: '', amount: legacy, orders: [],
+                label: 'Earlier balance', range: 'no order detail'
+            });
+        }
+        return {
+            groups, current, old, legacy, balance, lastEnd, rec,
+            total: round2(current + old + legacy)
+        };
+    };
+
+    // Cash the driver collected on orders AFTER the last settlement (what the calculator calls "cash this week").
+    // Older cash is already inside the last settlement's leftover, so it is not counted twice.
     window.getDriverWalletMap = function () {
         const map = {};
-        allTrips().forEach(row => {
-            const hold = window.getTripOpenHold(row);
-            if (hold < 0.01) return;
-            const name = normalizeDriver(row[17]);
-            if (!name || name === '---' || name === 'UNASSIGNED') return;
-            map[name] = (map[name] || 0) + hold;
+        const rows = debtStore.loaded
+            ? debtStore.rows
+            : allTrips().filter(r => window.getTripOpenHold(r) > 0.009).map(debtRowFromMemory);
+        rows.forEach(r => {
+            if (!r.driver || r.driver === '---' || r.driver === 'UNASSIGNED') return;
+            if (holdIsOld(r.driver, r.date)) return;
+            map[r.driver] = (map[r.driver] || 0) + r.amount;
         });
         Object.keys(map).forEach(k => { map[k] = Math.round(map[k] * 100) / 100; });
         return map;
@@ -89,12 +339,25 @@
         return map[matches[0]] || 0;
     };
 
+    function closedCollector(v) {
+        const c = (v || '').toString().toLowerCase().trim();
+        return (c === 'turned_in' || c === 'settled' || c === 'wallet') ? c : '';
+    }
+
     window.applyDriverCashOnSave = function (rowData, prevRow) {
         rowData[72] = 0;
         rowData[73] = 0;
         const driverAmt = parseFloat(document.getElementById('in-cash-driver-amt')?.value) || 0;
         const held = Math.max(0, Math.round(driverAmt * 100) / 100);
-        rowData[76] = held > 0.009 ? 'driver' : 'office';
+        // Keep turned_in / settled / wallet when the driver still has $0. Those flags tell
+        // accounting "this cash already entered the office via a turn-in/settlement — do not
+        // count the trip cash again". Overwriting them with 'office' on a Calendar re-save
+        // would duplicate the ingreso.
+        if (held > 0.009) {
+            rowData[76] = 'driver';
+        } else {
+            rowData[76] = closedCollector(prevRow && prevRow[76]) || 'office';
+        }
         rowData[77] = held;
         return rowData;
     };
@@ -234,6 +497,7 @@
             console.warn('[DriverCash] persist hold failed:', error.message);
             throw error;
         }
+        applyDebtLocal(tripId, held);
         const patch = (arr) => {
             if (!arr) return;
             const t = arr.find(r => r[0] === tripId);
@@ -356,54 +620,112 @@
         if (diff > 0.009) await window.reduceDriverHolds(driverName, diff);
     };
 
-    /** After a settlement: holds close (wallet leftover lives on settlement_history). Cash does not enter office. */
-    window.closeDriverHoldsOnSettlement = async function (driverName, throughDate) {
+    /**
+     * After a settlement is archived. The driver's pay is taken from the OLDEST cash first, so what is
+     * still owed (`leftover`) stays on the NEWEST orders — each one keeps its own amount and keeps
+     * showing in the Driver Report and in Calendar until the driver actually turns it in.
+     * Orders that were fully covered by the pay are closed ('settled').
+     * Without `leftover` (old behaviour) every order up to `throughDate` is closed.
+     */
+    window.closeDriverHoldsOnSettlement = async function (driverName, throughDate, leftover) {
         const key = normalizeDriver(driverName);
         if (!key || !window.db) return 0;
 
-        const seen = new Set();
-        const candidates = [];
+        try { await window.refreshDriverDebt(true); } catch (e) { console.warn(e); }
 
-        const considerRow = (row) => {
-            if (!row || seen.has(row[0])) return;
-            if (normalizeDriver(row[17]) !== key) return;
-            if (window.getTripOpenHold(row) < 0.01) return;
-            if (throughDate && String(row[1] || '') > String(throughDate)) return;
-            seen.add(row[0]);
-            candidates.push(row);
-        };
-        (allTrips() || []).forEach(considerRow);
-        (window.driverReportTrips || []).forEach(considerRow);
-        (window.currentTrips || []).forEach(considerRow);
+        const rows = debtRowsForDriver(key)
+            .filter(r => !throughDate || (r.date && r.date <= isoDay(throughDate)))
+            .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.tripId).localeCompare(String(b.tripId)));
 
+        let keep = (leftover === undefined || leftover === null) ? 0 : Math.max(0, round2(leftover));
+        let changed = 0;
+        for (let i = rows.length - 1; i >= 0; i--) {
+            const r = rows[i];
+            const kept = Math.min(r.amount, keep);
+            keep = round2(keep - kept);
+            if (Math.abs(kept - r.amount) < 0.005) continue; // this order still owes everything it owed
+            await persistHold(r.tripId, kept, 'settled');
+            changed++;
+        }
+        try { await window.refreshDriverDebt(true); } catch (e) { console.warn(e); }
+        return changed;
+    };
+
+    /** Move the latest settlement's leftover up/down (never below 0 when paying it down). */
+    async function adjustLatestSettlementBalance(driverName, delta) {
+        const rec = window.getLatestSettlementRecord ? window.getLatestSettlementRecord(driverName) : null;
+        if (!rec || !rec.id || !window.db) return false;
+        const bal = parseFloat(rec.cash_balance) || 0;
+        let next;
+        if (delta < 0) next = bal > 0 ? Math.max(0, round2(bal + delta)) : bal;
+        else next = round2(bal + delta);
+        if (Math.abs(next - bal) < 0.005) return true;
+        const { error } = await window.db.from('settlement_history').update({ cash_balance: next }).eq('id', rec.id);
+        if (error) throw error;
+        rec.cash_balance = next;
+        return true;
+    }
+
+    /** If someone lowers the settlement leftover by hand, order cash cannot exceed it: trim oldest orders first. */
+    window.reconcileDriverOldHolds = async function (driverName) {
+        try { await window.refreshDriverDebt(true); } catch (e) { console.warn(e); }
+        const debt = window.getDriverDebt(driverName);
+        let excess = round2(debt.old - debt.balance);
+        if (excess < 0.01) return 0;
+        const olds = [];
+        debt.groups.forEach(g => g.orders.forEach(o => { if (o.isOld) olds.push(o); }));
+        olds.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        let trimmed = 0;
+        for (const o of olds) {
+            if (excess < 0.01) break;
+            const t = Math.min(o.amount, excess);
+            await persistHold(o.tripId, round2(o.amount - t), 'settled');
+            excess = round2(excess - t);
+            trimmed = round2(trimmed + t);
+        }
+        try { await window.refreshDriverDebt(true); } catch (e) { console.warn(e); }
+        return trimmed;
+    };
+
+    /**
+     * Calendar saved an order. If that order belongs to an already-settled period, its driver cash is part of
+     * the settlement leftover, so keep that leftover in step (e.g. "ALL OFFICE" in Calendar = the driver paid it).
+     * Then refresh the Driver Report so both screens always show the same thing.
+     */
+    window.afterTripCashSaved = async function (info) {
         try {
-            const { data, error } = await window.db.from('trips')
-                .select('trip_id, date, driver, cash_collector, driver_cash_held')
-                .or('is_deleted.eq.false,is_deleted.is.null');
-            if (!error && data) {
-                data.forEach(t => {
-                    if (normalizeDriver(t.driver) !== key) return;
-                    if (window.getHoldFromDbTrip(t) < 0.01) return;
-                    if (throughDate && String(t.date || '') > String(throughDate)) return;
-                    if (seen.has(t.trip_id)) return;
-                    seen.add(t.trip_id);
-                    candidates.push({
-                        0: t.trip_id,
-                        1: t.date,
-                        17: t.driver,
-                        76: t.cash_collector,
-                        77: t.driver_cash_held
-                    });
-                });
+            const prevRow = info && info.prevRow;
+            const newRow = info && info.newRow;
+            if (newRow) {
+                // Read everything we need from the rows BEFORE any await (rows can be replaced meanwhile).
+                const prevHold = prevRow ? window.getTripOpenHold(prevRow) : 0;
+                const newHold = window.getTripOpenHold(newRow);
+                const prevDriver = prevRow ? normalizeDriver(prevRow[17]) : '';
+                const newDriver = normalizeDriver(newRow[17]);
+                const prevDate = prevRow ? isoDay(prevRow[1]) : '';
+                const newDate = isoDay(newRow[1]);
+                await ensureSettlementsLoaded();
+                const adj = new Map();
+                const add = (drv, v) => {
+                    if (!drv || Math.abs(v) < 0.005) return;
+                    adj.set(drv, round2((adj.get(drv) || 0) + v));
+                };
+                if (prevHold > 0.009 && holdIsOld(prevDriver, prevDate)) add(prevDriver, -prevHold);
+                if (newHold > 0.009 && holdIsOld(newDriver, newDate)) add(newDriver, newHold);
+                let touched = false;
+                for (const [drv, delta] of adj) {
+                    if (Math.abs(delta) < 0.005) continue;
+                    await adjustLatestSettlementBalance(drv, delta);
+                    touched = true;
+                }
+                if (touched && typeof window.fetchHistory === 'function') {
+                    try { await window.fetchHistory(true); } catch (e) { console.warn(e); }
+                }
             }
         } catch (e) {
-            console.warn('[DriverCash] DB scan for holds failed, using memory only:', e);
+            console.warn('[DriverCash] could not sync settlement balance after Calendar save:', e);
         }
-
-        for (const row of candidates) {
-            await persistHold(row[0] || row.trip_id, 0, 'settled');
-        }
-        return candidates.length;
+        try { await window.refreshDriverDebt(true); } catch (e) { console.warn(e); }
     };
 
     window.getLatestSettlementRecord = function (driverName) {
@@ -420,13 +742,14 @@
         return bal > 0 ? Math.round(bal * 100) / 100 : 0;
     };
 
+    // Kept for compatibility: current = cash on orders after the last settlement, lastWeek = everything older.
     window.getDriverOpenCashBreakdown = function (driverName) {
-        const orders = window.getDriverWallet(driverName) || 0;
-        const lastWeek = window.getLatestSettlementLeftover(driverName) || 0;
+        const d = window.getDriverDebt(driverName);
         return {
-            orders: Math.round(orders * 100) / 100,
-            lastWeek: Math.round(lastWeek * 100) / 100,
-            total: Math.round((orders + lastWeek) * 100) / 100
+            orders: d.current,
+            lastWeek: round2(d.old + d.legacy),
+            total: d.total,
+            groups: d.groups
         };
     };
 
@@ -439,8 +762,13 @@
             return;
         }
         const name = normalizeDriver(driverName);
-        const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
-        if (!name || name === 'UNASSIGNED' || name === 'ALL DRIVERS' || total < 0.01) {
+        if (!name || name === 'UNASSIGNED' || name === 'ALL DRIVERS') {
+            el.style.display = 'none';
+            el.innerHTML = '';
+            return;
+        }
+        const debt = window.getDriverDebt(driverName);
+        if (debt.total < 0.01) {
             el.style.display = 'none';
             el.innerHTML = '';
             return;
@@ -449,26 +777,50 @@
         el.style.flexWrap = 'wrap';
         el.style.rowGap = '10px';
         const isDriverRole = (window.currentUserRole === 'driver');
-        const box = (label, amount, emphasize) => `
-            <div style="background:${emphasize ? '#fff7ed' : 'rgba(255,255,255,0.7)'}; border:1px solid ${emphasize ? '#c2410c' : 'rgba(146,64,14,0.28)'}; border-radius:10px; padding:8px 14px; min-width:148px;">
-                <div style="font-size:0.68rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; opacity:0.9;">${label}</div>
+        const box = (label, amount, emphasize, title) => `
+            <div title="${esc(title || '')}" style="background:${emphasize ? '#fff7ed' : 'rgba(255,255,255,0.7)'}; border:1px solid ${emphasize ? '#c2410c' : 'rgba(146,64,14,0.28)'}; border-radius:10px; padding:8px 14px; min-width:148px;">
+                <div style="font-size:0.68rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; opacity:0.9;">${esc(label)}</div>
                 <div style="font-weight:900; font-size:1.55rem; line-height:1.15; color:#7c2d12;">${fmt(amount)}</div>
             </div>`;
+        const boxes = debt.groups.map(g => box(g.label, g.amount, g.label !== 'This week', g.range)).join('');
+
+        // Which orders make up what the driver owes (stays here until it is turned in)
+        const chip = (o) => `
+            <span style="background:#fff; border:1px solid rgba(146,64,14,0.3); border-radius:8px; padding:3px 8px; font-size:0.72rem; font-weight:700; color:#7c2d12;">
+                ${esc(o.label)}${o.nCont ? ` <span style="opacity:0.65; font-weight:600;">${esc(o.nCont)}</span>` : ''}
+                <span style="opacity:0.7; font-weight:600;">· ${mmdd(o.date)}</span>
+                · <b>${fmt(o.amount)}</b>
+            </span>`;
+        const detail = debt.groups.map(g => `
+            <div>
+                <div style="font-weight:900; font-size:0.78rem;">
+                    ${esc(g.label)}${g.range ? ` <span style="opacity:0.7; font-weight:700;">(${esc(g.range)})</span>` : ''} — ${fmt(g.amount)}
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
+                    ${g.kind === 'legacy'
+                        ? '<span style="font-size:0.72rem; font-style:italic; opacity:0.85;">Carried over from an earlier settlement — the individual orders were not saved.</span>'
+                        : g.orders.map(chip).join('')}
+                </div>
+            </div>`).join('');
+
         el.innerHTML = `
             <i class="fas fa-money-bill-wave" style="font-size:1.4rem;"></i>
             <div style="flex:1; min-width:200px;">
-                <div style="font-weight:900; font-size:1rem;">${isDriverRole ? 'You are holding company cash' : name + ' is holding company cash'}</div>
-                <div style="font-size:0.75rem; font-weight:600; opacity:0.85; margin-top:2px;">Deducted at settlement or when turned in at the office</div>
+                <div style="font-weight:900; font-size:1rem;">${isDriverRole ? 'You are holding company cash' : esc(name) + ' is holding company cash'}</div>
+                <div style="font-size:0.75rem; font-weight:600; opacity:0.85; margin-top:2px;">Stays here until you mark it as turned in (here or in Calendar)</div>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:stretch;">
-                ${orders > 0.009 ? box('This week', orders, false) : ''}
-                ${lastWeek > 0.009 ? box('Last week', lastWeek, true) : ''}
-                ${box('Total due', total, false)}
+                ${boxes}
+                ${box('Total due', debt.total, false, '')}
             </div>
-            ${!isDriverRole ? `<button type="button" onclick="window.turnInDriverCash('${name.replace(/'/g, "\\'")}')"
-                style="background:#fff; color:#92400e; border:none; border-radius:8px; padding:10px 14px; font-weight:800; cursor:pointer; font-size:0.8rem;">
+            ${!isDriverRole ? `<button type="button" onclick="window.turnInDriverCash('${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')"
+                onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='#fff'"
+                style="background:#fff; color:#92400e; border:2px solid #92400e; border-radius:8px; padding:10px 14px; font-weight:800; cursor:pointer; font-size:0.8rem; box-shadow:0 1px 3px rgba(124,45,18,0.25);">
                 <i class="fas fa-hand-holding-usd"></i> TURNED IN CASH
             </button>` : ''}
+            <div style="flex:1 1 100%; width:100%; border-top:1px dashed rgba(146,64,14,0.4); padding-top:10px; display:grid; gap:8px; max-height:220px; overflow:auto;">
+                ${detail}
+            </div>
         `;
     };
 
@@ -478,22 +830,14 @@
         wrap.id = 'dti-modal';
         wrap.style.cssText = 'display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; padding:16px;';
         wrap.innerHTML = `
-            <div style="background:#fff; width:100%; max-width:460px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); overflow:hidden;">
+            <div style="background:#fff; width:100%; max-width:500px; max-height:94vh; overflow-y:auto; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);">
                 <div style="background:linear-gradient(135deg,#92400e,#d97706); color:#fff; padding:16px 18px;">
                     <div style="font-weight:900; font-size:1.05rem;">Driver cash turn-in</div>
                     <div id="dti-driver" style="font-size:0.8rem; opacity:0.9; margin-top:2px;"></div>
                 </div>
                 <div style="padding:18px 18px 8px;">
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
-                        <div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:10px; padding:10px;">
-                            <div style="font-size:0.65rem; font-weight:800; color:#92400e; text-transform:uppercase;">This week</div>
-                            <div id="dti-orders" style="font-weight:900; color:#78350f; font-size:1.05rem;">$0.00</div>
-                        </div>
-                        <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:10px; padding:10px;">
-                            <div style="font-size:0.65rem; font-weight:800; color:#1d4ed8; text-transform:uppercase;">Last week</div>
-                            <div id="dti-last" style="font-weight:900; color:#1e3a8a; font-size:1.05rem;">$0.00</div>
-                        </div>
-                    </div>
+                    <div style="font-size:0.72rem; font-weight:800; color:#334155; margin-bottom:6px;">What is the driver paying now?</div>
+                    <div id="dti-groups" style="display:grid; gap:8px; margin-bottom:14px; max-height:260px; overflow-y:auto;"></div>
                     <div style="margin-bottom:14px;">
                         <label style="font-size:0.72rem; font-weight:800; color:#334155; display:block; margin-bottom:4px;">Amount turned in</label>
                         <input id="dti-amount" type="number" step="0.01" min="0"
@@ -594,6 +938,11 @@
         const amount = parseFloat(document.getElementById('dti-amount').value) || 0;
         const method = wrap.dataset.method || 'cash';
         err.style.display = 'none';
+        if (turnInSelectedKeys().length === 0) {
+            err.style.display = 'block';
+            err.textContent = 'Select what the driver is paying now (check at least one line above).';
+            return false;
+        }
         if (amount <= 0) return false;
         if (amount > max + 0.009) {
             err.style.display = 'block';
@@ -617,24 +966,77 @@
         if (wrap) wrap.style.display = 'none';
     };
 
+    // ---- Turn-in modal: pick WHICH debt the driver is paying (week by week) ----
+    function turnInSelectedKeys() {
+        const box = document.getElementById('dti-groups');
+        if (!box) return [];
+        return Array.prototype.slice.call(box.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(cb => cb.getAttribute('data-dti-key'));
+    }
+
+    function renderTurnInGroups(debt) {
+        const box = document.getElementById('dti-groups');
+        if (!box) return;
+        box.innerHTML = debt.groups.map(g => {
+            const orders = g.kind === 'legacy'
+                ? 'Carried over from an earlier settlement (no order detail saved)'
+                : g.orders.map(o => `${esc(o.label)} ${fmt(o.amount)}`).join(' · ');
+            return `
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e2e8f0; background:#f8fafc; border-radius:10px; padding:9px 11px; cursor:pointer;">
+                    <input type="checkbox" data-dti-key="${esc(g.key)}" checked style="margin-top:3px; width:16px; height:16px; cursor:pointer;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; justify-content:space-between; gap:8px; font-weight:800; color:#1e293b; font-size:0.85rem;">
+                            <span>${esc(g.label)}${g.range ? ` <span style="font-weight:600; color:#64748b; font-size:0.72rem;">${esc(g.range)}</span>` : ''}</span>
+                            <span>${fmt(g.amount)}</span>
+                        </div>
+                        <div style="font-size:0.68rem; color:#64748b; margin-top:2px; word-break:break-word;">${orders}</div>
+                    </div>
+                </label>`;
+        }).join('');
+        box.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', onTurnInSelectionChange);
+        });
+    }
+
+    function selectedTurnInTotal() {
+        const wrap = document.getElementById('dti-modal');
+        const keys = turnInSelectedKeys();
+        const groups = (wrap && wrap._debtGroups) || [];
+        return round2(groups.filter(g => keys.indexOf(g.key) !== -1).reduce((s, g) => s + g.amount, 0));
+    }
+
+    function onTurnInSelectionChange() {
+        const wrap = document.getElementById('dti-modal');
+        if (!wrap) return;
+        const total = selectedTurnInTotal();
+        wrap.dataset.total = String(total);
+        document.getElementById('dti-total-hint').textContent = 'Selected: ' + fmt(total) + ' (maximum you can enter)';
+        document.getElementById('dti-amount').value = total.toFixed(2);
+        if ((wrap.dataset.method || 'cash') === 'split') {
+            document.getElementById('dti-cash').value = total.toFixed(2);
+            document.getElementById('dti-bank').value = '0.00';
+        }
+        window.validateTurnInModal();
+    }
+
     window.turnInDriverCash = async function (driverName) {
         const role = (window.currentUserRole || '').toLowerCase();
         if (role === 'student' || role === 'driver') {
             return;
         }
-        const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
-        if (total < 0.01) return;
+        // Always start from what the database says right now (someone may have paid from Calendar).
+        try { await window.refreshDriverDebt(true); } catch (e) { console.warn(e); }
+        const debt = window.getDriverDebt(driverName);
+        if (debt.total < 0.01) return;
         ensureTurnInModal();
         const wrap = document.getElementById('dti-modal');
         wrap.dataset.driver = normalizeDriver(driverName);
-        wrap.dataset.total = String(total);
-        wrap.dataset.orders = String(orders);
-        wrap.dataset.last = String(lastWeek);
+        wrap._debtGroups = debt.groups;
         document.getElementById('dti-driver').textContent = normalizeDriver(driverName);
-        document.getElementById('dti-orders').textContent = fmt(orders);
-        document.getElementById('dti-last').textContent = fmt(lastWeek);
-        document.getElementById('dti-total-hint').textContent = 'Maximum available: ' + fmt(total);
-        document.getElementById('dti-amount').value = total.toFixed(2);
+        renderTurnInGroups(debt);
+        wrap.dataset.total = String(selectedTurnInTotal());
+        document.getElementById('dti-total-hint').textContent = 'Selected: ' + fmt(selectedTurnInTotal()) + ' (maximum you can enter)';
+        document.getElementById('dti-amount').value = selectedTurnInTotal().toFixed(2);
         document.getElementById('dti-error').style.display = 'none';
         document.getElementById('dti-ok').style.display = 'none';
         document.getElementById('dti-save').disabled = false;
@@ -642,23 +1044,58 @@
         wrap.style.display = 'flex';
     };
 
+    /**
+     * Apply a payment to the groups the office ticked, OLDEST first.
+     *  - every order paid goes to 'turned_in' (so Calendar shows it as already in the office)
+     *  - cash that belonged to an already-settled week also lowers that settlement's leftover
+     *  - "earlier balance" lowers the settlement's leftover only
+     */
+    async function applyTurnIn(driverName, groupKeys, amount) {
+        await window.refreshDriverDebt(true);
+        const debt = window.getDriverDebt(driverName);
+        const selected = debt.groups.filter(g => groupKeys.indexOf(g.key) !== -1).slice().reverse(); // oldest first
+        const available = round2(selected.reduce((s, g) => s + g.amount, 0));
+        const target = Math.min(round2(amount), available);
+        let left = target;
+        let settleDelta = 0;
+
+        for (const g of selected) {
+            if (left < 0.01) break;
+            const take = Math.min(left, g.amount);
+            if (g.kind === 'legacy') {
+                settleDelta = round2(settleDelta + take);
+                left = round2(left - take);
+                continue;
+            }
+            let groupLeft = take;
+            for (const o of g.orders) {
+                if (groupLeft < 0.01) break;
+                const part = Math.min(o.amount, groupLeft);
+                await persistHold(o.tripId, round2(o.amount - part), 'turned_in');
+                if (o.isOld) settleDelta = round2(settleDelta + part);
+                groupLeft = round2(groupLeft - part);
+            }
+            left = round2(left - take);
+        }
+        if (settleDelta > 0.009) await adjustLatestSettlementBalance(driverName, -settleDelta);
+        return round2(target - left);
+    }
+
     window.confirmTurnInDriverCash = async function () {
         const wrap = document.getElementById('dti-modal');
         if (!wrap || !window.validateTurnInModal()) return;
         const driverName = wrap.dataset.driver;
-        const { orders, lastWeek, total } = window.getDriverOpenCashBreakdown(driverName);
-        const amount = Math.min(parseFloat(document.getElementById('dti-amount').value) || 0, total);
+        const keys = turnInSelectedKeys();
+        const typed = round2(document.getElementById('dti-amount').value);
         const method = wrap.dataset.method || 'cash';
         let cashAmt = 0;
         let bankAmt = 0;
-        if (method === 'cash') cashAmt = amount;
-        else if (method === 'bank') bankAmt = amount;
+        if (method === 'cash') cashAmt = typed;
+        else if (method === 'bank') bankAmt = typed;
         else {
-            cashAmt = parseFloat(document.getElementById('dti-cash').value) || 0;
-            bankAmt = parseFloat(document.getElementById('dti-bank').value) || 0;
+            cashAmt = round2(document.getElementById('dti-cash').value);
+            bankAmt = round2(document.getElementById('dti-bank').value);
         }
-        cashAmt = Math.round(cashAmt * 100) / 100;
-        bankAmt = Math.round(bankAmt * 100) / 100;
 
         const err = document.getElementById('dti-error');
         const ok = document.getElementById('dti-ok');
@@ -667,28 +1104,22 @@
         err.style.display = 'none';
         ok.style.display = 'none';
 
+        let applied = 0;
         try {
-            const take = Math.round(amount * 100) / 100;
-            const fromOrders = Math.min(take, orders);
-            let appliedOrders = 0;
-            if (fromOrders > 0.009) {
-                appliedOrders = await window.reduceDriverHolds(driverName, fromOrders, 0);
+            applied = await applyTurnIn(driverName, keys, typed);
+            if (Math.abs(applied - typed) > 0.009) {
+                throw new Error(`Only ${fmt(applied)} of ${fmt(typed)} could be applied — the balance changed (maybe it was paid from Calendar). Close this window and open it again.`);
             }
-            let appliedLast = 0;
-            const rest = Math.round((take - appliedOrders) * 100) / 100;
-            if (rest > 0.009 && lastWeek > 0.009) {
-                appliedLast = Math.min(rest, lastWeek);
-                const rec = window.getLatestSettlementRecord(driverName);
-                if (rec && rec.id && window.db) {
-                    const nextBal = Math.round((Math.max(0, lastWeek - appliedLast)) * 100) / 100;
-                    const { error } = await window.db.from('settlement_history')
-                        .update({ cash_balance: nextBal })
-                        .eq('id', rec.id);
-                    if (error) throw error;
-                    rec.cash_balance = nextBal;
-                }
-            }
-            const applied = Math.round((appliedOrders + appliedLast) * 100) / 100;
+        } catch (e) {
+            try { await window.refreshDriverDebt(true); } catch (e2) { /* ignore */ }
+            saveBtn.disabled = false;
+            err.style.display = 'block';
+            err.textContent = 'Could not save: ' + (e.message || e) + (applied > 0.009 ? ` (Already applied: ${fmt(applied)}.)` : '');
+            return;
+        }
+
+        // Money received by the office goes to the ledger. The cash balances above are already saved.
+        try {
             if (window.logCashTransaction) {
                 if (cashAmt > 0.009) {
                     await window.logCashTransaction({
@@ -711,29 +1142,76 @@
                     });
                 }
             }
+        } catch (e) {
+            console.warn('[DriverCash] turn-in ledger entry failed', e);
+            err.style.display = 'block';
+            err.textContent = 'The driver balance was updated, but the ledger entry failed: ' + (e.message || e);
+        }
+
+        try {
             if (window.fetchHistory) await window.fetchHistory(true);
+            await window.refreshDriverDebt(true);
             if (window.loadAccountingData) {
                 try { await window.loadAccountingData(true); } catch (e) { console.warn(e); }
             }
-            window.refreshDriverCashSurfaces();
-            const left = window.getDriverOpenCashBreakdown(driverName);
-            ok.style.display = 'block';
-            ok.textContent = `Recorded ${fmt(applied)}. Remaining with driver: ${fmt(left.total)}.`;
-            setTimeout(() => window.closeTurnInModal(), 900);
         } catch (e) {
-            saveBtn.disabled = false;
-            err.style.display = 'block';
-            err.textContent = 'Could not save: ' + (e.message || e);
+            console.warn('[DriverCash] refresh after turn-in failed', e);
+        }
+        window.paintDriverCashSurfaces();
+        const left = window.getDriverDebt(driverName);
+        ok.style.display = 'block';
+        ok.textContent = `Recorded ${fmt(applied)}. Remaining with driver: ${fmt(left.total)}.`;
+        // Save stays disabled on purpose: this payment is done (prevents recording it twice).
+        if (err.style.display !== 'block') setTimeout(() => window.closeTurnInModal(), 900);
+    };
+
+    // Driver Report "Cash" cell for one order: how much that order's driver still owes.
+    window.paintDriverCashCell = function (td, row) {
+        if (!td) return;
+        const amt = window.getTripDebtAmount ? window.getTripDebtAmount(row) : 0;
+        if (amt > 0.009) {
+            td.textContent = '$' + amt.toFixed(2);
+            td.style.fontWeight = '700';
+            td.style.color = '#d97706';
+            td.title = 'The driver still owes ' + fmt(amt) + ' for this order';
+        } else {
+            td.textContent = '---';
+            td.style.fontWeight = '';
+            td.style.color = '';
+            td.title = '';
         }
     };
 
-    window.refreshDriverCashSurfaces = function () {
-        const reportDrv = document.getElementById('filter-search');
-        let reportName = '';
-        if (reportDrv && reportDrv.selectedIndex >= 0) {
-            reportName = reportDrv.options[reportDrv.selectedIndex]?.text || reportDrv.value;
+    function paintDriverLogCashCells() {
+        const body = document.getElementById('dl-body');
+        if (!body || !debtStore.loaded) return;
+        body.querySelectorAll('tr[data-trip-id]').forEach(tr => {
+            const td = tr.querySelector('td[data-cash-cell]');
+            if (!td) return;
+            window.paintDriverCashCell(td, [tr.getAttribute('data-trip-id')]);
+        });
+    }
+
+    // Repaint what is on screen from the data we already have (banner + Cash column).
+    window.paintDriverCashSurfaces = function () {
+        try {
+            const reportDrv = document.getElementById('filter-search');
+            let reportName = '';
+            if (reportDrv && reportDrv.selectedIndex >= 0) {
+                reportName = reportDrv.options[reportDrv.selectedIndex]?.text || reportDrv.value;
+            }
+            window.renderDriverWalletBanner(reportName, 'driver-cash-wallet-banner');
+            paintDriverLogCashCells();
+        } catch (e) {
+            console.warn('[DriverCash] paint failed', e);
         }
-        window.renderDriverWalletBanner(reportName, 'driver-cash-wallet-banner');
+    };
+
+    // Paint now, and make sure the numbers come from a recent database read.
+    window.refreshDriverCashSurfaces = function () {
+        window.paintDriverCashSurfaces();
+        if (window.isPlainDriverView && window.isPlainDriverView()) return;
+        window.refreshDriverDebt(false).catch(() => {});
     };
 
     window.fillLastWeekBalance = function (driverName) {

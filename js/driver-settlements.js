@@ -104,6 +104,7 @@
                     let totalPaidDriverGross = 0;
                     let totalAdjustedCommission = 0;
                     let totalCash = 0;
+                    let totalCashCurrent = 0;
 
                     selectedIndices.forEach(idx => {
                         const r = filtered[idx];
@@ -118,7 +119,12 @@
                             totalAdjustedCommission += grossVal;
                         }
 
-                        totalCash += window.getTripOpenHold ? window.getTripOpenHold(r) : ((r[34] === 'PAID') ? (parseFloat(r[22]) || 0) : 0);
+                        const rowHold = window.getTripDebtAmount
+                            ? window.getTripDebtAmount(r)
+                            : (window.getTripOpenHold ? window.getTripOpenHold(r) : ((r[34] === 'PAID') ? (parseFloat(r[22]) || 0) : 0));
+                        totalCash += rowHold;
+                        // Cash on orders already covered by the last settlement is inside "last week leftover" — don't count it twice
+                        if (!(window.isTripHoldOld && window.isTripHoldOld(r))) totalCashCurrent += rowHold;
                     });
 
                     // SYNC WITH CALCULATOR
@@ -134,7 +140,7 @@
                         || document.getElementById('filter-search')?.value;
                     if (calcCashColl && !editingSettlementId) {
                         const wallet = window.getDriverWallet ? window.getDriverWallet(drvName) : 0;
-                        calcCashColl.value = Math.max(wallet, totalCash).toFixed(2);
+                        calcCashColl.value = Math.max(wallet, totalCashCurrent).toFixed(2);
                     }
 
                     // Trigger the math for Balance and Driver Salary results
@@ -174,6 +180,7 @@
                 filtered.forEach((r, idx) => {
                     const tr = document.createElement('tr');
                     tr.style.cursor = lockDriverRows ? 'default' : 'pointer';
+                    if (r[0]) tr.setAttribute('data-trip-id', r[0]);
                     if (!lockDriverRows) {
                         tr.onclick = () => {
                             if (selectedIndices.has(idx)) {
@@ -202,13 +209,18 @@
                             value = (parseFloat(r[24]) || 0) * (parseInt(r[53]) || 1);
                         }
 
-                        // Cash column: show value with inline edit button for admin
+                        // Cash column: what the driver still owes for THIS order (stays until it is turned in)
                         if (i === 10) { 
-                            const cashVal = window.getTripOpenHold ? window.getTripOpenHold(r) : 0;
-                            td.textContent = cashVal > 0.009 ? `$${cashVal.toFixed(2)}` : '---';
-                            if (cashVal > 0.009) {
-                                td.style.fontWeight = '700';
-                                td.style.color = '#d97706';
+                            td.setAttribute('data-cash-cell', '1');
+                            if (window.paintDriverCashCell) {
+                                window.paintDriverCashCell(td, r);
+                            } else {
+                                const cashVal = window.getTripOpenHold ? window.getTripOpenHold(r) : 0;
+                                td.textContent = cashVal > 0.009 ? `$${cashVal.toFixed(2)}` : '---';
+                                if (cashVal > 0.009) {
+                                    td.style.fontWeight = '700';
+                                    td.style.color = '#d97706';
+                                }
                             }
                             tr.appendChild(td);
                             return;
@@ -539,6 +551,11 @@
                 const st = window.currentSettlements.find(s => String(s.id) === String(id));
                 if (st) st.cash_balance = newVal;
 
+                // Order-level cash can never be more than the leftover: trim the oldest orders if it was lowered.
+                if (st && window.reconcileDriverOldHolds) {
+                    try { await window.reconcileDriverOldHolds(st.driver_name); } catch (e) { console.warn('[DriverCash] reconcile failed', e); }
+                }
+
                 // Re-render table
                 renderSettlementHistory();
                 
@@ -814,7 +831,7 @@
                 const ok = confirm(
                     `${driverNameFinal} tiene $${liveWallet.toFixed(2)} de la empresa (wallet).\n` +
                     `Al liquidar, el sueldo se descuenta de ese wallet. NO entra a caja oficina.\n` +
-                    `Lo que quede ($${Math.max(0, leftover).toFixed(2)}) sigue debiendo el chofer hasta que use Entrego cash.\n\n¿Continuar?`
+                    `Lo que quede ($${Math.max(0, leftover).toFixed(2)}) sigue debiendo el chofer, orden por orden, hasta que uses TURNED IN CASH (o lo pongas en TODO OFICINA en Calendar).\n\n¿Continuar?`
                 );
                 if (!ok) return;
             }
@@ -992,11 +1009,17 @@
 
                 try {
                     if (window.closeDriverHoldsOnSettlement) {
-                        await window.closeDriverHoldsOnSettlement(driverNameFinal, val_final);
+                        // Only the driver's LATEST settlement describes what he still owes. Editing an older one must not touch order cash.
+                        const latestRec = window.getLatestSettlementRecord ? window.getLatestSettlementRecord(driverNameFinal) : null;
+                        const isLatest = !latestRec || !targetSettlementId || String(latestRec.id) === String(targetSettlementId);
+                        if (isLatest) {
+                            // What the driver still owes after his pay stays on the newest orders, each with its own amount.
+                            await window.closeDriverHoldsOnSettlement(driverNameFinal, val_final, Math.max(0, cashAmountFinal));
+                        }
                     }
                 } catch (holdErr) {
-                    console.error('[DriverCash] Could not move order cash to office after settlement:', holdErr);
-                    alert('La liquidación se guardó, pero no se pudo pasar el cash de las órdenes a TODO OFICINA: ' + (holdErr.message || holdErr));
+                    console.error('[DriverCash] Could not update order cash after settlement:', holdErr);
+                    alert('La liquidación se guardó, pero no se pudo actualizar el cash por orden del chofer: ' + (holdErr.message || holdErr));
                 }
                 if (window.refreshDriverCashSurfaces) window.refreshDriverCashSurfaces();
                 if (window.loadAccountingData) {

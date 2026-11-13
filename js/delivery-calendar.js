@@ -1559,6 +1559,15 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
                 if (masterErr) throw masterErr;
 
+                // Driver cash: keep the Driver Report (and any settled-week leftover) in step with what was just saved
+                if (typeof window.afterTripCashSaved === 'function') {
+                    try {
+                        await window.afterTripCashSaved({ tripId: finalTripId, prevRow: prevCashRow, newRow: rowData });
+                    } catch (cashSyncErr) {
+                        console.warn('[DriverCash] sync after Calendar save failed', cashSyncErr);
+                    }
+                }
+
                 const proofNeeded = !(rowData[93] === false || rowData[93] === 'false' || rowData[93] === 0 || rowData[93] === '0');
                 const proofSave = await db.from('trips').update({ needs_delivery_proof: proofNeeded }).eq('trip_id', finalTripId);
                 if (proofSave.error) {

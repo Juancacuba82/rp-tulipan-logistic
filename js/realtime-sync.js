@@ -95,6 +95,9 @@ window.initRealtimeSubscriptions = function() {
 function handleRealtimeTrips(payload, opts) {
     const skipRender = !!(opts && opts.skipRender);
     if (!(opts && opts.silent)) console.log('[Realtime] Trips change detected:', payload.eventType);
+
+    // Driver cash is read from the database: when any trip changes, re-read it shortly (debounced)
+    if (typeof window.scheduleDriverDebtRefresh === 'function') window.scheduleDriverDebtRefresh();
     
     const applyToCache = (cacheArray) => {
         if (!cacheArray) return false;
