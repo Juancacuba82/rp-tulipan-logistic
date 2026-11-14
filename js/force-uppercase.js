@@ -32,6 +32,17 @@
         return false;
     }
 
+    // Keep mixed case even if the login eye toggle switches type="password" to type="text".
+    function looksLikePasswordField(el) {
+        if (!el) return false;
+        if ((el.type || '').toLowerCase() === 'password') return true;
+        const id = (el.id || '').toLowerCase();
+        const name = (el.name || '').toLowerCase();
+        if (id.indexOf('password') !== -1 || name.indexOf('password') !== -1) return true;
+        const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+        return ac === 'current-password' || ac === 'new-password';
+    }
+
     // EmailJS keys/IDs are case-sensitive (service_xxx, template_xxx, public keys).
     function looksLikeEmailJsConfigField(el) {
         if (!el) return false;
@@ -49,7 +60,7 @@
         if (tag === 'INPUT') {
             const type = (el.type || 'text').toLowerCase();
             if (SKIP_TYPES[type]) return false;
-            if (looksLikeEmailField(el)) return false;
+            if (looksLikeEmailField(el) || looksLikePasswordField(el)) return false;
             return true;
         }
         if (el.isContentEditable) return !looksLikeEmailField(el);
