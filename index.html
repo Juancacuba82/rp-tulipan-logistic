@@ -1887,7 +1887,7 @@
                                         </select>
                                         <div style="display: flex; align-items: center; gap: 8px; margin-left: 5px;">
                                             <input type="checkbox" id="in-move-to-rentals"
-                                                onchange="const m = document.getElementById('in-mode'); if(m) m.value = this.checked ? 'RENT' : 'SALE'; if(this.checked){ const s=document.getElementById('in-flag3'); if(s && s.checked){s.checked=false; if(typeof toggleSalesPrice==='function') toggleSalesPrice();} } document.getElementById('rent-price-group').style.display = this.checked ? 'block' : 'none';"
+                                                onchange="if(window.toggleRentals) window.toggleRentals()"
                                                 style="width: 18px; height: 18px; accent-color: #7c3aed;">
                                             <span
                                                 style="font-size: 0.65rem; font-weight: 700; color: #7c3aed;">Rent</span>
@@ -8283,12 +8283,54 @@
         }
         window.addTransExtraRow = addTransExtraRow;
 
+        function calendarSetVal(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        }
+        function calendarSetChk(id, on) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.checked = !!on;
+                el.disabled = false;
+            }
+        }
+        function calendarResetSelect(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.selectedIndex = 0;
+            if (el.options.length && el.value && el.options[0].disabled) el.value = '';
+        }
+        function calendarResetPayBlock(type) {
+            const method = document.getElementById(`in-${type}-pay-method`);
+            if (method) method.value = 'bank';
+            const splitGroup = document.getElementById(`${type}-split-group`);
+            if (splitGroup) splitGroup.style.display = 'none';
+            calendarSetChk(`in-${type}-cash`, false);
+            calendarSetChk(`in-${type}paid`, false);
+            calendarSetVal(`in-${type}-cash-amt`, '');
+            calendarSetVal(`in-${type}-bank-amt`, '');
+            if (type === 'rate') {
+                calendarSetChk('in-rate-cash-paid', false);
+                calendarSetChk('in-rate-bank-paid', false);
+                const main = document.getElementById('in-rate');
+                if (main) {
+                    main.readOnly = false;
+                    main.style.backgroundColor = '';
+                }
+            }
+            if (type === 'sales') {
+                const main = document.getElementById('in-sales');
+                if (main) {
+                    main.readOnly = false;
+                    main.style.backgroundColor = '';
+                }
+            }
+        }
+
         function toggleYardRate() {
             const chkYard = document.getElementById('in-flag1');
             const yardHidden = document.getElementById('in-yard');
             const yr = document.getElementById('yard-rate-group');
-            const doGroup = document.getElementById('lift-cost-group');
-            const ppd = document.getElementById('price-per-day-group');
 
             if (chkYard) {
                 const isChecked = chkYard.checked;
@@ -8315,8 +8357,12 @@
 
                 if (yr) yr.style.display = isChecked ? 'flex' : 'none';
 
-                if (!isChecked && document.getElementById('in-yardrate')) {
-                    document.getElementById('in-yardrate').value = '';
+                if (!isChecked) {
+                    const yardList = document.getElementById('yard-services-list');
+                    if (yardList) yardList.innerHTML = '';
+                    calendarSetVal('in-yardrate', '');
+                    calendarResetPayBlock('yard');
+                    if (yardHidden) yardHidden.value = 'NO';
                 }
             }
             autoToggleDeductStock();
@@ -8350,20 +8396,31 @@
                     }
                 }
             });
-            // If hiding, reset trans-pay
             if (!show) {
-                const rate = document.getElementById('in-rate');
-                if (rate) rate.value = 0;
-                const paidDriver = document.getElementById('in-paiddriver');
-                if (paidDriver) paidDriver.value = 0;
+                calendarResetSelect('in-pickup-sel');
+                calendarSetVal('in-pickup', '');
+                calendarResetSelect('in-delivery-sel');
+                calendarSetVal('in-delivery', '');
+                calendarResetSelect('in-doors');
+                calendarSetVal('in-miles', '');
+                calendarSetChk('auto-calc-miles', false);
+                calendarResetSelect('in-company');
+                const driver = document.getElementById('in-driver');
+                if (driver) driver.value = '';
+                calendarSetVal('in-truck', '');
+                calendarSetVal('in-trailer', '');
+                calendarSetVal('in-rate', 0);
+                calendarSetVal('in-paiddriver', 0);
+                calendarResetPayBlock('rate');
                 const extraList = document.getElementById('trans-extras-list');
                 if (extraList) extraList.innerHTML = '';
-                const extraHidden = document.getElementById('in-trans-extras');
-                if (extraHidden) extraHidden.value = '[]';
-                const extraRate = document.getElementById('in-trans-extras-rate');
-                if (extraRate) extraRate.value = '';
-                const extraPaid = document.getElementById('in-trans-extrapaid');
-                if (extraPaid) extraPaid.checked = false;
+                calendarSetVal('in-trans-extras', '[]');
+                calendarSetVal('in-trans-extras-rate', '');
+                calendarSetChk('in-trans-extrapaid', false);
+                calendarSetChk('in-trans-extra-cash', false);
+                const extraPm = document.getElementById('in-trans-extra-pay-method');
+                if (extraPm) extraPm.value = 'bank';
+                if (window.syncCalendarRouteStopUI) window.syncCalendarRouteStopUI();
             }
             autoToggleDeductStock();
         }
@@ -8381,14 +8438,13 @@
             if (group) {
                 group.style.display = show ? 'flex' : 'none';
                 if (!show) {
-                    const sales = document.getElementById('in-sales');
-                    if (sales) sales.value = 0;
+                    calendarSetVal('in-sales', 0);
+                    calendarResetPayBlock('sales');
                 } else {
                     const rentChk = document.getElementById('in-move-to-rentals');
                     if (rentChk && rentChk.checked) {
                         rentChk.checked = false;
-                        const m = document.getElementById('in-mode');
-                        if (m) m.value = 'SALE';
+                        if (window.toggleRentals) window.toggleRentals();
                     }
                 }
             }
@@ -8404,18 +8460,40 @@
             }
             const ppd = document.getElementById('price-per-day-group');
             const doGroup = document.getElementById('lift-cost-group');
-            if (ppd) {
-                ppd.style.display = isChecked ? 'flex' : 'none';
-                if (!isChecked && document.getElementById('in-priceperday')) {
-                    document.getElementById('in-priceperday').value = '';
-                }
-            }
-            if (doGroup) {
-                doGroup.style.display = isChecked ? 'flex' : 'none';
+            if (ppd) ppd.style.display = isChecked ? 'flex' : 'none';
+            if (doGroup) doGroup.style.display = isChecked ? 'flex' : 'none';
+            if (!isChecked) {
+                if (destSel) destSel.value = 'RPTULIPAN';
+                calendarSetVal('in-priceperday', '');
+                calendarSetVal('in-liftcost', '');
             }
             autoToggleDeductStock();
         }
         window.toggleToYardDestSelect = toggleToYardDestSelect;
+
+        function toggleRentals() {
+            const chk = document.getElementById('in-move-to-rentals');
+            const on = !!(chk && chk.checked);
+            const group = document.getElementById('rent-price-group');
+            if (group) group.style.display = on ? 'block' : 'none';
+            const mode = document.getElementById('in-mode');
+            if (mode) mode.value = on ? 'RENT' : 'SALE';
+            if (on) {
+                const sales = document.getElementById('in-flag3');
+                if (sales && sales.checked) {
+                    sales.checked = false;
+                    if (typeof toggleSalesPrice === 'function') toggleSalesPrice();
+                }
+            } else {
+                calendarSetVal('in-rent-price', '');
+                calendarSetVal('in-time-rent', 'monthly');
+                calendarSetVal('in-sdaterent', '');
+                calendarSetVal('in-nextdue', '');
+                calendarSetChk('in-rentpaid', false);
+            }
+            autoToggleDeductStock();
+        }
+        window.toggleRentals = toggleRentals;
 
 
         function calcNextDue() {

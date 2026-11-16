@@ -2048,6 +2048,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (typeof toggleToYardDestSelect === 'function') toggleToYardDestSelect();
             else if (window.toggleToYardDestSelect) window.toggleToYardDestSelect();
 
+            if (typeof toggleRentals === 'function') toggleRentals();
+            else if (window.toggleRentals) window.toggleRentals();
+
             if (document.getElementById('rent-price-group')) {
                 document.getElementById('rent-price-group').style.display = 'none';
             }
