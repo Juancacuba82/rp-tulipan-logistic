@@ -1069,15 +1069,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 const selectedRelType = document.getElementById('in-rel-type')?.value || 'DRY';
                 const selectedRelCond = document.getElementById('in-rel-condition')?.value || 'USED';
-                const selectedUsedGrade = window.normalizeUsedGrade
-                    ? window.normalizeUsedGrade(selectedRelCond, document.getElementById('in-used-grade')?.value)
-                    : '';
-                if (selectedRelCond === 'USED' && !selectedUsedGrade) {
-                    alert('USED containers require WWT or CW.');
-                    isSaving = false;
-                    restoreTripArchiveButtonUI();
-                    return;
-                }
+                const selectedUsedGrade = '';
 
                 const finalizeVal = document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT';
                 const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');

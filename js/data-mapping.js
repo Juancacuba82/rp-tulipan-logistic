@@ -4,17 +4,7 @@
             return (g === 'WWT' || g === 'CW') ? g : '';
         };
 
-        window.syncUsedGradeUi = function () {
-            const cond = (document.getElementById('in-rel-condition')?.value || '').toUpperCase();
-            const wrap = document.getElementById('in-used-grade-cell');
-            const sel = document.getElementById('in-used-grade');
-            const used = cond === 'USED';
-            if (wrap) wrap.style.display = used ? '' : 'none';
-            if (sel) {
-                sel.required = used;
-                if (!used) sel.value = '';
-            }
-        };
+        window.syncUsedGradeUi = function () {};
 
         window.syncReleaseUsedGradeUi = function () {
             const checked = document.querySelector('input[name="rel-uni-cond"]:checked');

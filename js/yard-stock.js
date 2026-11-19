@@ -1,4 +1,4 @@
-console.log('CRITICAL: Yard Stock JS v126 is active');
+console.log('CRITICAL: Yard Stock JS v127 is active');
 
 (function () {
     let currentYardStock = [];
@@ -822,7 +822,81 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
         if (card) card.style.display = (dateFrom || dateTo) ? 'flex' : 'none';
     }
 
+    let inboundCostCtx = null;
+
+    function getYardInboundCostCtx() {
+        if (inboundCostCtx) return inboundCostCtx;
+        const trips = window.allTripsUnfiltered || window.inventoryDataCache || window.currentTrips || [];
+        const byOrder = new Map();
+        const byReleaseCont = new Map();
+        trips.forEach((t) => {
+            if (!Array.isArray(t)) return;
+            const order = (t[5] || '').toString().trim();
+            const rel = (t[4] || '').toString().trim();
+            const cont = (t[3] || '').toString().trim().toUpperCase();
+            if (order && order !== '---') {
+                if (!byOrder.has(order)) byOrder.set(order, []);
+                byOrder.get(order).push(t);
+            }
+            if (rel && rel !== '---' && cont) {
+                const k = `${rel}|${cont}`;
+                if (!byReleaseCont.has(k)) byReleaseCont.set(k, t);
+            }
+        });
+        inboundCostCtx = {
+            byOrder,
+            byReleaseCont,
+            relMap: (typeof window.buildReleasePriceMap === 'function')
+                ? window.buildReleasePriceMap(window.currentReleases || [])
+                : new Map()
+        };
+        return inboundCostCtx;
+    }
+
+    function resolveYardInboundCosts(item) {
+        const ctx = getYardInboundCostCtx();
+        const origin = (item.origin_release || '').toString().trim();
+        const cont = (item.container_no || '').toString().trim().toUpperCase();
+        let trip = null;
+        if (origin) {
+            const list = ctx.byOrder.get(origin) || [];
+            trip = list.find((t) => (t[3] || '').toString().trim().toUpperCase() === cont) || list[0] || null;
+            if (!trip && cont) trip = ctx.byReleaseCont.get(`${origin}|${cont}`) || null;
+        }
+        const haulCost = trip ? (parseFloat(trip[18]) || 0) : 0;
+        const relNo = trip ? ((trip[4] || origin).toString().trim()) : origin;
+        let unitCost = 0;
+        if (typeof window.resolveContainerPurchaseCost === 'function') {
+            const row = [];
+            row[2] = item.size || (trip && trip[2]) || '';
+            row[4] = relNo;
+            unitCost = window.resolveContainerPurchaseCost(row, ctx.relMap, window.allTripsUnfiltered || window.currentTrips).unitCost || 0;
+        } else {
+            const releaseData = ctx.relMap.get(relNo);
+            if (releaseData) {
+                const size = (item.size || '').toString();
+                if (size.includes('20')) unitCost = releaseData.p20;
+                else if (size.includes('40')) unitCost = releaseData.p40;
+                else if (size.includes('45')) unitCost = releaseData.p45;
+                if (!unitCost) unitCost = releaseData.p20 || releaseData.p40 || releaseData.p45 || 0;
+            }
+        }
+        return { unitCost: unitCost || 0, haulCost: haulCost || 0 };
+    }
+
+    function fmtYardInternalCost(amount) {
+        return (amount > 0.009) ? `$${Number(amount).toFixed(2)}` : '---';
+    }
+
+    function yardInboundCostCellsHtml(item) {
+        const c = resolveYardInboundCosts(item);
+        return `
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #92400e; background: #fffbeb;">${fmtYardInternalCost(c.unitCost)}</td>
+                <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 800; color: #9a3412; background: #fff7ed;">${fmtYardInternalCost(c.haulCost)}</td>`;
+    }
+
     function renderYardTable() {
+        inboundCostCtx = null;
         const body = document.getElementById('yard-body');
         const countEl = document.getElementById('yard-total-count');
         if (!body) return;
@@ -934,6 +1008,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                ${yardInboundCostCellsHtml(item)}
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${displayExitDate}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${displayOrderOut}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
@@ -963,6 +1038,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
     window.renderYardTable = renderYardTable;
 
     function renderStorageTable() {
+        inboundCostCtx = null;
         const body = document.getElementById('storage-yard-body');
         const countEl = document.getElementById('storage-total-count');
         if (!body) return;
@@ -1008,7 +1084,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
         if (filtered.length === 0) {
             body.innerHTML = `
                 <tr>
-                    <td colspan="9" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
+                    <td colspan="19" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
                         No items in Storage Yard
                     </td>
                 </tr>
@@ -1081,6 +1157,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                ${yardInboundCostCellsHtml(item)}
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${displayExitDate}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${displayOrderOut}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
@@ -1110,6 +1187,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
     window.renderStorageTable = renderStorageTable;
 
     function renderBothTable() {
+        inboundCostCtx = null;
         const body = document.getElementById('both-yard-body');
         const countEl = document.getElementById('both-total-count');
         if (!body) return;
@@ -1152,7 +1230,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
         if (filtered.length === 0) {
             body.innerHTML = `
                 <tr>
-                    <td colspan="18" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
+                    <td colspan="20" style="padding: 20px; text-align: center; color: #64748b; font-weight: 600;">
                         No items to display
                     </td>
                 </tr>
@@ -1235,6 +1313,7 @@ console.log('CRITICAL: Yard Stock JS v126 is active');
                 </td>
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${window.formatDateMMDDYYYY(item.created_at)}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${item.origin_release || '---'}</td>
+                ${yardInboundCostCellsHtml(item)}
                 <td style="padding: 12px 15px; border: 1px solid #475569;">${displayExitDate}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-size: 0.85rem; color: #1e293b; font-weight: 600;">${displayOrderOut}</td>
                 <td style="padding: 12px 15px; border: 1px solid #475569; font-weight: 700; text-align: center;">${costs.lifts}</td>
