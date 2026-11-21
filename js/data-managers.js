@@ -1708,6 +1708,27 @@
             return 'Other';
         };
 
+        window.inferExpenseFleetCompany = function (description, note) {
+            const blob = `${description || ''} ${note || ''}`.toUpperCase();
+            const isJr = /\bJR\s*SUPER\s*CRANE\b/.test(blob) || /\bSUPER\s*CRANE\s*INC\b/.test(blob);
+            const isRp = /\bRP\s*TULIPAN\b/.test(blob) || /\bRPTULIPAN\b/.test(blob) || /\bTULIPAN\s*TRANSPORT\b/.test(blob);
+            if (isJr && !isRp) return 'JR';
+            if (isRp && !isJr) return 'RP';
+            if (isJr && isRp) return /\bJR\s*SUPER\s*CRANE\b/.test(blob) ? 'JR' : 'RP';
+            return '';
+        };
+
+        window.splitExpenseCategoryByFleet = function (category, description, note) {
+            const cat = window.normalizeExpenseCategory
+                ? window.normalizeExpenseCategory(category)
+                : (category || '').toString().trim();
+            if (cat !== 'TRUKS INSURANCE') return cat;
+            const fleet = window.inferExpenseFleetCompany(description, note);
+            if (fleet === 'JR') return 'TRUKS INSURANCE JR';
+            if (fleet === 'RP') return 'TRUKS INSURANCE RP';
+            return cat;
+        };
+
         window.getOfficialExpenseCategoryOptionsHtml = function (selected, includeEmpty, profitLine) {
             const sel = (selected || '').toString().trim();
             const list = (profitLine !== undefined && profitLine !== null && String(profitLine).trim() !== '')

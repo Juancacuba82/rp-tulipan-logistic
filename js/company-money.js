@@ -94,6 +94,7 @@
             sales: 0, yard: 0, rentals: 0, tulipan: 0, jr: 0, contractor: 0,
             storageTulipan: 0, storageYard: 0, customInvoices: 0, ledgerIncome: 0,
             expenses: 0, releases: 0, internalSalesHaul: 0,
+            internalHaulTulipan: 0, internalHaulJr: 0, internalHaulContractor: 0,
             byCategory: {}, byLine: {}, groupedCount: 0, groupedAmount: 0
         };
     }
@@ -177,6 +178,9 @@
                 else if (company === 'CONTRACTOR') totals.contractor += totalTrans;
                 if (window.isInternalCompanyCustomer && window.isInternalCompanyCustomer(row[11])) {
                     totals.internalSalesHaul += totalTrans;
+                    if (company === 'RP TULIPAN') totals.internalHaulTulipan += totalTrans;
+                    else if (company === 'JR SUPER CRANE') totals.internalHaulJr += totalTrans;
+                    else if (company === 'CONTRACTOR') totals.internalHaulContractor += totalTrans;
                 }
             }
         });
@@ -208,7 +212,9 @@
                 return;
             }
             totals.expenses += amount;
-            const catName = window.normalizeExpenseCategory ? window.normalizeExpenseCategory(category) : (category || 'Other');
+            const catName = window.splitExpenseCategoryByFleet
+                ? window.splitExpenseCategoryByFleet(category, row[2], row[4])
+                : (window.normalizeExpenseCategory ? window.normalizeExpenseCategory(category) : (category || 'Other'));
             totals.byCategory[catName] = (totals.byCategory[catName] || 0) + amount;
             const rawLine = (row[7] || '').toString().trim();
             const line = rawLine && window.normalizeExpenseProfitLine
@@ -266,7 +272,10 @@
                 jr: t.jr,
                 sales: t.sales,
                 yard: t.yard,
-                contractor: t.contractor
+                contractor: t.contractor,
+                haulTulipan: t.internalHaulTulipan,
+                haulJr: t.internalHaulJr,
+                haulContractor: t.internalHaulContractor
             },
             leftoverSources: [
                 { label: 'Rentals', amount: t.rentals },
@@ -501,6 +510,27 @@
                 kpiCard('CONTAINERS', money(total.invested), '', '#b45309') +
                 kpiCard('LEFT', money(total.net), '', total.net >= 0 ? '#166534' : '#b91c1c', marginPct);
         }
+        const bg = document.getElementById('cm-pct-bg');
+        if (bg) {
+            const pct = total.revenue > 0 ? ((total.net / total.revenue) * 100).toFixed(1) + '%' : '';
+            const tone = total.net >= 0 ? 'is-ok' : 'is-bad';
+            const spots = [
+                { t: '6%', l: '2%', s: '7.5rem' },
+                { t: '10%', r: '3%', s: '4.2rem' },
+                { t: '28%', l: '1%', s: '2.4rem' },
+                { t: '38%', r: '2%', s: '5.8rem' },
+                { t: '58%', l: '4%', s: '3.1rem' },
+                { t: '62%', r: '1%', s: '2.1rem' },
+                { t: '78%', l: '2%', s: '6.4rem' },
+                { t: '84%', r: '4%', s: '3.6rem' }
+            ];
+            bg.innerHTML = pct
+                ? spots.map(function (p) {
+                    const pos = (p.l ? ('left:' + p.l + ';') : ('right:' + p.r + ';')) + 'top:' + p.t + ';';
+                    return '<span class="cm-pct-bg-item ' + tone + '" style="' + pos + 'font-size:' + p.s + ';">' + pct + '</span>';
+                }).join('')
+                : '';
+        }
 
         const note = document.getElementById('cm-grouped-note');
         if (note) {
@@ -540,7 +570,7 @@
             (total.customInvoices > 0) ? [{ label: 'Custom invoices', amount: total.customInvoices }] : []
         );
         const spendEl = document.getElementById('cm-spend-rank');
-        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, '', total.incomes, extraLines, total.invested || 0);
+        if (spendEl) spendEl.innerHTML = spendByProfitLine(total.byLine, haul, total.spent, '', total.incomes, extraLines, total.invested || 0, total.revenue || 0);
         const incomeEl = document.getElementById('cm-income-rank');
         if (incomeEl) rankHost(incomeEl, leftover, leftoverSum, '#16a34a', '');
     };
@@ -551,7 +581,7 @@
         return id;
     }
 
-    function spendByProfitLine(byLine, haul, grand, note, incomes, leftover, invested) {
+    function spendByProfitLine(byLine, haul, grand, note, incomes, leftover, invested, revenue) {
         incomes = incomes || {};
         const inMap = {
             rpt_transportation: [
@@ -593,6 +623,14 @@
                 if (id !== 'rpt_sales' && id !== 'rpt_yard' && id !== 'contractors') {
                     inRows.forEach(r => {
                         inHtml += row(r.label, money(r.amount) + (entered > 0 ? '<span class="cm-kv-pct">' + pctOf(r.amount, entered) + '%</span>' : ''));
+                        const haulNote = (r.label === 'Transport RP' && (incomes.haulTulipan || 0) > 0)
+                            ? incomes.haulTulipan
+                            : (r.label === 'JR Super Crane' && (incomes.haulJr || 0) > 0)
+                                ? incomes.haulJr
+                                : 0;
+                        if (haulNote) {
+                            inHtml += row('Includes internal hauls', money(haulNote) + '<span class="cm-kv-pct">already in</span>');
+                        }
                     });
                 }
                 if (entered > 0) inHtml += row('Total in', money(entered) + '<span class="cm-kv-pct">100%</span>', 'cm-kv-total');
@@ -632,6 +670,7 @@
         const afterExtras = profitsSum + extraIn;
         const finalNet = afterExtras - operating;
         const finalOk = finalNet >= 0;
+        const leftPct = (revenue || 0) > 0 ? (((finalNet / revenue) * 100).toFixed(1) + '%') : '';
         const band = (label, amt, kind) => {
             const styles = {
                 plus: { bg: '#bbf7d0', fg: '#14532d' },
@@ -655,7 +694,7 @@
             band('Total', afterExtras, 'sum') +
             band('− Operating expenses', operating, 'minus') +
             '<div style="margin-top:4px; background:' + (finalOk ? '#86efac' : '#fca5a5') + '; color:' + (finalOk ? '#14532d' : '#7f1d1d') + '; border-radius:10px; padding:14px 16px; display:flex; justify-content:space-between; gap:12px; font-size:1.15rem; font-weight:900;">' +
-            '<span>LEFT</span><span>' + money(finalNet) + '</span></div>' +
+            '<span>LEFT</span><span style="white-space:nowrap;">' + money(finalNet) + (leftPct ? ' <span style="font-size:0.95rem; font-weight:900; opacity:0.85; margin-left:8px;">' + leftPct + '</span>' : '') + '</span></div>' +
             '<p style="margin:8px 0 0; font-size:0.75rem; color:#64748b;">' + money(profitsSum) + ' profit + ' + money(extraIn) + ' Rentals/Storage − ' + money(operating) + ' Operating = ' + money(finalNet) + '.</p>' +
             '</div>';
 

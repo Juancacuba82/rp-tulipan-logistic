@@ -256,7 +256,9 @@
                 window.normalizeUsedGrade(t.rel_condition, t.used_grade), // 91
                 t.route_stop || '',         // 92 — driver day stop 1, 2, 3
                 window.parseNeedsDeliveryProof(t.needs_delivery_proof, true), // 93
-                t.driver_stop_done_at || '' // 94
+                t.driver_stop_done_at || '', // 94
+                t.updated_by || '',          // 95
+                (typeof t.edit_log === 'string' ? t.edit_log : JSON.stringify(t.edit_log || [])) // 96
             ];
         }
 
@@ -355,6 +357,8 @@
             obj.route_stop = (rs >= 1 && rs <= 99) ? rs : null;
             obj.needs_delivery_proof = !(row[93] === false || row[93] === 'false' || row[93] === 0 || row[93] === '0');
             obj.driver_stop_done_at = row[94] || null;
+            if (row[95]) obj.updated_by = row[95];
+            if (row[96]) obj.edit_log = row[96];
 
             // Only include driver signature if it's not empty, to avoid errors if column is missing in DB
             if (row[56] && row[56] !== '') {

@@ -942,11 +942,13 @@
             }
             // 2. Process Business Expenses (allocate by profit_line + category breakdown)
             const costsByLineCategory = {}; // { lineKey: { CategoryName: amount } }
-            const bumpLineCat = (lineKey, category, amount) => {
+            const bumpLineCat = (lineKey, category, amount, description, note) => {
                 if (!costsByLineCategory[lineKey]) costsByLineCategory[lineKey] = {};
-                const catName = (window.normalizeExpenseCategory
-                    ? window.normalizeExpenseCategory(category)
-                    : (category || 'Other')) || 'Other';
+                const catName = (window.splitExpenseCategoryByFleet
+                    ? window.splitExpenseCategoryByFleet(category, description, note)
+                    : (window.normalizeExpenseCategory
+                        ? window.normalizeExpenseCategory(category)
+                        : (category || 'Other'))) || 'Other';
                 costsByLineCategory[lineKey][catName] = (costsByLineCategory[lineKey][catName] || 0) + amount;
             };
 
@@ -967,10 +969,10 @@
                         : '';
                     if (line && totals.expenseByLine.hasOwnProperty(line)) {
                         totals.expenseByLine[line] += amount;
-                        bumpLineCat(line, category, amount);
+                        bumpLineCat(line, category, amount, row[2], row[4]);
                     } else {
                         totals.expenseByLine.unassigned += amount;
-                        bumpLineCat('unassigned', category, amount);
+                        bumpLineCat('unassigned', category, amount, row[2], row[4]);
                     }
                 }
             });

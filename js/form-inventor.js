@@ -48,6 +48,7 @@
             const fSeller = (document.getElementById('inv-f-seller')?.value || '').trim();
             const fRelease = (document.getElementById('inv-f-release')?.value || '').trim();
             const fCity = (document.getElementById('inv-f-city')?.value || '').trim();
+            const fGross = (document.getElementById('inv-f-gross')?.value || '').trim();
 
             // Build Release Lookup Map for Purchase Prices
             const relMap = typeof window.buildReleasePriceMap === 'function'
@@ -151,6 +152,7 @@
                 const totalItemSales = salesPrice * qty;
                 const totalItemCost = unitCost * qty;
                 const gross = totalItemSales - totalItemCost;
+                if (fGross === 'zero-or-less' && gross > 0.009) return;
 
                 totalSales += totalItemSales;
                 totalCost += totalItemCost;
@@ -197,24 +199,22 @@
             if (document.getElementById('inv-total-cost')) document.getElementById('inv-total-cost').textContent = fmt(totalCost);
             if (document.getElementById('inv-total-gross')) document.getElementById('inv-total-gross').textContent = fmt(totalGross);
 
-            // Empty state
-            if (filtered.length === 0) {
-                body.innerHTML = '<tr><td colspan="11" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No completed container sales found for the selected filters.</td></tr>';
+            const shownCount = body.querySelectorAll('tr').length;
+            if (shownCount === 0) {
+                body.innerHTML = '<tr><td colspan="12" style="padding: 40px; text-align: center; color: #94a3b8; font-style: italic; font-size: 0.9rem;">No completed container sales found for the selected filters.</td></tr>';
             }
 
             // Update Summary Card Counter
+            const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity || fGross;
             const countEl = document.getElementById('inventor-count-display');
             if (countEl) {
-                countEl.textContent = filtered.length;
-                // Visual feedback: orange if filtering
-                const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
+                countEl.textContent = shownCount;
                 countEl.style.color = isFiltered ? '#f59e0b' : '#1e293b';
             }
 
             const qtyEl = document.getElementById('inventor-total-qty-display');
             if (qtyEl) {
                 qtyEl.textContent = totalQty;
-                const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
                 qtyEl.style.color = isFiltered ? '#1e40af' : '#1e293b';
             }
 
@@ -222,7 +222,6 @@
             if (avgEl) {
                 const avg = totalQty > 0 ? (totalGross / totalQty) : 0;
                 avgEl.textContent = fmt(avg);
-                const isFiltered = dateFrom || dateTo || fSize || fNCont || fPhone || fCustomer || fSeller || fRelease || fCity;
                 avgEl.style.color = isFiltered ? '#10b981' : '#1e293b';
             }
 
@@ -343,6 +342,8 @@
             document.getElementById('inv-f-seller').value = '';
             document.getElementById('inv-f-release').value = '';
             document.getElementById('inv-f-city').value = '';
+            const grossSel = document.getElementById('inv-f-gross');
+            if (grossSel) grossSel.value = '';
             renderInventorTable();
         };
 

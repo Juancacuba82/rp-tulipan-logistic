@@ -279,7 +279,36 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             return `<div class="cal-order-cell" style="display:flex;flex-direction:column;align-items:center;text-align:center;">${html}</div>`;
         };
 
-        function showCalendarCautionDialog({ title, message, items, confirmLabel, cancelLabel }) {
+        function showAppNotice(message, type) {
+            const kind = type || 'success';
+            const colors = {
+                success: { bg: '#ecfdf5', bd: '#34d399', fg: '#065f46' },
+                error: { bg: '#fef2f2', bd: '#f87171', fg: '#991b1b' },
+                warning: { bg: '#fff7ed', bd: '#fb923c', fg: '#9a3412' }
+            };
+            const c = colors[kind] || colors.success;
+            let el = document.getElementById('calendar-app-notice');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'calendar-app-notice';
+                document.body.appendChild(el);
+            }
+            el.style.cssText = `position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:100050;background:${c.bg};color:${c.fg};border:2px solid ${c.bd};border-radius:12px;padding:14px 22px;font-weight:800;font-size:1.05rem;box-shadow:0 12px 30px rgba(0,0,0,0.18);max-width:min(520px,92vw);text-align:center;font-family:Outfit,sans-serif;`;
+            el.textContent = message;
+            el.style.display = 'block';
+            clearTimeout(el._hide);
+            el._hide = setTimeout(() => { el.style.display = 'none'; }, kind === 'error' ? 8000 : 2800);
+        }
+        window.showAppNotice = showAppNotice;
+
+        function calendarPersonLabel(emailOrName) {
+            const raw = (emailOrName || '').toString().trim();
+            if (!raw || raw === '---') return '';
+            const map = window.globalUserNameMap || {};
+            return map[raw.toLowerCase()] || map[raw] || raw;
+        }
+
+        function showCalendarCautionDialog({ title, message, items, groups, confirmLabel, cancelLabel }) {
             return new Promise((resolve) => {
                 const existing = document.getElementById('calendar-caution-modal');
                 if (existing) existing.remove();
@@ -288,27 +317,30 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 wrap.id = 'calendar-caution-modal';
                 wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.72);display:flex;align-items:center;justify-content:center;z-index:100000;font-family:Outfit,sans-serif;padding:16px;';
 
-                const listHtml = (items || []).map((item) => (
+                const groupHtml = (groups || []).map((g) => (
+                    `<li style="margin-bottom:12px;color:#7c2d12;line-height:1.45;font-weight:700;font-size:1.02rem;"><span style="display:block;font-size:0.78rem;letter-spacing:0.06em;text-transform:uppercase;color:#c2410c;margin-bottom:2px;">${g.label}</span>${(g.list || []).join(', ')}</li>`
+                )).join('');
+                const listHtml = groupHtml || (items || []).map((item) => (
                     `<li style="margin-bottom:10px;color:#9a3412;line-height:1.5;font-weight:600;">${item}</li>`
                 )).join('');
 
                 wrap.innerHTML = `
-                    <div role="dialog" aria-modal="true" style="background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid #d97706;border-radius:16px;max-width:460px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);overflow:hidden;">
-                        <div style="padding:22px 24px 8px;">
-                            <div style="display:flex;gap:12px;align-items:flex-start;">
-                                <div style="width:40px;height:40px;border-radius:999px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    <i class="fas fa-exclamation-triangle" style="color:#d97706;font-size:1.1rem;"></i>
+                    <div role="dialog" aria-modal="true" style="background:#fff7ed;border:3px solid #ea580c;border-radius:18px;max-width:560px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.45);overflow:hidden;">
+                        <div style="padding:26px 26px 10px;">
+                            <div style="display:flex;gap:14px;align-items:flex-start;">
+                                <div style="width:52px;height:52px;border-radius:999px;background:#ffedd5;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fas fa-exclamation-triangle" style="color:#ea580c;font-size:1.45rem;"></i>
                                 </div>
                                 <div>
-                                    <h2 style="margin:0 0 6px;font-size:1.15rem;color:#78350f;font-weight:800;">${title}</h2>
-                                    <p style="margin:0;font-size:0.9rem;color:#92400e;line-height:1.45;">${message}</p>
+                                    <h2 style="margin:0 0 8px;font-size:1.45rem;color:#9a3412;font-weight:900;line-height:1.2;">${title}</h2>
+                                    ${message ? `<p style="margin:0;font-size:1rem;color:#c2410c;line-height:1.45;font-weight:700;">${message}</p>` : ''}
                                 </div>
                             </div>
-                            ${listHtml ? `<ul style="margin:16px 0 0;padding-left:22px;font-size:0.9rem;">${listHtml}</ul>` : ''}
+                            ${listHtml ? `<ul style="margin:18px 0 0;padding-left:22px;">${listHtml}</ul>` : ''}
                         </div>
-                        <div style="padding:18px 24px 22px;display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;">
-                            <button type="button" id="calendar-caution-review" style="padding:10px 16px;background:#0f172a;color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;">${cancelLabel || 'Review order'}</button>
-                            <button type="button" id="calendar-caution-save" style="padding:10px 16px;background:transparent;color:#b45309;border:1.5px solid #f59e0b;border-radius:8px;font-weight:800;cursor:pointer;">${confirmLabel || 'Save anyway'}</button>
+                        <div style="padding:18px 24px 24px;display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;">
+                            <button type="button" id="calendar-caution-review" style="padding:12px 18px;background:#0f172a;color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.95rem;">${cancelLabel || 'Review order'}</button>
+                            <button type="button" id="calendar-caution-save" style="padding:12px 18px;background:#ea580c;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.95rem;">${confirmLabel || 'Save anyway'}</button>
                         </div>
                     </div>`;
 
@@ -329,6 +361,69 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 };
                 document.addEventListener('keydown', onKey);
             });
+        }
+
+        function collectOrderMissingFields() {
+            const on = (id) => !!document.getElementById(id)?.checked;
+            const groups = [];
+            const add = (label, list) => { if (list.length) groups.push({ label, list }); };
+            const yardOn = on('in-flag1');
+            const transOn = on('in-flag2');
+            const salesOn = on('in-flag3');
+            const storageOn = on('in-move-to-yard');
+            const rentOn = on('in-move-to-rentals');
+            const common = [];
+            if (orderReviewFieldEmpty('in-date')) common.push('Date');
+            if (orderReviewHybridEmpty('in-size-sel', 'in-size')) common.push('Size');
+            if (!yardOn && !transOn && !salesOn && !storageOn && !rentOn) common.push('a service');
+            add('Order', common);
+            if (yardOn) {
+                const miss = [];
+                const items = Array.from(document.querySelectorAll('#yard-services-list .yard-service-row')).map((r) => ({
+                    desc: (r.querySelector('.ys-desc')?.value || '').trim(),
+                    price: parseFloat(r.querySelector('.ys-price')?.value || '0') || 0
+                })).filter((it) => it.desc || it.price > 0);
+                if (!items.length && orderReviewMoneyEmpty(document.getElementById('in-yardrate')?.value)) miss.push('service and price');
+                else if (items.some((it) => !it.desc)) miss.push('service name');
+                else if (items.some((it) => it.price <= 0) && orderReviewMoneyEmpty(document.getElementById('in-yardrate')?.value)) miss.push('price');
+                if (orderReviewFieldEmpty('in-ncont')) miss.push('N. Cont');
+                add('Yard', miss);
+            }
+            if (transOn) {
+                const miss = [];
+                if (orderReviewHybridEmpty('in-pickup-sel', 'in-pickup')) miss.push('Pickup');
+                if (orderReviewHybridEmpty('in-delivery-sel', 'in-delivery')) miss.push('Delivery');
+                if (orderReviewFieldEmpty('in-city')) miss.push('City');
+                if (orderReviewFieldEmpty('in-company')) miss.push('Company');
+                const statusVal = (document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT').toUpperCase();
+                const completing = (statusVal === 'COMPLETE' || statusVal === 'PAID');
+                if (completing && orderReviewFieldEmpty('in-driver')) miss.push('Driver');
+                if (orderReviewMoneyEmpty(document.getElementById('in-rate')?.value)) miss.push('Trans. Price');
+                if (orderReviewFieldEmpty('in-ncont')) miss.push('N. Cont');
+                add('Transport', miss);
+            }
+            if (salesOn && !rentOn) {
+                const miss = [];
+                if (orderReviewMoneyEmpty(document.getElementById('in-sales')?.value)) miss.push('Sales Price');
+                if (orderReviewHybridEmpty('in-customer-sel', 'in-customer')) miss.push('Customer');
+                if (orderReviewFieldEmpty('in-ncont')) miss.push('N. Cont');
+                add('Sales', miss);
+            }
+            if (storageOn) {
+                const miss = [];
+                if (orderReviewMoneyEmpty(document.getElementById('in-priceperday')?.value)) miss.push('Price / day');
+                if (orderReviewMoneyEmpty(document.getElementById('in-liftcost')?.value)) miss.push('Lift');
+                if (orderReviewFieldEmpty('in-ncont')) miss.push('N. Cont');
+                add('Storage', miss);
+            }
+            if (rentOn) {
+                const miss = [];
+                if (orderReviewMoneyEmpty(document.getElementById('in-rent-price')?.value)) miss.push('Rent Price');
+                if (orderReviewHybridEmpty('in-customer-sel', 'in-customer')) miss.push('Customer');
+                if (orderReviewFieldEmpty('in-ncont')) miss.push('N. Cont');
+                add('Rent', miss);
+            }
+            return groups;
         }
 
         const ORDER_SERVICE_COMMISSION = {
@@ -921,7 +1016,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
         async function addRow() {
             const role = (window.currentUserRole || '').toLowerCase().trim();
             if (role === 'student') {
-                alert("Students cannot create or modify calendar orders.");
+                showAppNotice('Students cannot create or modify calendar orders.', 'error');
                 return;
             }
             if (isSaving) return;
@@ -936,91 +1031,26 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             isSaving = true;
 
             try {
-                const review = await showOrderServicesReviewModal();
-                if (!review || !review.confirmed) {
-                    isSaving = false;
-                    restoreTripArchiveButtonUI();
-                    return;
-                }
-                applyOrderServicesReview(review.services);
-                window._pendingOrderCommissions = review.commissions || {};
-
-                const isTransport = document.getElementById('in-flag2').checked;
-                const compVal = document.getElementById('in-company').value;
-                const driverVal = document.getElementById('in-driver').value;
-                const finalizeNow = (document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT').toUpperCase();
-                const completingNow = (finalizeNow === 'COMPLETE' || finalizeNow === 'PAID');
-
-                // Company is mandatory if it's a transport-related order
-                if (isTransport && (!compVal || compVal === '---')) {
-                    alert("ERROR: Debes seleccionar una compañía para órdenes que incluyan servicios de transporte.");
-                    isSaving = false;
-                    restoreTripArchiveButtonUI();
-                    return;
-                }
-
-                if (isTransport && completingNow && (!driverVal || driverVal === '---')) {
-                    alert("ERROR: Para guardar una orden Complete con transporte debes seleccionar un chofer.");
-                    isSaving = false;
-                    restoreTripArchiveButtonUI();
-                    return;
-                }
-
-                // Did someone else save this order while we had it open? Ask BEFORE writing anything.
-                if (editingTripDbId && typeof window.checkTripEditConflict === 'function') {
-                    const okToSave = await window.checkTripEditConflict(editingTripDbId);
-                    if (!okToSave) {
+                const missingGroups = collectOrderMissingFields();
+                if (missingGroups.length) {
+                    const keepGoing = await showCalendarCautionDialog({
+                        title: 'Do you want to save the order anyway?',
+                        message: 'You still have empty fields. You can save now and finish later.',
+                        groups: missingGroups,
+                        cancelLabel: 'Review order',
+                        confirmLabel: 'Save anyway'
+                    });
+                    if (!keepGoing) {
                         isSaving = false;
                         restoreTripArchiveButtonUI();
                         return;
                     }
                 }
 
-                const isMoveToStorage = !!document.getElementById('in-move-to-yard')?.checked;
-                if (isMoveToStorage) {
-                    const ppdRaw = (document.getElementById('in-priceperday')?.value || '').trim();
-                    const liftRaw = (document.getElementById('in-liftcost')?.value || '').trim();
-                    const ppdVal = parseFloat(ppdRaw);
-                    const liftVal = parseFloat(liftRaw);
-                    const missingPpd = ppdRaw === '' || isNaN(ppdVal);
-                    const missingLift = liftRaw === '' || isNaN(liftVal);
-                    if (missingPpd || missingLift) {
-                        const missingItems = [];
-                        if (missingPpd) missingItems.push('Price per Day is empty.');
-                        if (missingLift) missingItems.push('Lift Cost is empty.');
-                        const keepSavingStorage = await showCalendarCautionDialog({
-                            title: 'Missing Storage amounts',
-                            message: 'This order has Storage selected. Saving without these amounts can create a billing mistake.',
-                            items: missingItems,
-                            cancelLabel: 'Review order',
-                            confirmLabel: 'Save anyway'
-                        });
-                        if (!keepSavingStorage) {
-                            isSaving = false;
-                            restoreTripArchiveButtonUI();
-                            return;
-                        }
-                    }
-                }
-
-                const isMoveToRentals = !!document.getElementById('in-move-to-rentals')?.checked;
-                if (isMoveToRentals) {
-                    const rentRaw = (document.getElementById('in-rent-price')?.value || '').trim();
-                    const rentVal = parseFloat(rentRaw);
-                    const missingRentPrice = rentRaw === '' || isNaN(rentVal);
-                    const periodVal = (document.getElementById('in-time-rent')?.value || 'monthly').toLowerCase();
-                    const periodLabel = periodVal === 'weekly' ? 'Weekly' : (periodVal === 'daily' ? 'Daily' : 'Monthly');
-                    const rentItems = [];
-                    if (missingRentPrice) rentItems.push('Rent Price is empty.');
-                    rentItems.push('Rental period is set to ' + periodLabel + '. Confirm this is Monthly, Weekly, or Daily.');
-                    const keepSavingRent = await showCalendarCautionDialog({
-                        title: 'Check this rental before saving',
-                        message: 'Please double-check the rent price and billing period. Saving the wrong values can affect invoices and collections.',
-                        items: rentItems,
-                        cancelLabel: 'Review order',
-                        confirmLabel: 'Save anyway'
-                    });
-                    if (!keepSavingRent) {
+                // Did someone else save this order while we had it open? Ask BEFORE writing anything.
+                if (editingTripDbId && typeof window.checkTripEditConflict === 'function') {
+                    const okToSave = await window.checkTripEditConflict(editingTripDbId);
+                    if (!okToSave) {
                         isSaving = false;
                         restoreTripArchiveButtonUI();
                         return;
@@ -1075,76 +1105,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');
                 const globalStatus = isFinalized ? 'COMPLETE' : 'PENDING_PAYMENT';
 
-                // --- VALIDATION FOR COMPLETE ORDERS (Photos & Signatures) ---
-                if (isFinalized && editingTripDbId) {
-                    try {
-                        const { data: docCheck, error: docErr } = await db
-                            .from('trips')
-                            .select('photos, signature, signature_driver')
-                            .eq('trip_id', editingTripDbId)
-                            .single();
-                            
-                        if (!docErr && docCheck) {
-                            let photosArr = [];
-                            try {
-                                if (typeof docCheck.photos === 'string') {
-                                    photosArr = JSON.parse(docCheck.photos) || [];
-                                } else if (Array.isArray(docCheck.photos)) {
-                                    photosArr = docCheck.photos;
-                                }
-                            } catch (e) {
-                                photosArr = [];
-                            }
-                            
-                            const hasPhotos = photosArr.length >= 4;
-                            const hasSigClient = !!docCheck.signature;
-                            const hasSigDriver = !!docCheck.signature_driver;
-                            
-                            if (!hasPhotos || !hasSigClient || !hasSigDriver) {
-                                const confirmMsg = "¡Atención! A esta orden le faltan fotos o firmas de entrega (se requieren 4 fotos y ambas firmas).\n\n¿Estás seguro de que quieres forzarla a Completada?";
-                                if (!confirm(confirmMsg)) {
-                                    isSaving = false;
-                                    restoreTripArchiveButtonUI();
-                                    return; // Abort save
-                                }
-                            }
-                        }
-                    } catch (checkErr) {
-                        console.error("Error validando documentos:", checkErr);
-                        // Proceder si hay error de red para no bloquear el sistema por completo
-                    }
-
-                    const stopPlanNow = (typeof window.readStopPayPlanFromForm === 'function')
-                        ? window.readStopPayPlanFromForm()
-                        : '';
-                    const editingRow = window.currentTrips && editingIndex !== null
-                        ? window.currentTrips[editingIndex]
-                        : (window.currentTrips || []).find(t => t && t[0] === editingTripDbId);
-                    const stopProbe = editingRow ? editingRow.slice() : [];
-                    stopProbe[87] = stopPlanNow;
-                    const stopWait = typeof window.isStopPayCollectPlan === 'function'
-                        && window.isStopPayCollectPlan(stopPlanNow)
-                        && typeof window.stopPayNeedsDriverMark === 'function'
-                        && window.stopPayNeedsDriverMark(stopProbe);
-                    if (stopWait) {
-                        const keepGoing = confirm(
-                            'Stop payment is still WAITING (' + stopPlanNow + ').\n\nComplete this order anyway?'
-                        );
-                        if (!keepGoing) {
-                            isSaving = false;
-                            restoreTripArchiveButtonUI();
-                            return;
-                        }
-                    }
-                }
-                // -----------------------------------------------------------
-
-
                 const containerSource = document.getElementById('in-container-source')?.value || 'RELEASE';
                 const yardItemId = document.getElementById('in-yard-item-id')?.value;
                 const isYardSource = containerSource === 'YARD' || containerSource === 'STORAGE';
 
                 const isMoveToYard = document.getElementById('in-move-to-yard')?.checked || false;
+                const isMoveToRentals = !!document.getElementById('in-move-to-rentals')?.checked;
 
                 // --- STOCK LOGIC PREPARATION ---
                 const releasesSource = window.currentReleases || [];
@@ -1357,7 +1323,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     document.getElementById('in-showtax')?.checked || false, parseFloat(document.getElementById('in-taxpercent')?.value || '0') || 0,
                     document.getElementById('in-hideamounts')?.checked || false, stTaxVal,
                     newQtyVal, existingSig, existingPhotos, existingSigDriver, 'NO',
-                    containerSource, yardItemId || '', window.userEmail || '', document.getElementById('in-seller')?.value || '---', isMoveToYard,
+                    containerSource, yardItemId || '', '', document.getElementById('in-seller')?.value || '---', isMoveToYard,
                     null, null, // indices 63-64: invoice_last_sent, invoice_reminder_count
                     (document.getElementById('in-booking')?.value || '---').toUpperCase(), // 65: booking_no
                     parseFloat(document.getElementById('in-rate-cash-amt')?.value) || 0, // 66: trans_cash_amt
@@ -1408,6 +1374,23 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const proofEl = document.getElementById('in-needs-proof');
                 rowData[93] = proofEl ? !!proofEl.checked : (prevCashRow ? prevCashRow[93] !== false : true);
                 rowData[94] = prevCashRow ? (prevCashRow[94] || '') : '';
+                const auditWho = (window.userEmail || window.currentUserName || 'Unknown').toString().trim();
+                const auditName = (window.currentUserName || window.userName || auditWho).toString().trim();
+                const prevCreated = prevCashRow && prevCashRow[60] && prevCashRow[60] !== '---' ? prevCashRow[60] : '';
+                rowData[60] = prevCreated || auditWho;
+                rowData[95] = auditWho;
+                let editLog = [];
+                try {
+                    const rawLog = prevCashRow && prevCashRow[96];
+                    editLog = typeof rawLog === 'string' ? JSON.parse(rawLog || '[]') : (Array.isArray(rawLog) ? rawLog : []);
+                } catch (e) { editLog = []; }
+                if (!Array.isArray(editLog)) editLog = [];
+                const lastEdit = editLog[editLog.length - 1];
+                const stamp = { email: auditWho, name: auditName, at: new Date().toISOString() };
+                if (!lastEdit || (lastEdit.email !== auditWho && lastEdit.name !== auditName)) editLog.push(stamp);
+                else editLog[editLog.length - 1] = stamp;
+                if (editLog.length > 25) editLog = editLog.slice(-25);
+                rowData[96] = JSON.stringify(editLog);
                 const oldTripDate = prevCashRow ? String(prevCashRow[1] || '').split('T')[0] : '';
                 const newTripDate = String(rowData[1] || '').split('T')[0];
                 if (oldTripDate && newTripDate && oldTripDate !== newTripDate) {
@@ -1416,6 +1399,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 const dbObj = mapArrayToTrip(rowData);
+                dbObj.created_by = rowData[60] || null;
+                dbObj.updated_by = rowData[95] || null;
+                dbObj.edit_log = rowData[96] || '[]';
                 if (!stopPlan && !stopRes) {
                     dbObj.stop_pay_plan = null;
                     dbObj.stop_pay_result = null;
@@ -1495,7 +1481,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
                     } catch (pdfErr) {
                         console.error('Order PDF upload failed:', pdfErr);
-                        alert('Order will save, but the PDF could not be uploaded: ' + (pdfErr.message || pdfErr));
+                        showAppNotice('Order will save, but the PDF could not be uploaded.', 'warning');
                     }
                 }
 
@@ -1525,7 +1511,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 masterPayload.move_to_yard = isMoveToYard;
                 
                 let { error: masterErr } = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
-                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started|stop_pay|used_grade|route_stop|needs_delivery_proof|driver_stop_done/i.test(masterErr.message || '')) {
+                if (masterErr && /cash_collector|driver_cash_held|order_pdf_url|order_pdf_name|order_pdf_signatures|trans_extras|st_trans_extra|xe_cash|driver_started|stop_pay|used_grade|route_stop|needs_delivery_proof|driver_stop_done|updated_by|edit_log/i.test(masterErr.message || '')) {
                     console.warn('[Trips] Missing columns — run the matching SQL migration', masterErr.message);
                     delete masterPayload.cash_collector;
                     delete masterPayload.driver_cash_held;
@@ -1546,6 +1532,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     delete masterPayload.route_stop;
                     delete masterPayload.needs_delivery_proof;
                     delete masterPayload.driver_stop_done_at;
+                    delete masterPayload.updated_by;
+                    delete masterPayload.edit_log;
                     const retry = await db.from('trips').update(masterPayload).eq('trip_id', finalTripId);
                     masterErr = retry.error;
                 }
@@ -1565,7 +1553,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (proofSave.error) {
                     console.warn('[Trips] needs_delivery_proof save failed', proofSave.error);
                     if (/needs_delivery_proof/i.test(proofSave.error.message || '')) {
-                        alert('Order saved, but Photos & signatures could not be stored. Run supabase-delivery-proof.sql in Supabase.');
+                        showAppNotice('Order saved, but photos & signatures could not be stored.', 'warning');
                     }
                 } else {
                     rowData[93] = proofNeeded;
@@ -1799,7 +1787,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 try {
-                    if (!isFollowOnSave) {
+                    if (!isFollowOnSave && window._pendingOrderCommissions && Object.keys(window._pendingOrderCommissions).length) {
                         await syncOrderServiceCommissions({
                             tripId: finalTripId,
                             orderNo: document.getElementById('in-order')?.value || '---',
@@ -1809,7 +1797,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     }
                 } catch (commErr) {
                     console.error('Commission expense failed:', commErr);
-                    alert('Order saved, but the commission expense could not be created. Check it in Expenses.');
+                    showAppNotice('Order saved, but the commission expense could not be created.', 'warning');
                 }
                 window._pendingOrderCommissions = null;
 
@@ -1820,7 +1808,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const emailRowData = [...rowData];
                 emailRowData[0] = finalTripId;
 
-                alert('¡ORDEN GUARDADA CORRECTAMENTE!');
+                showAppNotice('Order saved', 'success');
                 if (typeof window.warnIfRouteNeedsStops === 'function') window.warnIfRouteNeedsStops(emailRowData);
                 resetForm();
 
@@ -1829,8 +1817,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     const emailAddr = emailRowData[36];
                     if (!emailAddr || emailAddr === '---' || !emailAddr.includes('@')) {
                         console.warn("Invalid email address:", emailAddr);
-                        if (window.showToast) window.showToast("Email invalid or missing, not sent", "warning");
-                        else alert("Warning: Email invalid or missing, not sent.");
+                        showAppNotice('Email invalid or missing, not sent', 'warning');
                     } else {
                         console.log("Triggering receipt email send for order:", emailRowData[5]);
                         if (window.showToast) window.showToast("Generating PDF & sending email...", "info");
@@ -1840,8 +1827,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             console.log("Receipt email sent successfully for order:", emailRowData[5]);
                         }).catch(err => {
                             console.error("Failed to send receipt email from calendar:", err);
-                            if (window.showToast) window.showToast("Failed to send email: " + (err.text || err.message || err), "error");
-                            else alert("Failed to send email: " + (err.text || err.message || JSON.stringify(err)));
+                            showAppNotice('Failed to send email', 'error');
                         });
                     }
                 }
@@ -1925,7 +1911,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 console.error("FATAL ERROR IN ADDROW:", err);
                 if (err.details) console.error("Error Details:", err.details);
                 if (err.hint) console.error("Error Hint:", err.hint);
-                alert("CRITICAL ERROR: " + (err.message || "Unknown error"));
+                showAppNotice('Could not save: ' + (err.message || 'Database error'), 'error');
             } finally {
                 isSaving = false;
                 restoreTripArchiveButtonUI();
@@ -2158,7 +2144,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // Numerical values for filters
             tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
             tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;
-            tr.dataset.rateval = parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0;
+            if (typeof window.stampCalendarFamilyFinance === 'function') {
+                window.stampCalendarFamilyFinance(tr, famMoves);
+            } else {
+                tr.dataset.rateval = parseFloat(String(rowData[18]).replace(/[$,]/g, '')) || 0;
+            }
             tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
             tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
 
@@ -3471,6 +3461,45 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
         };
 
+        window.stampCalendarFamilyFinance = function (tr, familyMoves) {
+            const moves = (familyMoves && familyMoves.length) ? familyMoves : [];
+            const companies = [];
+            const rateBy = {};
+            const paidBy = {};
+            const driverBy = {};
+            const moveFinance = [];
+            let rateSum = 0;
+            moves.forEach(m => {
+                const co = (m[16] || '').toString().trim() || '---';
+                if (co && co !== '---' && !companies.some(c => c.toLowerCase() === co.toLowerCase())) companies.push(co);
+                const rate = parseFloat(String(m[18] == null ? '' : m[18]).replace(/[$,]/g, '')) || 0;
+                const extra = window.transExtrasTotal ? window.transExtrasTotal(m) : (parseFloat(m[82]) || 0);
+                const paid = parseFloat(String(m[24] == null ? '' : m[24]).replace(/[$,]/g, '')) || 0;
+                const drv = (m[17] || '').toString().trim();
+                const transTotal = rate + extra;
+                rateBy[co] = (rateBy[co] || 0) + transTotal;
+                paidBy[co] = (paidBy[co] || 0) + paid;
+                rateSum += transTotal;
+                if (drv && drv !== '---') {
+                    driverBy[co] = driverBy[co] ? (driverBy[co] + ' | ' + drv) : drv;
+                }
+                moveFinance.push({
+                    c: co,
+                    d: String(m[1] || '').split('T')[0],
+                    r: transTotal,
+                    p: paid,
+                    v: drv
+                });
+            });
+            tr.dataset.companies = companies.join('|');
+            tr.dataset.rateByCompany = JSON.stringify(rateBy);
+            tr.dataset.paidByCompany = JSON.stringify(paidBy);
+            tr.dataset.driverByCompany = JSON.stringify(driverBy);
+            tr.dataset.moveFinance = JSON.stringify(moveFinance);
+            tr.dataset.rateval = String(rateSum);
+            return { companies, rateBy, paidBy, driverBy, rateSum };
+        };
+
         window.ensureLinkedMovesLoaded = async function (mappedTrips) {
             if (!mappedTrips || !mappedTrips.length || !window.db) return mappedTrips || [];
             const orderNos = [...new Set(mappedTrips.map(t => String(t[5] || '').trim()).filter(o => o && o !== '---'))];
@@ -3598,27 +3627,43 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             try {
                 const loaded = window._editingLoaded;
                 if (!tripId || !loaded || loaded.id !== tripId || !loaded.version || !window.db) return true;
-                const { data, error } = await window.db.from('trips')
-                    .select('updated_at, is_deleted')
+                let data = null;
+                let { data: full, error } = await window.db.from('trips')
+                    .select('updated_at, is_deleted, updated_by, created_by')
                     .eq('trip_id', tripId)
                     .maybeSingle();
+                if (error && /updated_by|created_by/i.test(error.message || '')) {
+                    const retry = await window.db.from('trips')
+                        .select('updated_at, is_deleted')
+                        .eq('trip_id', tripId)
+                        .maybeSingle();
+                    data = retry.data;
+                    error = retry.error;
+                } else {
+                    data = full;
+                }
                 if (error || !data) return true;
+                const who = calendarPersonLabel(data.updated_by || data.created_by) || 'Someone else';
                 if (data.is_deleted === true) {
-                    return confirm('Esta orden fue ELIMINADA por otra persona mientras la editabas.\n\n¿Guardar de todas formas?');
+                    return showCalendarCautionDialog({
+                        title: 'Do you want to save the order anyway?',
+                        message: who + ' deleted this order while you had it open.',
+                        cancelLabel: 'Reload',
+                        confirmLabel: 'Save anyway'
+                    });
                 }
                 if (!data.updated_at) return true;
                 if (new Date(data.updated_at).getTime() === new Date(loaded.version).getTime()) return true;
 
-                const overwrite = confirm(
-                    'Otra persona modificó esta orden después de que la abriste.\n\n' +
-                    'Aceptar = guardar TUS cambios y sobrescribir los suyos.\n' +
-                    'Cancelar = no guardar y recargar la orden con la versión actual.'
-                );
+                const overwrite = await showCalendarCautionDialog({
+                    title: 'Do you want to save the order anyway?',
+                    message: who + ' saved this order after you opened it. Save yours anyway? That will overwrite theirs.',
+                    cancelLabel: 'Reload theirs',
+                    confirmLabel: 'Save mine anyway'
+                });
                 if (overwrite) return true;
 
-                // Reload the order with the current database values so nothing is lost silently
                 const idx = (window.currentTrips || []).findIndex(t => t && t[0] === tripId);
-                // Mark our cached copy as outdated so loadTripToEdit pulls the current row
                 if (window._tripVersions) window._tripVersions.set(tripId, new Date(0).toISOString());
                 if (idx >= 0 && typeof window.loadTripToEdit === 'function') await window.loadTripToEdit(idx);
                 return false;
@@ -3895,13 +3940,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                         const tr = document.createElement('tr');
                         
-                        // AUTHOR TOOLTIP: Dynamically resolve creator name from global map
-                        const creatorEmail = rowData[60];
-                        if (creatorEmail && creatorEmail !== '---') {
-                            const cleanEmail = creatorEmail.trim().toLowerCase();
-                            const creatorName = window.globalUserNameMap ? window.globalUserNameMap[cleanEmail] : null;
-                            tr.title = `Creado por: ${creatorName || creatorEmail}`;
-                        }
+                        const creatorLabel = calendarPersonLabel(rowData[60]);
+                        const lastEditor = calendarPersonLabel(rowData[95]);
+                        let others = [];
+                        try {
+                            const log = typeof rowData[96] === 'string' ? JSON.parse(rowData[96] || '[]') : (rowData[96] || []);
+                            if (Array.isArray(log)) {
+                                others = [...new Set(log.map(e => calendarPersonLabel(e.name || e.email)).filter(Boolean))];
+                            }
+                        } catch (e) { others = []; }
+                        const tip = [];
+                        if (creatorLabel) tip.push('Created by: ' + creatorLabel);
+                        if (lastEditor && lastEditor !== creatorLabel) tip.push('Last edit: ' + lastEditor);
+                        else if (lastEditor) tip.push('Last edit: ' + lastEditor);
+                        if (others.length) tip.push('Also edited by: ' + others.join(', '));
+                        if (tip.length) tr.title = tip.join('\n');
                         
                         const isTodayEntry = (displayRow[1] === todayStr);
                         const mode = rowData[26];
@@ -3928,6 +3981,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.dataset.statusPending = pendingMoves.length ? 'YES' : 'NO';
                         tr.dataset.statusComplete = famHasComplete ? 'YES' : 'NO';
                         tr.dataset.drivers = familyMoves.map(m => (m[17] || '').toString().trim()).filter(Boolean).join('|');
+                        if (typeof window.stampCalendarFamilyFinance === 'function') {
+                            window.stampCalendarFamilyFinance(tr, familyMoves);
+                        }
                         tr.dataset.pickups = familyMoves.map(m => (m[7] || '').toString().trim()).filter(Boolean).join('|');
                         tr.dataset.deliveries = familyMoves.map(m => (m[8] || '').toString().trim()).filter(Boolean).join('|');
                         tr.dataset.moveDates = familyMoves.map(m => (m[1] || '').toString().split('T')[0]).filter(Boolean).join('|');
@@ -3984,7 +4040,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         // Numerical values to handle $0.00 entries in filters
                         tr.dataset.yardval = parseFloat(String(rowData[13]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.ppdval = parseFloat(String(rowData[14]).replace(/[$,]/g, '')) || 0;
-                        tr.dataset.rateval = familyMoves.reduce((s, m) => s + (parseFloat(String(m[18]).replace(/[$,]/g, '')) || 0), 0);
+                        if (tr.dataset.rateval == null || tr.dataset.rateval === '') {
+                            tr.dataset.rateval = familyMoves.reduce((s, m) => s + (parseFloat(String(m[18]).replace(/[$,]/g, '')) || 0), 0);
+                        }
                         tr.dataset.flagTransport = familyMoves.some(m => m[42] === 'YES') ? 'YES' : (rowData[42] === 'YES' ? 'YES' : 'NO');
                         tr.dataset.salesval = parseFloat(String(rowData[20]).replace(/[$,]/g, '')) || 0;
                         tr.dataset.amountval = parseFloat(String(rowData[22]).replace(/[$,]/g, '')) || 0;
@@ -4264,9 +4322,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         tr.style.cursor = 'pointer';
                         tr.onclick = (e) => {
                             const familyIds = familyMoves.map(m => m[0]);
-                            const focusMove = (familyMoves.length > 1 && typeof window.pickCalendarFocusMove === 'function')
-                                ? window.pickCalendarFocusMove(familyMoves, { today: todayStr, dateFrom, dateTo })
+                            const companyFilter = (document.getElementById('f-company')?.value || '').trim();
+                            const companyMove = companyFilter
+                                ? familyMoves.find(m => String(m[16] || '').trim().toLowerCase() === companyFilter.toLowerCase())
                                 : null;
+                            const focusMove = companyMove
+                                || ((familyMoves.length > 1 && typeof window.pickCalendarFocusMove === 'function')
+                                    ? window.pickCalendarFocusMove(familyMoves, { today: todayStr, dateFrom, dateTo })
+                                    : null);
                             const openId = (focusMove && focusMove[0]) || rowData[0];
                             const isAlreadySelected = familyIds.some(id => window.selectedTripIds.includes(id));
                             

@@ -42,6 +42,10 @@ window.openRecycleBin = async function() {
                         oninput="rbApplySearch()"
                         style="flex:1; min-width:220px; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; outline:none;">
                     <button class="glossy-blue-btn" onclick="loadRecycleBin()" style="padding:0 15px; height:35px;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    <button type="button" id="rb-empty-btn" onclick="window.emptyRecycleBinTable()"
+                        style="padding:0 15px; height:35px; background:#ef4444; color:#fff; border:none; border-radius:8px; font-weight:800; cursor:pointer;">
+                        <i class="fas fa-dumpster"></i> Vaciar esta lista
+                    </button>
                 </div>
 
                 <div style="flex:1; overflow:auto; padding:12px 16px; background:#f1f5f9;">
@@ -342,6 +346,70 @@ window.restoreRecord = async function(table, idValue) {
     } catch (err) {
         console.error("Error restoring:", err);
         alert("Error al restaurar: " + err.message);
+    }
+};
+
+window.emptyRecycleBinTable = async function() {
+    if (!isAdmin()) return;
+    const select = document.getElementById('rb-table-select');
+    const table = select?.value;
+    if (!table) return;
+    const label = select.options[select.selectedIndex]?.text || table;
+    const rows = window._rbLastRows || [];
+    if (!rows.length) {
+        const el = document.getElementById('rb-list');
+        if (el) el.insertAdjacentHTML('afterbegin', '<div style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:10px 12px;border-radius:8px;margin-bottom:10px;font-weight:700;">This list is already empty.</div>');
+        return;
+    }
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px;';
+    wrap.innerHTML = `
+        <div style="background:#fff;max-width:460px;width:100%;border-radius:14px;border:2px solid #ef4444;padding:22px;box-shadow:0 20px 40px rgba(0,0,0,.25);">
+            <div style="font-weight:900;font-size:1.15rem;color:#991b1b;margin-bottom:8px;">Empty ${rbEsc(label)}?</div>
+            <p style="margin:0 0 16px;color:#7f1d1d;font-weight:600;line-height:1.45;">This permanently destroys all ${rows.length} item(s) in this list. Restore will not be possible.</p>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" id="rb-empty-no" style="padding:10px 14px;border:none;border-radius:8px;background:#0f172a;color:#fff;font-weight:800;cursor:pointer;">Cancel</button>
+                <button type="button" id="rb-empty-yes" style="padding:10px 14px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;">Empty list</button>
+            </div>
+        </div>`;
+    document.body.appendChild(wrap);
+    const ok = await new Promise((resolve) => {
+        wrap.querySelector('#rb-empty-no').onclick = () => { wrap.remove(); resolve(false); };
+        wrap.querySelector('#rb-empty-yes').onclick = () => { wrap.remove(); resolve(true); };
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) { wrap.remove(); resolve(false); } });
+    });
+    if (!ok) return;
+
+    const btn = document.getElementById('rb-empty-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Emptying…'; }
+    const list = document.getElementById('rb-list');
+    if (list) list.innerHTML = '<div style="text-align:center; padding:30px; color:#ef4444; font-weight:700;"><i class="fas fa-spinner fa-spin"></i> Destroying all items in this list…</div>';
+
+    try {
+        let bulk = await window.db.from(table).delete().eq('is_deleted', true);
+        if (bulk.error) {
+            const idCol = table === 'trips' ? 'trip_id' : (table === 'fleet' ? 'unit_id' : 'id');
+            for (const item of rows) {
+                const idValue = rbRecordId(table, item);
+                const rpc = await window.db.rpc('admin_hard_delete', { p_table: table, p_id: String(idValue) });
+                let error = rpc.error;
+                if (error && rbIsMissingRpc(error, 'admin_hard_delete')) {
+                    const fallback = await window.db.from(table).delete().eq(idCol, idValue);
+                    error = fallback.error;
+                }
+                if (error) throw error;
+            }
+        }
+        if (window.logActivity) window.logActivity('HARD_DELETED_RECORD', `[${new Date().toLocaleString()}] Emptied recycle bin table ${table} (${rows.length} records)`);
+        await loadRecycleBin();
+    } catch (err) {
+        console.error('Error emptying recycle bin:', err);
+        if (list) list.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Error: ${rbEsc(err.message)}</div>`;
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-dumpster"></i> Vaciar esta lista';
+        }
     }
 };
 

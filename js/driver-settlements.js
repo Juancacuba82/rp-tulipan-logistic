@@ -255,6 +255,8 @@
 
                 // Check if this driver/week was already confirmed and color rows
                 if (window.refreshDriverCashSurfaces) window.refreshDriverCashSurfaces();
+            } else if (window.paintDriverCashSurfaces) {
+                window.paintDriverCashSurfaces();
             }
         }
 
@@ -1259,86 +1261,48 @@
             if (window.applyDriverSettlementChrome) window.applyDriverSettlementChrome();
         };
 
+        function keepReportDriverSelection(select, keepName) {
+            if (!select || !keepName) return false;
+            const want = keepName.toString().trim().toUpperCase();
+            if (!want || want === 'SELECT DRIVER' || want === 'ALL DRIVERS') return false;
+            for (let i = 0; i < select.options.length; i++) {
+                const t = (select.options[i].text || '').trim().toUpperCase();
+                const v = (select.options[i].value || '').trim().toUpperCase();
+                if (t === want || v === want) {
+                    select.selectedIndex = i;
+                    return true;
+                }
+            }
+            const opt = document.createElement('option');
+            opt.value = keepName;
+            opt.textContent = keepName;
+            select.appendChild(opt);
+            select.value = keepName;
+            return true;
+        }
+
         window.updateAvailableDriversForReport = function() {
             // Avoid messing with driver role as they have a restricted/fixed view
             if (window.currentUserRole === 'driver') return;
-            
-            const from = document.getElementById('filter-from')?.value;
-            const to = document.getElementById('filter-to')?.value;
+
             const select = document.getElementById('filter-search');
             if (!select) return;
 
-            // If no dates are selected, restore the full driver list
-            if (!from && !to) {
-                if (window.refreshDriverSelects) {
-                    // We only want to refresh THIS select, not all of them
-                    // But refreshDriverSelects is what we have. 
-                    // To avoid a loop if refreshDriverSelects calls renderDriverLog, 
-                    // we use a flag or just do it manually here.
-                    const currentVal = select.value;
-                    select.innerHTML = '<option value="">All Drivers</option>';
-                    if (window.currentDrivers) {
-                        window.currentDrivers.forEach(d => {
-                            const opt = document.createElement('option');
-                            opt.value = d.name;
-                            opt.textContent = d.name;
-                            select.appendChild(opt);
-                        });
-                    }
-                    select.value = currentVal;
-                }
-                return;
-            }
+            const keepName = (select.selectedIndex >= 0 ? select.options[select.selectedIndex].text : '') || select.value;
 
-            // Filter trips for the date range to find active drivers
-            const trips = window.driverReportTrips || window.currentTrips || [];
-            const driversInPeriod = new Set();
-            
-            trips.forEach(t => {
-                const tDate = t[1]; // Date index
-                const tDriver = t[17]; // Driver index
-                const tStatus = t[41]; // Order status index
-                
-                if (tDriver && tDriver !== '---' && tDriver !== 'UNASSIGNED') {
-                    const matchesDate = (!from || tDate >= from) && (!to || tDate <= to);
-                    const isPaid = (tStatus === 'PAID' || tStatus === 'COMPLETE' || tStatus === 'PENDING_PAYMENT'); 
-                    if (matchesDate && isPaid) {
-                        driversInPeriod.add(tDriver.toString().trim().toUpperCase());
-                    }
-                }
+            select.innerHTML = '<option value="">Select Driver</option>';
+            const names = [];
+            (window.currentDrivers || []).forEach(d => {
+                if (d && d.name) names.push(d.name);
             });
-
-            const currentVal = select.value;
-            const currentText = select.selectedIndex !== -1 ? select.options[select.selectedIndex].text : '';
-            
-            select.innerHTML = '<option value="">All Drivers</option>';
-            
-            // Convert set to sorted array
-            const sortedDrivers = Array.from(driversInPeriod).sort();
-            
-            sortedDrivers.forEach(name => {
+            names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+            names.forEach(name => {
                 const opt = document.createElement('option');
                 opt.value = name;
                 opt.textContent = name;
                 select.appendChild(opt);
             });
-
-            // Try to restore selection if the driver still has orders in this period
-            // We check against the text/name because values might be slightly different in some cases
-            let found = false;
-            for (let i = 0; i < select.options.length; i++) {
-                if (select.options[i].value === currentVal) {
-                    select.value = currentVal;
-                    found = true;
-                    break;
-                }
-            }
-            
-            if (!found && currentVal !== '') {
-                // If the selected driver is no longer in the list, we reset to "All Drivers"
-                select.value = '';
-                if (window.syncDriverNames) window.syncDriverNames();
-            }
+            keepReportDriverSelection(select, keepName);
         };
 
         window.fetchTripsForDriverReport = async function() {
@@ -1383,9 +1347,16 @@
         };
 
         window.handleDriverDateChange = async function() {
+            const select = document.getElementById('filter-search');
+            const keepName = select && select.selectedIndex >= 0
+                ? (select.options[select.selectedIndex].text || select.value)
+                : (select?.value || '');
             await window.fetchTripsForDriverReport();
             if (window.updateAvailableDriversForReport) window.updateAvailableDriversForReport();
+            keepReportDriverSelection(select, keepName);
+            if (window.syncDriverNames) window.syncDriverNames();
             if (window.renderDriverLog) window.renderDriverLog();
+            keepReportDriverSelection(select, keepName);
             if (window.fetchHistory) window.fetchHistory();
         };
 

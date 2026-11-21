@@ -49,6 +49,12 @@
 
     window.computeTripCashPortion = tripCashFromRow;
 
+    window.getTripOriginalDriverCash = function (row) {
+        const orig = tripCashFromRow(row);
+        const open = window.getTripOpenHold(row) || 0;
+        return Math.round(Math.max(orig, open) * 100) / 100;
+    };
+
     window.getHoldFromDbTrip = function (t) {
         if (!t) return 0;
         const collector = (t.cash_collector || '').toString().toLowerCase();
@@ -301,9 +307,12 @@
         const legacy = round2(Math.max(0, balance - old));
         const groups = weeks.slice();
         if (legacy > 0.009) {
+            const payRange = rec && rec.end_date
+                ? 'after last paycheck (' + mmdd(rec.start_date) + ' – ' + mmdd(rec.end_date) + ')'
+                : 'after last paycheck';
             groups.push({
                 key: 'legacy', kind: 'legacy', monday: '', amount: legacy, orders: [],
-                label: 'Earlier balance', range: 'no order detail'
+                label: 'Left from last paycheck', range: payRange
             });
         }
         return {
@@ -753,6 +762,56 @@
         };
     };
 
+    window.getDriverPeriodSnapshot = function (driverName, from, to) {
+        const name = normalizeDriver(driverName);
+        const fromD = isoDay(from);
+        const toD = isoDay(to);
+        if (!name || (!fromD && !toD)) return null;
+        const trips = allTrips();
+        const orders = [];
+        let collected = 0;
+        let stillOpen = 0;
+        trips.forEach(row => {
+            if (!window.driverNamesMatch(name, row[17])) return;
+            const d = isoDay(row[1]);
+            if (fromD && d < fromD) return;
+            if (toD && d > toD) return;
+            const orig = window.getTripOriginalDriverCash(row);
+            const open = window.getTripDebtAmount ? window.getTripDebtAmount(row) : (window.getTripOpenHold(row) || 0);
+            if (orig < 0.01 && open < 0.01) return;
+            orders.push({
+                tripId: row[0],
+                date: d,
+                label: cleanTxt(row[5]) || cleanTxt(row[4]) || cleanTxt(row[3]) || String(row[0] || '').slice(0, 8),
+                nCont: cleanTxt(row[3]),
+                orig: round2(orig),
+                open: round2(open)
+            });
+            collected = round2(collected + orig);
+            stillOpen = round2(stillOpen + open);
+        });
+        const recs = (window.currentSettlements || []).filter(s => {
+            if (!window.driverNamesMatch(name, s.driver_name)) return false;
+            const a = isoDay(s.start_date);
+            const b = isoDay(s.end_date);
+            if (!a || !b) return false;
+            if (toD && a > toD) return false;
+            if (fromD && b < fromD) return false;
+            return true;
+        }).sort((a, b) => String(b.end_date || '').localeCompare(String(a.end_date || '')));
+        const thisRec = recs[0] || null;
+        const cutoff = thisRec ? isoDay(thisRec.start_date) : (fromD || toD);
+        const prior = (window.currentSettlements || []).filter(s => {
+            if (!window.driverNamesMatch(name, s.driver_name)) return false;
+            const end = isoDay(s.end_date);
+            return !!(end && cutoff && end < cutoff);
+        }).sort((a, b) => String(b.end_date || '').localeCompare(String(a.end_date || '')))[0] || null;
+        return {
+            from: fromD, to: toD, collected, stillOpen, orders, settlements: recs,
+            thisSettlement: thisRec, priorSettlement: prior
+        };
+    };
+
     window.renderDriverWalletBanner = function (driverName, elId) {
         const el = document.getElementById(elId);
         if (!el) return;
@@ -767,6 +826,24 @@
             el.innerHTML = '';
             return;
         }
+        const dateFrom = document.getElementById('filter-from')?.value || '';
+        const dateTo = document.getElementById('filter-to')?.value || '';
+        const hasDates = !!(dateFrom || dateTo);
+        const period = hasDates ? window.getDriverPeriodSnapshot(name, dateFrom, dateTo) : null;
+        if (hasDates) {
+            el.style.display = 'flex';
+            el.style.flexWrap = 'wrap';
+            el.style.rowGap = '10px';
+            el.style.alignItems = 'stretch';
+            el.style.background = '#f8fafc';
+            el.style.borderColor = '#94a3b8';
+            el.style.color = '#0f172a';
+            el.innerHTML = weekReceiptHtml(name, period);
+            return;
+        }
+        el.style.background = '';
+        el.style.borderColor = '';
+        el.style.color = '';
         const debt = window.getDriverDebt(driverName);
         if (debt.total < 0.01) {
             el.style.display = 'none';
@@ -782,7 +859,9 @@
                 <div style="font-size:0.68rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; opacity:0.9;">${esc(label)}</div>
                 <div style="font-weight:900; font-size:1.55rem; line-height:1.15; color:#7c2d12;">${fmt(amount)}</div>
             </div>`;
-        const boxes = debt.groups.map(g => box(g.label, g.amount, g.label !== 'This week', g.range)).join('');
+        const boxes = debt.total >= 0.01
+            ? debt.groups.map(g => box(g.label, g.amount, g.label !== 'This week', g.range)).join('')
+            : '';
 
         // Which orders make up what the driver owes (stays here until it is turned in)
         const chip = (o) => `
@@ -798,7 +877,7 @@
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
                     ${g.kind === 'legacy'
-                        ? '<span style="font-size:0.72rem; font-style:italic; opacity:0.85;">Carried over from an earlier settlement — the individual orders were not saved.</span>'
+                        ? '<span style="font-size:0.72rem; font-style:italic; opacity:0.85;">Leftover after last week’s salary — not a new trip. Order detail was not saved.</span>'
                         : g.orders.map(chip).join('')}
                 </div>
             </div>`).join('');
@@ -807,7 +886,7 @@
             <i class="fas fa-money-bill-wave" style="font-size:1.4rem;"></i>
             <div style="flex:1; min-width:200px;">
                 <div style="font-weight:900; font-size:1rem;">${isDriverRole ? 'You are holding company cash' : esc(name) + ' is holding company cash'}</div>
-                <div style="font-size:0.75rem; font-weight:600; opacity:0.85; margin-top:2px;">Stays here until you mark it as turned in (here or in Calendar)</div>
+                <div style="font-size:0.75rem; font-weight:600; opacity:0.85; margin-top:2px;">What is still due today — stays until you mark it turned in</div>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:stretch;">
                 ${boxes}
@@ -820,9 +899,59 @@
             </button>` : ''}
             <div style="flex:1 1 100%; width:100%; border-top:1px dashed rgba(146,64,14,0.4); padding-top:10px; display:grid; gap:8px; max-height:220px; overflow:auto;">
                 ${detail}
-            </div>
-        `;
+            </div>`;
     };
+
+    function weekReceiptHtml(name, period) {
+        const p = period || { from: '', to: '', collected: 0, stillOpen: 0, orders: [], settlements: [] };
+        const rec = p.thisSettlement || (p.settlements && p.settlements[0]) || null;
+        const prior = p.priorSettlement || null;
+        const salary = rec ? (parseFloat(rec.driver_salary) || 0) : 0;
+        const broughtIn = prior ? (parseFloat(prior.cash_balance) || 0) : 0;
+        const fromLbl = mmdd(p.from);
+        const toLbl = mmdd(p.to);
+        const cashWeek = round2(p.collected || 0);
+        const subtotal = round2(cashWeek + (broughtIn > 0.009 ? broughtIn : 0));
+        const totalDue = rec ? round2(subtotal - salary) : round2(p.stillOpen || 0);
+        let n = 0;
+        const line = (label, amountHtml, opts) => {
+            n += 1;
+            const strong = opts && opts.strong;
+            const minus = opts && opts.minus;
+            return `
+            <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid ${strong ? '#cbd5e1' : '#e2e8f0'};${strong ? ' background:#f1f5f9; margin:8px -12px 0; padding:14px 12px;' : ''}">
+                <div style="width:30px; height:30px; border-radius:999px; background:#0f172a; color:#fff; font-weight:900; font-size:0.9rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${n}</div>
+                <div style="flex:1; min-width:0; font-size:1.05rem; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; color:#0f172a;">${esc(label)}</div>
+                <div style="font-weight:900; font-size:${strong ? '1.85rem' : '1.65rem'}; color:${minus ? '#991b1b' : '#0f172a'}; white-space:nowrap;">${amountHtml}</div>
+            </div>`;
+        };
+        const chips = (p.orders || []).map(o => {
+            const closed = o.open < 0.01 && o.orig > 0.009;
+            return `<span style="background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:4px 8px; font-size:0.75rem; font-weight:700; color:#334155;">
+                ${esc(o.label)} · ${mmdd(o.date)} ·
+                ${closed ? `<s style="opacity:0.65;">${fmt(o.orig)}</s> closed` : `<b>${fmt(o.open > 0.009 ? o.open : o.orig)}</b>`}
+            </span>`;
+        }).join('') || '<span style="font-size:0.75rem; color:#64748b;">No driver cash on orders in this range.</span>';
+        const cashLine = line('Cash that week', fmt(cashWeek));
+        const lastWeekLine = broughtIn > 0.009
+            ? line('Last week', '+ ' + fmt(broughtIn))
+            : '';
+        const subtotalLine = line('Subtotal', fmt(subtotal));
+        const salaryLine = rec
+            ? line('Minus salary', '− ' + fmt(salary), { minus: true })
+            : '';
+        const endLine = line('Total due', fmt(totalDue), { strong: true });
+        return `
+            <div style="flex:1 1 100%; width:100%;">
+                <div style="font-weight:900; font-size:1.2rem; color:#0f172a; margin-bottom:4px;">${esc(name)} · week ${esc(fromLbl)} – ${esc(toLbl)}</div>
+                ${cashLine}
+                ${lastWeekLine}
+                ${subtotalLine}
+                ${salaryLine}
+                ${endLine}
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">${chips}</div>
+            </div>`;
+    }
 
     function ensureTurnInModal() {
         if (document.getElementById('dti-modal')) return;
@@ -979,7 +1108,7 @@
         if (!box) return;
         box.innerHTML = debt.groups.map(g => {
             const orders = g.kind === 'legacy'
-                ? 'Carried over from an earlier settlement (no order detail saved)'
+                ? 'Leftover after last week’s salary — not a new trip'
                 : g.orders.map(o => `${esc(o.label)} ${fmt(o.amount)}`).join(' · ');
             return `
                 <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e2e8f0; background:#f8fafc; border-radius:10px; padding:9px 11px; cursor:pointer;">
@@ -1165,30 +1294,46 @@
         if (err.style.display !== 'block') setTimeout(() => window.closeTurnInModal(), 900);
     };
 
-    // Driver Report "Cash" cell for one order: how much that order's driver still owes.
+    // Driver Report "Cash" cell: still owed now, or original cash (struck through) if already settled.
     window.paintDriverCashCell = function (td, row) {
         if (!td) return;
-        const amt = window.getTripDebtAmount ? window.getTripDebtAmount(row) : 0;
-        if (amt > 0.009) {
-            td.textContent = '$' + amt.toFixed(2);
+        let full = row;
+        if (Array.isArray(row) && row.length === 1) {
+            const id = row[0];
+            full = (allTrips() || []).find(t => t && String(t[0]) === String(id)) || row;
+        }
+        const open = window.getTripDebtAmount ? window.getTripDebtAmount(full) : (window.getTripOpenHold(full) || 0);
+        const orig = window.getTripOriginalDriverCash ? window.getTripOriginalDriverCash(full) : 0;
+        if (open > 0.009) {
+            td.textContent = '$' + open.toFixed(2);
             td.style.fontWeight = '700';
             td.style.color = '#d97706';
-            td.title = 'The driver still owes ' + fmt(amt) + ' for this order';
+            td.style.textDecoration = '';
+            td.title = 'The driver still owes ' + fmt(open) + ' for this order';
+        } else if (orig > 0.009) {
+            td.innerHTML = '<s>$' + orig.toFixed(2) + '</s>';
+            td.style.fontWeight = '700';
+            td.style.color = '#64748b';
+            td.title = 'Cash collected ' + fmt(orig) + ' — already settled or turned in';
         } else {
             td.textContent = '---';
             td.style.fontWeight = '';
             td.style.color = '';
+            td.style.textDecoration = '';
             td.title = '';
         }
     };
 
     function paintDriverLogCashCells() {
         const body = document.getElementById('dl-body');
-        if (!body || !debtStore.loaded) return;
+        if (!body) return;
+        const trips = allTrips() || [];
         body.querySelectorAll('tr[data-trip-id]').forEach(tr => {
             const td = tr.querySelector('td[data-cash-cell]');
             if (!td) return;
-            window.paintDriverCashCell(td, [tr.getAttribute('data-trip-id')]);
+            const id = tr.getAttribute('data-trip-id');
+            const row = trips.find(t => t && String(t[0]) === String(id));
+            window.paintDriverCashCell(td, row || [id]);
         });
     }
 

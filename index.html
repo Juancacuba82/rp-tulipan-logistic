@@ -24,20 +24,20 @@
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=18"></script>
     <script src="./js/force-uppercase.js?v=3"></script>
-    <script src="./js/data-mapping.js?v=29"></script>
+    <script src="./js/data-mapping.js?v=30"></script>
     <script src="./js/driver-trip-start.js?v=18"></script>
     <script src="./js/route-stop.js?v=18"></script>
     <script src="./js/stop-payment.js?v=7"></script>
     <script src="./js/order-pdf.js?v=6"></script>
-    <script src="./js/driver-cash-wallet.js?v=14"></script>
+    <script src="./js/driver-cash-wallet.js?v=22"></script>
     <script src="./js/realtime-sync.js?v=8" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
-    <script src="./js/data-managers.js?v=1715" defer></script>
-    <script src="./js/delivery-calendar.js?v=1754" defer></script>
-    <script src="./js/driver-settlements.js?v=1718" defer></script>
+    <script src="./js/data-managers.js?v=1716" defer></script>
+    <script src="./js/delivery-calendar.js?v=1759" defer></script>
+    <script src="./js/driver-settlements.js?v=1720" defer></script>
     <script src="./js/releases.js?v=1703" defer></script>
-    <script src="./js/profit-expenses.js?v=1737" defer></script>
-    <script src="./js/company-money.js?v=33" defer></script>
+    <script src="./js/profit-expenses.js?v=1738" defer></script>
+    <script src="./js/company-money.js?v=39" defer></script>
 
     <script src="./js/docs-receipts.js?v=1731" defer></script>
     <script src="./js/order-pdf-sign.js?v=4" defer></script>
@@ -56,7 +56,7 @@
     <script src="./js/csv-import.js?v=16" defer></script>
 
     <!-- PDF & Email Service Libraries -->
-    <script src="./js/recycle-bin.js?v=3" defer></script>
+    <script src="./js/recycle-bin.js?v=4" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
@@ -594,6 +594,33 @@
             padding-top: 7px;
             font-weight: 900;
         }
+        #company-money-view {
+            position: relative;
+            overflow: hidden;
+        }
+        #cm-pct-bg {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+        #company-money-view .report-container {
+            position: relative;
+            z-index: 1;
+        }
+        .cm-pct-bg-item {
+            position: absolute;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            line-height: 1;
+            user-select: none;
+            white-space: nowrap;
+            opacity: 0.32;
+            animation: none;
+        }
+        .cm-pct-bg-item.is-ok { color: #16a34a; }
+        .cm-pct-bg-item.is-bad { color: #dc2626; }
         #cm-card-focus {
             display: none;
             position: fixed;
@@ -2004,7 +2031,7 @@
                             <div class="trip-release-grid">
                                 <div class="trip-release-cell">
                                     <label class="trip-field-label" for="in-rel-type">Type</label>
-                                    <select id="in-rel-type" class="trip-select" required>
+                                    <select id="in-rel-type" class="trip-select">
                                         <option value="" disabled selected>Choose type...</option>
                                         <option value="DRY">DRY (Heat 🔥)</option>
                                         <option value="REEFER">REEFER (Cold ❄️)</option>
@@ -2012,7 +2039,7 @@
                                 </div>
                                 <div class="trip-release-cell">
                                     <label class="trip-field-label" for="in-rel-condition">Condition</label>
-                                    <select id="in-rel-condition" class="trip-select" required>
+                                    <select id="in-rel-condition" class="trip-select">
                                         <option value="" disabled selected>Choose condition...</option>
                                         <option value="NEW">NEW (Sparkles ✨)</option>
                                         <option value="USED">USED (Tools 🔧)</option>
@@ -2036,7 +2063,7 @@
                         </div>
                         <div class="form-group">
                             <label class="sidebar-label-btn">City</label>
-                            <select id="in-city" required>
+                            <select id="in-city">
                                 <option value="" disabled selected>Select City</option>
                                 <option value="MIAMI">MIAMI</option>
                                 <option value="MEDLEY">MEDLEY</option>
@@ -2109,7 +2136,7 @@
                         </div>
                         <div class="form-group" id="transport-doors-group" style="display:none;">
                             <label class="sidebar-label-btn sidebar-label-btn-blue">Doors Direction</label>
-                            <select id="in-doors" required>
+                            <select id="in-doors">
                                 <option value="" disabled selected>Select Orientation</option>
                                 <option value="FACING CAB">FACING CAB</option>
                                 <option value="FACING BACK">FACING BACK</option>
@@ -2145,8 +2172,7 @@
                                 <button onclick="openCompanyManager()" class="btn-manage-inline">Manage</button>
                             </div>
                             <select id="in-company"
-                                onchange="updateDriverCommission('company'); if(window.updateNetPayInfo) updateNetPayInfo(); if(window.filterDriversByCompany) filterDriversByCompany();"
-                                required>
+                                onchange="updateDriverCommission('company'); if(window.updateNetPayInfo) updateNetPayInfo(); if(window.filterDriversByCompany) filterDriversByCompany();">
                                 <option value="" disabled selected>Loading companies...</option>
                             </select>
                         </div>
@@ -4567,6 +4593,7 @@
             </div>
         </section>
         <section id="company-money-view" class="view-section hidden">
+            <div id="cm-pct-bg" aria-hidden="true"></div>
             <div class="report-container" style="max-width: 1200px;">
                 <div class="attendance-toolbar-modern">
                     <div class="report-title">
@@ -4906,6 +4933,17 @@
                                     <i class="fas fa-calendar-check"></i>
                                     <input type="date" id="inv-date-to" class="form-input"
                                         onchange="renderInventorTable()">
+                                </div>
+                            </div>
+                            <div class="attendance-input-group">
+                                <label><i class="fas fa-chart-line"></i> GROSS</label>
+                                <div class="attendance-field-with-icon">
+                                    <i class="fas fa-filter"></i>
+                                    <select id="inv-f-gross" class="form-select" onchange="renderInventorTable()"
+                                        style="width: 160px;">
+                                        <option value="">All</option>
+                                        <option value="zero-or-less">$0 or less</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -8523,7 +8561,17 @@
             size: { id: 'f-size', get: (row) => (row[2] || '').toString().trim() },
             customer: { id: 'f-customer', get: (row) => (row[11] || '').toString().trim() },
             driver: { id: 'f-driver', get: (row) => (row[17] || '').toString().trim() },
-            company: { id: 'f-company', get: (row) => (row[16] || '').toString().trim() },
+            company: {
+                id: 'f-company',
+                get: (row) => {
+                    if (typeof window.getMoveFamily === 'function') {
+                        const fam = window.getMoveFamily(row[0], window.currentTrips);
+                        const list = (fam && fam.moves && fam.moves.length) ? fam.moves : [row];
+                        return list.map(m => (m[16] || '').toString().trim()).filter(v => v && v !== '---');
+                    }
+                    return (row[16] || '').toString().trim();
+                }
+            },
             seller: { id: 'f-seller-cal', get: (row) => (row[61] || '').toString().trim() },
             pickup: { id: 'f-pickup-cal', get: (row) => (row[7] || '').toString().trim() },
             delivery: { id: 'f-delivery-cal', get: (row) => (row[8] || '').toString().trim() },
@@ -8617,7 +8665,7 @@
             const valPickup = (tr.dataset.pickups || (rowData[7] || '').toString().trim());
             const valDelivery = (tr.dataset.deliveries || (rowData[8] || '').toString().trim());
             const valCustomer = (rowData[11] || '').toString().trim();
-            const valCompany = (rowData[16] || '').toString().trim();
+            const valCompany = (tr.dataset.companies || rowData[16] || '').toString().trim();
             const valDriver = (tr.dataset.drivers || (rowData[17] || '').toString().trim());
             const valPhone = (rowData[23] || '').toString().trim();
             const valSeller = (rowData[61] || '').toString().trim();
@@ -8698,7 +8746,7 @@
                     : (filters.driver === CALENDAR_NO_DRIVER_VALUE
                         ? calendarDriverIsUnassigned(valDriver)
                         : String(valDriver).split('|').some(d => calendarEqi(d, filters.driver))),
-                company: !filters.company || calendarEqi(valCompany, filters.company),
+                company: !filters.company || calendarCompanyMatchesFilters(tr, valCompany, filters),
                 seller: !filters.seller || calendarEqi(valSeller, filters.seller),
                 zeller: !filters.zeller || calendarEqi(valZeller, filters.zeller),
                 pickup: !filters.pickup || String(valPickup).split('|').some(p => calendarEqi(p, filters.pickup)),
@@ -8792,11 +8840,113 @@
                 const cfg = CALENDAR_CASCADE_SELECTS[key];
                 const select = document.getElementById(cfg.id);
                 if (!select) return;
-                const values = rows.map(row => cfg.get(row));
+                const values = rows.flatMap(row => {
+                    const got = cfg.get(row);
+                    return Array.isArray(got) ? got : [got];
+                });
                 rebuildCalendarSelect(select, values, select.value);
             });
         }
         window.populateFilterPickers = populateFilterPickers;
+
+        function calendarMapKey(map, companyFilter) {
+            if (!map || !companyFilter) return '';
+            const want = String(companyFilter).trim().toLowerCase();
+            return Object.keys(map).find(k => String(k).trim().toLowerCase() === want) || '';
+        }
+
+        function calendarMoveDateInRange(date, from, to) {
+            const d = String(date || '').split('T')[0];
+            if (!d) return false;
+            if (from && d < from) return false;
+            if (to && d > to) return false;
+            return true;
+        }
+
+        function calendarParseMoveFinance(tr) {
+            try { return JSON.parse(tr.dataset.moveFinance || '[]'); } catch (e) { return []; }
+        }
+
+        function calendarFinanceSlice(tr, companyFilter, fromDate, toDate) {
+            const qty = parseInt(tr.dataset.qtyval) || 1;
+            const moves = calendarParseMoveFinance(tr);
+            const hasRange = !!(fromDate || toDate);
+            const want = (companyFilter || '').trim().toLowerCase();
+            let rate = 0;
+            let paid = 0;
+            const drivers = [];
+            let companyKey = '';
+            const matched = [];
+            if (moves.length) {
+                moves.forEach(m => {
+                    if (want && String(m.c || '').trim().toLowerCase() !== want) return;
+                    if (hasRange && !calendarMoveDateInRange(m.d, fromDate, toDate)) return;
+                    matched.push(m);
+                    rate += parseFloat(m.r) || 0;
+                    paid += parseFloat(m.p) || 0;
+                    if (m.v && m.v !== '---') drivers.push(m.v);
+                    if (!companyKey) companyKey = m.c || '';
+                });
+                return { rate: rate * qty, paid: paid * qty, drivers: drivers.join(' | '), companyKey, hasMatch: matched.length > 0 };
+            }
+            let rateMap = {};
+            let paidMap = {};
+            let drvMap = {};
+            try { rateMap = JSON.parse(tr.dataset.rateByCompany || '{}'); } catch (e) { rateMap = {}; }
+            try { paidMap = JSON.parse(tr.dataset.paidByCompany || '{}'); } catch (e) { paidMap = {}; }
+            try { drvMap = JSON.parse(tr.dataset.driverByCompany || '{}'); } catch (e) { drvMap = {}; }
+            const key = calendarMapKey(rateMap, companyFilter) || calendarMapKey(drvMap, companyFilter);
+            return {
+                rate: ((key ? rateMap[key] : 0) || 0) * qty,
+                paid: ((key ? paidMap[key] : 0) || 0) * qty,
+                drivers: key ? (drvMap[key] || '') : '',
+                companyKey: key,
+                hasMatch: !!key
+            };
+        }
+
+        function calendarCompanyMatchesFilters(tr, valCompany, filters) {
+            if (!filters.company) return true;
+            const slice = calendarFinanceSlice(tr, filters.company, filters.fromDate, filters.toDate);
+            if (calendarParseMoveFinance(tr).length) return slice.hasMatch;
+            return String(valCompany || '').split('|').some(c => calendarEqi(c, filters.company));
+        }
+
+        function applyCalendarCompanyRowView(tr, filters) {
+            const cells = tr.querySelectorAll('td');
+            if (!cells[13] || !cells[18] || !cells[19]) return;
+            const fmt = (n) => `$${(parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            const companyFilter = (filters && filters.company) || '';
+            if (!tr.dataset.origTransportHtml) {
+                tr.dataset.origTransportHtml = cells[13].innerHTML;
+                tr.dataset.origCompany = cells[18].textContent || '';
+                tr.dataset.origDriver = cells[19].textContent || '';
+                if (cells[21]) tr.dataset.origPaidHtml = cells[21].innerHTML;
+            }
+            const restoreOrig = () => {
+                cells[13].innerHTML = tr.dataset.origTransportHtml;
+                cells[18].textContent = tr.dataset.origCompany || '';
+                cells[19].textContent = tr.dataset.origDriver || '';
+                if (cells[21] && tr.dataset.origPaidHtml) cells[21].innerHTML = tr.dataset.origPaidHtml;
+            };
+            if (!companyFilter) {
+                restoreOrig();
+                return;
+            }
+            const slice = calendarFinanceSlice(tr, companyFilter, filters.fromDate, filters.toDate);
+            if (!slice.hasMatch) {
+                restoreOrig();
+                return;
+            }
+            const icon = cells[13].querySelector('i');
+            cells[13].innerHTML = (icon ? icon.outerHTML + ' ' : '') + fmt(slice.rate);
+            cells[18].textContent = slice.companyKey || companyFilter;
+            cells[19].textContent = slice.drivers || cells[19].textContent;
+            if (cells[21]) {
+                cells[21].textContent = fmt(slice.paid);
+                cells[21].style.fontWeight = 'bold';
+            }
+        }
 
         function applyAdvancedFilters() {
             if (isUpdatingDynamicFilters) return;
@@ -8816,6 +8966,7 @@
                 const flags = getCalendarRowFilterFlags(rowData, tr, filters);
                 const visible = calendarFlagsPass(flags);
                 tr.style.display = visible ? '' : 'none';
+                applyCalendarCompanyRowView(tr, visible ? filters : {});
                 evaluated.push({ rowData, flags });
             });
 
@@ -8843,7 +8994,9 @@
                     const values = [];
                     evaluatedRows.forEach(({ rowData, flags }) => {
                         if (calendarFlagsPass(flags, key)) {
-                            values.push(cfg.get(rowData));
+                            const got = cfg.get(rowData);
+                            if (Array.isArray(got)) values.push(...got);
+                            else values.push(got);
                         }
                     });
                     rebuildCalendarSelect(select, values, select.value);
@@ -8882,7 +9035,19 @@
 
                 const qty = parseInt(tr.dataset.qtyval) || 1;
                 totYard += parseFloat(tr.dataset.yardval) || 0;
-                totTransport += (parseFloat(tr.dataset.rateval) || 0) * qty;
+                const companyFilter = document.getElementById('f-company')?.value || '';
+                const fromDate = document.getElementById('f-from-date')?.value || '';
+                const toDate = document.getElementById('f-to-date')?.value || '';
+                if (tr.dataset.moveFinance) {
+                    totTransport += calendarFinanceSlice(tr, companyFilter, fromDate, toDate).rate;
+                } else if (companyFilter && tr.dataset.rateByCompany) {
+                    let rateMap = {};
+                    try { rateMap = JSON.parse(tr.dataset.rateByCompany || '{}'); } catch (e) { rateMap = {}; }
+                    const key = calendarMapKey(rateMap, companyFilter);
+                    totTransport += ((key ? rateMap[key] : 0) || 0) * qty;
+                } else {
+                    totTransport += (parseFloat(tr.dataset.rateval) || 0) * qty;
+                }
                 totSales += (parseFloat(tr.dataset.salesval) || 0) * qty;
                 totPpd += parseFloat(tr.dataset.ppdval) || 0;
                 totRent += parseFloat(tr.dataset.rentval) || 0;
@@ -9364,7 +9529,7 @@
     </div>
 
     <script src="./js/fleet.js?v=11"></script>
-    <script src="./js/form-inventor.js?v=18"></script>
+    <script src="./js/form-inventor.js?v=19"></script>
     <script src="./js/cust-invoice.js?v=20"></script>
     <script src="./js/calls.js?v=14"></script>
     <script src="./js/rentals.js?v=123"></script>
