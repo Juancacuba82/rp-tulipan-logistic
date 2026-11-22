@@ -118,6 +118,7 @@
             const sel = document.getElementById('in-release-sel');
             const man = document.getElementById('in-release');
             const icon = document.getElementById('toggle-icon');
+            const pick = document.getElementById('in-release-pick');
 
             let isManual = man.style.display !== 'none';
             if (forceMode === 'manual') isManual = false;
@@ -126,15 +127,18 @@
             if (isManual) {
                 // Switch to List
                 man.style.display = 'none';
-                sel.style.display = 'block';
+                sel.style.display = 'none';
+                if (pick) pick.style.display = 'flex';
                 icon.className = 'fas fa-edit';
                 man.value = '';
             } else {
                 // Switch to Manual
                 sel.style.display = 'none';
+                if (pick) pick.style.display = 'none';
                 man.style.display = 'block';
                 icon.className = 'fas fa-list';
                 sel.selectedIndex = 0;
+                if (window.syncReleasePickFace) window.syncReleasePickFace();
             }
         }
         window.toggleReleaseMode = toggleReleaseMode;

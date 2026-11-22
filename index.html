@@ -22,7 +22,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
-    <script src="./supabase-client.js?v=18"></script>
+    <script src="./supabase-client.js?v=19"></script>
     <script src="./js/force-uppercase.js?v=3"></script>
     <script src="./js/data-mapping.js?v=30"></script>
     <script src="./js/driver-trip-start.js?v=18"></script>
@@ -33,9 +33,9 @@
     <script src="./js/realtime-sync.js?v=8" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1716" defer></script>
-    <script src="./js/delivery-calendar.js?v=1759" defer></script>
+    <script src="./js/delivery-calendar.js?v=1766" defer></script>
     <script src="./js/driver-settlements.js?v=1720" defer></script>
-    <script src="./js/releases.js?v=1703" defer></script>
+    <script src="./js/releases.js?v=1704" defer></script>
     <script src="./js/profit-expenses.js?v=1738" defer></script>
     <script src="./js/company-money.js?v=39" defer></script>
 
@@ -463,6 +463,84 @@
             width: 100% !important;
             height: 30px !important;
             box-sizing: border-box !important;
+        }
+
+        #in-release-sel.release-sel-native {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            flex: 0 !important;
+        }
+
+        #in-release-pick {
+            flex: 1 !important;
+            width: 100% !important;
+            height: 30px !important;
+            box-sizing: border-box !important;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 0 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            color: #0f172a;
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        #in-release-pick .rel-pick-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #in-release-menu {
+            position: fixed;
+            z-index: 40000;
+            display: none;
+            max-height: calc(100dvh - 16px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            overscroll-behavior: contain;
+            background: #334155;
+            color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45);
+            padding: 6px 0;
+            min-width: 280px;
+        }
+
+        #in-release-menu .rel-pick-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #in-release-menu .rel-pick-item.ok {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        #in-release-menu .rel-pick-item.full {
+            background: #fee2e2;
+            color: #991b1b;
+            cursor: not-allowed;
+            opacity: 0.92;
+        }
+
+        #in-release-menu .rel-pick-item.ok:hover,
+        #in-release-menu .rel-pick-item.ok.active {
+            background: #86efac;
         }
 
         .btn-toggle-input {
@@ -1976,10 +2054,14 @@
                         <div class="form-group" id="release-group-container">
                             <label class="sidebar-label-btn">Release #</label>
                             <div class="hybrid-input-wrapper">
-                                <select id="in-release-sel"
+                                <select id="in-release-sel" class="release-sel-native"
                                     onchange="if(window.autoPopulateFromRelease) window.autoPopulateFromRelease()">
                                     <option value="" disabled selected>Select Release...</option>
                                 </select>
+                                <button type="button" id="in-release-pick" aria-haspopup="listbox">
+                                    <span class="rel-pick-label">Select Release...</span>
+                                    <i class="fas fa-chevron-down" style="font-size:0.65rem;color:#64748b;"></i>
+                                </button>
                                 <input type="text" id="in-release" placeholder="Type Release..." style="display:none;"
                                     autocomplete="off">
                                 <button type="button" class="btn-toggle-input" onclick="toggleReleaseMode()"
@@ -8084,7 +8166,11 @@
                         // Catch up with changes made by other PCs while this tab was on another module
                         if (window.tripsDeltaPollNow) window.tripsDeltaPollNow();
                         if (window.updateFleetSelectors) window.updateFleetSelectors();
-                        if (window.loadReleasesData) window.loadReleasesData();
+                        (async () => {
+                            if (window.loadReleasesData) await window.loadReleasesData();
+                            if (window.loadReleaseHoldTrips) await window.loadReleaseHoldTrips();
+                            if (window.updateReleaseDatalist) window.updateReleaseDatalist();
+                        })();
 
                         // --- RELEASE STOCK AUDIT (one-time, runs once on idle after data loads) ---
                         // PERF FIX: Replaced recurring setInterval (every 3s) with a single

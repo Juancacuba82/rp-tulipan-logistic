@@ -1809,6 +1809,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 emailRowData[0] = finalTripId;
 
                 showAppNotice('Order saved', 'success');
+                if (typeof window.upsertReleaseHoldTrip === 'function' && emailRowData) {
+                    window.upsertReleaseHoldTrip(emailRowData);
+                }
+                if (typeof window.updateReleaseDatalist === 'function') window.updateReleaseDatalist();
                 if (typeof window.warnIfRouteNeedsStops === 'function') window.warnIfRouteNeedsStops(emailRowData);
                 resetForm();
 
@@ -2078,6 +2082,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (extraMethodReset) extraMethodReset.value = 'bank';
             const yardListReset = document.getElementById('yard-services-list');
             if (yardListReset) yardListReset.innerHTML = '';
+            if (typeof window.updateReleaseDatalist === 'function') window.updateReleaseDatalist();
         }
         window.startNewOrder = startNewOrder;
         window.resetForm = startNewOrder; // Alias for safety
@@ -2267,9 +2272,153 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             }
         };
 
+        function tripReservesReleaseQty(row, relNo, excludeTripId) {
+            if (!row) return 0;
+            if (excludeTripId && String(row[0]) === String(excludeTripId)) return 0;
+            if (window.isFollowOnTrip && window.isFollowOnTrip(row)) return 0;
+            const tripRel = String(row[4] || '').trim().toUpperCase();
+            if (!tripRel || tripRel !== String(relNo || '').trim().toUpperCase()) return 0;
+            const st = String(row[41] || '').toUpperCase();
+            if (st === 'COMPLETE' || st === 'PAID' || st === 'DELIVERED') return 0;
+            const src = String(row[58] || 'RELEASE').toUpperCase();
+            if (src === 'YARD' || src === 'STORAGE') return 0;
+            const deduct = row[74];
+            let willDeduct;
+            if (deduct !== null && deduct !== undefined) {
+                willDeduct = deduct === true || deduct === 'true';
+            } else {
+                const book = String(row[65] || '').trim();
+                willDeduct = !book || book === '---';
+            }
+            if (!willDeduct) return 0;
+            return parseInt(row[53], 10) || 1;
+        }
+
+        window.getReleaseOpenSlots = function (relNo, stock, excludeTripId) {
+            const pools = [];
+            if (window.releaseHoldTrips && window.releaseHoldTrips.length) pools.push(window.releaseHoldTrips);
+            if (window.allTripsUnfiltered && window.allTripsUnfiltered.length) pools.push(window.allTripsUnfiltered);
+            if (window.currentTrips && window.currentTrips.length) pools.push(window.currentTrips);
+            const seen = new Set();
+            let reserved = 0;
+            pools.forEach(list => {
+                list.forEach(row => {
+                    const id = row && row[0];
+                    if (id) {
+                        if (seen.has(String(id))) return;
+                        seen.add(String(id));
+                    }
+                    reserved += tripReservesReleaseQty(row, relNo, excludeTripId);
+                });
+            });
+            return (parseInt(stock, 10) || 0) - reserved;
+        };
+
+        function holdRowFromTrip(t) {
+            const row = new Array(75);
+            row[0] = t.trip_id || t[0];
+            row[4] = t.release_no || t[4];
+            row[25] = t.note != null ? t.note : (t[25] || '');
+            row[26] = t.service_mode || t[26];
+            row[41] = t.status || t[41];
+            row[53] = t.qty != null ? t.qty : t[53];
+            row[58] = t.container_source || t[58];
+            row[65] = t.booking_no || t[65];
+            row[74] = (t.deduct_stock !== undefined) ? t.deduct_stock : t[74];
+            return row;
+        }
+
+        window.upsertReleaseHoldTrip = function (row) {
+            if (!row || !row[0]) return;
+            if (!window.releaseHoldTrips) window.releaseHoldTrips = [];
+            const i = window.releaseHoldTrips.findIndex(t => String(t[0]) === String(row[0]));
+            if (i >= 0) window.releaseHoldTrips[i] = row;
+            else window.releaseHoldTrips.push(row);
+        };
+
+        window.loadReleaseHoldTrips = async function (force) {
+            if (!force && window.releaseHoldTrips && window.releaseHoldTrips.length) return window.releaseHoldTrips;
+            if (!window.getReleaseHoldTrips) return window.releaseHoldTrips || [];
+            const data = await window.getReleaseHoldTrips();
+            window.releaseHoldTrips = (data || []).map(holdRowFromTrip);
+            return window.releaseHoldTrips;
+        };
+
+        window.syncReleasePickFace = function () {
+            const sel = document.getElementById('in-release-sel');
+            const lab = document.querySelector('#in-release-pick .rel-pick-label');
+            if (!lab || !sel) return;
+            const opt = sel.options[sel.selectedIndex];
+            lab.textContent = (opt && opt.value) ? opt.textContent : 'Select Release...';
+            lab.style.color = (opt && opt.dataset && opt.dataset.openSlots === '0') ? '#991b1b' : '';
+        };
+
+        function closeReleasePicker() {
+            const menu = document.getElementById('in-release-menu');
+            if (menu) menu.style.display = 'none';
+        }
+
+        function bindReleasePicker() {
+            const pick = document.getElementById('in-release-pick');
+            const sel = document.getElementById('in-release-sel');
+            if (!pick || pick.dataset.bound === 'true') return;
+            pick.dataset.bound = 'true';
+
+            let menu = document.getElementById('in-release-menu');
+            if (!menu) {
+                menu = document.createElement('div');
+                menu.id = 'in-release-menu';
+                menu.setAttribute('role', 'listbox');
+                document.body.appendChild(menu);
+            }
+
+            const openMenu = async () => {
+                if (window.loadReleasesData) await window.loadReleasesData();
+                if (window.loadReleaseHoldTrips) await window.loadReleaseHoldTrips();
+                window.updateReleaseDatalist();
+                const items = menu.querySelectorAll('.rel-pick-item');
+                if (!items.length) return;
+                const r = pick.getBoundingClientRect();
+                const pad = 8;
+                const maxAll = Math.max(120, window.innerHeight - pad * 2);
+                menu.style.display = 'block';
+                menu.style.height = 'auto';
+                menu.style.maxHeight = 'none';
+                menu.style.overflowY = 'auto';
+                menu.style.minWidth = Math.max(r.width, 280) + 'px';
+                menu.style.left = Math.max(pad, Math.min(r.left, window.innerWidth - 288)) + 'px';
+                const natural = Math.max(menu.scrollHeight, menu.getBoundingClientRect().height);
+                const h = Math.min(natural, maxAll);
+                let top = r.bottom + 4;
+                if (top + h > window.innerHeight - pad) {
+                    top = Math.max(pad, window.innerHeight - pad - h);
+                }
+                menu.style.top = top + 'px';
+                menu.style.maxHeight = h + 'px';
+                menu.style.height = h + 'px';
+            };
+
+            pick.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (menu.style.display === 'block') closeReleasePicker();
+                else openMenu();
+            });
+            document.addEventListener('click', (e) => {
+                if (!menu.contains(e.target) && e.target !== pick && !pick.contains(e.target)) {
+                    closeReleasePicker();
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeReleasePicker();
+            });
+            if (sel) sel.addEventListener('change', () => window.syncReleasePickFace());
+        }
+
         window.updateReleaseDatalist = function () {
             const relSel = document.getElementById('in-release-sel');
             const relList = document.getElementById('release-list');
+            bindReleasePicker();
             if (typeof window.currentReleases === 'undefined' || !window.currentReleases) return;
 
             // 1. Group and Consolidate Stock to handle duplicates gracefully
@@ -2293,19 +2442,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // Unique key for matching dropdown entry
                 const key = `${relNo}|${size}|${city}|${type}|${cond}|${grade}`;
-                
-                // CRITICAL: Only consider it if stock is truly positive
-                if (stock > 0) {
-                    if (!consolidated[key]) {
-                        consolidated[key] = {
-                            relNo, size, city, type, cond, grade, pickup,
-                            totalStock: stock,
-                            rawData: r
-                        };
-                    } else {
-                        // Consolidate stock from multiple database entries of the same release
-                        consolidated[key].totalStock += stock;
-                    }
+                if (!consolidated[key]) {
+                    consolidated[key] = {
+                        relNo, size, city, type, cond, grade, pickup,
+                        totalStock: Math.max(0, stock),
+                        rawData: r
+                    };
+                } else {
+                    consolidated[key].totalStock += Math.max(0, stock);
                 }
             });
 
@@ -2316,22 +2460,42 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             // 3. Populate Selection UI
             if (relSel) {
                 const currentVal = relSel.value;
+                const editingId = window.editingTripDbId || editingTripDbId || null;
                 relSel.innerHTML = '<option value="" disabled selected>Select Release...</option>';
 
                 const fragment = document.createDocumentFragment();
                 activeReleases.forEach(item => {
-                    const displayText = `${item.relNo} - ${item.size} - ${item.city}`;
+                    const open = window.getReleaseOpenSlots(item.relNo, item.totalStock, editingId);
+                    const isCurrent = currentVal && String(currentVal).trim().toUpperCase() === String(item.relNo).trim().toUpperCase();
+                    const full = open <= 0;
+                    if (full && item.totalStock <= 0 && !isCurrent) return;
+                    const displayText = full
+                        ? `${item.relNo} - ${item.size} - ${item.city}  ·  reserved`
+                        : `${item.relNo} - ${item.size} - ${item.city}  ·  ${open} remaining`;
                     const opt = document.createElement('option');
                     opt.value = item.relNo;
                     opt.textContent = displayText;
-                    
-                    const r = item.rawData;
                     opt.dataset.size = item.size;
                     opt.dataset.city = item.city;
                     opt.dataset.type = item.type;
                     opt.dataset.cond = item.cond;
                     opt.dataset.grade = item.grade || '';
                     opt.dataset.pickup = item.pickup;
+                    opt.dataset.openSlots = String(open);
+                    if (full && !isCurrent) {
+                        opt.disabled = true;
+                        opt.style.color = '#b91c1c';
+                        opt.style.backgroundColor = '#fee2e2';
+                        opt.style.fontWeight = '800';
+                    } else if (full && isCurrent) {
+                        opt.style.color = '#b91c1c';
+                        opt.style.backgroundColor = '#fee2e2';
+                        opt.style.fontWeight = '800';
+                    } else {
+                        opt.style.color = '#15803d';
+                        opt.style.backgroundColor = '#dcfce7';
+                        opt.style.fontWeight = '800';
+                    }
                     fragment.appendChild(opt);
                 });
                 relSel.appendChild(fragment);
@@ -2350,6 +2514,41 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 });
                 relList.appendChild(fragmentList);
             }
+
+            const menu = document.getElementById('in-release-menu');
+            if (menu) {
+                const currentVal = relSel ? relSel.value : '';
+                const editingId = window.editingTripDbId || editingTripDbId || null;
+                menu.innerHTML = '';
+                const frag = document.createDocumentFragment();
+                activeReleases.forEach(item => {
+                    const open = window.getReleaseOpenSlots(item.relNo, item.totalStock, editingId);
+                    const isCurrent = currentVal && String(currentVal).trim().toUpperCase() === String(item.relNo).trim().toUpperCase();
+                    const full = open <= 0;
+                    if (full && item.totalStock <= 0 && !isCurrent) return;
+                    const row = document.createElement('div');
+                    row.className = 'rel-pick-item ' + (full && !isCurrent ? 'full' : 'ok');
+                    if (isCurrent) row.classList.add('active');
+                    row.textContent = full
+                        ? `${item.relNo} - ${item.size} - ${item.city}  ·  reserved`
+                        : `${item.relNo} - ${item.size} - ${item.city}  ·  ${open} remaining`;
+                    row.dataset.value = item.relNo;
+                    if (full && !isCurrent) {
+                        row.title = 'Pending orders already hold this release. Stock in Releases is not zero.';
+                    } else {
+                        row.addEventListener('click', () => {
+                            if (!relSel) return;
+                            relSel.value = item.relNo;
+                            relSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            window.syncReleasePickFace();
+                            closeReleasePicker();
+                        });
+                    }
+                    frag.appendChild(row);
+                });
+                menu.appendChild(frag);
+            }
+            window.syncReleasePickFace();
         };
 
         // --- DYNAMIC SIZE FILTER BASED ON RELEASE STOCK ---
@@ -2629,6 +2828,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             if (relMan) relMan.addEventListener('input', updateReleaseSizes);
         };
         setupReleaseValidation();
+        bindReleasePicker();
 
         function updateAddressDatalist() {
             const addressList = document.getElementById('address-list');
@@ -4391,6 +4591,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 logisticsBody.appendChild(tableFragment);
                 // Apply existing filters if any (for real-time persistence)
                 applyAdvancedFilters();
+                if (typeof window.updateReleaseDatalist === 'function') window.updateReleaseDatalist();
                 if (typeof window.renderRouteStopBanner === 'function') window.renderRouteStopBanner();
                 if (typeof window.clearPastDueRouteStops === 'function') window.clearPastDueRouteStops();
                 if (window.loadDocTrips) window.loadDocTrips();

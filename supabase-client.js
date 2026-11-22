@@ -701,6 +701,25 @@ window.updateRental = updateRental;
 window.updateRentalsBatch = updateRentalsBatch;
 window.deleteRental = deleteRental;
 window.getReleases = getReleases;
+
+async function getReleaseHoldTrips() {
+    try {
+        const { data, error } = await db.from('trips')
+            .select('trip_id, release_no, qty, deduct_stock, status, container_source, booking_no, service_mode, note')
+            .or('is_deleted.eq.false,is_deleted.is.null')
+            .not('release_no', 'is', null)
+            .neq('release_no', '')
+            .neq('release_no', '---')
+            .order('created_at', { ascending: false })
+            .limit(3000);
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching release holds:', err);
+        return [];
+    }
+}
+window.getReleaseHoldTrips = getReleaseHoldTrips;
 window.addRelease = addRelease;
 window.updateRelease = updateRelease;
 window.getExpenses = getExpenses;
