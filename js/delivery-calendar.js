@@ -1031,30 +1031,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             isSaving = true;
 
             try {
-                const missingGroups = collectOrderMissingFields();
-                if (missingGroups.length) {
-                    const keepGoing = await showCalendarCautionDialog({
-                        title: 'Do you want to save the order anyway?',
-                        message: 'You still have empty fields. You can save now and finish later.',
-                        groups: missingGroups,
-                        cancelLabel: 'Review order',
-                        confirmLabel: 'Save anyway'
-                    });
-                    if (!keepGoing) {
+                const prevForFollow = (editingTripDbId && window.currentTrips)
+                    ? window.currentTrips.find(t => t[0] === editingTripDbId) : null;
+                const earlyFollowOn = !!(window.parseMoveMeta && prevForFollow && window.parseMoveMeta(prevForFollow[25]).parentId);
+                if (!earlyFollowOn) {
+                    const review = await showOrderServicesReviewModal();
+                    if (!review || !review.confirmed) {
                         isSaving = false;
                         restoreTripArchiveButtonUI();
                         return;
                     }
-                }
-
-                // Did someone else save this order while we had it open? Ask BEFORE writing anything.
-                if (editingTripDbId && typeof window.checkTripEditConflict === 'function') {
-                    const okToSave = await window.checkTripEditConflict(editingTripDbId);
-                    if (!okToSave) {
-                        isSaving = false;
-                        restoreTripArchiveButtonUI();
-                        return;
-                    }
+                    applyOrderServicesReview(review.services);
+                    window._pendingOrderCommissions = review.commissions || {};
+                } else {
+                    window._pendingOrderCommissions = null;
                 }
 
                 if (editingIndex === null) {
@@ -3820,57 +3810,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 if (banner.classList.contains('notice')) banner.style.display = 'none';
             }, ms || 9000);
         };
-        // Before saving an EXISTING order: has someone else saved it since we opened it?
-        // Returns true to continue saving, false to cancel. Never blocks when it cannot tell
-        // (no updated_at column yet, offline, etc.), so it can't make saving worse than before.
-        window.checkTripEditConflict = async function (tripId) {
-            try {
-                const loaded = window._editingLoaded;
-                if (!tripId || !loaded || loaded.id !== tripId || !loaded.version || !window.db) return true;
-                let data = null;
-                let { data: full, error } = await window.db.from('trips')
-                    .select('updated_at, is_deleted, updated_by, created_by')
-                    .eq('trip_id', tripId)
-                    .maybeSingle();
-                if (error && /updated_by|created_by/i.test(error.message || '')) {
-                    const retry = await window.db.from('trips')
-                        .select('updated_at, is_deleted')
-                        .eq('trip_id', tripId)
-                        .maybeSingle();
-                    data = retry.data;
-                    error = retry.error;
-                } else {
-                    data = full;
-                }
-                if (error || !data) return true;
-                const who = calendarPersonLabel(data.updated_by || data.created_by) || 'Someone else';
-                if (data.is_deleted === true) {
-                    return showCalendarCautionDialog({
-                        title: 'Do you want to save the order anyway?',
-                        message: who + ' deleted this order while you had it open.',
-                        cancelLabel: 'Reload',
-                        confirmLabel: 'Save anyway'
-                    });
-                }
-                if (!data.updated_at) return true;
-                if (new Date(data.updated_at).getTime() === new Date(loaded.version).getTime()) return true;
-
-                const overwrite = await showCalendarCautionDialog({
-                    title: 'Do you want to save the order anyway?',
-                    message: who + ' saved this order after you opened it. Save yours anyway? That will overwrite theirs.',
-                    cancelLabel: 'Reload theirs',
-                    confirmLabel: 'Save mine anyway'
-                });
-                if (overwrite) return true;
-
-                const idx = (window.currentTrips || []).findIndex(t => t && t[0] === tripId);
-                if (window._tripVersions) window._tripVersions.set(tripId, new Date(0).toISOString());
-                if (idx >= 0 && typeof window.loadTripToEdit === 'function') await window.loadTripToEdit(idx);
-                return false;
-            } catch (e) {
-                console.warn('checkTripEditConflict failed (continuing to save):', e);
-                return true;
-            }
+        window.checkTripEditConflict = async function () {
+            return true;
         };
         window.markCalendarSynced = function () {
             window._calendarSyncedAt = Date.now();
@@ -4354,7 +4295,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 const payChip = (typeof window.stopPayChip === 'function')
                                     ? window.stopPayChip(paySrc)
                                     : { html: '' };
-                                let orderHtml = text ? `<span style="font-weight:800;">${text}</span>` : '';
+                                const safeOrder = String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                let orderHtml = text ? `<span class="cal-order-no" style="font-weight:800;">${safeOrder}</span>` : '';
                                 if (startedForOrder && text) {
                                     const badge = (typeof window.driverStartBadgeHtml === 'function')
                                         ? window.driverStartBadgeHtml(startedForOrder, false)

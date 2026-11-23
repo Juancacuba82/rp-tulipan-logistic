@@ -33,7 +33,7 @@
     <script src="./js/realtime-sync.js?v=8" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1716" defer></script>
-    <script src="./js/delivery-calendar.js?v=1766" defer></script>
+    <script src="./js/delivery-calendar.js?v=1769" defer></script>
     <script src="./js/driver-settlements.js?v=1720" defer></script>
     <script src="./js/releases.js?v=1704" defer></script>
     <script src="./js/profit-expenses.js?v=1738" defer></script>
@@ -10516,7 +10516,12 @@
             const rawText = orderEl
                 ? (orderEl.textContent || '')
                 : (tds[i].textContent || tds[i].innerText || '');
-            const textToCopy = rawText.replace(/\s*AR\s+(ABIERTA|PAGADA|PARCIAL|WRITE-OFF)\s*$/i, '').trim();
+            let textToCopy = rawText.replace(/\s*AR\s+(ABIERTA|PAGADA|PARCIAL|WRITE-OFF)\s*$/i, '').trim();
+            if (table.id === 'logistics-table' && /order/i.test(label)) {
+                const trip = (window.currentTrips || []).find(t => t && String(t[0]) === String(tr.dataset.tripid));
+                if (trip && trip[5]) textToCopy = String(trip[5]).trim();
+                else if (orderEl) textToCopy = (orderEl.textContent || '').trim();
+            }
             
             // Clean up label if it has sorting icons
             label = label.replace(/\n/g, '').replace(/\s+/g, ' ').trim();
