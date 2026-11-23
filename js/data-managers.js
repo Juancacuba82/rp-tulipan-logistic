@@ -1509,6 +1509,7 @@
             ],
             rpt_yard: [
                 'COMMISSION',
+                'PAYROLL',
                 'PAINT PURCHASE',
                 'CONTAINERS SUPPLIES',
                 'OTHER EXPENSES'
