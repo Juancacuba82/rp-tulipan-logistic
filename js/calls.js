@@ -819,6 +819,7 @@ async function transferSoldCallToCalendar(call) {
         delivery_place: call.zip_code, // Now labeled "Delivery Place" in UI
         note: '',  // Note goes empty to calendar; origin tracked via container_source
         container_source: 'FORM_CALL',  // Marker used by CALLS TRANSFER filter
+        created_by: call.created_by || window.userEmail || null, // original creator shown in Calendar
         status: 'PENDING_PAYMENT',
         order_no: orderNo,
         amount: firstCallAmountNumber(call.amount),

@@ -1366,8 +1366,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 rowData[94] = prevCashRow ? (prevCashRow[94] || '') : '';
                 const auditWho = (window.userEmail || window.currentUserName || 'Unknown').toString().trim();
                 const auditName = (window.currentUserName || window.userName || auditWho).toString().trim();
-                const prevCreated = prevCashRow && prevCashRow[60] && prevCashRow[60] !== '---' ? prevCashRow[60] : '';
-                rowData[60] = prevCreated || auditWho;
+                // "Created by" is the ORIGINAL creator and never changes. Only a brand-new order
+                // gets the current user. An existing order keeps what the database has (read it
+                // fresh so a stale local copy can't overwrite it); if the creator is unknown
+                // (e.g. order born from Calls before this was tracked) it stays empty instead of
+                // stamping whoever edits first.
+                const isExistingOrder = !!editingTripDbId || (editingIndex !== null && !!prevCashRow);
+                let creatorEmail = prevCashRow && prevCashRow[60] && prevCashRow[60] !== '---' ? String(prevCashRow[60]).trim() : '';
+                if (isExistingOrder && editingTripDbId && typeof db !== 'undefined' && db) {
+                    try {
+                        const { data: creatorRow, error: creatorErr } = await db.from('trips')
+                            .select('created_by').eq('trip_id', editingTripDbId).maybeSingle();
+                        if (!creatorErr && creatorRow) creatorEmail = (creatorRow.created_by || '').toString().trim();
+                    } catch (creatorFetchErr) { /* keep the cached value */ }
+                }
+                rowData[60] = isExistingOrder ? creatorEmail : (creatorEmail || auditWho);
                 rowData[95] = auditWho;
                 let editLog = [];
                 try {
@@ -4102,17 +4115,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         
                         const creatorLabel = calendarPersonLabel(rowData[60]);
                         const lastEditor = calendarPersonLabel(rowData[95]);
-                        let others = [];
+                        const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+                        let logNames = [];
                         try {
                             const log = typeof rowData[96] === 'string' ? JSON.parse(rowData[96] || '[]') : (rowData[96] || []);
                             if (Array.isArray(log)) {
-                                others = [...new Set(log.map(e => calendarPersonLabel(e.name || e.email)).filter(Boolean))];
+                                logNames = [...new Set(log.map(e => calendarPersonLabel(e.name || e.email)).filter(Boolean))];
                             }
-                        } catch (e) { others = []; }
+                        } catch (e) { logNames = []; }
+                        // Creator is shown once as "Created by"; everyone else who saved the order is an editor.
+                        const others = logNames.filter(n => !sameName(n, lastEditor) && !sameName(n, creatorLabel));
+                        const onlyCreation = lastEditor && sameName(lastEditor, creatorLabel) && logNames.length <= 1;
                         const tip = [];
                         if (creatorLabel) tip.push('Created by: ' + creatorLabel);
-                        if (lastEditor && lastEditor !== creatorLabel) tip.push('Last edit: ' + lastEditor);
-                        else if (lastEditor) tip.push('Last edit: ' + lastEditor);
+                        if (lastEditor && !onlyCreation) tip.push('Last edit: ' + lastEditor);
                         if (others.length) tip.push('Also edited by: ' + others.join(', '));
                         if (tip.length) tr.title = tip.join('\n');
                         
