@@ -24,16 +24,16 @@
     <!-- supabase-client.js must execute synchronously: inline scripts use db, signIn, checkAuth, etc. -->
     <script src="./supabase-client.js?v=19"></script>
     <script src="./js/force-uppercase.js?v=3"></script>
-    <script src="./js/data-mapping.js?v=30"></script>
+    <script src="./js/data-mapping.js?v=32"></script>
     <script src="./js/driver-trip-start.js?v=18"></script>
-    <script src="./js/route-stop.js?v=18"></script>
+    <script src="./js/route-stop.js?v=20"></script>
     <script src="./js/stop-payment.js?v=7"></script>
     <script src="./js/order-pdf.js?v=6"></script>
     <script src="./js/driver-cash-wallet.js?v=22"></script>
-    <script src="./js/realtime-sync.js?v=8" defer></script>
+    <script src="./js/realtime-sync.js?v=9" defer></script>
     <!-- Feature modules: safe to defer since they register on window.* and are called lazily -->
     <script src="./js/data-managers.js?v=1716" defer></script>
-    <script src="./js/delivery-calendar.js?v=1769" defer></script>
+    <script src="./js/delivery-calendar.js?v=1771" defer></script>
     <script src="./js/driver-settlements.js?v=1720" defer></script>
     <script src="./js/releases.js?v=1704" defer></script>
     <script src="./js/profit-expenses.js?v=1738" defer></script>
@@ -8961,6 +8961,8 @@
             let rate = 0;
             let paid = 0;
             const drivers = [];
+            const driversHtml = [];
+            const escHtml = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
             let companyKey = '';
             const matched = [];
             if (moves.length) {
@@ -8970,10 +8972,15 @@
                     matched.push(m);
                     rate += parseFloat(m.r) || 0;
                     paid += parseFloat(m.p) || 0;
-                    if (m.v && m.v !== '---') drivers.push(m.v);
+                    if (m.v && m.v !== '---') {
+                        drivers.push(m.v);
+                        // Keep the blue stop badge (1, 2, 3) in the filtered view too
+                        const stop = parseInt(m.s, 10) || 0;
+                        driversHtml.push((stop ? '<span class="trip-route-stop-badge">' + stop + '</span> ' : '') + escHtml(m.v));
+                    }
                     if (!companyKey) companyKey = m.c || '';
                 });
-                return { rate: rate * qty, paid: paid * qty, drivers: drivers.join(' | '), companyKey, hasMatch: matched.length > 0 };
+                return { rate: rate * qty, paid: paid * qty, drivers: drivers.join(' | '), driversHtml: driversHtml.join(' | '), companyKey, hasMatch: matched.length > 0 };
             }
             let rateMap = {};
             let paidMap = {};
@@ -9003,17 +9010,20 @@
             if (!cells[13] || !cells[18] || !cells[19]) return;
             const fmt = (n) => `$${(parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
             const companyFilter = (filters && filters.company) || '';
-            if (!tr.dataset.origTransportHtml) {
-                tr.dataset.origTransportHtml = cells[13].innerHTML;
-                tr.dataset.origCompany = cells[18].textContent || '';
-                tr.dataset.origDriver = cells[19].textContent || '';
-                if (cells[21]) tr.dataset.origPaidHtml = cells[21].innerHTML;
-            }
+            // Only touch the cells while a company filter is overriding them. Restoring with
+            // textContent used to flatten the Driver cell and destroy the blue stop badge
+            // (<span class="trip-route-stop-badge">) on every refresh.
             const restoreOrig = () => {
-                cells[13].innerHTML = tr.dataset.origTransportHtml;
-                cells[18].textContent = tr.dataset.origCompany || '';
-                cells[19].textContent = tr.dataset.origDriver || '';
-                if (cells[21] && tr.dataset.origPaidHtml) cells[21].innerHTML = tr.dataset.origPaidHtml;
+                if (tr.dataset.companyViewOn !== '1') return;
+                if (tr.dataset.origTransportHtml != null) cells[13].innerHTML = tr.dataset.origTransportHtml;
+                if (tr.dataset.origCompanyHtml != null) cells[18].innerHTML = tr.dataset.origCompanyHtml;
+                if (tr.dataset.origDriverHtml != null) cells[19].innerHTML = tr.dataset.origDriverHtml;
+                if (cells[21] && tr.dataset.origPaidHtml != null) cells[21].innerHTML = tr.dataset.origPaidHtml;
+                delete tr.dataset.companyViewOn;
+                delete tr.dataset.origTransportHtml;
+                delete tr.dataset.origCompanyHtml;
+                delete tr.dataset.origDriverHtml;
+                delete tr.dataset.origPaidHtml;
             };
             if (!companyFilter) {
                 restoreOrig();
@@ -9024,10 +9034,18 @@
                 restoreOrig();
                 return;
             }
+            if (tr.dataset.companyViewOn !== '1') {
+                tr.dataset.companyViewOn = '1';
+                tr.dataset.origTransportHtml = cells[13].innerHTML;
+                tr.dataset.origCompanyHtml = cells[18].innerHTML;
+                tr.dataset.origDriverHtml = cells[19].innerHTML;
+                if (cells[21]) tr.dataset.origPaidHtml = cells[21].innerHTML;
+            }
             const icon = cells[13].querySelector('i');
             cells[13].innerHTML = (icon ? icon.outerHTML + ' ' : '') + fmt(slice.rate);
             cells[18].textContent = slice.companyKey || companyFilter;
-            cells[19].textContent = slice.drivers || cells[19].textContent;
+            if (slice.driversHtml) cells[19].innerHTML = slice.driversHtml;
+            else if (slice.drivers) cells[19].textContent = slice.drivers;
             if (cells[21]) {
                 cells[21].textContent = fmt(slice.paid);
                 cells[21].style.fontWeight = 'bold';

@@ -1389,6 +1389,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
 
                 const dbObj = mapArrayToTrip(rowData);
+                if (oldTripDate && newTripDate && oldTripDate !== newTripDate) {
+                    dbObj.route_stop = null;
+                    dbObj.driver_stop_done_at = null;
+                }
                 dbObj.created_by = rowData[60] || null;
                 dbObj.updated_by = rowData[95] || null;
                 dbObj.edit_log = rowData[96] || '[]';
@@ -2079,6 +2083,14 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
         // --- OPTIMIZED UI UPDATE FOR SINGLE ROW ---
         window.refreshSingleRowUI = function(tr, rowData) {
+            // Cells are rewritten from fresh data below: drop any stale company-filter snapshot.
+            if (tr && tr.dataset) {
+                delete tr.dataset.companyViewOn;
+                delete tr.dataset.origTransportHtml;
+                delete tr.dataset.origCompanyHtml;
+                delete tr.dataset.origDriverHtml;
+                delete tr.dataset.origPaidHtml;
+            }
             const todayStr = new Date().toISOString().split('T')[0];
             const isTodayEntry = (rowData[1] === todayStr);
             
@@ -2237,6 +2249,10 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 const payChip = (typeof window.stopPayChip === 'function') ? window.stopPayChip(rowData) : { html: '' };
                                 if (payChip.html) orderHtml += ' ' + payChip.html;
                                 cells[cellIdx].innerHTML = orderHtml;
+                            } else if (cellIdx === 19) {
+                                cells[cellIdx].innerHTML = (typeof window.calendarDriverCellHtml === 'function')
+                                    ? window.calendarDriverCellHtml(rowData, famMoves, rowData[0])
+                                    : (val || '');
                             } else {
                                 cells[cellIdx].textContent = val;
                             }
@@ -2881,6 +2897,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         }
                     }
 
+                    if (Object.prototype.hasOwnProperty.call(details, 'route_stop')) {
+                        const rs = parseInt(details.route_stop, 10);
+                        const stopVal = (rs >= 1 && rs <= 99) ? rs : '';
+                        rowData[92] = stopVal;
+                        [window.currentTrips, window.allTripsUnfiltered, window.docsTripsCache].forEach(pool => {
+                            const target = (pool || []).find(t => t && t[0] === editingTripDbId);
+                            if (target) target[92] = stopVal;
+                        });
+                    }
+
                     rowData[54] = details.signature || '';
                     rowData[55] = Array.isArray(details.photos) ? details.photos : (typeof details.photos === 'string' ? JSON.parse(details.photos) : []);
                     rowData[56] = details.signature_driver || '';
@@ -3421,17 +3447,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             setTxt(18, view[16]);
             if (cells[19]) {
                 const famMoves = (fam.moves && fam.moves.length > 1) ? fam.moves : [view];
-                if (famMoves.length > 1 && typeof window.calendarFamilyDriverHtml === 'function') {
-                    cells[19].innerHTML = window.calendarFamilyDriverHtml(famMoves, fam.parentId);
-                } else {
-                    const drv = (view[17] && view[17] !== '---') ? view[17] : '';
-                    const stopN = (typeof window.getTripRouteStop === 'function') ? window.getTripRouteStop(view) : 0;
-                    const holdAmt = window.getTripOpenHold ? window.getTripOpenHold(view) : 0;
-                    cells[19].innerHTML = (stopN ? '<span class="trip-route-stop-badge">' + stopN + '</span> ' : '') + drv;
-                    if (holdAmt > 0.01) {
-                        cells[19].innerHTML += ` <i class="fas fa-money-bill-wave" style="color:#d97706; margin-left:4px;" title="Driver holds $${holdAmt.toFixed(2)}"></i>`;
-                    }
-                }
+                cells[19].innerHTML = (typeof window.calendarDriverCellHtml === 'function')
+                    ? window.calendarDriverCellHtml(view, famMoves, fam.parentId)
+                    : ((view[17] && view[17] !== '---') ? view[17] : '');
             }
             if (cells[21]) {
                 const pay = (parseFloat(String(view[24]).replace(/[$,]/g, '')) || 0) * (parseInt(view[53]) || 1);
@@ -3678,7 +3696,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     d: String(m[1] || '').split('T')[0],
                     r: transTotal,
                     p: paid,
-                    v: drv
+                    v: drv,
+                    s: (typeof window.getTripRouteStop === 'function') ? window.getTripRouteStop(m) : 0
                 });
             });
             tr.dataset.companies = companies.join('|');
@@ -4320,20 +4339,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             }
 
                             if (i === 19) {
-                                if (familyMoves.length > 1 && typeof window.calendarFamilyDriverHtml === 'function') {
-                                    td.innerHTML = window.calendarFamilyDriverHtml(familyMoves, familyParentId);
+                                const stopTrip = viewMove || displayRow || rowData;
+                                td.innerHTML = (typeof window.calendarDriverCellHtml === 'function')
+                                    ? window.calendarDriverCellHtml(stopTrip, familyMoves, familyParentId)
+                                    : (text || '---');
+                                if (familyMoves.length > 1) {
                                     td.style.whiteSpace = 'normal';
                                     td.style.lineHeight = '1.45';
-                                } else {
-                                    const stopOf = (t) => (typeof window.getTripRouteStop === 'function' && t)
-                                        ? window.getTripRouteStop(t) : 0;
-                                    const stopN = stopOf(viewMove) || stopOf(displayRow) || stopOf(rowData);
-                                    if (stopN) {
-                                        const nameHtml = (td.innerHTML && td.innerHTML !== String(text))
-                                            ? td.innerHTML
-                                            : (text || '---');
-                                        td.innerHTML = '<span class="trip-route-stop-badge">' + stopN + '</span> ' + nameHtml;
-                                    }
                                 }
                             }
 
@@ -4343,8 +4355,8 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                 td.style.color = '#1e40af'; // Blue
                             }
 
-                            // Custom styling for Driver Cell (Seen Indicator)
-                            if (i === 16) { 
+                            // Custom styling for Driver Cell (Seen Indicator) — displayData[19]
+                            if (i === 19) { 
                                 if (text && text !== '---') {
                                     // Ultra-robust cleaning function for names
                                     // Ultra-robust cleaning function (handles accents/diacritics)
@@ -4427,13 +4439,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                                             }
                                         }
                                         
-                                        td.innerHTML = `${text} <i class="fas fa-check-double" style="color: ${iconColor}; opacity: ${iconOpacity}; margin-left: 5px; cursor: help;" title="${tooltip}"></i>`;
-                                    } else {
-                                        td.textContent = text;
-                                    }
-                                    const holdAmt = window.getTripOpenHold ? window.getTripOpenHold(rowData) : 0;
-                                    if (holdAmt > 0.01) {
-                                        td.innerHTML = (td.innerHTML || text) + ` <i class="fas fa-money-bill-wave" style="color:#d97706; margin-left:4px;" title="Chofer tiene $${holdAmt.toFixed(2)} de la empresa en esta orden"></i>`;
+                                        td.innerHTML = (td.innerHTML || text) + ` <i class="fas fa-check-double" style="color: ${iconColor}; opacity: ${iconOpacity}; margin-left: 5px; cursor: help;" title="${tooltip}"></i>`;
                                     }
                                 }
                             }
@@ -4778,7 +4784,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                     const orderDate = toYYYYMMDD(rowData[1]);
                     const tds = tr.querySelectorAll('td');
-                    const driverTd = tds[15]; // displayData[15] = Driver column
+                    const driverTd = tds[19]; // displayData[19] = Driver column
                     if (!driverTd) return;
 
                     const driverLogs = logs.filter(log => {
@@ -4873,7 +4879,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 if (isMatch) {
                     const tds = tr.querySelectorAll('td');
-                    const driverTd = tds[15]; 
+                    const driverTd = tds[19]; 
                     if (!driverTd) return;
                     const icon = driverTd.querySelector('.fa-check-double');
                     if (icon) {

@@ -71,6 +71,22 @@
         return (n >= 1 && n <= 99) ? n : 0;
     };
 
+    window.calendarDriverCellHtml = function (trip, familyMoves, parentId) {
+        const fam = (familyMoves && familyMoves.length > 1) ? familyMoves : null;
+        if (fam && typeof window.calendarFamilyDriverHtml === 'function') {
+            return window.calendarFamilyDriverHtml(fam, parentId);
+        }
+        const drv = (trip && trip[17] && trip[17] !== '---') ? String(trip[17]) : '';
+        const stopN = window.getTripRouteStop(trip);
+        let html = (stopN ? '<span class="trip-route-stop-badge">' + stopN + '</span> ' : '') + drv;
+        const holdAmt = window.getTripOpenHold ? window.getTripOpenHold(trip) : 0;
+        if (holdAmt > 0.01) {
+            html += ' <i class="fas fa-money-bill-wave" style="color:#d97706; margin-left:4px;" title="Chofer tiene $' +
+                holdAmt.toFixed(2) + ' de la empresa en esta orden"></i>';
+        }
+        return html;
+    };
+
     window.tripsPoolForRoute = function () {
         const byId = new Map();
         (window.allTripsUnfiltered || []).forEach(t => { if (t && t[0]) byId.set(t[0], t); });
@@ -396,13 +412,15 @@
                 ? window.getMoveSeq(m, pid)
                 : (i + 1);
             const title = 'Move ' + seq + ' · ' + raw + (done ? ' · Complete' : (stop ? (' · Stop ' + stop) : ' · no stop'));
-            if (done) {
-                return '<span class="cal-move-drv is-done" title="' + esc(title) + '">M' + seq + ' ✓ ' + esc(short) + '</span>';
-            }
+            const cls = 'cal-move-drv' + (done ? ' is-done' : (stop ? '' : ' is-missing'));
             if (stop) {
-                return '<span class="cal-move-drv" title="' + esc(title) + '"><span class="trip-route-stop-badge">' + stop + '</span> ' + esc(short) + '</span>';
+                return '<span class="' + cls + '" title="' + esc(title) + '"><span class="trip-route-stop-badge">' + stop + '</span> ' +
+                    (done ? '✓ ' : '') + esc(short) + '</span>';
             }
-            return '<span class="cal-move-drv is-missing" title="' + esc(title) + '">M' + seq + ' ' + esc(short) + '</span>';
+            if (done) {
+                return '<span class="' + cls + '" title="' + esc(title) + '">M' + seq + ' ✓ ' + esc(short) + '</span>';
+            }
+            return '<span class="' + cls + '" title="' + esc(title) + '">M' + seq + ' ' + esc(short) + '</span>';
         }).join('');
     };
 

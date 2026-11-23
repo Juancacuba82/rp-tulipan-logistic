@@ -254,7 +254,10 @@
                 t.stop_pay_result_at || '',     // 89
                 t.stop_pay_result_by || '',     // 90
                 window.normalizeUsedGrade(t.rel_condition, t.used_grade), // 91
-                t.route_stop || '',         // 92 — driver day stop 1, 2, 3
+                (function () {
+                    const n = parseInt(t.route_stop, 10);
+                    return (n >= 1 && n <= 99) ? n : '';
+                }()),                   // 92 — driver day stop 1, 2, 3
                 window.parseNeedsDeliveryProof(t.needs_delivery_proof, true), // 93
                 t.driver_stop_done_at || '', // 94
                 t.updated_by || '',          // 95
@@ -354,7 +357,7 @@
             if (row[90]) obj.stop_pay_result_by = row[90];
             obj.used_grade = window.normalizeUsedGrade(row[45], row[91]) || null;
             const rs = parseInt(row[92], 10);
-            obj.route_stop = (rs >= 1 && rs <= 99) ? rs : null;
+            if (rs >= 1 && rs <= 99) obj.route_stop = rs;
             obj.needs_delivery_proof = !(row[93] === false || row[93] === 'false' || row[93] === 0 || row[93] === '0');
             obj.driver_stop_done_at = row[94] || null;
             if (row[95]) obj.updated_by = row[95];

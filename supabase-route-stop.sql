@@ -12,3 +12,11 @@ create index if not exists idx_trips_route_stop
   where route_stop is not null;
 
 notify pgrst, 'reload schema';
+
+-- Verify: should return route_stop / needs_delivery_proof / driver_stop_done_at
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'trips'
+  and column_name in ('route_stop', 'needs_delivery_proof', 'driver_stop_done_at')
+order by column_name;

@@ -126,6 +126,9 @@ function handleRealtimeTrips(payload, opts) {
                 } else {
                     if (idx !== -1) {
                         const prev = cacheArray[idx];
+                        if (payload.new && !Object.prototype.hasOwnProperty.call(payload.new, 'route_stop') && prev) {
+                            updatedArr[92] = prev[92];
+                        }
                         if (payload.new && !Object.prototype.hasOwnProperty.call(payload.new, 'needs_delivery_proof') && prev) {
                             updatedArr[93] = prev[93];
                         } else if (typeof window.parseNeedsDeliveryProof === 'function') {
@@ -176,6 +179,9 @@ function handleRealtimeTrips(payload, opts) {
         const mod2 = applyToCache(window.allTripsUnfiltered);
         applyToCache(window.docsTripsCache);
         if (window.currentDocTrip && payload.new && window.currentDocTrip[0] === payload.new.trip_id) {
+            if (Object.prototype.hasOwnProperty.call(payload.new, 'route_stop')) {
+                window.currentDocTrip[92] = payload.new.route_stop || '';
+            }
             if (!Object.prototype.hasOwnProperty.call(payload.new, 'needs_delivery_proof')) {
                 /* keep currentDocTrip[93] */
             } else if (typeof window.parseNeedsDeliveryProof === 'function') {
