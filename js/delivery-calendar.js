@@ -2573,8 +2573,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     } else {
                         row.addEventListener('click', () => {
                             if (!relSel) return;
+                            if (typeof window.toggleReleaseMode === 'function') window.toggleReleaseMode('list');
                             relSel.value = item.relNo;
+                            const relMan = document.getElementById('in-release');
+                            if (relMan) relMan.value = item.relNo;
                             relSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            if (typeof window.autoPopulateFromRelease === 'function') window.autoPopulateFromRelease();
                             window.syncReleasePickFace();
                             closeReleasePicker();
                         });
@@ -2678,17 +2682,21 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const autoPopulateFromRelease = () => {
                 const relSel = document.getElementById('in-release-sel');
                 const relMan = document.getElementById('in-release');
-                const isListMode = relSel && relSel.style.display !== 'none';
-                const selectedRel = isListMode ? relSel.value : (relMan ? relMan.value : '');
+                const manVisible = relMan && relMan.style.display !== 'none';
+                const selVal = (relSel && relSel.value) ? String(relSel.value).trim() : '';
+                const manVal = (relMan && relMan.value) ? String(relMan.value).trim() : '';
+                // Native select stays visually hidden behind the picker; prefer its value
+                // unless the user is typing in manual mode.
+                const selectedRel = manVisible ? (manVal || selVal) : (selVal || manVal);
                 
                 if (!selectedRel || selectedRel === '---') return;
 
                 let rowData = null;
 
                 // 1. Try to get data from the selected OPTION (most reliable and fast)
-                if (isListMode && relSel.selectedIndex > 0) {
+                if (relSel && selVal && relSel.selectedIndex > 0) {
                     const opt = relSel.options[relSel.selectedIndex];
-                    if (opt.dataset && opt.dataset.size) {
+                    if (opt && opt.dataset && (opt.dataset.size || opt.dataset.city || opt.dataset.pickup)) {
                         rowData = {
                             city: opt.dataset.city,
                             size: opt.dataset.size,
@@ -2702,9 +2710,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 // 2. Fallback to searching the array (Manual mode or if attributes failed)
                 if (!rowData && typeof currentReleases !== 'undefined') {
-                    const currentSize = document.getElementById('in-size')?.value || '';
-                    const match = currentReleases.find(r => r[0] === selectedRel && r[16] === currentSize) 
-                               || currentReleases.find(r => r[0] === selectedRel);
+                    const currentSize = document.getElementById('in-size')?.value
+                        || document.getElementById('in-size-sel')?.value
+                        || '';
+                    const want = selectedRel.toUpperCase();
+                    const match = currentReleases.find(r => String(r[0] || '').trim().toUpperCase() === want && String(r[16] || '') === currentSize)
+                               || currentReleases.find(r => String(r[0] || '').trim().toUpperCase() === want);
                     if (match) {
                         rowData = {
                             city: match[6],
@@ -2801,7 +2812,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             changeElements.forEach(el => {
                 if (el) {
                     el.addEventListener('change', (e) => {
-                        if (el === relSel || el === inSizeSelect) autoPopulateFromRelease();
+                        if (el === relSel || el === relMan || el === inSizeSelect) autoPopulateFromRelease();
                         else validateStockUI();
                     });
                 }
@@ -2989,22 +3000,29 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         const sel = document.getElementById('in-release-sel');
                         let exists = false;
                         let vMatched = '';
+                        const vClean = (v || '').toString().trim();
                         if (sel) {
-                            const vClean = (v || '').toString().trim().toUpperCase();
+                            const want = vClean.toUpperCase();
                             for (let opt of sel.options) {
-                                if (opt.value.trim().toUpperCase() === vClean) { 
+                                if (opt.value.trim().toUpperCase() === want) { 
                                     exists = true; 
                                     vMatched = opt.value;
                                     break; 
                                 }
                             }
                         }
-                        if (exists && v !== '---' && v !== '') {
+                        if (exists && vClean && vClean !== '---') {
                             toggleReleaseMode('list');
                             sel.value = vMatched;
+                            el.value = vMatched;
+                        } else if (!vClean || vClean === '---') {
+                            // Empty release: keep the picker so adding one still auto-fills city/pickup/size
+                            toggleReleaseMode('list');
+                            if (sel) sel.selectedIndex = 0;
+                            el.value = '';
                         } else {
                             toggleReleaseMode('manual');
-                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                            el.value = vClean;
                         }
                     } else if (id === 'in-customer') {
                         // Hybrid Logic for Customer

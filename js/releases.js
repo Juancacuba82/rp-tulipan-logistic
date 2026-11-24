@@ -130,7 +130,7 @@
                 sel.style.display = 'none';
                 if (pick) pick.style.display = 'flex';
                 icon.className = 'fas fa-edit';
-                man.value = '';
+                if (sel && sel.value && (!man.value || man.value === '---')) man.value = sel.value;
             } else {
                 // Switch to Manual
                 sel.style.display = 'none';
