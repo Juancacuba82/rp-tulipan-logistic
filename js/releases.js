@@ -172,21 +172,41 @@
             const sel = document.getElementById('in-pickup-sel');
             const man = document.getElementById('in-pickup');
             const icon = document.getElementById('toggle-icon-pickup');
+            if (!sel || !man) return;
+
+            const current = ((man.style.display !== 'none' ? man.value : sel.value) || '').trim();
 
             let isManual = man.style.display !== 'none';
             if (forceMode === 'manual') isManual = false;
             if (forceMode === 'list') isManual = true;
 
             if (isManual) {
+                let matchedVal = '';
+                if (current) {
+                    for (const opt of sel.options) {
+                        if ((opt.value || '').trim().toUpperCase() === current.toUpperCase()) {
+                            matchedVal = opt.value;
+                            break;
+                        }
+                    }
+                }
+                if (!matchedVal && current) {
+                    sel.style.display = 'none';
+                    man.style.display = 'block';
+                    man.value = current;
+                    if (icon) icon.className = 'fas fa-list';
+                    return;
+                }
                 man.style.display = 'none';
                 sel.style.display = 'block';
-                icon.className = 'fas fa-edit';
-                man.value = '';
+                if (icon) icon.className = 'fas fa-edit';
+                if (matchedVal) sel.value = matchedVal;
+                if (current) man.value = current;
             } else {
                 sel.style.display = 'none';
                 man.style.display = 'block';
-                icon.className = 'fas fa-list';
-                sel.selectedIndex = 0;
+                if (icon) icon.className = 'fas fa-list';
+                if (current && (!man.value || man.value === '---')) man.value = current;
             }
         }
         window.togglePickupAddressMode = togglePickupAddressMode;

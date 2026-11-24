@@ -561,7 +561,6 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 const el = document.getElementById(id);
                 if (!el) return;
                 el.checked = !!on;
-                el.dispatchEvent(new Event('change'));
             };
             const setVal = (id, val) => {
                 const el = document.getElementById(id);
@@ -608,6 +607,13 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 setVal('in-priceperday', services.storage.perDay);
                 setVal('in-liftcost', services.storage.lift);
             }
+
+            const visOpts = { clearValues: false };
+            if (window.toggleYardRate) window.toggleYardRate(visOpts);
+            if (window.toggleTransport) window.toggleTransport(visOpts);
+            if (window.toggleSalesPrice) window.toggleSalesPrice(visOpts);
+            if (window.toggleRentals) window.toggleRentals(visOpts);
+            if (window.toggleToYardDestSelect) window.toggleToYardDestSelect(visOpts);
         }
 
         function orderReviewFieldEmpty(id) {
@@ -1077,7 +1083,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 const pickupSel = document.getElementById('in-pickup-sel');
                 const pickupMan = document.getElementById('in-pickup');
-                const selectedPickup = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
+                const pickupVisible = (pickupMan && pickupMan.style.display !== 'none') ? pickupMan.value : (pickupSel ? pickupSel.value : '');
+                const pickupFallback = (pickupMan?.value || pickupSel?.value || '').trim();
+                const selectedPickup = (pickupVisible && pickupVisible.trim() && pickupVisible !== '---')
+                    ? pickupVisible
+                    : pickupFallback;
 
                 const deliverySel = document.getElementById('in-delivery-sel');
                 const deliveryMan = document.getElementById('in-delivery');
@@ -2355,6 +2365,12 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             else window.releaseHoldTrips.push(row);
         };
 
+        window.removeReleaseHoldTrip = function (tripId) {
+            if (!tripId || !window.releaseHoldTrips || !window.releaseHoldTrips.length) return;
+            const id = String(tripId);
+            window.releaseHoldTrips = window.releaseHoldTrips.filter(t => String(t && t[0]) !== id);
+        };
+
         window.loadReleaseHoldTrips = async function (force) {
             if (!force && window.releaseHoldTrips && window.releaseHoldTrips.length) return window.releaseHoldTrips;
             if (!window.getReleaseHoldTrips) return window.releaseHoldTrips || [];
@@ -2734,23 +2750,29 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     const inPickup = document.getElementById('in-pickup');
                     const inPickupSel = document.getElementById('in-pickup-sel');
                     if (rowData.pickup && rowData.pickup !== '---') {
-                        if (inPickup) inPickup.value = rowData.pickup;
-                        
+                        const pickupVal = String(rowData.pickup).trim();
+                        if (inPickup) inPickup.value = pickupVal;
+                        let addressExistsInSel = false;
                         if (inPickupSel) {
-                            let addressExistsInSel = false;
+                            const want = pickupVal.toUpperCase();
                             for (let opt of inPickupSel.options) {
-                                if (opt.value === rowData.pickup) {
-                                    inPickupSel.value = rowData.pickup;
+                                if ((opt.value || '').trim().toUpperCase() === want) {
+                                    inPickupSel.value = opt.value;
                                     addressExistsInSel = true;
                                     break;
                                 }
                             }
-                            
-                            if (typeof window.togglePickupAddressMode === 'function') {
-                                if (addressExistsInSel) {
-                                    window.togglePickupAddressMode('list');
-                                } else {
-                                    window.togglePickupAddressMode('manual');
+                        }
+                        if (typeof window.togglePickupAddressMode === 'function') {
+                            window.togglePickupAddressMode(addressExistsInSel ? 'list' : 'manual');
+                        }
+                        if (inPickup && inPickup.style.display !== 'none') inPickup.value = pickupVal;
+                        else if (inPickupSel && addressExistsInSel) {
+                            const want = pickupVal.toUpperCase();
+                            for (let opt of inPickupSel.options) {
+                                if ((opt.value || '').trim().toUpperCase() === want) {
+                                    inPickupSel.value = opt.value;
+                                    break;
                                 }
                             }
                         }
@@ -3019,18 +3041,26 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     } else if (id === 'in-pickup') {
                         // Hybrid Logic for Pickup Address
                         const sel = document.getElementById('in-pickup-sel');
+                        const pickupVal = (v === '---' || v === undefined || v === null) ? '' : String(v).trim();
                         let exists = false;
-                        if (sel) {
+                        let matched = '';
+                        if (sel && pickupVal) {
+                            const want = pickupVal.toUpperCase();
                             for (let opt of sel.options) {
-                                if (opt.value === v) { exists = true; break; }
+                                if ((opt.value || '').trim().toUpperCase() === want) {
+                                    exists = true;
+                                    matched = opt.value;
+                                    break;
+                                }
                             }
                         }
-                        if (exists && v !== '---' && v !== '') {
+                        if (exists && pickupVal) {
                             togglePickupAddressMode('list');
-                            sel.value = v;
+                            sel.value = matched;
+                            el.value = pickupVal;
                         } else {
                             togglePickupAddressMode('manual');
-                            el.value = (v === '---' || v === undefined || v === null) ? '' : v;
+                            el.value = pickupVal;
                         }
                     } else if (id === 'in-delivery') {
                         // Hybrid Logic for Delivery Address
@@ -3378,9 +3408,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
             }
 
-            if (window.toggleYardRate) window.toggleYardRate();
-            if (window.toggleTransport) window.toggleTransport();
-            if (window.toggleSalesPrice) window.toggleSalesPrice();
+            if (window.toggleYardRate) window.toggleYardRate({ clearValues: false });
+            if (window.toggleTransport) window.toggleTransport({ clearValues: false });
+            if (window.toggleSalesPrice) window.toggleSalesPrice({ clearValues: false });
 
             if (typeof window.applyCalendarArLock === 'function') {
                 await window.applyCalendarArLock(editingTripDbId);
@@ -6679,17 +6709,23 @@ window.performOrderDeletion = async function(rowData, skipAlertAndReload = false
     }
 
     const idsGone = new Set([rowData[0], ...extraMoveIds]);
+    const idsGoneStr = new Set([...idsGone].map(id => String(id)));
     // Remove from local cache
     if (window.currentTrips) {
-        window.currentTrips = window.currentTrips.filter(t => !idsGone.has(t[0]));
+        window.currentTrips = window.currentTrips.filter(t => !idsGone.has(t[0]) && !idsGoneStr.has(String(t[0])));
     }
     if (window.allTripsUnfiltered) {
-        window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => !idsGone.has(t[0]));
+        window.allTripsUnfiltered = window.allTripsUnfiltered.filter(t => !idsGone.has(t[0]) && !idsGoneStr.has(String(t[0])));
     }
+    if (window.releaseHoldTrips) {
+        window.releaseHoldTrips = window.releaseHoldTrips.filter(t => !idsGoneStr.has(String(t && t[0])));
+    }
+    if (typeof window.updateReleaseDatalist === 'function') window.updateReleaseDatalist();
 
     if (!skipAlertAndReload) {
         alert("Viaje eliminado");
         await loadTableData(window.currentTrips);
+        if (typeof window.updateReleaseDatalist === 'function') window.updateReleaseDatalist();
     }
 };
 
@@ -6719,6 +6755,7 @@ window.deleteSelectedOrders = async function() {
         
         alert(`${deletedCount} viaje(s) eliminado(s)`);
         await loadTableData(window.currentTrips);
+        if (typeof window.updateReleaseDatalist === 'function') window.updateReleaseDatalist();
     } catch (err) {
         console.error("Error during batch deletion:", err);
         alert("Error al borrar: " + err.message);
