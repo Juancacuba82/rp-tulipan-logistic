@@ -8182,7 +8182,7 @@
                                 if (relSel && typeof currentReleases !== 'undefined' && currentReleases.length > 0) {
                                     for (let i = relSel.options.length - 1; i >= 0; i--) {
                                         const opt = relSel.options[i];
-                                        if (!opt.value || opt.value === "" || opt.disabled) continue;
+                                        if (!opt.value || opt.value === "" || opt.disabled || opt.selected) continue;
                                         const master = currentReleases.find(r => r[0] === opt.value);
                                         if (master && (Number(master[14]) || 0) <= 0) {
                                             relSel.remove(i);

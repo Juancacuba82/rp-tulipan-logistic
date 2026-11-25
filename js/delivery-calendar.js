@@ -2493,15 +2493,33 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 .sort((a, b) => a.relNo.localeCompare(b.relNo));
 
             // 3. Populate Selection UI
+            // The release of the order being edited must always stay selectable, even when its
+            // stock is 0 (deducted) or held by pending orders. Otherwise the saved release
+            // can't be shown when the order is opened again.
+            const editingIdForKeep = window.editingTripDbId || editingTripDbId || null;
+            let editingRelKeep = '';
+            if (editingIdForKeep) {
+                const pools = [window.currentTrips, window.allTripsUnfiltered, window.releaseHoldTrips];
+                for (const pool of pools) {
+                    const hit = (pool || []).find(t => t && String(t[0]) === String(editingIdForKeep));
+                    if (hit && hit[4] && hit[4] !== '---') { editingRelKeep = String(hit[4]).trim().toUpperCase(); break; }
+                }
+            }
+            const itemKey = (item) => `${item.relNo}|${item.size}|${item.city}|${item.type}|${item.cond}|${item.grade || ''}`;
+
             if (relSel) {
                 const currentVal = relSel.value;
-                const editingId = window.editingTripDbId || editingTripDbId || null;
+                const currentOpt = relSel.selectedIndex > 0 ? relSel.options[relSel.selectedIndex] : null;
+                const currentKey = currentOpt && currentOpt.dataset ? (currentOpt.dataset.key || '') : '';
+                const editingId = editingIdForKeep;
                 relSel.innerHTML = '<option value="" disabled selected>Select Release...</option>';
 
                 const fragment = document.createDocumentFragment();
                 activeReleases.forEach(item => {
                     const open = window.getReleaseOpenSlots(item.relNo, item.totalStock, editingId);
-                    const isCurrent = currentVal && String(currentVal).trim().toUpperCase() === String(item.relNo).trim().toUpperCase();
+                    const relUp = String(item.relNo).trim().toUpperCase();
+                    const isSelected = currentVal && String(currentVal).trim().toUpperCase() === relUp;
+                    const isCurrent = isSelected || (editingRelKeep && editingRelKeep === relUp);
                     const full = open <= 0;
                     if (full && item.totalStock <= 0 && !isCurrent) return;
                     const displayText = full
@@ -2509,6 +2527,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         : `${item.relNo} - ${item.size} - ${item.city}  ·  ${open} remaining`;
                     const opt = document.createElement('option');
                     opt.value = item.relNo;
+                    opt.dataset.key = itemKey(item);
                     opt.textContent = displayText;
                     opt.dataset.size = item.size;
                     opt.dataset.city = item.city;
@@ -2534,7 +2553,20 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     fragment.appendChild(opt);
                 });
                 relSel.appendChild(fragment);
-                if (currentVal) relSel.value = currentVal;
+                if (currentVal) {
+                    // Several rows can share the same release # (different size/city): keep the exact one.
+                    let restored = false;
+                    if (currentKey) {
+                        for (let i = 0; i < relSel.options.length; i++) {
+                            if (relSel.options[i].dataset && relSel.options[i].dataset.key === currentKey) {
+                                relSel.selectedIndex = i;
+                                restored = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!restored) relSel.value = currentVal;
+                }
             }
 
             // 4. Update the fallback datalist
@@ -2553,17 +2585,22 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             const menu = document.getElementById('in-release-menu');
             if (menu) {
                 const currentVal = relSel ? relSel.value : '';
-                const editingId = window.editingTripDbId || editingTripDbId || null;
+                const selOptNow = (relSel && relSel.selectedIndex > 0) ? relSel.options[relSel.selectedIndex] : null;
+                const selKeyNow = selOptNow && selOptNow.dataset ? (selOptNow.dataset.key || '') : '';
+                const editingId = editingIdForKeep;
                 menu.innerHTML = '';
                 const frag = document.createDocumentFragment();
                 activeReleases.forEach(item => {
                     const open = window.getReleaseOpenSlots(item.relNo, item.totalStock, editingId);
-                    const isCurrent = currentVal && String(currentVal).trim().toUpperCase() === String(item.relNo).trim().toUpperCase();
+                    const relUp = String(item.relNo).trim().toUpperCase();
+                    const thisKey = itemKey(item);
+                    const isSelected = currentVal && String(currentVal).trim().toUpperCase() === relUp;
+                    const isCurrent = isSelected || (editingRelKeep && editingRelKeep === relUp);
                     const full = open <= 0;
                     if (full && item.totalStock <= 0 && !isCurrent) return;
                     const row = document.createElement('div');
                     row.className = 'rel-pick-item ' + (full && !isCurrent ? 'full' : 'ok');
-                    if (isCurrent) row.classList.add('active');
+                    if (isSelected && (!selKeyNow || selKeyNow === thisKey)) row.classList.add('active');
                     row.textContent = full
                         ? `${item.relNo} - ${item.size} - ${item.city}  ·  reserved`
                         : `${item.relNo} - ${item.size} - ${item.city}  ·  ${open} remaining`;
@@ -2574,11 +2611,19 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         row.addEventListener('click', () => {
                             if (!relSel) return;
                             if (typeof window.toggleReleaseMode === 'function') window.toggleReleaseMode('list');
-                            relSel.value = item.relNo;
+                            // Select the exact option clicked (same release # can appear with other size/city)
+                            let picked = false;
+                            for (let i = 0; i < relSel.options.length; i++) {
+                                if (relSel.options[i].dataset && relSel.options[i].dataset.key === thisKey) {
+                                    relSel.selectedIndex = i;
+                                    picked = true;
+                                    break;
+                                }
+                            }
+                            if (!picked) relSel.value = item.relNo;
                             const relMan = document.getElementById('in-release');
                             if (relMan) relMan.value = item.relNo;
                             relSel.dispatchEvent(new Event('change', { bubbles: true }));
-                            if (typeof window.autoPopulateFromRelease === 'function') window.autoPopulateFromRelease();
                             window.syncReleasePickFace();
                             closeReleasePicker();
                         });
@@ -2803,7 +2848,7 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                     if (window.syncUsedGradeUi) window.syncUsedGradeUi();
                 }
                 
-                if (window.validateStockUI) window.validateStockUI();
+                if (window.refreshTripArchiveStockUi) window.refreshTripArchiveStockUi();
             };
             window.autoPopulateFromRelease = autoPopulateFromRelease;
 
@@ -2969,6 +3014,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                 }
             }
 
+            // Make sure the release list is built (with this order's release kept selectable)
+            // BEFORE filling the form; otherwise the saved release isn't in the dropdown yet.
+            try {
+                if (window.loadReleasesData) await window.loadReleasesData();
+                if (window.loadReleaseHoldTrips) await window.loadReleaseHoldTrips();
+            } catch (relLoadErr) {
+                console.warn('Could not preload releases before editing:', relLoadErr);
+            }
+            if (typeof window.updateReleaseDatalist === 'function') window.updateReleaseDatalist();
+
             const fields = [
                 'in-date', 'in-size', 'in-ncont', 'in-release', 'in-order', 'in-city', 'in-pickup',
                 'in-delivery', 'in-doors', 'in-miles', 'in-customer',
@@ -3001,19 +3056,29 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                         let exists = false;
                         let vMatched = '';
                         const vClean = (v || '').toString().trim();
+                        let bestIdx = -1;
                         if (sel) {
                             const want = vClean.toUpperCase();
-                            for (let opt of sel.options) {
-                                if (opt.value.trim().toUpperCase() === want) { 
-                                    exists = true; 
-                                    vMatched = opt.value;
-                                    break; 
-                                }
+                            const wantSize = String(rowData[2] || '').trim().toUpperCase();
+                            const wantType = String(rowData[44] || '').trim().toUpperCase();
+                            const wantCond = String(rowData[45] || '').trim().toUpperCase();
+                            let bestScore = -1;
+                            for (let oi = 0; oi < sel.options.length; oi++) {
+                                const opt = sel.options[oi];
+                                if (!opt.value || opt.value.trim().toUpperCase() !== want) continue;
+                                // Same release # can exist with several sizes/types: pick the order's own row
+                                let score = 0;
+                                const d = opt.dataset || {};
+                                if (wantSize && String(d.size || '').trim().toUpperCase() === wantSize) score += 4;
+                                if (wantType && String(d.type || '').trim().toUpperCase() === wantType) score += 1;
+                                if (wantCond && String(d.cond || '').trim().toUpperCase() === wantCond) score += 1;
+                                if (score > bestScore) { bestScore = score; bestIdx = oi; }
                             }
+                            if (bestIdx >= 0) { exists = true; vMatched = sel.options[bestIdx].value; }
                         }
                         if (exists && vClean && vClean !== '---') {
                             toggleReleaseMode('list');
-                            sel.value = vMatched;
+                            sel.selectedIndex = bestIdx;
                             el.value = vMatched;
                         } else if (!vClean || vClean === '---') {
                             // Empty release: keep the picker so adding one still auto-fills city/pickup/size
@@ -3021,9 +3086,11 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
                             if (sel) sel.selectedIndex = 0;
                             el.value = '';
                         } else {
+                            // Release not in the stock list (external / old): show it as typed text
                             toggleReleaseMode('manual');
                             el.value = vClean;
                         }
+                        if (window.syncReleasePickFace) window.syncReleasePickFace();
                     } else if (id === 'in-customer') {
                         // Hybrid Logic for Customer
                         const sel = document.getElementById('in-customer-sel');

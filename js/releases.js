@@ -138,8 +138,9 @@
                 man.style.display = 'block';
                 icon.className = 'fas fa-list';
                 sel.selectedIndex = 0;
-                if (window.syncReleasePickFace) window.syncReleasePickFace();
             }
+            // The visible picker label is separate from the hidden <select>; always refresh it.
+            if (window.syncReleasePickFace) window.syncReleasePickFace();
         }
         window.toggleReleaseMode = toggleReleaseMode;
 
