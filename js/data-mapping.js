@@ -1,22 +1,9 @@
         window.normalizeUsedGrade = function (cond, grade) {
-            if (String(cond || '').trim().toUpperCase() !== 'USED') return '';
             const g = String(grade || '').trim().toUpperCase();
             return (g === 'WWT' || g === 'CW') ? g : '';
         };
 
         window.syncUsedGradeUi = function () {};
-
-        window.syncReleaseUsedGradeUi = function () {
-            const checked = document.querySelector('input[name="rel-uni-cond"]:checked');
-            const used = (checked?.value || '').toUpperCase() === 'USED';
-            const wrap = document.getElementById('rel-used-grade-wrap');
-            if (wrap) wrap.style.display = used ? '' : 'none';
-            const radios = document.querySelectorAll('input[name="rel-uni-used-grade"]');
-            radios.forEach(r => { r.required = used; });
-            if (!used) {
-                radios.forEach(r => { r.checked = false; });
-            }
-        };
 
         window.getCollectAtStop = function (row) {
             const amount = parseFloat(row && row[22]) || 0;

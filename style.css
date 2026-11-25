@@ -1498,7 +1498,7 @@ main {
 
 #calendar-view .trip-release-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 14px;
     align-items: start;
 }
@@ -2658,6 +2658,16 @@ main {
     font-family: 'Inter', sans-serif;
     color: #1a1a1a;
     position: relative;
+}
+
+#docs-view #receipt-a4.receipt-cw-preview {
+    background: #fdba74;
+}
+
+@media print {
+    #docs-view #receipt-a4.receipt-cw-preview {
+        background: white !important;
+    }
 }
 
 /* Receipt Inner Styles */

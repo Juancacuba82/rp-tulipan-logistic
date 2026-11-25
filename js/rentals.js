@@ -958,7 +958,7 @@
 
         const linkedTrip = await fetchTripForRentalRow(row);
         const relType = linkedTrip ? ((linkedTrip[44] || 'DRY').toString()) : 'DRY';
-        const relCondition = linkedTrip ? ((linkedTrip[45] || 'CW').toString()) : 'CW';
+        const relCondition = linkedTrip ? ((linkedTrip[45] || 'USED').toString()) : 'USED';
         const size = row.size || (linkedTrip ? linkedTrip[2] : '---') || '---';
 
         const createdAtStr = new Date(returnDate + 'T12:00:00').toISOString();

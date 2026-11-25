@@ -746,19 +746,11 @@
         };
 
         const logisticContent = f('RELEASE / BOOKING', data.rel) + f('BOOKING NUMBER', data.bookingNo) + f('ORDER / BOL', data.order) + f('DRIVER', data.driver) + f('DISPATCHER', data.seller);
-        const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE', data.size) + f('TYPE', data.relType) + f('CONDITION', data.relCond) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
+        const equipmentContent = f('CONTAINER #', data.cont) + f('SIZE', data.size) + f('TYPE', data.relType) + f('CONDITION', data.relCond) + f('WWT / CW', data.usedGrade) + f('QTY', data.qty > 1 ? data.qty : '') + f('DOORS DIRECTION', data.doors) + f('PICK UP FROM', data.pickup) + f('DELIVERY PLACE', data.place) + (data.miles > 0 ? f('MILES', data.miles.toLocaleString() + ' mi') : '');
         
         const isManager = (window.currentUserRole !== 'driver');
         const canSeeClient = (isManager || data.status === 'COMPLETE');
         const clientContent = (canSeeClient ? (f('CUSTOMER', data.customer) + f('CUSTOMER NAME', data.clientName)) : '') + f('PHONE', data.phone);
-
-        let inspectionContent = '';
-        const checkIcon = '<span style="width:14px; height:14px; border:1px solid #000; display:inline-block; text-align:center; line-height:14px; font-weight:bold; font-size:10px; margin-right:5px;">X</span>';
-        if (data.relCond === 'USED' && data.usedGrade) {
-            inspectionContent += `<div>${checkIcon} ${data.usedGrade}</div>`;
-        }
-
-        let inspectionSectionHtml = inspectionContent ? `<div class="receipt-section-title">Inspection & Condition</div><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; font-size: 0.8rem;">${inspectionContent}</div>` : '';
 
         const bBadge = (st) => `<span style="font-size:0.65rem; font-weight:bold; padding:2px 6px; border-radius:4px; margin-right:8px; display:inline-block; vertical-align:middle; ${st==='PAID' ? 'background:#dcfce7; color:#166534; border:1px solid #166534;' : (st==='PARTIAL' ? 'background:#ffedd5; color:#9a3412; border:1px solid #c2410c;' : 'background:#fee2e2; color:#991b1b; border:1px solid #991b1b;')}">${st}</span>`;
         let billingRows = '';
@@ -808,7 +800,6 @@
                 ${s('Logistics', logisticContent)}
                 ${s('Equipment', equipmentContent)}
                 ${s('Client', clientContent)}
-                ${inspectionSectionHtml}
                 ${billingSectionHtml}
                 ${data.notes ? `<div style="margin-top:25px; border-left: 4px solid #b91c1c; padding-left:10px; background:#f8fafc;">${data.notes}</div>` : ''}
                 <div class="receipt-signatures-wrapper">
@@ -877,6 +868,10 @@
         const preview = document.getElementById('receipt-a4');
         if (!preview || !window.currentDocTrip) return;
         preview.innerHTML = window.getTripReceiptContent(window.currentDocTrip);
+        const grade = window.normalizeUsedGrade
+            ? window.normalizeUsedGrade(window.currentDocTrip[45], window.currentDocTrip[91])
+            : '';
+        preview.classList.toggle('receipt-cw-preview', grade === 'CW');
     }
 
     window.clearDocsFilters = function () {

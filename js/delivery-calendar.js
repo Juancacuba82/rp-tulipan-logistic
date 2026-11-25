@@ -1099,7 +1099,9 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                 const selectedRelType = document.getElementById('in-rel-type')?.value || 'DRY';
                 const selectedRelCond = document.getElementById('in-rel-condition')?.value || 'USED';
-                const selectedUsedGrade = '';
+                const selectedUsedGrade = window.normalizeUsedGrade
+                    ? window.normalizeUsedGrade(selectedRelCond, document.getElementById('in-used-grade')?.value || '')
+                    : '';
 
                 const finalizeVal = document.getElementById('in-status-toggle')?.value || 'PENDING_PAYMENT';
                 const isFinalized = (finalizeVal === 'COMPLETE' || finalizeVal === 'PAID');
@@ -2159,8 +2161,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
             tr.style.backgroundColor = '';
             tr.style.border = '';
             if (isTodayEntry) {
-                tr.style.backgroundColor = '#fefce8';
-                tr.style.border = '2px solid #f59e0b';
+                const grade = window.normalizeUsedGrade
+                    ? window.normalizeUsedGrade(rowData[45], rowData[91])
+                    : String(rowData[91] || '').trim().toUpperCase();
+                if (grade === 'CW') {
+                    tr.style.backgroundColor = '#fdba74';
+                    tr.style.border = '2px solid #c2410c';
+                } else {
+                    tr.style.backgroundColor = '#fefce8';
+                    tr.style.border = '2px solid #f59e0b';
+                }
             }
             if (rowData[41] === 'PENDING_PAYMENT' && rowData[1] < todayStr) {
                 tr.style.backgroundColor = '#fee2e2';
@@ -4310,8 +4320,16 @@ window.restoreTripArchiveButtonUI = restoreTripArchiveButtonUI;
 
                         // Priority Highlight for Today
                         if (isTodayEntry) {
-                            tr.style.backgroundColor = '#fefce8'; // Light Amber
-                            tr.style.border = '2px solid #f59e0b'; // Amber Priority
+                            const grade = window.normalizeUsedGrade
+                                ? window.normalizeUsedGrade(displayRow[45], displayRow[91])
+                                : String(displayRow[91] || '').trim().toUpperCase();
+                            if (grade === 'CW') {
+                                tr.style.backgroundColor = '#fdba74';
+                                tr.style.border = '2px solid #c2410c';
+                            } else {
+                                tr.style.backgroundColor = '#fefce8';
+                                tr.style.border = '2px solid #f59e0b';
+                            }
                         }
 
                         // Past Due (Pending) Highlight
